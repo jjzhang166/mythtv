@@ -5587,16 +5587,20 @@ NULL
     if (dbver == "1269")
     {
         const char *updates[] = {
-"INSERT INTO profilegroups SET name = 'ASI Recorder (DVEO)', cardtype = 'ASI', is_default = 1;",
-"INSERT INTO recordingprofiles SET name = \"Default\", profilegroup = 14;",
-"INSERT INTO recordingprofiles SET name = \"Live TV\", profilegroup = 14;",
-"INSERT INTO recordingprofiles SET name = \"High Quality\", profilegroup = 14;",
-"INSERT INTO recordingprofiles SET name = \"Low Quality\", profilegroup = 14;",
-"INSERT INTO profilegroups SET name = 'OCUR Recorder (CableLabs)', cardtype = 'OCUR', is_default = 1;",
+"DELETE FROM profilegroups WHERE id >= 15;",
+"DELETE FROM recordingprofiles WHERE profilegroup >= 15;",
+"INSERT INTO profilegroups SET id = '15', name = 'ASI Recorder (DVEO)',"
+" cardtype = 'ASI', is_default = 1;",
 "INSERT INTO recordingprofiles SET name = \"Default\", profilegroup = 15;",
 "INSERT INTO recordingprofiles SET name = \"Live TV\", profilegroup = 15;",
 "INSERT INTO recordingprofiles SET name = \"High Quality\", profilegroup = 15;",
 "INSERT INTO recordingprofiles SET name = \"Low Quality\", profilegroup = 15;",
+"INSERT INTO profilegroups SET id = '16', name = 'OCUR Recorder (CableLabs)',"
+" cardtype = 'OCUR', is_default = 1;",
+"INSERT INTO recordingprofiles SET name = \"Default\", profilegroup = 16;",
+"INSERT INTO recordingprofiles SET name = \"Live TV\", profilegroup = 16;",
+"INSERT INTO recordingprofiles SET name = \"High Quality\", profilegroup = 16;",
+"INSERT INTO recordingprofiles SET name = \"Low Quality\", profilegroup = 16;",
 NULL
 };
         if (!performActualUpdate(updates, "1270", dbver))
