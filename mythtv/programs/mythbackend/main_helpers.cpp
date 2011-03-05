@@ -672,22 +672,13 @@ int run_backend(const MythCommandLineParser &cmdline)
     ///////////////////////////////////////////
 
     g_pUPnp = new MediaServer(ismaster, !cmdline.IsUPnPEnabled() );
+    UPnp::PerformSearch("ssdp:all");
 
     if (!ismaster)
     {
         int ret = connect_to_master();
         if (ret != GENERIC_EXIT_OK)
             return ret;
-    }
-
-    QString myip = gCoreContext->GetSetting("BackendServerIP");
-    int     port = gCoreContext->GetNumSetting("BackendServerPort", 6543);
-    if (myip.isEmpty())
-    {
-        cerr << "No setting found for this machine's BackendServerIP.\n"
-             << "Please run setup on this machine and modify the first page\n"
-             << "of the general settings.\n";
-        return GENERIC_EXIT_SETUP_ERROR;
     }
 
     MythSystemEventHandler *sysEventHandler = new MythSystemEventHandler();
@@ -707,12 +698,95 @@ int run_backend(const MythCommandLineParser &cmdline)
 
     print_warnings(cmdline);
 
+    Stage2Init *stage2init = new Stage2Init(cmdline);
+
+    ///////////////////////////////
+    ///////////////////////////////
+    int exitCode = qApp->exec();
+    ///////////////////////////////
+    ///////////////////////////////
+
+    if (gCoreContext->IsMasterBackend())
+    {
+        SendMythSystemEvent("MASTER_SHUTDOWN");
+        qApp->processEvents();
+    }
+
+    gCoreContext->LogEntry("mythbackend", LP_INFO, "MythBackend exiting", "");
+
+    delete sysEventHandler;
+    delete stage2init;
+
+    return exitCode;
+}
+
+Stage2Init::Stage2Init(const MythCommandLineParser &cmdline) :
+    m_cmdline(cmdline),
+    m_mainServer(NULL),
+    m_timerId(0),
+    m_waitTicks(1)
+{
+    if (g_pUPnp != NULL)
+    {
+        // Allow required time for UPnP SSDP responses.
+        m_timerId = startTimer(5 * 1000);
+        VERBOSE(VB_IMPORTANT, LOC +
+                QString("Stage 2 init scheduled %1 seconds from now.")
+                .arg(5 * m_waitTicks));
+    }
+    else
+    {
+        m_timerId = startTimer(1);
+    }
+}
+
+Stage2Init::~Stage2Init()
+{
+    if (m_mainServer)
+        delete m_mainServer;
+}
+
+void Stage2Init::timerEvent(QTimerEvent *e)
+{
+    if (e->timerId() == m_timerId)
+    {
+        m_waitTicks--;
+        if (m_waitTicks)
+        {
+            VERBOSE(VB_IMPORTANT, LOC +
+                    QString("Stage 2 init scheduled %1 seconds from now.")
+                    .arg(m_waitTicks*5,2));
+        }
+        else
+        {
+            killTimer(m_timerId);
+            m_timerId = 0;
+            Init();
+        }
+    }
+}
+
+void Stage2Init::Init(void)
+{
+    VERBOSE(VB_IMPORTANT, LOC + "Starting Stage 2 initialization");
+
+    QString myip = gCoreContext->GetSetting("BackendServerIP");
+    int     port = gCoreContext->GetNumSetting("BackendServerPort", 6543);
+    if (myip.isEmpty())
+    {
+        cerr << "No setting found for this machine's BackendServerIP.\n"
+             << "Please run setup on this machine and modify the first page\n"
+             << "of the general settings.\n";
+        qApp->exit(GENERIC_EXIT_NO_IP_ADDRESS);
+    }
+
+    bool ismaster = gCoreContext->IsMasterHost();
     bool fatal_error = false;
     bool runsched = setupTVs(ismaster, fatal_error);
     if (fatal_error)
     {
-        delete sysEventHandler;
-        return GENERIC_EXIT_SETUP_ERROR;
+        qApp->exit(GENERIC_EXIT_CAP_CARD_SETUP_ERROR);
+        return;
     }
 
     if (ismaster)
@@ -722,28 +796,31 @@ int run_backend(const MythCommandLineParser &cmdline)
             sched = new Scheduler(true, &tvList);
             int err = sched->GetError();
             if (err)
-                return err;
+            {
+                qApp->exit(err);
+                return;
+            }
 
-            if (!cmdline.IsSchedulerEnabled())
+            if (!m_cmdline.IsSchedulerEnabled())
                 sched->DisableScheduling();
         }
 
-        if (cmdline.IsHouseKeeperEnabled())
+        if (m_cmdline.IsHouseKeeperEnabled())
             housekeeping = new HouseKeeper(true, ismaster, sched);
 
-        if (cmdline.IsAutoExpirerEnabled())
+        if (m_cmdline.IsAutoExpirerEnabled())
         {
             expirer = new AutoExpire(&tvList);
             if (sched)
                 sched->SetExpirer(expirer);
         }
     }
-    else if (cmdline.IsHouseKeeperEnabled())
+    else if (m_cmdline.IsHouseKeeperEnabled())
     {
         housekeeping = new HouseKeeper(true, ismaster, NULL);
     }
 
-    if (cmdline.IsJobQueueEnabled())
+    if (m_cmdline.IsJobQueueEnabled())
         jobqueue = new JobQueue(ismaster);
 
     // Setup status server
@@ -761,42 +838,23 @@ int run_backend(const MythCommandLineParser &cmdline)
     VERBOSE(VB_IMPORTANT, QString("Enabled verbose msgs: %1")
             .arg(verboseString));
 
-    MainServer *mainServer = new MainServer(
+    m_mainServer = new MainServer(
         ismaster, port, &tvList, sched, expirer);
 
-    int exitCode = mainServer->GetExitCode();
+    int exitCode = m_mainServer->GetExitCode();
     if (exitCode != GENERIC_EXIT_OK)
     {
         VERBOSE(VB_IMPORTANT, "Backend exiting, MainServer initialization "
                 "error.");
-        delete mainServer;
-        return exitCode;
+        qApp->exit(exitCode);
+        return;
     }
 
-    if (httpStatus && mainServer)
-        httpStatus->SetMainServer(mainServer);
+    if (httpStatus && m_mainServer)
+        httpStatus->SetMainServer(m_mainServer);
 
     StorageGroup::CheckAllStorageGroupDirs();
 
     if (gCoreContext->IsMasterBackend())
         SendMythSystemEvent("MASTER_STARTED");
-
-    ///////////////////////////////
-    ///////////////////////////////
-    exitCode = qApp->exec();
-    ///////////////////////////////
-    ///////////////////////////////
-
-    if (gCoreContext->IsMasterBackend())
-    {
-        SendMythSystemEvent("MASTER_SHUTDOWN");
-        qApp->processEvents();
-    }
-
-    gCoreContext->LogEntry("mythbackend", LP_INFO, "MythBackend exiting", "");
-
-    delete sysEventHandler;
-    delete mainServer;
-
-    return exitCode;
 }

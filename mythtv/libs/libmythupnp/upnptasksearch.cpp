@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 #include <QStringList>
+#include <QDateTime>
 #include <QFile>
 #include <QDateTime>
 

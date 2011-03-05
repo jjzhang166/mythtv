@@ -32,6 +32,7 @@
 #endif
 
 // MythTV headers
+#include "mythverbose.h"
 #include "httpserver.h"
 #include "upnputil.h"
 #include "upnp.h" // only needed for Config... remove once config is moved.

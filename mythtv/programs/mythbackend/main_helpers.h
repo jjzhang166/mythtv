@@ -6,6 +6,9 @@
 #include <fstream>
 using namespace std;
 
+// Qt headers
+#include <QObject>
+
 class MythCommandLineParser;
 class QString;
 class QSize;
@@ -47,5 +50,25 @@ namespace
         CleanupFunc m_cleanFunction;
     };
 }
+
+class QTimerEvent;
+class MainServer;
+
+class Stage2Init : public QObject
+{
+    Q_OBJECT
+  public:
+    Stage2Init(const MythCommandLineParser &cmdline);
+    ~Stage2Init();
+  private:
+    void timerEvent(QTimerEvent*);
+    void Init(void);
+  private:
+    const MythCommandLineParser &m_cmdline;
+    MainServer                  *m_mainServer;
+    int                          m_timerId;
+    int                          m_waitTicks;
+};
+
 
 #endif // _MAIN_HELPERS_H_

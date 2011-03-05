@@ -33,5 +33,7 @@
 #define GENERIC_EXIT_DEADLOCK           150 ///< Transcode deadlock detected
 #define GENERIC_EXIT_IN_USE             151 ///< Recording in use, can't flag
 #define GENERIC_EXIT_START              152 ///< MythSystem process starting
+#define GENERIC_EXIT_NO_IP_ADDRESS      153 ///< IP address is not specified
+#define GENERIC_EXIT_CAP_CARD_SETUP_ERROR 154 ///< Capture cards config error
 
 #endif // __MYTH_EXIT_CODES__

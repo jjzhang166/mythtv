@@ -15,14 +15,13 @@ class IPTVMonitorThread : public QThread
 {
     Q_OBJECT
   public:
-    IPTVMonitorThread() : m_parent(NULL) {}
-    void SetParent(IPTVSignalMonitor *parent) { m_parent = parent; }
+    IPTVMonitorThread(IPTVSignalMonitor *p) : m_parent(p) {}
     void run(void);
   private:
     IPTVSignalMonitor *m_parent;
 };
 
-class IPTVSignalMonitor : public QObject, public DTVSignalMonitor, public TSDataListener
+class IPTVSignalMonitor : public DTVSignalMonitor, public TSDataListener
 {
     Q_OBJECT
 
@@ -48,6 +47,7 @@ class IPTVSignalMonitor : public QObject, public DTVSignalMonitor, public TSData
     IPTVChannel *GetChannel(void);
 
   protected:
+    bool               dtvMonitorRunning;
     IPTVMonitorThread  table_monitor_thread;
 };
 

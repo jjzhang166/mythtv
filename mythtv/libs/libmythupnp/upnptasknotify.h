@@ -36,9 +36,10 @@
 #include <QMutex>
 
 // MythTV headers
-#include <msocketdevice.h>
-#include "multicast.h"
 #include "compat.h"
+
+class MSocketDevice;
+class UPnpDevice;
 
 /////////////////////////////////////////////////////////////////////////////
 // Typedefs

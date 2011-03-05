@@ -21,14 +21,16 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+
 #include "upnp.h"
 #include "mythverbose.h"
 
 #include "upnptasksearch.h"
 #include "upnptaskcache.h"
 
-#include "multicast.h"
-#include "broadcast.h"
+#include "mmulticastsocketdevice.h"
+#include "mbroadcastsocketdevice.h"
 
 #include <QRegExp>
 #include <QStringList>
@@ -56,12 +58,17 @@ SSDP::SSDP( int nServicePort ) :
     m_bTermRequested     ( false ),
     m_lock               ( QMutex::NonRecursive )
 {
-    m_nPort       = UPnp::g_pConfig->GetValue( "UPnP/SSDP/Port", SSDP_PORT);
-    m_nSearchPort = UPnp::g_pConfig->GetValue( "UPnP/SSDP/SearchPort", SSDP_SEARCHPORT );
+    m_nPort =
+        UPnp::g_pConfig->GetValue( "UPnP/SSDP/Port"      , SSDP_PORT       );
+    m_nSearchPort =
+        UPnp::g_pConfig->GetValue( "UPnP/SSDP/SearchPort", SSDP_SEARCHPORT );
 
-    m_Sockets[ SocketIdx_Search    ] = new MSocketDevice( MSocketDevice::Datagram );
-    m_Sockets[ SocketIdx_Multicast ] = new QMulticastSocket( SSDP_GROUP, m_nPort );
-    m_Sockets[ SocketIdx_Broadcast ] = new QBroadcastSocket( "255.255.255.255", m_nPort );
+    m_Sockets[ SocketIdx_Search    ] =
+        new MMulticastSocketDevice();
+    m_Sockets[ SocketIdx_Multicast ] =
+        new MMulticastSocketDevice(SSDP_GROUP, m_nPort);
+    m_Sockets[ SocketIdx_Broadcast ] =
+        new MBroadcastSocketDevice("255.255.255.255", m_nPort);
 
     m_Sockets[ SocketIdx_Search    ]->setBlocking( false );
     m_Sockets[ SocketIdx_Multicast ]->setBlocking( false );
@@ -152,15 +159,20 @@ void SSDP::DisableNotifications()
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
-
-void SSDP::PerformSearch( const QString &sST )
+void SSDP::PerformSearch(const QString &sST, uint timeout_secs)
 {
-    QString rRequest = QString( "M-SEARCH * HTTP/1.1\r\n"
-                                "HOST: 239.255.255.250:1900\r\n"
-                                "MAN: \"ssdp:discover\"\r\n"
-                                "MX: 2\r\n"
-                                "ST: %1\r\n"
-                                "\r\n" ).arg( sST );
+    timeout_secs = std::max(std::min(timeout_secs, 5U), 1U);
+    QString rRequest = QString(
+        "M-SEARCH * HTTP/1.1\r\n"
+        "HOST: 239.255.255.250:1900\r\n"
+        "MAN: \"ssdp:discover\"\r\n"
+        "MX: %1\r\n"
+        "ST: %2\r\n"
+        "\r\n")
+        .arg(timeout_secs).arg(sST);
+
+    VERBOSE(VB_IMPORTANT, QString("\n\n%1\n").arg(rRequest));
+
     QByteArray sRequest = rRequest.toUtf8();
 
     MSocketDevice *pSocket = m_Sockets[ SocketIdx_Search ];
@@ -652,73 +664,27 @@ void SSDPExtension::GetFile( HTTPRequest *pRequest, QString sFileName )
 
 void SSDPExtension::GetDeviceList( HTTPRequest *pRequest )
 {
-    SSDPCache    &cache  = UPnp::g_SSDPCache;
-    int           nCount = 0;
-    NameValues    list;
+    VERBOSE(VB_UPNP, "SSDPExtension::GetDeviceList");
 
-    VERBOSE( VB_UPNP, "SSDPExtension::GetDeviceList" );
+    QString     sXML;
+    QTextStream os(&sXML, QIODevice::WriteOnly);
 
-    cache.Lock();
+    uint nDevCount, nEntryCount;
+    UPnp::g_SSDPCache.OutputXML(os, &nDevCount, &nEntryCount);
 
-    QString     sXML = "";
-    QTextStream os( &sXML, QIODevice::WriteOnly );
-
-    for (SSDPCacheEntriesMap::Iterator it  = cache.Begin();
-                                       it != cache.End();
-                                     ++it )
-    {
-        SSDPCacheEntries *pEntries = *it;
-
-        if (pEntries != NULL)
-        {
-            os << "<Device uri='" << it.key() << "'>" << endl;
-
-            pEntries->Lock();
-
-            EntryMap *pMap = pEntries->GetEntryMap();
-
-            for (EntryMap::Iterator itEntry  = pMap->begin();
-                                    itEntry != pMap->end();
-                                  ++itEntry )
-            {
-
-                DeviceLocation *pEntry = *itEntry;
-
-                if (pEntry != NULL)
-                {
-                    nCount++;
-
-                    pEntry->AddRef();
-
-                    os << "<Service usn='" << pEntry->m_sUSN 
-                       << "' expiresInSecs='" << pEntry->ExpiresInSecs()
-                       << "' url='" << pEntry->m_sLocation << "' />" << endl;
-
-                    pEntry->Release();
-                }
-            }
-
-            os << "</Device>" << endl;
-
-            pEntries->Unlock();
-        }
-    }
-    os << flush;
-
+    NameValues list;
     list.push_back(
-        NameValue("DeviceCount",           cache.Count()));
+        NameValue("DeviceCount",           (int)nDevCount));
     list.push_back(
         NameValue("DevicesAllocated",      SSDPCacheEntries::g_nAllocated));
     list.push_back(
-        NameValue("CacheEntriesFound",     nCount));
+        NameValue("CacheEntriesFound",     (int)nEntryCount));
     list.push_back(
         NameValue("CacheEntriesAllocated", DeviceLocation::g_nAllocated));
     list.push_back(
         NameValue("DeviceList",            sXML));
 
-    cache.Unlock();
-
-    pRequest->FormatActionResponse( list );
+    pRequest->FormatActionResponse(list);
 
     pRequest->m_eResponseType   = ResponseTypeXML;
     pRequest->m_nResponseStatus = 200;

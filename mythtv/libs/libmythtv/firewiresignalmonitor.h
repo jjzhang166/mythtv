@@ -8,9 +8,9 @@
 using namespace std;
 
 // Qt headers
+#include <QThread>
 #include <QMutex>
 #include <QMap>
-#include <QThread>
 
 // MythTV headers
 #include "dtvsignalmonitor.h"
@@ -25,8 +25,7 @@ class FWSignalThread : public QThread
 {
     Q_OBJECT
   public:
-    FWSignalThread() : m_parent(NULL) {}
-    void SetParent(FirewireSignalMonitor *parent) { m_parent = parent; }
+    FWSignalThread(FirewireSignalMonitor *p) : m_parent(p) {}
     void run(void);
   private:
     FirewireSignalMonitor *m_parent;
@@ -62,7 +61,7 @@ class FirewireSignalMonitor : public DTVSignalMonitor, public TSDataListener
     static const uint kBufferTimeout;
 
   protected:
-    bool               dtvMonitorRun;
+    bool               dtvMonitorRunning;
     FWSignalThread     table_monitor_thread;
     bool               stb_needs_retune;
     bool               stb_needs_to_wait_for_pat;

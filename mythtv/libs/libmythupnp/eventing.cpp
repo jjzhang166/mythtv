@@ -28,6 +28,7 @@
 
 #include "upnp.h"
 #include "eventing.h"
+#include "mythverbose.h"
 #include "upnptaskevent.h"
 #include "mythverbose.h"
 

@@ -22,6 +22,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "mythxmlclient.h"
+#include "mythverbose.h"
 
 #include <QObject>
 #include "mythverbose.h"

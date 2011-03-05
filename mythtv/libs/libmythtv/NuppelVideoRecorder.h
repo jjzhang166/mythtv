@@ -29,7 +29,7 @@ using namespace std;
 #include <QString>
 
 // MythTV headers
-#include "recorderbase.h"
+#include "v4lrecorder.h"
 #include "format.h"
 #include "cc608decoder.h"
 #include "filter.h"
@@ -38,8 +38,6 @@ using namespace std;
 #include "mythtvexp.h"
 
 struct video_audio;
-struct VBIData;
-struct cc;
 class RTjpeg;
 class RingBuffer;
 class ChannelBase;
@@ -71,18 +69,7 @@ class NVRAudioThread : public QThread
     NuppelVideoRecorder *m_parent;
 };
 
-class NVRVbiThread : public QThread
-{
-    Q_OBJECT
-  public:
-    NVRVbiThread() : m_parent(NULL) {}
-    void run(void);
-    void SetParent(NuppelVideoRecorder *parent) { m_parent = parent; }
-  private:
-    NuppelVideoRecorder *m_parent;
-};
-
-class MTV_PUBLIC NuppelVideoRecorder : public RecorderBase, public CC608Input
+class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
 {
     friend class NVRWriteThread;
     friend class NVRAudioThread;
@@ -147,7 +134,6 @@ class MTV_PUBLIC NuppelVideoRecorder : public RecorderBase, public CC608Input
  protected:
     void doWriteThread(void);
     void doAudioThread(void);
-    void doVbiThread(void);
 
  private:
     inline void WriteFrameheader(rtframeheader *fh);
@@ -173,10 +159,10 @@ class MTV_PUBLIC NuppelVideoRecorder : public RecorderBase, public CC608Input
     void DoV4L2(void);
     void DoMJPEG(void);
 
-    void FormatTeletextSubtitles(struct VBIData *vbidata);
-    void FormatCC(struct cc *cc);
-    void AddTextData(unsigned char *buf, int len,
-                     int64_t timecode, char type);
+    virtual void FormatTT(struct VBIData*); // RecorderBase
+    virtual void FormatCC(struct cc*); // RecorderBase
+    virtual void AddTextData(unsigned char*,int,int64_t,char); // CC608Decoder
+
     void UpdateResolutions(void);
     
     bool encoding;
@@ -246,7 +232,6 @@ class MTV_PUBLIC NuppelVideoRecorder : public RecorderBase, public CC608Input
 
     NVRWriteThread WriteThread;
     NVRAudioThread AudioThread;
-    NVRVbiThread   VbiThread;
 
     bool recording;
     bool errored;

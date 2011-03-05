@@ -30,12 +30,10 @@
 #include <QFile>
 
 // MythTV headers
+#include "mmulticastsocketdevice.h"
 #include "mythverbose.h"
-#include "upnp.h"
-#include "multicast.h"
-#include "broadcast.h"
-
 #include "compat.h"
+#include "upnp.h"
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -147,9 +145,8 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
 
 void UPnpNotifyTask::Execute( TaskQueue *pQueue )
 {
-
-    MSocketDevice *pMulticast = new QMulticastSocket(SSDP_GROUP, SSDP_PORT);
-//    QSocketDevice *pBroadcast = new QBroadcastSocket( "255.255.255.255", SSDP_PORT );
+    MSocketDevice *pMulticast = new MMulticastSocketDevice(
+        SSDP_GROUP, SSDP_PORT);
 
     // ----------------------------------------------------------------------
     // Must send rootdevice Notification for first device.
@@ -158,24 +155,20 @@ void UPnpNotifyTask::Execute( TaskQueue *pQueue )
     UPnpDevice &device = UPnp::g_UPnpDeviceDesc.m_rootDevice;
 
     SendNotifyMsg( pMulticast, "upnp:rootdevice", device.GetUDN() );
-//    SendNotifyMsg( pBroadcast, "upnp:rootdevice", device.GetUDN() );
 
     // ----------------------------------------------------------------------
     // Process rest of notifications
     // ----------------------------------------------------------------------
 
     ProcessDevice( pMulticast, &device );
-//    ProcessDevice( pBroadcast, &device );
 
     // ----------------------------------------------------------------------
     // Clean up and reshedule task if needed (timeout = m_nMaxAge / 2).
     // ----------------------------------------------------------------------
 
     delete pMulticast;
-//    delete pBroadcast;
 
     pMulticast = NULL;
-//    pBroadcast = NULL;
 
     m_mutex.lock();
 

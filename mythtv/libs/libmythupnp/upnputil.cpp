@@ -30,6 +30,7 @@
 #include <QUuid>
 
 // MythTV headers
+#include "mythverbose.h"
 #include "upnputil.h"
 #include "upnp.h"
 #include "compat.h"

@@ -115,7 +115,7 @@ class UPNP_PUBLIC SSDP : public QThread
                 void EnableNotifications ();
                 void DisableNotifications();
 
-                void PerformSearch( const QString &sST );
+                void PerformSearch(const QString &sST, uint timeout_secs = 2);
 
 };
 
