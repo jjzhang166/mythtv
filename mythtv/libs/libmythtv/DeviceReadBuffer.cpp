@@ -135,6 +135,7 @@ void DeviceReadBuffer::Start(void)
     {
         QMutexLocker locker(&lock);
         error = false;
+        eof   = false;
     }
 
     start();
@@ -254,6 +255,18 @@ bool DeviceReadBuffer::IsPauseRequested(void) const
 {
     QMutexLocker locker(&lock);
     return request_pause;
+}
+
+bool DeviceReadBuffer::IsErrored(void) const
+{
+    QMutexLocker locker(&lock);
+    return error;
+}
+
+bool DeviceReadBuffer::IsEOF(void) const
+{
+    QMutexLocker locker(&lock);
+    return eof;
 }
 
 bool DeviceReadBuffer::IsRunning(void) const

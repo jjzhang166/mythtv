@@ -51,8 +51,8 @@ class DeviceReadBuffer : protected QThread
     bool WaitForUnpause(unsigned long timeout);
     bool WaitForPaused(unsigned long timeout);
 
-    bool IsErrored(void) const { return error; }
-    bool IsEOF(void)     const { return eof;   }
+    bool IsErrored(void) const;
+    bool IsEOF(void)     const;
     bool IsRunning(void) const;
 
     uint Read(unsigned char *buf, uint count);
