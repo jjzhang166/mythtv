@@ -777,25 +777,72 @@ void TVRec::StartedRecording(RecordingInfo *curRec)
  *  \sa ProgramInfo::FinishedRecording(bool prematurestop)
  *  \param curRec ProgramInfo or recording to mark as done
  */
-void TVRec::FinishedRecording(RecordingInfo *curRec)
+void TVRec::FinishedRecording(RecordingInfo *curRec, int caller_line)
 {
     if (!curRec)
         return;
 
+    // Make sure the recording group is up to date
     const QString recgrp = curRec->QueryRecordingGroup();
     curRec->SetRecordingGroup(recgrp);
 
-    VERBOSE(VB_RECORD, LOC + QString("FinishedRecording(%1) in recgroup: %2")
-            .arg(curRec->GetTitle()).arg(recgrp));
-
+    RecStatusTypes ors = curRec->GetRecordingStatus();
+    // Set the final recording status
     if (curRec->GetRecordingStatus() == rsRecording)
         curRec->SetRecordingStatus(rsRecorded);
     else if (curRec->GetRecordingStatus() != rsRecorded)
         curRec->SetRecordingStatus(rsFailed);
     curRec->SetRecordingEndTime(mythCurrentDateTime());
 
+    // Figure out if this was already done for this recording
+    bool was_finished = false;
+    static QMutex finRecLock;
+    static QHash<QString,QDateTime> finRecMap;
+    {
+        QMutexLocker locker(&finRecLock);
+        QDateTime now = QDateTime::currentDateTime();
+        QDateTime expired = now.addSecs(-60*5);
+        QHash<QString,QDateTime>::iterator it = finRecMap.begin();
+        while (it != finRecMap.end())
+        {
+            if ((*it) < expired)
+                it = finRecMap.erase(it);
+            else
+                ++it;
+        }
+        QString key = curRec->MakeUniqueKey();
+        it = finRecMap.find(key);
+        if (it != finRecMap.end())
+            was_finished = true;
+        else
+            finRecMap[key] = now;
+    }
+
+    // Print something informative to the log
+    VERBOSE(VB_RECORD, LOC +
+            QString("FinishedRecording(%1)"
+                    "\n\t\t\tkey: %2\n\t\t\t"
+                    "in recgroup: %3 status: %4:%5 %6 %7 @ %8")
+            .arg(curRec->GetTitle())
+            .arg(curRec->MakeUniqueKey())
+            .arg(recgrp)
+            .arg(toString(ors, kSingleRecord))
+            .arg(toString(curRec->GetRecordingStatus(), kSingleRecord))
+            .arg(HasFlags(kFlagDummyRecorderRunning)?"is_dummy":"not_dummy")
+            .arg(was_finished?"already_finished":"finished_now")
+            .arg(caller_line));
+
+    // This has already been called on this recording..
+    if (was_finished)
+        return;
+
+    // Notify the frontend watching live tv that this file is final
     if (tvchain)
         tvchain->FinishedRecording(curRec);
+
+    // if this is a dummy recorder, do no more..
+    if (HasFlags(kFlagDummyRecorderRunning))
+        return;
 
     // Get the width and set the videoprops
     uint avg_height = curRec->QueryAverageHeight();
@@ -810,6 +857,16 @@ void TVRec::FinishedRecording(RecordingInfo *curRec)
             curRec->GetRecordingStartTime().addSecs(60));
     }
 
+    // Generate a preview
+    uint64_t fsize = (curRec->GetFilesize() < 1000) ?
+        curRec->QueryFilesize() : curRec->GetFilesize();
+    if (curRec->IsLocal() && (fsize >= 1000) &&
+        (curRec->GetRecordingStatus() == rsRecorded))
+    {
+        PreviewGeneratorQueue::GetPreviewImage(*curRec, "");
+    }
+
+    // send out UPDATE_RECORDING_STATUS message
     if (recgrp != "LiveTV")
     {
         MythEvent me(QString("UPDATE_RECORDING_STATUS %1 %2 %3 %4 %5")
@@ -822,7 +879,11 @@ void TVRec::FinishedRecording(RecordingInfo *curRec)
     }
 
     // store recording in recorded table
-    curRec->FinishedRecording(curRec->GetRecordingStatus() != rsRecorded);
+    if (recgrp != "LiveTV")
+        curRec->FinishedRecording(curRec->GetRecordingStatus() != rsRecorded);
+
+    // send out REC_FINISHED message
+    SendMythSystemRecEvent("REC_FINISHED", curRecording);
 
     // send out DONE_RECORDING message
     int secsSince = curRec->GetRecordingStartTime()
@@ -831,6 +892,20 @@ void TVRec::FinishedRecording(RecordingInfo *curRec)
         .arg(cardid).arg(secsSince).arg(GetFramesWritten());
     MythEvent me(message);
     gCoreContext->dispatch(me);
+
+    // Handle JobQueue
+    if ((recgrp == "LiveTV") || (fsize < 1000) ||
+        (curRec->GetRecordingStatus() != rsRecorded) ||
+        (curRec->GetRecordingStartTime().secsTo(
+            QDateTime::currentDateTime()) < 120))
+    {
+        JobQueue::RemoveJobsFromMask(JOB_COMMFLAG,  autoRunJobs);
+        JobQueue::RemoveJobsFromMask(JOB_TRANSCODE, autoRunJobs);
+    }
+    if (autoRunJobs)
+    {
+        JobQueue::QueueRecordingJobs(*curRec, autoRunJobs);
+    }
 }
 
 #define TRANSITION(ASTATE,BSTATE) \
@@ -974,30 +1049,6 @@ void TVRec::TeardownRecorder(bool killFile)
 
     if (curRecording)
     {
-        if (!killFile)
-        {
-            if (curRecording->IsLocal())
-                PreviewGeneratorQueue::GetPreviewImage(*curRecording, "");
-
-            if (!tvchain)
-            {
-                int secsSince = curRecording->GetRecordingStartTime()
-                    .secsTo(QDateTime::currentDateTime());
-                if (secsSince < 120)
-                {
-                    JobQueue::RemoveJobsFromMask(JOB_COMMFLAG, autoRunJobs);
-                    JobQueue::RemoveJobsFromMask(JOB_TRANSCODE, autoRunJobs);
-                }
-
-                if (autoRunJobs)
-                    JobQueue::QueueRecordingJobs(*curRecording, autoRunJobs);
-            }
-        }
-
-        FinishedRecording(curRecording);
-
-        SendMythSystemRecEvent("REC_FINISHED", curRecording);
-
         curRecording->MarkAsInUse(false, kRecorderInUseID);
         delete curRecording;
         curRecording = NULL;
@@ -1235,25 +1286,6 @@ void TVRec::RunTV(void)
 
             if (has_rec && (has_finish || (now > recordEndTime)))
             {
-                if (pseudoLiveTVRecording && curRecording)
-                {
-                    int secsSince = curRecording->GetRecordingStartTime()
-                        .secsTo(QDateTime::currentDateTime());
-                    if (secsSince < 120)
-                    {
-                        JobQueue::RemoveJobsFromMask(JOB_COMMFLAG,
-                            autoRunJobs);
-                        JobQueue::RemoveJobsFromMask(JOB_TRANSCODE,
-                            autoRunJobs);
-                    }
-
-                    if (autoRunJobs)
-                    {
-                        JobQueue::QueueRecordingJobs(
-                            *curRecording, autoRunJobs);
-                    }
-                }
-
                 SetPseudoLiveTVRecording(NULL);
             }
             else if (!has_rec && !rec_soon && curRecording &&
@@ -3192,7 +3224,7 @@ void TVRec::RingBufferChanged(RingBuffer *rb, ProgramInfo *pginfo)
     {
         if (curRecording)
         {
-            FinishedRecording(curRecording);
+            FinishedRecording(curRecording, 1);
             curRecording->MarkAsInUse(false, kRecorderInUseID);
             delete curRecording;
         }
@@ -3438,22 +3470,33 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
 
     if (newCardID || (request.flags & kFlagNoRec))
     {
+        bool finrun = false;
         if (HasFlags(kFlagDummyRecorderRunning))
         {
+            finrun = true;
+            FinishedRecording(curRecording, 2);
             ClearFlags(kFlagDummyRecorderRunning);
-            FinishedRecording(curRecording);
             curRecording->MarkAsInUse(false, kRecorderInUseID);
         }
 
         if (!!(request.flags & kFlagCloseRec) && curRecording)
         {
-            FinishedRecording(curRecording);
+            if (!finrun)
+            {
+                finrun = true;
+                FinishedRecording(curRecording, 3);
+            }
             curRecording->MarkAsInUse(false, kRecorderInUseID);
         }
 
         if (HasFlags(kFlagRecorderRunning) ||
             (curRecording && curRecording->GetRecordingStatus() == rsFailed))
         {
+            if (!finrun)
+            {
+                FinishedRecording(curRecording, 4);
+                curRecording->MarkAsInUse(false, kRecorderInUseID);
+            }
             stateChangeLock.unlock();
             TeardownRecorder(request.flags & kFlagKillRec);
             stateChangeLock.lock();
@@ -3838,8 +3881,8 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
     bool had_dummyrec = false;
     if (HasFlags(kFlagDummyRecorderRunning))
     {
+        FinishedRecording(curRecording, 5);
         ClearFlags(kFlagDummyRecorderRunning);
-        FinishedRecording(curRecording);
         curRecording->MarkAsInUse(false, kRecorderInUseID);
         had_dummyrec = true;
     }
@@ -4001,30 +4044,17 @@ void TVRec::TuningRestartRecorder(void)
     VERBOSE(VB_RECORD, LOC + "Restarting Recorder");
 
     bool had_dummyrec = false;
+
+    if (curRecording)
+    {
+        FinishedRecording(curRecording, 6);
+        curRecording->MarkAsInUse(false, kRecorderInUseID);
+    }
+
     if (HasFlags(kFlagDummyRecorderRunning))
     {
         ClearFlags(kFlagDummyRecorderRunning);
         had_dummyrec = true;
-    }
-
-    if (curRecording)
-    {
-        FinishedRecording(curRecording);
-        curRecording->MarkAsInUse(false, kRecorderInUseID);
-
-        if (pseudoLiveTVRecording)
-        {
-            int secsSince = curRecording->GetRecordingStartTime()
-                .secsTo(QDateTime::currentDateTime());
-            if (secsSince < 120)
-            {
-                JobQueue::RemoveJobsFromMask(JOB_COMMFLAG, autoRunJobs);
-                JobQueue::RemoveJobsFromMask(JOB_TRANSCODE, autoRunJobs);
-            }
-
-            if (autoRunJobs)
-                JobQueue::QueueRecordingJobs(*curRecording, autoRunJobs);
-        }
     }
 
     SwitchLiveTVRingBuffer(channel->GetCurrentName(), true, !had_dummyrec);
@@ -4372,14 +4402,7 @@ bool TVRec::SwitchLiveTVRingBuffer(const QString & channum,
     {
         RecordingInfo *oldinfo = new RecordingInfo(*pi);
         delete pi;
-        FinishedRecording(oldinfo);
-        if (tvchain->GetCardType(-1) != "DUMMY")
-        {
-            if (!oldinfo->IsLocal())
-                oldinfo->SetPathname(oldinfo->GetPlaybackURL(false,true));
-            if (oldinfo->IsLocal())
-                PreviewGeneratorQueue::GetPreviewImage(*oldinfo, "");
-        }
+        FinishedRecording(oldinfo, 7);
         delete oldinfo;
     }
 
@@ -4433,7 +4456,7 @@ RecordingInfo *TVRec::SwitchRecordingRingBuffer(const RecordingInfo &rcinfo)
     if (!rb->IsOpen())
     {
         ri->SetRecordingStatus(rsFailed);
-        FinishedRecording(ri);
+        FinishedRecording(ri, 8);
         ri->MarkAsInUse(false, kRecorderInUseID);
         delete ri;
         VERBOSE(VB_RECORD, LOC + "SwitchRecordingRingBuffer() -> false 2");
