@@ -82,6 +82,9 @@ TVRec::TVRec(int capturecardnum)
        // Various components TVRec coordinates
     : recorder(NULL), channel(NULL), signalMonitor(NULL),
       scanner(NULL),
+      // Various threads
+      eventThread(new TVRecEventThread(this)),
+      recorderThread(NULL),
       // Configuration variables from database
       transcodeFirst(false),
       earlyCommFlag(false),         runJobOnHostOnly(false),
@@ -166,8 +169,7 @@ bool TVRec::Init(void)
     overRecordSecCat  = gCoreContext->GetNumSetting("CategoryOverTime") * 60;
     overRecordCategory= gCoreContext->GetSetting("OverTimeCategory");
 
-    EventThread.SetParent(this);
-    EventThread.start();
+    eventThread->start();
 
     WaitForEventThreadSleep();
 
@@ -190,7 +192,9 @@ void TVRec::TeardownAll(void)
     if (HasFlags(kFlagRunMainLoop))
     {
         ClearFlags(kFlagRunMainLoop);
-        EventThread.wait();
+        eventThread->wait();
+        delete eventThread;
+        eventThread = NULL;
     }
 
     TeardownSignalMonitor();
@@ -1031,7 +1035,9 @@ void TVRec::TeardownRecorder(bool killFile)
     if (recorder && HasFlags(kFlagRecorderRunning))
     {
         recorder->StopRecording();
-        RecorderThread.wait();
+        recorderThread->wait();
+        delete recorderThread;
+        recorderThread = NULL;
     }
     ClearFlags(kFlagRecorderRunning);
 
@@ -1094,22 +1100,7 @@ V4LChannel *TVRec::GetV4LChannel(void)
  */
 void TVRecEventThread::run(void)
 {
-    if (!m_parent)
-        return;
-
     m_parent->RunTV();
-}
-
-/** \fn TVReRecordThread::run(void)
- *  \brief Thunk that allows recorder thread to
- *         call RecorderBase::StartRecording().
- */
-void TVRecRecordThread::run(void)
-{
-    if (!m_parent || !m_parent->recorder)
-        return;
-
-    m_parent->recorder->StartRecording();
 }
 
 static bool get_use_eit(uint cardid)
@@ -4009,8 +4000,8 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
     }
 #endif
 
-    RecorderThread.SetParent(this);
-    RecorderThread.start();
+    recorderThread = new RecorderThread(recorder);
+    recorderThread->start();
 
     // Wait for recorder to start.
     stateChangeLock.unlock();

@@ -6,6 +6,7 @@
 
 #include <QWaitCondition>
 #include <QString>
+#include <QThread>
 #include <QMutex>
 #include <QMap>
 
@@ -17,11 +18,23 @@ class FireWireDBOptions;
 class GeneralDBOptions;
 class RecordingProfile;
 class DVBDBOptions;
+class RecorderBase;
 class ChannelBase;
 class ProgramInfo;
 class RingBuffer;
 class TVRec;
- 
+
+class MTV_PUBLIC RecorderThread : public QThread
+{
+    Q_OBJECT
+  public:
+    RecorderThread(RecorderBase *p) : m_parent(p) {}
+    virtual ~RecorderThread() { wait(); m_parent = NULL; }
+    virtual inline void run(void);
+  private:
+    RecorderBase *m_parent;
+};
+
 /** \class RecorderBase
  *  \brief This is the abstract base class for supporting
  *         recorder hardware.
@@ -290,6 +303,11 @@ class MTV_PUBLIC RecorderBase
     frm_pos_map_t  positionMapDelta;
     MythTimer      positionMapTimer;
 };
+
+inline void RecorderThread::run(void)
+{
+    m_parent->StartRecording();
+}
 
 #endif
 

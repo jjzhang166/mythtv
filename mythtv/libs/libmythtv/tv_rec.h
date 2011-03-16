@@ -29,6 +29,7 @@ class EITScanner;
 class RecordingProfile;
 class LiveTVChain;
 
+class RecorderThread;
 class RecorderBase;
 class DTVRecorder;
 class DVBRecorder;
@@ -135,29 +136,16 @@ class PendingInfo
 typedef QMap<uint,PendingInfo> PendingMap;
 
 class TVRec;
-
 class TVRecEventThread : public QThread
 {
     Q_OBJECT
   public:
-    TVRecEventThread() : m_parent(NULL) {}
-    void run(void);
-    void SetParent(TVRec *parent) { m_parent = parent; }
+    TVRecEventThread(TVRec *p) : m_parent(p) {}
+    virtual ~TVRecEventThread() { wait(); m_parent = NULL; }
+    virtual void run(void);
   private:
     TVRec *m_parent;
 };
-
-class TVRecRecordThread : public QThread
-{
-    Q_OBJECT
-  public:
-    TVRecRecordThread() : m_parent(NULL) {}
-    void run(void);
-    void SetParent(TVRec *parent) { m_parent = parent; }
-  private:
-    TVRec *m_parent;
-};
-
 
 class MTV_PUBLIC TVRec : public SignalMonitorListener
 {
@@ -345,9 +333,9 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener
 
     // Various threads
     /// Event processing thread, runs RunTV().
-    TVRecEventThread EventThread;
+    TVRecEventThread *eventThread;
     /// Recorder thread, runs RecorderBase::StartRecording()
-    TVRecRecordThread RecorderThread;
+    RecorderThread   *recorderThread;
 
     // Configuration variables from database
     bool    transcodeFirst;
