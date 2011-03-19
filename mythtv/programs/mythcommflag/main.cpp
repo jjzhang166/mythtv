@@ -31,6 +31,7 @@ using namespace std;
 #include "mythcommflagplayer.h"
 #include "programinfo.h"
 #include "remoteutil.h"
+#include "remotefile.h"
 #include "tvremoteutil.h"
 #include "jobqueue.h"
 #include "remoteencoder.h"
@@ -751,6 +752,45 @@ static int FlagCommercials(
     }
 
     QString filename = get_filename(program_info);
+    long long size = 0;
+    bool exists = false;
+
+    if (filename.startsWith("myth://"))
+    {
+        RemoteFile remotefile(filename, false, false, 0);
+        struct stat filestat;
+
+        if (remotefile.Exists(filename, &filestat))
+        {
+            exists = true;
+            size = filestat.st_size;
+        }
+    }
+    else
+    {
+        QFile file(filename);
+        if (file.exists())
+        {
+            exists = true;
+            size = file.size();
+        }
+    }
+
+    if (!exists)
+    {
+        VERBOSE(VB_IMPORTANT, QString("Couldn't find file %1, aborting.")
+                .arg(filename));
+        global_program_info = NULL;
+        return GENERIC_EXIT_PERMISSIONS_ERROR;
+    }
+
+    if (size == 0)
+    {
+        VERBOSE(VB_IMPORTANT, QString("File %1 is zero-byte, aborting.")
+                .arg(filename));
+        global_program_info = NULL;
+        return GENERIC_EXIT_PERMISSIONS_ERROR;
+    }
 
     RingBuffer *tmprbuf = RingBuffer::Create(filename, false);
     if (!tmprbuf)
@@ -919,9 +959,7 @@ int main(int argc, char *argv[])
     QString newCutList = QString::null;
     QMap<QString, QString> settingsOverride;
 
-    QFileInfo finfo(a.argv()[0]);
-
-    QString binname = finfo.baseName();
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHCOMMFLAG);
 
     print_verbose_messages = VB_IMPORTANT;
     verboseString = "important";
@@ -1269,8 +1307,6 @@ int main(int argc, char *argv[])
         return GENERIC_EXIT_NO_MYTHCONTEXT;
     }
 
-    gCoreContext->SetAppName(binname);
-
     MythTranslation::load("mythfrontend");
 
     if (settingsOverride.size())
@@ -1379,7 +1415,7 @@ int main(int argc, char *argv[])
     if (!quiet)
     {
         VERBOSE(VB_IMPORTANT, QString("%1 version: %2 www.mythtv.org")
-                                .arg(binname).arg(MYTH_BINARY_VERSION));
+                  .arg(MYTH_APPNAME_MYTHCOMMFLAG).arg(MYTH_BINARY_VERSION));
 
         VERBOSE(VB_IMPORTANT, QString("Enabled verbose msgs: %1").arg(verboseString));
 

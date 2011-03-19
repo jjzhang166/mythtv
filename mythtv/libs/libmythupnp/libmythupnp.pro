@@ -25,6 +25,10 @@ HEADERS += eventing.h upnpcmgr.h upnptaskevent.h upnptaskcache.h ssdpcache.h
 HEADERS += configuration.h
 HEADERS += soapclient.h mythxmlclient.h mmembuf.h upnpexp.h
 HEADERS += upnpserviceimpl.h
+HEADERS += servicehost.h wsdl.h htmlserver.h
+
+HEADERS += serializers/serializer.h     serializers/xmlSerializer.h 
+HEADERS += serializers/jsonSerializer.h serializers/soapSerializer.h
 
 SOURCES += mmulticastsocketdevice.cpp
 SOURCES += httprequest.cpp upnp.cpp ssdp.cpp taskqueue.cpp upnputil.cpp
@@ -33,10 +37,18 @@ SOURCES += httpserver.cpp upnpcds.cpp upnpcdsobjects.cpp bufferedsocketdevice.cp
 SOURCES += eventing.cpp upnpcmgr.cpp upnpmsrr.cpp upnptaskevent.cpp ssdpcache.cpp
 SOURCES += configuration.cpp soapclient.cpp mythxmlclient.cpp mmembuf.cpp
 SOURCES += upnpserviceimpl.cpp
+SOURCES += htmlserver.cpp
+SOURCES += servicehost.cpp wsdl.cpp
 
-INCLUDEPATH += ../libmythbase ..
+SOURCES += serializers/serializer.cpp     serializers/xmlSerializer.cpp
+SOURCES += serializers/jsonSerializer.cpp 
+
+INCLUDEPATH += ../libmythbase ../libmythservicecontracts ..
+INCLUDEPATH += ./serializers
+
 DEPENDPATH  += ../libmythbase ..
 LIBS      += -L../libmythbase -lmythbase-$$LIBVERSION
+LIBS      += -L../libmythservicecontracts -lmythservicecontracts-$$LIBVERSION
 
 LIBS += $$EXTRA_LIBS
 
@@ -51,9 +63,12 @@ inc.files  = httprequest.h upnp.h ssdp.h taskqueue.h bufferedsocketdevice.h
 inc.files += upnpdevice.h upnptasknotify.h upnptasksearch.h threadpool.h upnputil.h
 inc.files += httpserver.h httpstatus.h upnpcds.h upnpcdsobjects.h
 inc.files += eventing.h upnpcmgr.h upnptaskevent.h upnptaskcache.h ssdpcache.h
-inc.files += upnpserviceimpl.h configuration.h
-inc.files += soapclient.h mythxmlclient.h mmembuf.h
-inc.files += mmulticastsocketdevice.h     mbroadcastsocketdevice.h
+inc.files += upnpimpl.h configuration.h
+inc.files += soapclient.h mythxmlclient.h mmembuf.h 
+inc.files += servicehost.h wsdl.h htmlserver.h
+
+inc.files += serializers/serializer.h     serializers/xmlSerializer.h 
+inc.files += serializers/jsonSerializer.h serializers/soapSerializer.h
 
 INSTALLS += inc
 

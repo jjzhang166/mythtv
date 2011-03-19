@@ -39,6 +39,7 @@
 #include "compat.h"
 #include "mythdirs.h"
 #include "mythverbose.h"
+#include "htmlserver.h"
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -84,6 +85,15 @@ HttpServer::HttpServer() : QTcpServer(), ThreadPool("HTTP")
     VERBOSE(VB_UPNP, QString( "HttpServer() - SharePath = %1")
             .arg(m_sSharePath));
 
+    // ----------------------------------------------------------------------
+    // The HtmlServer Extension is our fall back if a request isn't processed
+    // by any other extension.  (This is needed here since it listens for
+    // '/' as it's base url ).
+    // ----------------------------------------------------------------------
+
+    m_pHtmlServer = new HtmlServerExtension( m_sSharePath );
+
+
     // -=>TODO: Load Config XML
     // -=>TODO: Load & initialize - HttpServerExtensions
 }
@@ -98,6 +108,9 @@ HttpServer::~HttpServer()
     {
         delete m_extensions.takeFirst();
     }
+
+    if (m_pHtmlServer != NULL)
+        delete m_pHtmlServer;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -179,6 +192,9 @@ void HttpServer::DelegateRequest( HttpWorkerThread *pThread, HTTPRequest *pReque
     }
 
     m_rwlock.unlock();
+
+    if (!bProcessed)
+        bProcessed = m_pHtmlServer->ProcessRequest( pThread, pRequest );
 
     if (!bProcessed)
     {

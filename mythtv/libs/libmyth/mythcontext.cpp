@@ -476,7 +476,7 @@ void MythContextPrivate::LoadDatabaseSettings(void)
         m_DBparams.wolEnabled    = false;
         m_DBparams.wolReconnect  = 0;
         m_DBparams.wolRetry      = 5;
-        m_DBparams.wolCommand    = "echo 'WOLsqlServerCommand not set'";
+        m_DBparams.wolCommand    = "echo 'WOLsqlCommand not set'";
         gCoreContext->GetDB()->SetDatabaseParams(m_DBparams);
     }
 
@@ -635,7 +635,7 @@ bool MythContextPrivate::WriteSettingsFile(const DatabaseParams &params,
     if (params.wolEnabled)
         s << "WOLsqlCommand=" << params.wolCommand << endl;
     else
-        s << "#WOLsqlCommand=echo 'WOLsqlServerCommand not set'\n";
+        s << "#WOLsqlCommand=echo 'WOLsqlCommand not set'\n";
 
     f->close();
     return true;
@@ -1274,8 +1274,7 @@ bool MythContext::Init(const bool gui, UPnp *UPnPclient,
 
         QString warning = QObject::tr(
             "This application is not compatible "
-            "with the installed MythTV libraries. "
-            "Please recompile after a make distclean");
+            "with the installed MythTV libraries.");
         if (gui)
         {
             d->TempMainWindow(false);
@@ -1356,8 +1355,7 @@ bool MythContext::TestPopupVersion(const QString &name,
 
     QString err = QObject::tr(
         "Plugin %1 is not compatible with the installed MythTV "
-        "libraries. Please recompile the plugin after a make "
-        "distclean");
+        "libraries.");
 
     VERBOSE(VB_GENERAL, QString("Plugin %1 (%2) binary version does not "
                                 "match libraries (%3)")

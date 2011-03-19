@@ -916,20 +916,21 @@ void MythMainWindow::Init(void)
 
     setWindowFlags(flags);
 
+    d->screenRect = QRect(d->xbase, d->ybase, d->screenwidth, d->screenheight);
+    d->uiScreenRect = QRect(0, 0, d->screenwidth, d->screenheight);
+
+    Show();
+
     if (d->does_fill_screen && !GetMythUI()->IsGeometryOverridden())
     {
         VERBOSE(VB_GENERAL, "Using Full Screen Window");
         setWindowState(Qt::WindowFullScreen);
     }
 
-    d->screenRect = QRect(d->xbase, d->ybase, d->screenwidth, d->screenheight);
-    d->uiScreenRect = QRect(0, 0, d->screenwidth, d->screenheight);
-
     setGeometry(d->xbase, d->ybase, d->screenwidth, d->screenheight);
     setFixedSize(QSize(d->screenwidth, d->screenheight));
 
     GetMythUI()->ThemeWidget(this);
-    Show();
 
     if (!GetMythDB()->GetNumSetting("HideMouseCursor", 0))
         setMouseTracking(true); // Required for mouse cursor auto-hide
@@ -1045,19 +1046,19 @@ void MythMainWindow::Init(void)
 
 void MythMainWindow::InitKeys()
 {
-    RegisterKey("Global", "UP", QT_TRANSLATE_NOOP("MythControls",
+    RegisterKey("Global", ACTION_UP, QT_TRANSLATE_NOOP("MythControls",
         "Up Arrow"),               "Up");
-    RegisterKey("Global", "DOWN", QT_TRANSLATE_NOOP("MythControls",
+    RegisterKey("Global", ACTION_DOWN, QT_TRANSLATE_NOOP("MythControls",
         "Down Arrow"),           "Down");
-    RegisterKey("Global", "LEFT", QT_TRANSLATE_NOOP("MythControls",
+    RegisterKey("Global", ACTION_LEFT, QT_TRANSLATE_NOOP("MythControls",
         "Left Arrow"),           "Left");
-    RegisterKey("Global", "RIGHT", QT_TRANSLATE_NOOP("MythControls",
+    RegisterKey("Global", ACTION_RIGHT, QT_TRANSLATE_NOOP("MythControls",
         "Right Arrow"),         "Right");
     RegisterKey("Global", "NEXT", QT_TRANSLATE_NOOP("MythControls",
         "Move to next widget"),   "Tab");
     RegisterKey("Global", "PREVIOUS", QT_TRANSLATE_NOOP("MythControls",
         "Move to preview widget"), "Backtab");
-    RegisterKey("Global", "SELECT", QT_TRANSLATE_NOOP("MythControls",
+    RegisterKey("Global", ACTION_SELECT, QT_TRANSLATE_NOOP("MythControls",
         "Select"), "Return,Enter,Space");
     RegisterKey("Global", "BACKSPACE", QT_TRANSLATE_NOOP("MythControls",
         "Backspace"),       "Backspace");
@@ -1106,16 +1107,16 @@ void MythMainWindow::InitKeys()
     RegisterKey("Global", "SEARCH", QT_TRANSLATE_NOOP("MythControls",
         "Show incremental search dialog"), "Ctrl+S");
 
-    RegisterKey("Global", "0", QT_TRANSLATE_NOOP("MythControls","0"), "0");
-    RegisterKey("Global", "1", QT_TRANSLATE_NOOP("MythControls","1"), "1");
-    RegisterKey("Global", "2", QT_TRANSLATE_NOOP("MythControls","2"), "2");
-    RegisterKey("Global", "3", QT_TRANSLATE_NOOP("MythControls","3"), "3");
-    RegisterKey("Global", "4", QT_TRANSLATE_NOOP("MythControls","4"), "4");
-    RegisterKey("Global", "5", QT_TRANSLATE_NOOP("MythControls","5"), "5");
-    RegisterKey("Global", "6", QT_TRANSLATE_NOOP("MythControls","6"), "6");
-    RegisterKey("Global", "7", QT_TRANSLATE_NOOP("MythControls","7"), "7");
-    RegisterKey("Global", "8", QT_TRANSLATE_NOOP("MythControls","8"), "8");
-    RegisterKey("Global", "9", QT_TRANSLATE_NOOP("MythControls","9"), "9");
+    RegisterKey("Global", ACTION_0, QT_TRANSLATE_NOOP("MythControls","0"), "0");
+    RegisterKey("Global", ACTION_1, QT_TRANSLATE_NOOP("MythControls","1"), "1");
+    RegisterKey("Global", ACTION_2, QT_TRANSLATE_NOOP("MythControls","2"), "2");
+    RegisterKey("Global", ACTION_3, QT_TRANSLATE_NOOP("MythControls","3"), "3");
+    RegisterKey("Global", ACTION_4, QT_TRANSLATE_NOOP("MythControls","4"), "4");
+    RegisterKey("Global", ACTION_5, QT_TRANSLATE_NOOP("MythControls","5"), "5");
+    RegisterKey("Global", ACTION_6, QT_TRANSLATE_NOOP("MythControls","6"), "6");
+    RegisterKey("Global", ACTION_7, QT_TRANSLATE_NOOP("MythControls","7"), "7");
+    RegisterKey("Global", ACTION_8, QT_TRANSLATE_NOOP("MythControls","8"), "8");
+    RegisterKey("Global", ACTION_9, QT_TRANSLATE_NOOP("MythControls","9"), "9");
 
     RegisterKey("Global", "SYSEVENT01", QT_TRANSLATE_NOOP("MythControls",
         "Trigger System Key Event #1"), "");

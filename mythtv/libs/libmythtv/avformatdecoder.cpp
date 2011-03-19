@@ -743,30 +743,21 @@ void AvFormatDecoder::SetEof(bool eof)
     DecoderBase::SetEof(eof);
 }
 
-void AvFormatDecoder::Reset(bool reset_video_data, bool seek_reset)
+void AvFormatDecoder::Reset(bool reset_video_data, bool seek_reset, bool reset_file)
 {
-    VERBOSE(VB_PLAYBACK, LOC + QString("Reset(%1, %2)")
-            .arg(reset_video_data).arg(seek_reset));
+    VERBOSE(VB_PLAYBACK, LOC + QString("Reset: Video %1, Seek %2, File %3")
+            .arg(reset_video_data).arg(seek_reset).arg(reset_file));
+
     if (seek_reset)
         SeekReset(0, 0, true, false);
 
+    DecoderBase::Reset(reset_video_data, false, reset_file);
+
     if (reset_video_data)
     {
-        ResetPosMap();
-        framesPlayed = 0;
-        framesRead = 0;
-        totalDuration = 0;
         seen_gop = false;
         seq_count = 0;
     }
-}
-
-void AvFormatDecoder::Reset()
-{
-    DecoderBase::Reset();
-
-    if (ringBuffer->IsDVD())
-        SyncPositionMap();
 }
 
 bool AvFormatDecoder::CanHandle(char testbuf[kDecoderProbeBufferSize],
@@ -803,26 +794,18 @@ bool AvFormatDecoder::CanHandle(char testbuf[kDecoderProbeBufferSize],
 
 void AvFormatDecoder::InitByteContext(void)
 {
-    int streamed = 0;
-    int buffer_size = 32768;
-
-    if (ringBuffer->IsDVD())
-    {
-        streamed = 1;
-        buffer_size = 2048;
-    }
-    else if (ringBuffer->LiveMode())
-        streamed = 1;
+    int buf_size = ringBuffer->BestBufferSize();
+    int streamed = ringBuffer->IsStreamed();
+    VERBOSE(VB_PLAYBACK, LOC + QString("Buffer size: %1, streamed %2")
+        .arg(buf_size).arg(streamed));
 
     readcontext.prot = &AVF_RingBuffer_Protocol;
     readcontext.flags = 0;
     readcontext.is_streamed = streamed;
     readcontext.max_packet_size = 0;
     readcontext.priv_data = avfRingBuffer;
-
-    unsigned char* buffer = (unsigned char *)av_malloc(buffer_size);
-
-    ic->pb = av_alloc_put_byte(buffer, buffer_size, 0,
+    unsigned char* buffer = (unsigned char *)av_malloc(buf_size);
+    ic->pb = av_alloc_put_byte(buffer, buf_size, 0,
                                &readcontext,
                                AVF_Read_Packet,
                                AVF_Write_Packet,
@@ -864,7 +847,7 @@ extern "C" void HandleBDStreamChange(void* data)
     VERBOSE(VB_PLAYBACK, LOC + "HandleBDStreamChange(): resetting");
 
     QMutexLocker locker(avcodeclock);
-    decoder->Reset(true, false);
+    decoder->Reset(true, false, false);
     decoder->CloseCodecs();
     decoder->FindStreamInfo();
     decoder->ScanStreams(false);
@@ -2100,6 +2083,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
     // video params are set properly
     if (selectedTrack[kTrackTypeVideo].av_stream_index == -1)
     {
+        VERBOSE(VB_PLAYBACK, LOC + QString("No video track found/selected."));
         QString tvformat = gCoreContext->GetSetting("TVFormat").toLower();
         if (tvformat == "ntsc" || tvformat == "ntsc-jp" ||
             tvformat == "pal-m" || tvformat == "atsc")
@@ -4184,27 +4168,30 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype)
 
 bool AvFormatDecoder::HasVideo(const AVFormatContext *ic)
 {
-    if (!ic || !ic->cur_pmt_sect)
-        return true;
-
-    const PESPacket pes = PESPacket::ViewData(ic->cur_pmt_sect);
-    const PSIPTable psip(pes);
-    const ProgramMapTable pmt(psip);
-
-    bool has_video = false;
-    for (uint i = 0; i < pmt.StreamCount(); i++)
+    if (ic && ic->cur_pmt_sect)
     {
-        // MythTV remaps OpenCable Video to normal video during recording
-        // so "dvb" is the safest choice for system info type, since this
-        // will ignore other uses of the same stream id in DVB countries.
-        has_video |= pmt.IsVideo(i, "dvb");
+        const PESPacket pes = PESPacket::ViewData(ic->cur_pmt_sect);
+        const PSIPTable psip(pes);
+        const ProgramMapTable pmt(psip);
 
-        // MHEG may explicitly select a private stream as video
-        has_video |= ((i == (uint)selectedTrack[kTrackTypeVideo].av_stream_index) &&
-                      (pmt.StreamType(i) == StreamID::PrivData));
+        for (uint i = 0; i < pmt.StreamCount(); i++)
+        {
+            // MythTV remaps OpenCable Video to normal video during recording
+            // so "dvb" is the safest choice for system info type, since this
+            // will ignore other uses of the same stream id in DVB countries.
+            if (pmt.IsVideo(i, "dvb"))
+                return true;
+
+            // MHEG may explicitly select a private stream as video
+            if ((i == (uint)selectedTrack[kTrackTypeVideo].av_stream_index) &&
+                (pmt.StreamType(i) == StreamID::PrivData))
+            {
+                return true;
+            }
+        }
     }
 
-    return has_video;
+    return GetTrackCount(kTrackTypeVideo);
 }
 
 bool AvFormatDecoder::GenerateDummyVideoFrame(void)
@@ -4427,7 +4414,8 @@ bool AvFormatDecoder::SetupAudioStream(void)
 
     if (!ctx)
     {
-        VERBOSE(VB_PLAYBACK, LOC + "No codec context. Returning false");
+        if (GetTrackCount(kTrackTypeAudio))
+            VERBOSE(VB_PLAYBACK, LOC + "No codec context. Returning false");
         return false;
     }
 

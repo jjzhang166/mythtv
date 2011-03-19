@@ -457,7 +457,8 @@ void MythUIType::Draw(MythPainter *p, int xoffset, int yoffset, int alphaMod,
 
     if (p->ShowBorders())
     {
-        p->DrawRect(realArea, false, QColor(), true, 1, m_BorderColor);
+        static const QBrush nullbrush(Qt::NoBrush);
+        p->DrawRect(realArea, nullbrush, QPen(m_BorderColor), 255);
 
         if (p->ShowTypeNames())
         {
@@ -1027,7 +1028,7 @@ void MythUIType::LoadNow(void)
  */
 bool MythUIType::ContainsPoint(const QPoint &point) const
 {
-    if (m_Area.contains(point - m_Area.topLeft()))
+    if (m_Area.contains(point))
         return true;
 
     return false;
