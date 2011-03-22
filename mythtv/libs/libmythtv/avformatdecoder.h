@@ -286,8 +286,10 @@ class AvFormatDecoder : public DecoderBase
     uint32_t  start_code_state;
 
     long long lastvpts;
-    long long  lastapts;
+    long long lastapts;
     long long lastccptsu;
+    long long firstvpts;
+    bool      firstvptsinuse;
 
     int64_t faulty_pts;
     int64_t faulty_dts;
@@ -335,7 +337,6 @@ class AvFormatDecoder : public DecoderBase
 
     // Audio
     short int        *audioSamples;
-    bool              internal_vol;
     bool              disable_passthru;
 
     VideoFrame       *dummy_frame;

@@ -1147,6 +1147,7 @@ void RecordingInfo::AddHistory(bool resched, bool forcedup)
     oldrecstatus = GetRecordingStatus();
     if (dup)
         SetReactivated(false);
+    uint erecid = parentid ? parentid : recordid;
 
     MSqlQuery result(MSqlQuery::InitCon());
 
@@ -1167,7 +1168,7 @@ void RecordingInfo::AddHistory(bool resched, bool forcedup)
     result.bindValue(":SERIESID", seriesid);
     result.bindValue(":PROGRAMID", programid);
     result.bindValue(":FINDID", findid);
-    result.bindValue(":RECORDID", recordid);
+    result.bindValue(":RECORDID", erecid);
     result.bindValue(":STATION", chansign);
     result.bindValue(":RECTYPE", rectype);
     result.bindValue(":RECSTATUS", rs);
@@ -1181,7 +1182,7 @@ void RecordingInfo::AddHistory(bool resched, bool forcedup)
     {
         result.prepare("REPLACE INTO oldfind (recordid, findid) "
                        "VALUES(:RECORDID,:FINDID);");
-        result.bindValue(":RECORDID", recordid);
+        result.bindValue(":RECORDID", erecid);
         result.bindValue(":FINDID", findid);
 
         if (!result.exec())
@@ -1199,6 +1200,8 @@ void RecordingInfo::AddHistory(bool resched, bool forcedup)
  */
 void RecordingInfo::DeleteHistory(void)
 {
+    uint erecid = parentid ? parentid : recordid;
+
     MSqlQuery result(MSqlQuery::InitCon());
 
     result.prepare("DELETE FROM oldrecorded WHERE title = :TITLE AND "
@@ -1214,7 +1217,7 @@ void RecordingInfo::DeleteHistory(void)
     {
         result.prepare("DELETE FROM oldfind WHERE "
                        "recordid = :RECORDID AND findid = :FINDID");
-        result.bindValue(":RECORDID", recordid);
+        result.bindValue(":RECORDID", erecid);
         result.bindValue(":FINDID", findid);
 
         if (!result.exec())
@@ -1236,6 +1239,8 @@ void RecordingInfo::DeleteHistory(void)
  */
 void RecordingInfo::ForgetHistory(void)
 {
+    uint erecid = parentid ? parentid : recordid;
+
     MSqlQuery result(MSqlQuery::InitCon());
 
     result.prepare("UPDATE recorded SET duplicate = 0 "
@@ -1276,7 +1281,7 @@ void RecordingInfo::ForgetHistory(void)
     {
         result.prepare("DELETE FROM oldfind WHERE "
                        "recordid = :RECORDID AND findid = :FINDID");
-        result.bindValue(":RECORDID", recordid);
+        result.bindValue(":RECORDID", erecid);
         result.bindValue(":FINDID", findid);
 
         if (!result.exec())
