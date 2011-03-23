@@ -57,6 +57,7 @@ Scheduler::Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
     schedulingEnabled(true),
     m_tvList(tvList),
     expirer(NULL),
+    doRun(runthread),
     m_mainServer(NULL),
     resetIdleTime(false),
     m_isShuttingDown(false),
@@ -69,7 +70,7 @@ Scheduler::Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
         master_sched->getAllPending(&reclist);
 
     // Only the master scheduler should use SchedCon()
-    if (runthread)
+    if (doRun)
         dbConn = MSqlQuery::SchedCon();
     else
         dbConn = MSqlQuery::DDCon();
@@ -88,22 +89,30 @@ Scheduler::Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
 
     fsInfoCacheFillTime = QDateTime::currentDateTime().addSecs(-1000);
 
-    if (runthread)
+    if (doRun)
     {
-        schedThread.SetParent(this);
-        schedThread.start(QThread::LowPriority);
-
-        if (!schedThread.isRunning())
         {
-            VERBOSE(VB_IMPORTANT, QString("Failed to start scheduler thread"));
+            QMutexLocker locker(&schedLock);
+            start(QThread::LowPriority);
+            while (doRun && !isRunning())
+                reschedWait.wait(&schedLock);
         }
-
         WakeUpSlaves();
     }
 }
 
 Scheduler::~Scheduler()
 {
+    QMutexLocker locker(&schedLock);
+    if (doRun)
+    {
+        doRun = false;
+        reschedWait.wakeAll();
+        locker.unlock();
+        wait();
+        locker.relock();
+    }
+
     while (!reclist.empty())
     {
         delete reclist.back();
@@ -114,12 +123,6 @@ Scheduler::~Scheduler()
     {
         delete worklist.back();
         worklist.pop_back();
-    }
-
-    if (schedThread.isRunning())
-    {
-        schedThread.terminate();
-        schedThread.wait();
     }
 }
 
@@ -1670,7 +1673,7 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
     return false;
 }
 
-void Scheduler::RunScheduler(void)
+void Scheduler::run(void)
 {
     // Mark anything that was recording as aborted.  We'll fix it up.
     // if possible, after the slaves connect and we start scheduling.
@@ -1682,6 +1685,12 @@ void Scheduler::RunScheduler(void)
     query.bindValue(":RSTUNING", rsTuning);
     if (!query.exec())
         MythDB::DBError("UpdateAborted", query);
+
+    // Notify constructor that we're actually running
+    {
+        QMutexLocker lockit(&schedLock);
+        reschedWait.wakeAll();
+    }
 
     // wait for slaves to connect
     sleep(3);
@@ -1704,7 +1713,7 @@ void Scheduler::RunScheduler(void)
     int       maxSleep        = 60000; // maximum sleep time in milliseconds
     int       schedRunTime    = 30; // max scheduler run time in seconds
 
-    while (true)
+    while (doRun)
     {
         QDateTime curtime = QDateTime::currentDateTime();
         bool statuschanged = false;
@@ -1717,13 +1726,16 @@ void Scheduler::RunScheduler(void)
         {
             int msecs = CalcTimeToNextHandleRecordingEvent(
                 curtime, startIter, reclist, prerollseconds, maxSleep);
-            if (msecs > 200)
+            while (doRun && (msecs > 200))
             {
-                schedLock.unlock(); // allow GetRecStatus(), etc. to work
                 VERBOSE(VB_SCHEDULE,
                         QString("sleeping for %1 ms").arg(msecs));
-                (void) ::usleep(msecs * 1000);
-                schedLock.lock();
+                reschedWait.wait(&schedLock, msecs);
+                if (doRun)
+                {
+                    msecs = CalcTimeToNextHandleRecordingEvent(
+                        curtime, startIter, reclist, prerollseconds, maxSleep);
+                }
             }
         }
         else
@@ -1736,6 +1748,8 @@ void Scheduler::RunScheduler(void)
                         QString("sleeping for %1 ms (interuptable)")
                         .arg(sched_sleep));
                 reschedWait.wait(&schedLock, sched_sleep);
+                if (!doRun)
+                    break;
             }
 
             QTime t; t.start();
@@ -2861,14 +2875,6 @@ void Scheduler::WakeUpSlaves(void)
     }
 }
 
-void ScheduleThread::run(void)
-{
-    if (!m_parent)
-        return;
-
-    m_parent->RunScheduler();
-}
-
 void Scheduler::UpdateManuals(int recordid)
 {
     MSqlQuery query(dbConn);
@@ -3716,8 +3722,7 @@ void Scheduler::AddNewRecords(void)
 
         RecStatusType newrecstatus = p->GetRecordingStatus();
         // Check for rsOffLine
-        if ((schedThread.isRunning() || specsched) && 
-            !cardMap.contains(p->GetCardID()))
+        if ((doRun || specsched) && !cardMap.contains(p->GetCardID()))
             newrecstatus = rsOffLine;
 
         // Check for rsTooManyRecordings
