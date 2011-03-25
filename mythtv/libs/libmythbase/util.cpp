@@ -1270,12 +1270,14 @@ bool myth_FileIsDVD(const QString &filename)
         (QDir(filename + "/VIDEO_TS").exists()))
         return true;
 
+/*
     if (filename.toLower().startsWith("myth://"))
     {
         QString tmpFile = filename + "/VIDEO_TS";
         if (RemoteFile::Exists(tmpFile))
             return true;
     }
+*/
 
     return false;
 }
@@ -1286,12 +1288,14 @@ bool myth_FileIsBD(const QString &filename)
         (QDir(filename + "/BDMV").exists()))
         return true;
 
+/*
     if (filename.toLower().startsWith("myth://"))
     {
         QString tmpFile = filename + "/BDMV";
         if (RemoteFile::Exists(tmpFile))
             return true;
     }
+*/
 
     return false;
 }
