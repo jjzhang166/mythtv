@@ -1726,17 +1726,13 @@ void Scheduler::run(void)
         {
             int msecs = CalcTimeToNextHandleRecordingEvent(
                 curtime, startIter, reclist, prerollseconds, maxSleep);
-            while (doRun && (msecs > 200))
-            {
-                VERBOSE(VB_SCHEDULE,
-                        QString("sleeping for %1 ms").arg(msecs));
+            VERBOSE(VB_SCHEDULE, QString(
+                        "sleeping for %1 ms (s2n: %2 sr: %3)")
+                    .arg(msecs).arg(secs_to_next).arg(schedRunTime));
+            if (msecs < 100)
+                (void) ::usleep(msecs * 1000);
+            else
                 reschedWait.wait(&schedLock, msecs);
-                if (doRun)
-                {
-                    msecs = CalcTimeToNextHandleRecordingEvent(
-                        curtime, startIter, reclist, prerollseconds, maxSleep);
-                }
-            }
         }
         else
         {
