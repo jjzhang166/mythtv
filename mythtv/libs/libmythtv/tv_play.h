@@ -10,6 +10,9 @@
 #include <vector>
 using namespace std;
 
+// POSIX
+#include <pthread.h>
+
 // Qt
 #include <QReadWriteLock>
 #include <QWaitCondition>
@@ -140,28 +143,12 @@ class AskProgramInfo
     ProgramInfo *info;
 };
 
-class TV;
-
-class TVDDMapThread : public QThread
-{
-    Q_OBJECT
-  public:
-    TVDDMapThread() : m_parent(NULL), m_sourceid(0) {}
-    void run(void);
-    void SetParent(TV *parent)      { m_parent = parent; }
-    void SetSourceId(uint sourceid) { m_sourceid = sourceid; }
-  private:
-    TV   *m_parent;
-    uint  m_sourceid;
-};
-
 class MTV_PUBLIC TV : public QObject
 {
     friend class PlaybackBox;
     friend class GuideGrid;
     friend class TvPlayWindow;
     friend class TVBrowseHelper;
-    friend class TVDDMapThread;
 
     Q_OBJECT
   public:
@@ -690,10 +677,10 @@ class MTV_PUBLIC TV : public QObject
     mutable QMutex chanEditMapLock; ///< Lock for chanEditMap and ddMap
     InfoMap   chanEditMap;          ///< Channel Editing initial map
 
-    DDKeyMap      ddMap;                 ///< DataDirect channel map
-    uint          ddMapSourceId;         ///< DataDirect channel map sourceid
-    bool          ddMapLoaderRunning;    ///< DataDirect thread running
-    QPointer<TVDDMapThread> ddMapLoader; ///< DataDirect map loader thread
+    DDKeyMap  ddMap;                ///< DataDirect channel map
+    uint      ddMapSourceId;        ///< DataDirect channel map sourceid
+    bool      ddMapLoaderRunning;   ///< Is DataDirect loader thread running
+    pthread_t ddMapLoader;          ///< DataDirect map loader thread
 
     /// Vector or sleep timer sleep times in seconds,
     /// with the appropriate UI message.
