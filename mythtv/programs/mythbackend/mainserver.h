@@ -2,6 +2,8 @@
 #define MAINSERVER_H_
 
 #include <QReadWriteLock>
+#include <QThreadPool>
+#include <QRunnable>
 #include <QEvent>
 #include <QMutex>
 #include <QHash>
@@ -31,9 +33,18 @@ class MythServer;
 class VideoScanner;
 class QTimer;
 
-typedef struct deletestruct
+class DeleteStruct : public QRunnable
 {
+  public:
+    DeleteStruct() :
+        ms(NULL), pg(NULL),
+        chanid(0), fd(-1), size(0), forceMetadataDelete(true) { }
+    virtual ~DeleteStruct();
+
+    void run(void);
+
     MainServer *ms;
+    ProgramInfo *pg;
     uint chanid;
     QDateTime recstartts;
     QDateTime recendts;
@@ -42,35 +53,29 @@ typedef struct deletestruct
     off_t size;
     QString title;
     bool forceMetadataDelete;
-} DeleteStruct;
-
-class DeleteThread : public QThread
-{
-    Q_OBJECT
-  public:
-    DeleteThread() : m_parent(NULL) {}
-    void SetParent(DeleteStruct *parent) { m_parent = parent; }
-    void run(void);
-  private:
-    DeleteStruct *m_parent;
 };
 
 class TruncateThread : public QThread
 {
     Q_OBJECT
   public:
-    TruncateThread() : m_parent(NULL) {}
-    void SetParent(DeleteStruct *parent) { m_parent = parent; }
-    void run(void);
+    TruncateThread(MainServer *p) : m_parent(p) { start(); }
+    virtual ~TruncateThread();
+    void AddDelete(DeleteStruct*);
+    virtual void run(void);
   private:
-    DeleteStruct *m_parent;
+    MainServer          *m_parent;
+    volatile bool        m_run;
+    QMutex               m_lock;
+    QWaitCondition       m_wait;
+    QList<DeleteStruct*> m_list;
 };
 
 class MainServer : public QObject, public MythSocketCBs
 {
     Q_OBJECT
 
-    friend class DeleteThread;
+    friend class DeleteStruct;
     friend class TruncateThread;
   public:
     MainServer(bool master, int port,
@@ -210,9 +215,7 @@ class MainServer : public QObject, public MythSocketCBs
 
     int GetfsID(vector<FileSystemInfo>::iterator fsInfo);
 
-    static void *SpawnTruncateThread(void *param);
     void DoTruncateThread(const DeleteStruct *ds);
-    static void *SpawnDeleteThread(void *param);
     void DoDeleteThread(const DeleteStruct *ds);
     void DeleteRecordedFiles(const DeleteStruct *ds);
     void DoDeleteInDB(const DeleteStruct *ds);
@@ -249,7 +252,12 @@ class MainServer : public QObject, public MythSocketCBs
 
     bool ismaster;
 
-    QMutex deletelock;
+    QMutex          deletelock;
+    bool            doDeleteSleeps;
+    QWaitCondition  deleteWait;
+    QThreadPool    *deleteThreadPool;
+    TruncateThread *truncateThread;
+
     QMutex threadPoolLock;
     QWaitCondition threadPoolCond;
     MythDeque<ProcessRequestThread *> threadPool;
@@ -271,6 +279,9 @@ class MainServer : public QObject, public MythSocketCBs
 
     QTimer *autoexpireUpdateTimer; // audited ref #5318
     static QMutex truncate_and_close_lock;
+    static QMutex         run_truncate_lock;
+    static bool           run_truncate;
+    static QWaitCondition run_truncate_wait;
 
     QMap<QString, int> fsIDcache;
     QMutex fsIDcacheLock;
