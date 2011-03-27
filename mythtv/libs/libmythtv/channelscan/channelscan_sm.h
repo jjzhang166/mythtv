@@ -30,14 +30,14 @@
 #ifndef SISCAN_H
 #define SISCAN_H
 
+#include <pthread.h>
+
 // Qt includes
 #include <QString>
 #include <QList>
 #include <QPair>
 #include <QMap>
 #include <QSet>
-#include <QObject>
-#include <QThread>
 
 // MythTV includes
 #include "frequencytables.h"
@@ -65,9 +65,8 @@ typedef QPair<transport_scan_items_it_t, ScannedChannelInfo*> ChannelListItem;
 typedef QList<ChannelListItem> ChannelList;
 
 class ChannelScanSM;
-class AnalogSignalHandler : public QObject, public SignalMonitorListener
+class AnalogSignalHandler : public SignalMonitorListener
 {
-    Q_OBJECT
   public:
     AnalogSignalHandler(ChannelScanSM *_siscan) : siscan(_siscan) { }
 
@@ -81,24 +80,12 @@ class AnalogSignalHandler : public QObject, public SignalMonitorListener
     ChannelScanSM *siscan;
 };
 
-class ScannerThread : public QThread
-{
-    Q_OBJECT
-  public:
-    ScannerThread() : m_parent(NULL) {}
-    void SetParent(ChannelScanSM *parent) { m_parent = parent; }
-    void run(void);
-  private:
-    ChannelScanSM *m_parent;
-};
-
 class ChannelScanSM : public MPEGStreamListener,
                       public ATSCMainStreamListener,
                       public DVBMainStreamListener,
                       public DVBOtherStreamListener
 {
     friend class AnalogSignalHandler;
-    friend class ScannerThread;
 
   public:
     ChannelScanSM(
@@ -176,6 +163,8 @@ class ChannelScanSM : public MPEGStreamListener,
 
     /// \brief Called by SpawnScanner to run scanning thread
     void RunScanner(void);
+    /// \brief Thunk to call RunScanner from pthread
+    static void *SpawnScanner(void *param);
 
     bool HasTimedOut(void);
     void HandleActiveScan(void);
@@ -256,7 +245,9 @@ class ChannelScanSM : public MPEGStreamListener,
     // Analog Info
     AnalogSignalHandler *analogSignalHandler;
 
-    ScannerThread    scannerThread;
+    /// Scanner thread, runs ChannelScanSM::StartScanner()
+    pthread_t        scanner_thread;
+    bool             scanner_thread_running;
 };
 
 inline void ChannelScanSM::UpdateScanPercentCompleted(void)
