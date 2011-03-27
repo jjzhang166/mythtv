@@ -1109,7 +1109,7 @@ void NuppelVideoRecorder::StartRecording(void)
         return;
     }
 
-    if (!SpawnChildren())
+    if (SpawnChildren() < 0)
     {
         VERBOSE(VB_IMPORTANT, LOC_ERR + "Couldn't spawn children");
         errored = true;
@@ -1862,38 +1862,42 @@ void NuppelVideoRecorder::DoV4L2(void)        {}
 void NuppelVideoRecorder::DoMJPEG(void)       {}
 #endif // USING_V4L
 
-bool NuppelVideoRecorder::SpawnChildren(void)
+int NuppelVideoRecorder::SpawnChildren(void)
 {
+    int result;
+
     childrenLive = true;
 
-    WriteThread.SetParent(this);
-    WriteThread.start();
-    if (!WriteThread.isRunning())
+    result = pthread_create(&write_tid, NULL,
+                            NuppelVideoRecorder::WriteThread, this);
+
+    if (result)
     {
         VERBOSE(VB_IMPORTANT, LOC_ERR + "Couldn't spawn writer thread, exiting");
-        return false;
+        return -1;
     }
 
-    AudioThread.SetParent(this);
-    AudioThread.start();
-    if (!AudioThread.isRunning())
+    result = pthread_create(&audio_tid, NULL,
+                            NuppelVideoRecorder::AudioThread, this);
+
+    if (result)
     {
         VERBOSE(VB_IMPORTANT, LOC_ERR + "Couldn't spawn audio thread, exiting");
-        return false;
+        return -1;
     }
 
     if ((vbimode != VBIMode::None) && (OpenVBIDevice() >= 0))
         vbi_thread = new VBIThread(this);
 
-    return true;
+    return 0;
 }
 
 void NuppelVideoRecorder::KillChildren(void)
 {
     childrenLive = false;
 
-    WriteThread.wait();
-    AudioThread.wait();
+    pthread_join(write_tid, NULL);
+    pthread_join(audio_tid, NULL);
     if (vbi_thread)
     {
         vbi_thread->wait();
@@ -2321,20 +2325,22 @@ void NuppelVideoRecorder::Reset(void)
         curRecording->ClearPositionMap(MARK_KEYFRAME);
 }
 
-void NVRWriteThread::run(void)
+void *NuppelVideoRecorder::WriteThread(void *param)
 {
-    if (!m_parent)
-        return;
+    NuppelVideoRecorder *nvr = (NuppelVideoRecorder *)param;
 
-    m_parent->doWriteThread();
+    nvr->doWriteThread();
+
+    return NULL;
 }
 
-void NVRAudioThread::run(void)
+void *NuppelVideoRecorder::AudioThread(void *param)
 {
-    if (!m_parent)
-        return;
+    NuppelVideoRecorder *nvr = (NuppelVideoRecorder *)param;
 
-    m_parent->doAudioThread();
+    nvr->doAudioThread();
+
+    return NULL;
 }
 
 void NuppelVideoRecorder::doAudioThread(void)
