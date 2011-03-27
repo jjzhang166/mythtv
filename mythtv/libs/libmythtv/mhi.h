@@ -1,6 +1,9 @@
 #ifndef _MHI_H_
 #define _MHI_H_
 
+// POSIX header
+#include <pthread.h>
+
 // Misc header
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -15,7 +18,6 @@ using namespace std;
 #include <QString>
 #include <QWaitCondition>
 #include <QImage>
-#include <QThread>
 
 // MythTV headers
 #include "../libmythfreemheg/freemheg.h"
@@ -33,25 +35,12 @@ class MythPainter;
 class InteractiveScreen;
 class DSMCCPacket;
 class MHIImageData;
-class MHIContext;
-
-class MHEGEngineThread : public QThread
-{
-    Q_OBJECT
-  public:
-    MHEGEngineThread() : m_parent(NULL) {}
-    void SetParent(MHIContext *parent) { m_parent = parent; }
-    void run(void);
-  private:
-    MHIContext *m_parent;
-};
 
 /** \class MHIContext
  *  \brief Contains various utility functions for interactive television.
  */
 class MHIContext : public MHContext
 {
-    friend class MHEGEngineThread;
   public:
     MHIContext(InteractiveTV *parent);
     virtual ~MHIContext();
@@ -170,6 +159,7 @@ class MHIContext : public MHContext
 
     QWaitCondition   m_engine_wait;
     bool             m_stop;
+    bool             m_stopped;
     QMutex           m_display_lock;
     bool             m_updated;
     int              m_displayWidth;
@@ -182,7 +172,7 @@ class MHIContext : public MHContext
     FT_Face          m_face;
     bool             m_face_loaded;
 
-    MHEGEngineThread m_engineThread;
+    pthread_t        m_engineThread;
 
     int              m_currentChannel;
     bool             m_isLive;
