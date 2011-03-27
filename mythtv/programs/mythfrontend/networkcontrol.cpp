@@ -1,4 +1,4 @@
-#include <unistd.h>
+# include <unistd.h>
 
 #include <QCoreApplication>
 #include <QRegExp>
@@ -216,8 +216,7 @@ NetworkControl::NetworkControl() :
     keyTextMap[Qt::Key_Bar]             = "|";
 
     stopCommandThread = false;
-    command_thread.SetParent(this);
-    command_thread.start();
+    pthread_create(&command_thread, NULL, CommandThread, this);
 
     gCoreContext->addListener(this);
 
@@ -246,7 +245,7 @@ NetworkControl::~NetworkControl(void)
     ncLock.lock();
     ncCond.wakeOne();
     ncLock.unlock();
-    command_thread.wait();
+    pthread_join(command_thread, NULL);
 }
 
 bool NetworkControl::listen(const QHostAddress & address, quint16 port)
@@ -260,12 +259,12 @@ bool NetworkControl::listen(const QHostAddress & address, quint16 port)
     return false;
 }
 
-void NetworkCommandThread::run(void)
+void *NetworkControl::CommandThread(void *param)
 {
-    if (!m_parent)
-        return;
+    NetworkControl *networkControl = static_cast<NetworkControl *>(param);
+    networkControl->RunCommandThread();
 
-    m_parent->RunCommandThread();
+    return NULL;
 }
 
 void NetworkControl::RunCommandThread(void)
