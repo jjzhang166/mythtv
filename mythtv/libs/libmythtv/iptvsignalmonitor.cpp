@@ -15,7 +15,7 @@
 #define LOC QString("IPTVSM(%1): ").arg(channel->GetDevice())
 #define LOC_ERR QString("IPTVSM(%1), Error: ").arg(channel->GetDevice())
 
-void IPTVMonitorThread::run(void)
+void IPTVTableMonitorThread::run(void)
 {
     m_parent->RunTableMonitor();
 }
@@ -38,7 +38,7 @@ IPTVSignalMonitor::IPTVSignalMonitor(int db_cardnum,
                                      IPTVChannel *_channel,
                                      uint64_t _flags) :
     DTVSignalMonitor(db_cardnum, _channel, _flags),
-    dtvMonitorRunning(false), table_monitor_thread(this)
+    dtvMonitorRunning(false), tableMonitorThread(NULL)
 {
     bool isLocked = false;
     IPTVChannelInfo chaninfo = GetChannel()->GetCurrentChanInfo();
@@ -74,11 +74,13 @@ void IPTVSignalMonitor::Stop(void)
     DBG_SM("Stop", "begin");
     GetChannel()->GetFeeder()->RemoveListener(this);
     SignalMonitor::Stop();
-    if (dtvMonitorRunning)
+    if (tableMonitorThread)
     {
         GetChannel()->GetFeeder()->Stop();
         dtvMonitorRunning = false;
-        table_monitor_thread.wait();
+        tableMonitorThread->wait();
+        delete tableMonitorThread;
+        tableMonitorThread = NULL;
     }
     DBG_SM("Stop", "end");
 }
@@ -96,7 +98,9 @@ void IPTVSignalMonitor::RunTableMonitor(void)
     GetChannel()->GetFeeder()->Run();
     GetChannel()->GetFeeder()->RemoveListener(this);
 
-    dtvMonitorRunning = false;
+    while (dtvMonitorRunning)
+        usleep(10000);
+
     DBG_SM("Run", "end");
 }
 
@@ -145,7 +149,7 @@ void IPTVSignalMonitor::UpdateValues(void)
                    kDTVSigMon_WaitForMGT | kDTVSigMon_WaitForVCT |
                    kDTVSigMon_WaitForNIT | kDTVSigMon_WaitForSDT))
     {
-        table_monitor_thread.start();
+        tableMonitorThread = new IPTVTableMonitorThread(this);
         DBG_SM("UpdateValues", "Waiting for table monitor to start");
         while (!dtvMonitorRunning)
             usleep(5000);
