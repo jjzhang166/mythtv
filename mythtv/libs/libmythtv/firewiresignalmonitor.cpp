@@ -17,7 +17,7 @@
 #define LOC_WARN QString("FireSM(%1), Warning: ").arg(channel->GetDevice())
 #define LOC_ERR QString("FireSM(%1), Error: ").arg(channel->GetDevice())
 
-void FWSignalThread::run(void)
+void FirewireTableMonitorThread::run(void)
 {
     m_parent->RunTableMonitor();
 }
@@ -48,7 +48,7 @@ FirewireSignalMonitor::FirewireSignalMonitor(
     uint64_t _flags) :
     DTVSignalMonitor(db_cardnum, _channel, _flags),
     dtvMonitorRunning(false),
-    table_monitor_thread(this),
+    tableMonitorThread(NULL),
     stb_needs_retune(true),
     stb_needs_to_wait_for_pat(false),
     stb_needs_to_wait_for_power(false)
@@ -79,10 +79,12 @@ void FirewireSignalMonitor::Stop(void)
 {
     VERBOSE(VB_CHANNEL, LOC + "Stop() -- begin");
     SignalMonitor::Stop();
-    if (dtvMonitorRunning)
+    if (tableMonitorThread)
     {
         dtvMonitorRunning = false;
-        table_monitor_thread.wait();
+        tableMonitorThread->wait();
+        delete tableMonitorThread;
+        tableMonitorThread = NULL;
     }
     VERBOSE(VB_CHANNEL, LOC + "Stop() -- end");
 }
@@ -141,8 +143,10 @@ void FirewireSignalMonitor::RunTableMonitor(void)
     FirewireChannel *lchan = dynamic_cast<FirewireChannel*>(channel);
     if (!lchan)
     {
+        VERBOSE(VB_CHANNEL, LOC + "RunTableMonitor(): -- err");
+        while (dtvMonitorRunning)
+            usleep(10000);
         VERBOSE(VB_CHANNEL, LOC + "RunTableMonitor(): -- err end");
-        dtvMonitorRunning = false;
         return;
     }
 
@@ -152,14 +156,15 @@ void FirewireSignalMonitor::RunTableMonitor(void)
     dev->AddListener(this);
 
     while (dtvMonitorRunning && GetStreamData())
-        usleep(100000);
+        usleep(10000);
 
     VERBOSE(VB_CHANNEL, LOC + "RunTableMonitor(): -- shutdown ");
 
     dev->RemoveListener(this);
     dev->ClosePort();
 
-    dtvMonitorRunning = false;
+    while (dtvMonitorRunning)
+        usleep(10000);
 
     VERBOSE(VB_CHANNEL, LOC + "RunTableMonitor(): -- end");
 }
@@ -279,13 +284,13 @@ void FirewireSignalMonitor::UpdateValues(void)
                    kDTVSigMon_WaitForMGT | kDTVSigMon_WaitForVCT |
                    kDTVSigMon_WaitForNIT | kDTVSigMon_WaitForSDT))
     {
-        table_monitor_thread.start();
+        tableMonitorThread = new FirewireTableMonitorThread(this);
 
         VERBOSE(VB_CHANNEL, LOC + "UpdateValues() -- "
                 "Waiting for table monitor to start");
 
-        while (!table_monitor_thread.isRunning())
-            usleep(50);
+        while (!dtvMonitorRunning)
+            usleep(5000);
 
         VERBOSE(VB_CHANNEL, LOC + "UpdateValues() -- "
                 "Table monitor started");

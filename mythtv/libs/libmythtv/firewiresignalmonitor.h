@@ -21,19 +21,21 @@ class FirewireChannel;
 
 class FirewireSignalMonitor;
 
-class FWSignalThread : public QThread
+class FirewireTableMonitorThread : public QThread
 {
     Q_OBJECT
   public:
-    FWSignalThread(FirewireSignalMonitor *p) : m_parent(p) {}
-    void run(void);
+    FirewireTableMonitorThread(FirewireSignalMonitor *p) :
+        m_parent(p) { start(); }
+    virtual ~FirewireTableMonitorThread() { wait(); }
+    virtual void run(void);
   private:
     FirewireSignalMonitor *m_parent;
 };
 
 class FirewireSignalMonitor : public DTVSignalMonitor, public TSDataListener
 {
-    friend class FWSignalThread;
+    friend class FirewireTableMonitorThread;
   public:
     FirewireSignalMonitor(int db_cardnum, FirewireChannel *_channel,
                           uint64_t _flags = kFWSigMon_WaitForPower);
@@ -61,8 +63,8 @@ class FirewireSignalMonitor : public DTVSignalMonitor, public TSDataListener
     static const uint kBufferTimeout;
 
   protected:
-    bool               dtvMonitorRunning;
-    FWSignalThread     table_monitor_thread;
+    volatile bool      dtvMonitorRunning;
+    FirewireTableMonitorThread *tableMonitorThread;
     bool               stb_needs_retune;
     bool               stb_needs_to_wait_for_pat;
     bool               stb_needs_to_wait_for_power;
