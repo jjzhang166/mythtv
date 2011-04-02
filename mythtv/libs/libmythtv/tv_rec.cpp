@@ -3222,6 +3222,7 @@ void TVRec::RingBufferChanged(RingBuffer *rb, ProgramInfo *pginfo)
         recordEndTime = GetRecordEndTime(pginfo);
         curRecording = new RecordingInfo(*pginfo);
         curRecording->MarkAsInUse(true, kRecorderInUseID);
+        curRecording->SetRecordingStatus(rsRecording);
     }
 
     SetRingBuffer(rb);
