@@ -253,7 +253,9 @@ void cleanup(void)
 {
     signal(SIGTERM, SIG_DFL);
     signal(SIGHUP,  SIG_DFL);
+#ifndef _MSC_VER
     signal(SIGUSR1, SIG_DFL);
+#endif
 
     delete sched;
     sched = NULL;
@@ -672,8 +674,9 @@ int run_backend(const MythCommandLineParser &cmdline)
 
     ///////////////////////////////////////////
 
-    g_pUPnp = new MediaServer(ismaster, !cmdline.IsUPnPEnabled() );
-    UPnp::PerformSearch("ssdp:all");
+    g_pUPnp = new MediaServer();
+    g_pUPnp->Init(ismaster, !cmdline.IsUPnPEnabled());
+    SSDP::Instance()->PerformSearch("ssdp:all");
 
     if (!ismaster)
     {

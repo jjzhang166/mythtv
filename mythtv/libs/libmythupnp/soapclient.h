@@ -74,6 +74,12 @@ class UPNP_PUBLIC SOAPClient
     QUrl    m_url;
     QString m_sNamespace;
     QString m_sControlPath;
+
+    QDomDocument SendSOAPRequestGetDoc(const QString &sMethod,
+                                       QStringMap    &list,
+                                       int           &nErrCode,
+                                       QString       &sErrDesc,
+                                       bool           bInQtThread);
 };
 
 #endif

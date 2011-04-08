@@ -23,8 +23,7 @@ static inline int __glCheck__(const QString &loc, const char* fileName, int n)
     if (error)
     {
         VERBOSE(VB_IMPORTANT, QString("%1: %2 @ %3, %4")
-            .arg(loc).arg((const char*)gluErrorString(error))
-            .arg(fileName).arg(n));
+            .arg(loc).arg(error).arg(fileName).arg(n));
     }
     return error;
 }
@@ -57,13 +56,14 @@ MythRenderOpenGL* MythRenderOpenGL::Create(const QGLFormat& format, QPaintDevice
 #endif
 }
 
-MythRenderOpenGL::MythRenderOpenGL(const QGLFormat& format, QPaintDevice* device)
-  : QGLContext(format, device)
+MythRenderOpenGL::MythRenderOpenGL(const QGLFormat& format, QPaintDevice* device,
+                                   RenderType type)
+  : QGLContext(format, device), MythRender(type)
 {
 }
 
-MythRenderOpenGL::MythRenderOpenGL(const QGLFormat& format)
-  : QGLContext(format)
+MythRenderOpenGL::MythRenderOpenGL(const QGLFormat& format, RenderType type)
+  : QGLContext(format), MythRender(type)
 {
 }
 

@@ -279,6 +279,7 @@ class MTV_PUBLIC TV : public QObject
     static EMBEDRETURNVOIDSCHEDIT RunScheduleEditorPtr;
 
   private:
+    bool ContextIsPaused(PlayerContext *ctx, const char *file, int location);
     void SetActive(PlayerContext *lctx, int index, bool osd_msg);
 
     PlayerContext       *GetPlayerWriteLock(
@@ -433,7 +434,7 @@ class MTV_PUBLIC TV : public QObject
                                 const QStringList &actions);
 
     bool ClearOSD(const PlayerContext*);
-    void ToggleOSD(const PlayerContext*, bool includeStatusOSD);
+    void ToggleOSD(PlayerContext*, bool includeStatusOSD);
     void UpdateOSDProgInfo(const PlayerContext*, const char *whichInfo);
     void UpdateOSDStatus(const PlayerContext *ctx, QString title, QString desc,
                          QString value, int type, QString units,
@@ -579,12 +580,16 @@ class MTV_PUBLIC TV : public QObject
 
     void ITVRestart(PlayerContext*, bool isLive);
 
-    bool ScreenShot(PlayerContext*, long long frameNumber);
+    // Deinterlacer handling
+    void HandleDeinterlacer(PlayerContext* ctx, const QString &action);
 
     // DVD methods
     void DVDJumpBack(PlayerContext*);
     void DVDJumpForward(PlayerContext*);
     bool DiscMenuHandleAction(PlayerContext*, const QStringList &actions);
+
+    // Visualisations
+    void ToggleVisualisation(const PlayerContext*);
 
     // Program jumping stuff
     void SetLastProgram(const ProgramInfo *rcinfo);

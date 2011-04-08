@@ -53,7 +53,7 @@ VideoOutputVDPAU::VideoOutputVDPAU()
     m_need_deintrefs(false), m_video_mixer(0), m_mixer_features(kVDPFeatNone),
     m_checked_surface_ownership(false),
     m_checked_output_surfaces(false),
-    m_decoder(0),            m_pix_fmt(-1),    m_frame_delay(0),
+    m_decoder(0),            m_pix_fmt(-1),
     m_lock(QMutex::Recursive), m_pip_layer(0), m_pip_surface(0),
     m_pip_ready(false),      m_osd_painter(NULL),
     m_skip_chroma(false),    m_denoise(0.0f),
@@ -499,6 +499,9 @@ void VideoOutputVDPAU::PrepareFrame(VideoFrame *frame, FrameScanType scan,
                               m_pip_ready ? m_pip_layer : 0, 0))
         VERBOSE(VB_PLAYBACK, LOC_ERR + QString("Prepare frame failed."));
 
+    if (m_visual)
+        m_visual->Draw(GetTotalOSDBounds(), m_osd_painter, NULL);
+
     if (osd && m_osd_painter && !window.IsEmbedding())
         osd->DrawDirect(m_osd_painter, GetTotalOSDBounds().size(), true);
 
@@ -635,10 +638,7 @@ void VideoOutputVDPAU::Show(FrameScanType scan)
         DrawUnusedRects(false);
 
     if (m_render)
-    {
-        m_render->Flip(m_frame_delay);
-        m_frame_delay = 0;
-    }
+        m_render->Flip();
     CheckFrameStates();
 }
 
@@ -1215,4 +1215,11 @@ void VideoOutputVDPAU::ParseOptions(void)
                     QString("Requesting high quality scaling."));
         }
     }
+}
+
+bool VideoOutputVDPAU::GetScreenShot(int width, int height)
+{
+    if (m_render)
+        return m_render->GetScreenShot(width, height);
+    return false;
 }

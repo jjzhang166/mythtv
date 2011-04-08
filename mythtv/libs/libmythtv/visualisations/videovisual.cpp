@@ -26,8 +26,11 @@ VideoVisual* VideoVisual::Create(AudioPlayer *audio, MythRender *render)
     if (render)
     {
 #ifdef USING_OPENGL
-        if (dynamic_cast<MythRenderOpenGL2*>(render))
+        if (render->Type() == kRenderOpenGL2 ||
+            render->Type() == kRenderOpenGL2ES)
+        {
             return new VideoVisualCircles(audio, render);
+        }
 #endif
         return new VideoVisualSpectrum(audio, render);
     }
@@ -57,7 +60,7 @@ VideoVisual::~VideoVisual()
 int64_t VideoVisual::SetLastUpdate(void)
 {
     QDateTime now = QDateTime::currentDateTime();
-    int64_t result = m_lastUpdate.msecsTo(now);
+    int64_t result = m_lastUpdate.time().msecsTo(now.time());
     m_lastUpdate = now;
     return result;
 }

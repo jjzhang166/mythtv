@@ -60,7 +60,7 @@ bool OCURChannel::Open(void)
     VERBOSE(VB_CHANNEL, LOC + QString("NT  = %1").arg(tuner_nt));
     VERBOSE(VB_CHANNEL, LOC + QString("USN = %1").arg(tuner_usn));
 
-    DeviceLocation *loc = UPnp::Find(tuner_nt, tuner_usn);
+    DeviceLocation *loc = SSDPCache::Instance()->Find(tuner_nt, tuner_usn);
     if (loc)
     {
         UPnpDeviceDesc *desc = loc->GetDeviceDesc(
@@ -127,7 +127,7 @@ bool OCURChannel::Tune(const QString &freqid, int /*finetune*/)
     if (!m_upnp_nt.contains("CAS") || !ok)
         return false;
 
-    DeviceLocation *loc = UPnp::Find(m_upnp_nt, m_upnp_usn);
+    DeviceLocation *loc = SSDPCache::Instance()->Find(m_upnp_nt, m_upnp_usn);
     if (!loc)
         return false;
     loc->Release();

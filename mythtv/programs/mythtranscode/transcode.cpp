@@ -91,7 +91,6 @@ class AudioReencodeBuffer : public AudioOutput
     virtual bool AddData(void *buffer, int len, int64_t timecode, int frames)
     {
         int freebuf = bufsize - audiobuffer_len;
-        int newlen;
 
         if (len > freebuf)
         {
@@ -122,10 +121,6 @@ class AudioReencodeBuffer : public AudioOutput
     virtual void SetTimecode(int64_t timecode)
     {
         last_audiotime = timecode;
-    }
-    virtual bool CanPassthrough(int, int) const
-    {
-        return false;
     }
     virtual bool IsPaused(void) const
     {
@@ -217,7 +212,8 @@ class AudioReencodeBuffer : public AudioOutput
     /**
      * Test if we can output digital audio
      */
-    virtual bool CanPassthrough(int, int, int) const { return m_initpassthru; }
+    virtual bool CanPassthrough(int, int, int, int) const
+        { return m_initpassthru; }
 
     int bufsize;
     int ab_count;
@@ -421,6 +417,12 @@ int Transcode::TranscodeFile(
         if (player_ctx)
             delete player_ctx;
         return REENCODE_ERROR;
+    }
+
+    if (AudioTrackNo > -1)
+    {
+        VERBOSE(VB_GENERAL, QString("Set audiotrack number to %1").arg(AudioTrackNo));
+        player->GetDecoder()->SetTrack(kTrackTypeAudio, AudioTrackNo);
     }
 
     long long total_frame_count = player->GetTotalFrameCount();
@@ -735,12 +737,6 @@ int Transcode::TranscodeFile(
         if (player_ctx)
             delete player_ctx;
         return REENCODE_ERROR;
-    }
-
-    if (AudioTrackNo > -1)
-    {
-        VERBOSE(VB_GENERAL, QString("Set audiotrack number to %1").arg(AudioTrackNo));
-        player->GetDecoder()->SetTrack(kTrackTypeAudio, AudioTrackNo);
     }
 
     int vidSize = 0;

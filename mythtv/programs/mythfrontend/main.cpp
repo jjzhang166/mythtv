@@ -170,8 +170,10 @@ namespace
         delete gContext;
         gContext = NULL;
 
+#ifndef _MSC_VER
         signal(SIGHUP, SIG_DFL);
         signal(SIGUSR1, SIG_DFL);
+#endif
     }
 
     class CleanupGuard
@@ -921,11 +923,6 @@ static void reloadTheme_void(void)
         exit(err);
 }
 
-static void getScreenShot(void)
-{
-    (void) GetMythMainWindow()->screenShot();
-}
-
 static void setDebugShowBorders(void)
 {
     MythPainter *p = GetMythPainter();
@@ -975,9 +972,6 @@ static void InitJumpPoints(void)
          "", "", showStatus);
      REG_JUMP(QT_TRANSLATE_NOOP("MythControls", "Previously Recorded"),
          "", "", startPrevious);
-
-     REG_JUMPEX(QT_TRANSLATE_NOOP("MythControls", "ScreenShot"),
-         "", "", getScreenShot, false);
 
      REG_JUMPEX(QT_TRANSLATE_NOOP("MythControls", "Toggle Show Widget Borders"),
          "", "", setDebugShowBorders, false);
@@ -1261,7 +1255,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!gContext->Init(true, g_pUPnp, bPromptForBackend, bBypassAutoDiscovery))
+    if (!gContext->Init(true, bPromptForBackend, bBypassAutoDiscovery))
     {
         VERBOSE(VB_IMPORTANT, "Failed to init MythContext, exiting.");
         return GENERIC_EXIT_NO_MYTHCONTEXT;
@@ -1473,11 +1467,12 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_NO_THEME;
     }
 
+#ifndef _MSC_VER
     // Setup handler for USR1 signals to reload theme
     signal(SIGUSR1, &signal_USR1_handler);
     // Setup handler for USR2 signals to restart LIRC
     signal(SIGUSR2, &signal_USR2_handler);
-
+#endif
     ThemeUpdateChecker *themeUpdateChecker = NULL;
     if (gCoreContext->GetNumSetting("ThemeUpdateNofications", 1))
         themeUpdateChecker = new ThemeUpdateChecker();

@@ -21,46 +21,76 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
-#include <arpa/inet.h>
+#include <errno.h>
 
+#ifdef _WIN32
+# include <winsock2.h>
+# include <ws2tcpip.h>
+# define GET_SOCKET_ERROR    WSAGetLastError()
+#else
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# define GET_SOCKET_ERROR    errno
+#endif
+
+// Qt headers
 #include <QStringList>
 
+// MythTV headers
 #include "mmulticastsocketdevice.h"
+#include "mythverbose.h"
+
+#define LOC      (QString("MMulticastSocketDevice(%1:%2): ") \
+                  .arg(m_address.toString()).arg(socket()))
+#define LOC_WARN (QString("MMulticastSocketDevice(%1:%2) Warning: ") \
+                  .arg(m_address.toString()).arg(socket()))
+#define LOC_ERR  (QString("MMulticastSocketDevice(%1:%2) Error: ") \
+                  .arg(m_address.toString()).arg(socket()))
 
 MMulticastSocketDevice::MMulticastSocketDevice(
     QString sAddress, quint16 nPort, u_char ttl) :
     MSocketDevice(MSocketDevice::Datagram),
     m_address(sAddress), m_port(nPort)
 {
+    // ttl = UPnp::GetConfiguration()->GetValue( "UPnP/TTL", 4 );
+
     if (ttl == 0)
-    {
-        //ttl = UPnp::g_pConfig->GetValue( "UPnP/TTL", 4 );
         ttl = 4;
-    }
 
     m_imr.imr_multiaddr.s_addr = inet_addr(sAddress.toAscii().constData());
     m_imr.imr_interface.s_addr = htonl(INADDR_ANY);
 
+    VERBOSE(VB_IMPORTANT, LOC + "ctor");
+
     if (setsockopt(socket(), IPPROTO_IP, IP_ADD_MEMBERSHIP,
                    &m_imr, sizeof( m_imr )) < 0)
     {
-        VERBOSE(VB_IMPORTANT, "MMulticastSocketDevice: setsockopt - "
-                "IP_ADD_MEMBERSHIP Error" + ENO);
+        VERBOSE(VB_IMPORTANT, LOC_ERR +
+                "setsockopt - IP_ADD_MEMBERSHIP " + ENO);
     }
 
-    setsockopt(socket(), IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+    if (setsockopt(socket(), IPPROTO_IP, IP_MULTICAST_TTL,
+                   &ttl, sizeof(ttl)) < 0)
+    {
+        VERBOSE(VB_IMPORTANT, LOC_ERR +
+                "setsockopt - IP_MULTICAST_TTL " + ENO);
+    }
 
     setAddressReusable(true);
 
-    bind(m_address, m_port); 
+    if (bind(m_address, m_port) < 0)
+        VERBOSE(VB_IMPORTANT, LOC_ERR + "bind failed " + ENO);
 }
 
 MMulticastSocketDevice::~MMulticastSocketDevice()
 {
-    if (!m_address.isNull())
+    if (!m_address.isNull() &&
+        (setsockopt(socket(), IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                    (char*)(&m_imr), sizeof(m_imr) < 0)))
     {
-        setsockopt(socket(), IPPROTO_IP, IP_DROP_MEMBERSHIP,
-                   &m_imr, sizeof(m_imr));
+        VERBOSE(VB_IMPORTANT, LOC_ERR +
+                "setsockopt - IP_DROP_MEMBERSHIP " + ENO);
     }
 }
 
