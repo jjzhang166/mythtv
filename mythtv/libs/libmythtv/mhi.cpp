@@ -38,11 +38,16 @@ class MHIImageData
 // Special value for the NetworkBootInfo version.  Real values are a byte.
 #define NBI_VERSION_UNSET       257
 
+void MHEGEngineThread::run(void)
+{
+    m_parent->RunMHEGEngine();
+}
+
 MHIContext::MHIContext(InteractiveTV *parent)
     : m_parent(parent),     m_dsmcc(NULL),
       m_keyProfile(0),
       m_engine(NULL),       m_stop(false),
-      m_stopped(false),     m_updated(false),
+      m_updated(false),
       m_displayWidth(StdDisplayWidth), m_displayHeight(StdDisplayHeight),
       m_face_loaded(false), m_currentChannel(-1),
       m_isLive(false),      m_currentCard(0),
@@ -128,18 +133,19 @@ void MHIContext::ClearQueue(void)
 }
 
 // Ask the engine to stop and block until it has.
-void MHIContext::StopEngine()
+void MHIContext::StopEngine(void)
 {
-    if (m_engine)
-    {
-        while (!m_stopped)
-        {
-            m_stop = true;
-            m_engine_wait.wakeAll();
-            usleep(1000);
-        }
-        pthread_join(m_engineThread, NULL);
-    }
+    if (NULL == m_engineThread)
+        return;
+
+    m_runLock.lock();
+    m_stop = true;
+    m_engine_wait.wakeAll();
+    m_runLock.unlock();
+
+    m_engineThread->wait();
+    delete m_engineThread;
+    m_engineThread = NULL;
 }
 
 
@@ -191,33 +197,23 @@ void MHIContext::Restart(uint chanid, uint cardid, bool isLive)
         m_isLive = isLive;
         // Don't set the NBI version here.  Restart is called
         // after the PMT is processed.
-        m_stopped = pthread_create(&m_engineThread, NULL,
-                                   StartMHEGEngine, this) != 0;
+        m_engineThread = new MHEGEngineThread(this);
+        m_engineThread->start();
+
         m_audioTag = -1;
         m_videoTag = -1;
         m_tuningTo = -1;
     }
 }
 
-// Thread function to run the MHEG engine.
-void *MHIContext::StartMHEGEngine(void *param)
-{
-    //VERBOSE(VB_GENERAL, "Starting MHEG Engine");
-    MHIContext *context = (MHIContext*) param;
-    context->RunMHEGEngine();
-    context->m_stopped = true;
-    return NULL;
-}
-
 void MHIContext::RunMHEGEngine(void)
 {
-    // Qt4 requires a QMutex as a parameter...
-    // not sure if this is the best solution.  Mutex Must be locked before wait.
-    QMutex mutex;
-    mutex.lock();
+    QMutexLocker locker(&m_runLock);
 
     while (!m_stop)
     {
+        locker.unlock();
+
         int toWait;
         // Dequeue and process any key presses.
         int key = 0;
@@ -239,10 +235,11 @@ void MHIContext::RunMHEGEngine(void)
                 return;
         } while (key != 0);
 
-        if (toWait > 1000 || toWait == 0)
-            toWait = 1000;
+        toWait = (toWait > 1000 || toWait <= 0) ? 1000 : toWait;
 
-        m_engine_wait.wait(&mutex, toWait);
+        locker.relock();
+        if (!m_stop && (toWait > 0))
+            m_engine_wait.wait(locker.mutex(), toWait);
     }
 }
 
@@ -280,10 +277,13 @@ void MHIContext::QueueDSMCCPacket(
         return;
 
     memcpy(dataCopy, data, length*sizeof(unsigned char));
-    QMutexLocker locker(&m_dsmccLock);
-    m_dsmccQueue.enqueue(new DSMCCPacket(dataCopy,     length,
-                                         componentTag, carouselId,
-                                         dataBroadcastId));
+    {
+        QMutexLocker locker(&m_dsmccLock);
+        m_dsmccQueue.enqueue(new DSMCCPacket(dataCopy,     length,
+                                             componentTag, carouselId,
+                                             dataBroadcastId));
+    }
+    QMutexLocker locker(&m_runLock);
     m_engine_wait.wakeAll();
 }
 
@@ -302,7 +302,11 @@ void MHIContext::SetNetBootInfo(const unsigned char *data, uint length)
     if (m_lastNbiVersion == NBI_VERSION_UNSET)
         m_lastNbiVersion = data[0];
     else
+    {
+        locker.unlock();
+        QMutexLocker locker2(&m_runLock);
         m_engine_wait.wakeAll();
+    }
 }
 
 void MHIContext::NetworkBootRequested(void)
@@ -341,13 +345,11 @@ bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
     // same thread this is safe.  Otherwise we need to make a deep copy of
     // the result.
 
-    // Qt4 requires a QMutex as a parameter...
-    // not sure if this is the best solution.  Mutex Must be locked before wait.
-    QMutex mutex;
-    mutex.lock();
-
+    QMutexLocker locker(&m_runLock);
     while (!m_stop)
     {
+        locker.unlock();
+
         int res = m_dsmcc->GetDSMCCObject(path, result);
         if (res == 0)
             return true; // Found it
@@ -358,7 +360,10 @@ bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
         // some more packets.  We should eventually find out if this item is
         // present.
         ProcessDSMCCQueue();
-        m_engine_wait.wait(&mutex, 1000);
+
+        locker.relock();
+        if (!m_stop)
+            m_engine_wait.wait(locker.mutex(), 1000);
     }
     return false; // Stop has been set.  Say the object isn't present.
 }
@@ -433,6 +438,8 @@ bool MHIContext::OfferKey(QString key)
         m_keyQueue.enqueue(action);
         VERBOSE(VB_IMPORTANT, "Adding MHEG key "<<key<<":"<<action
                 <<":"<<m_keyQueue.size());
+        locker.unlock();
+        QMutexLocker locker2(&m_runLock);
         m_engine_wait.wakeAll();
         return true;
     }
