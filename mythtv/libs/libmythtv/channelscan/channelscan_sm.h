@@ -30,10 +30,9 @@
 #ifndef SISCAN_H
 #define SISCAN_H
 
-#include <pthread.h>
-
 // Qt includes
 #include <QString>
+#include <QThread>
 #include <QList>
 #include <QPair>
 #include <QMap>
@@ -80,12 +79,24 @@ class AnalogSignalHandler : public SignalMonitorListener
     ChannelScanSM *siscan;
 };
 
+class ScannerThread : public QThread
+{
+    Q_OBJECT
+  public:
+    ScannerThread(ChannelScanSM *parent) : m_parent(parent) {}
+    ~ScannerThread() { wait(); m_parent = NULL; }
+    void run(void);
+  private:
+    ChannelScanSM *m_parent;
+};
+
 class ChannelScanSM : public MPEGStreamListener,
                       public ATSCMainStreamListener,
                       public DVBMainStreamListener,
                       public DVBOtherStreamListener
 {
     friend class AnalogSignalHandler;
+    friend class ScannerThread;
 
   public:
     ChannelScanSM(
@@ -163,8 +174,6 @@ class ChannelScanSM : public MPEGStreamListener,
 
     /// \brief Called by SpawnScanner to run scanning thread
     void RunScanner(void);
-    /// \brief Thunk to call RunScanner from pthread
-    static void *SpawnScanner(void *param);
 
     bool HasTimedOut(void);
     void HandleActiveScan(void);
@@ -221,7 +230,7 @@ class ChannelScanSM : public MPEGStreamListener,
 
     // State
     bool              scanning;
-    bool              threadExit;
+    volatile bool     threadExit;
     bool              waitingForTables;
     QTime             timer;
 
@@ -246,8 +255,7 @@ class ChannelScanSM : public MPEGStreamListener,
     AnalogSignalHandler *analogSignalHandler;
 
     /// Scanner thread, runs ChannelScanSM::StartScanner()
-    pthread_t        scanner_thread;
-    bool             scanner_thread_running;
+    ScannerThread       *scannerThread;
 };
 
 inline void ChannelScanSM::UpdateScanPercentCompleted(void)
