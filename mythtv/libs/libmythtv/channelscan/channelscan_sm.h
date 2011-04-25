@@ -70,7 +70,7 @@ class AnalogSignalHandler : public SignalMonitorListener
   public:
     AnalogSignalHandler(ChannelScanSM *_siscan) : siscan(_siscan) { }
 
-  public slots:
+  public:
     virtual inline void AllGood(void);
     virtual void StatusSignalLock(const SignalMonitorValue&) { }
     virtual void StatusChannelTuned(const SignalMonitorValue&) { }
