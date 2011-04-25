@@ -9,7 +9,6 @@
 using namespace std;
 
 // POSIX headers
-#include <pthread.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <inttypes.h>
