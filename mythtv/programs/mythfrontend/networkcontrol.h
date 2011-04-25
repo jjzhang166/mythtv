@@ -4,14 +4,13 @@
 #include <deque>
 using namespace std;
 
-#include <pthread.h>
-
 #include <QEvent>
 #include <QWaitCondition>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QMutex>
 #include <QStringList>
+#include <QThread>
 
 class MainServer;
 class QTextStream;
@@ -86,9 +85,24 @@ class NetworkControlCloseEvent : public QEvent
     NetworkControlClient * m_networkControlClient;
 };
 
+class NetworkControl;
+
+class NetworkCommandThread : public QThread
+{
+    Q_OBJECT
+  public:
+    NetworkCommandThread(NetworkControl *parent) : m_parent(parent) {}
+    virtual ~NetworkCommandThread() { wait(); m_parent = NULL; }
+    virtual void run(void);
+  private:
+    NetworkControl *m_parent;
+};
+
 class NetworkControl : public QTcpServer
 {
     Q_OBJECT
+
+    friend class NetworkCommandThread;
   public:
     NetworkControl();
     ~NetworkControl();
@@ -101,9 +115,6 @@ class NetworkControl : public QTcpServer
     void deleteClient(void);
 
   protected:
-    static void *SocketThread(void *param);
-    void RunSocketThread(void);
-    static void *CommandThread(void *param);
     void RunCommandThread(void);
 
   private:
@@ -139,15 +150,15 @@ class NetworkControl : public QTcpServer
     mutable QMutex  clientLock;
     QList<NetworkControlClient*> clients;
 
-    QList<NetworkCommand*> networkControlCommands;
+    QList<NetworkCommand*> networkControlCommands; // protected by ncLock
     QMutex ncLock;
-    QWaitCondition ncCond;
+    QWaitCondition ncCond; // protected by ncLock
 
     QList<NetworkCommand*> networkControlReplies;
     QMutex nrLock;
 
-    pthread_t command_thread;
-    bool stopCommandThread;
+    NetworkCommandThread *commandThread;
+    bool stopCommandThread; // protected by ncLock
 };
 
 #endif

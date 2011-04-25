@@ -1,4 +1,4 @@
-# include <unistd.h>
+#include <unistd.h>
 
 #include <QCoreApplication>
 #include <QRegExp>
@@ -48,11 +48,18 @@ static bool is_abbrev(QString const& command,
         return test.toLower() == command.left(test.length()).toLower();
 }
 
+void NetworkCommandThread::run(void)
+{
+    m_parent->RunCommandThread();
+}
+
 NetworkControl::NetworkControl() :
     QTcpServer(),
     prompt("# "),
     gotAnswer(false), answer(""),
-    clientLock(QMutex::Recursive)
+    clientLock(QMutex::Recursive),
+    commandThread(new NetworkCommandThread(this)),
+    stopCommandThread(false)
 {
     // Eventually this map should be in the jumppoints table
     jumpMap["channelpriorities"]     = "Channel Recording Priorities";
@@ -215,8 +222,7 @@ NetworkControl::NetworkControl() :
     keyTextMap[Qt::Key_Greater]         = ">";
     keyTextMap[Qt::Key_Bar]             = "|";
 
-    stopCommandThread = false;
-    pthread_create(&command_thread, NULL, CommandThread, this);
+    commandThread->start();
 
     gCoreContext->addListener(this);
 
@@ -241,11 +247,13 @@ NetworkControl::~NetworkControl(void)
 
     notifyDataAvailable();
 
-    stopCommandThread = true;
     ncLock.lock();
+    stopCommandThread = true;
     ncCond.wakeOne();
     ncLock.unlock();
-    pthread_join(command_thread, NULL);
+    commandThread->wait();
+    delete commandThread;
+    commandThread = NULL;
 }
 
 bool NetworkControl::listen(const QHostAddress & address, quint16 port)
@@ -259,34 +267,21 @@ bool NetworkControl::listen(const QHostAddress & address, quint16 port)
     return false;
 }
 
-void *NetworkControl::CommandThread(void *param)
-{
-    NetworkControl *networkControl = static_cast<NetworkControl *>(param);
-    networkControl->RunCommandThread();
-
-    return NULL;
-}
-
 void NetworkControl::RunCommandThread(void)
 {
-    NetworkCommand *nc;
-
+    QMutexLocker locker(&ncLock);
     while (!stopCommandThread)
     {
-        ncLock.lock();
-        while (!networkControlCommands.size()) {
+        while (networkControlCommands.empty() && !stopCommandThread)
             ncCond.wait(&ncLock);
-            if (stopCommandThread)
-            {
-                ncLock.unlock();
-                return;
-            }
+        if (!stopCommandThread)
+        {
+            NetworkCommand *nc = networkControlCommands.front();
+            networkControlCommands.pop_front();
+            locker.unlock();
+            processNetworkControlCommand(nc);
+            locker.relock();
         }
-        nc = networkControlCommands.front();
-        networkControlCommands.pop_front();
-        ncLock.unlock();
-
-        processNetworkControlCommand(nc);
     }
 }
 
