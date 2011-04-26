@@ -28,9 +28,6 @@ using namespace std;
 #include "mythdirs.h"
 #include "mythverbose.h"
 
-// windows.h - avoid a conflict with Qt::ChildJobThread::SetJob
-#undef SetJob
-
 #ifndef O_STREAMING
 #define O_STREAMING 0
 #endif
@@ -39,26 +36,30 @@ using namespace std;
 #define O_LARGEFILE 0
 #endif
 
+void QueueProcessorThread::run(void)
+{
+    m_parent->RunQueueProcessor();
+}
+
 #define LOC     QString("JobQueue: ")
 #define LOC_ERR QString("JobQueue Error: ")
 
-JobQueue::JobQueue(bool master)
+JobQueue::JobQueue(bool master) :
+    m_hostname(gCoreContext->GetHostName()),
+    jobsRunning(0),
+    jobQueueCPU(0),
+    m_pginfo(NULL),
+    runningJobsLock(new QMutex(QMutex::Recursive)),
+    isMaster(master),
+    queueThread(new QueueProcessorThread(this)),
+    processQueue(false)
 {
-    isMaster = master;
-    m_hostname = gCoreContext->GetHostName();
-
-    runningJobsLock = new QMutex(QMutex::Recursive);
-
     jobQueueCPU = gCoreContext->GetNumSetting("JobQueueCPU", 0);
 
-    jobsRunning = 0;
-
 #ifndef USING_VALGRIND
-    processQueue = false;
-    queueThreadCondLock.lock();
-    pthread_create(&queueThread, NULL, QueueProcesserThread, this);
-    queueThreadCond.wait(&queueThreadCondLock);
-    queueThreadCondLock.unlock();
+    QMutexLocker locker(&queueThreadCondLock);
+    processQueue = true;
+    queueThread->start();
 #else
     VERBOSE(VB_IMPORTANT, LOC_ERR + "The JobQueue has been disabled because "
             "you compiled with the --enable-valgrind option.");
@@ -69,8 +70,14 @@ JobQueue::JobQueue(bool master)
 
 JobQueue::~JobQueue(void)
 {
-    pthread_cancel(queueThread);
-    pthread_join(queueThread, NULL);
+    queueThreadCondLock.lock();
+    processQueue = false;
+    queueThreadCond.wakeAll();
+    queueThreadCondLock.unlock();
+
+    queueThread->wait();
+    delete queueThread;
+    queueThread = NULL;
 
     gCoreContext->removeListener(this);
 
@@ -141,27 +148,19 @@ void JobQueue::customEvent(QEvent *e)
     }
 }
 
-void JobQueue::RunQueueProcesser()
+void JobQueue::RunQueueProcessor(void)
 {
     queueThreadCondLock.lock();
     queueThreadCond.wakeAll();
     queueThreadCondLock.unlock();
 
-    processQueue = true;
-
     RecoverQueue();
 
-    sleep(10);
+    queueThreadCondLock.lock();
+    queueThreadCond.wait(&queueThreadCondLock, 10 * 1000);
+    queueThreadCondLock.unlock();
 
     ProcessQueue();
-}
-
-void *JobQueue::QueueProcesserThread(void *param)
-{
-    JobQueue *jobqueue = (JobQueue *)param;
-    jobqueue->RunQueueProcesser();
-
-    return NULL;
 }
 
 void JobQueue::ProcessQueue(void)
@@ -185,8 +184,11 @@ void JobQueue::ProcessQueue(void)
     bool startedJobAlready = false;
     QMap<int, RunningJobInfo>::Iterator rjiter;
 
+    QMutexLocker locker(&queueThreadCondLock);
     while (processQueue)
     {
+        locker.unlock();
+
         startedJobAlready = false;
         sleepTime = gCoreContext->GetNumSetting("JobQueueCheckFrequency", 30);
         maxJobs = gCoreContext->GetNumSetting("JobQueueMaxSimultaneousJobs", 3);
@@ -465,10 +467,13 @@ void JobQueue::ProcessQueue(void)
             }
         }
 
-        if (startedJobAlready)
-            sleep(5);
-        else
-            sleep(sleepTime);
+        locker.relock();
+        if (processQueue)
+        {
+            int st = (startedJobAlready) ? (5 * 1000) : (sleepTime * 1000);
+            if (st > 0)
+                queueThreadCond.wait(locker.mutex(), st);
+        }
     }
 }
 

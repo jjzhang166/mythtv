@@ -7,6 +7,7 @@
 #include <QWaitCondition>
 #include <QDateTime>
 #include <QObject>
+#include <QThread>
 #include <QEvent>
 #include <QMutex>
 #include <QMap>
@@ -108,9 +109,24 @@ typedef struct runningjobinfo {
     ProgramInfo *pginfo;
 } RunningJobInfo;
 
+class JobQueue;
+
+class QueueProcessorThread : public QThread
+{
+    Q_OBJECT
+  public:
+    QueueProcessorThread(JobQueue *parent) : m_parent(parent) {}
+    ~QueueProcessorThread() { wait(); m_parent = NULL; }
+    virtual void run(void);
+  private:
+    JobQueue *m_parent;
+};
+
 class MTV_PUBLIC JobQueue : public QObject
 {
     Q_OBJECT
+
+    friend class QueueProcessorThread;
   public:
     JobQueue(bool master);
     ~JobQueue(void);
@@ -197,8 +213,7 @@ class MTV_PUBLIC JobQueue : public QObject
         int jobID;
     } JobThreadStruct;
 
-    static void *QueueProcesserThread(void *param);
-    void RunQueueProcesser(void);
+    void RunQueueProcessor(void);
     void ProcessQueue(void);
 
     void ProcessJob(JobQueueEntry job);
@@ -239,7 +254,7 @@ class MTV_PUBLIC JobQueue : public QObject
 
     bool isMaster;
 
-    pthread_t queueThread;
+    QueueProcessorThread *queueThread;
     QWaitCondition queueThreadCond;
     QMutex queueThreadCondLock;
     bool processQueue;
