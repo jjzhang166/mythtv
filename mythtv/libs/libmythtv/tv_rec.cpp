@@ -1046,6 +1046,7 @@ void TVRec::TeardownRecorder(bool killFile)
         if (GetV4LChannel())
             channel->SetFd(-1);
 
+        QMutexLocker locker(&stateChangeLock);
         delete recorder;
         recorder = NULL;
     }
