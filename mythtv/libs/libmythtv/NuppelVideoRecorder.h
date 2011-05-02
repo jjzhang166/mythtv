@@ -6,7 +6,7 @@
 
 #include <sys/time.h>
 #include <time.h>
-#include <pthread.h>
+#include <QThread>
 #ifdef MMX
 #undef MMX
 #define MMXBLAH
@@ -27,6 +27,7 @@ using namespace std;
 
 // Qt headers
 #include <QString>
+#include <QThread>
 
 // MythTV headers
 #include "v4lrecorder.h"
@@ -44,10 +45,35 @@ class ChannelBase;
 class FilterManager;
 class FilterChain;
 class AudioInput;
+class NuppelVideoRecorder;
+
+class NVRWriteThread : public QThread
+{
+    Q_OBJECT
+  public:
+    NVRWriteThread(NuppelVideoRecorder *parent) : m_parent(parent) {}
+    virtual ~NVRWriteThread() { wait(); m_parent = NULL; }
+    virtual void run(void);
+  private:
+    NuppelVideoRecorder *m_parent;
+};
+
+class NVRAudioThread : public QThread
+{
+    Q_OBJECT
+  public:
+    NVRAudioThread(NuppelVideoRecorder *parent) : m_parent(parent) {}
+    virtual ~NVRAudioThread() { wait(); m_parent = NULL; }
+    virtual void run(void);
+  private:
+    NuppelVideoRecorder *m_parent;
+};
 
 class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
 {
- public:
+    friend class NVRWriteThread;
+    friend class NVRAudioThread;
+  public:
     NuppelVideoRecorder(TVRec *rec, ChannelBase *channel);
    ~NuppelVideoRecorder();
 
@@ -64,9 +90,8 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     void StartRecording(void);
     void StopRecording(void); 
     
-    void Pause(bool clear = true);
-    void Unpause(void);
-    bool IsPaused(void) const;
+    virtual void Pause(bool clear = true);
+    virtual bool IsPaused(bool holding_lock = false) const;
  
     bool IsRecording(void);
     bool IsErrored(void);
@@ -105,10 +130,6 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     void SetNewVideoParams(double newaspect);
 
  protected:
-    static void *WriteThread(void *param);
-    static void *AudioThread(void *param);
-    static void *VbiThread(void *param);
-
     void doWriteThread(void);
     void doAudioThread(void);
 
@@ -123,7 +144,7 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
 
     bool MJPEGInit(void);
  
-    int SpawnChildren(void);
+    bool SpawnChildren(void);
     void KillChildren(void);
     
     void BufferIt(unsigned char *buf, int len = -1, bool forcekey = false);
@@ -205,10 +226,10 @@ class MTV_PUBLIC NuppelVideoRecorder : public V4LRecorder, public CC608Input
     struct timeval stm;
     struct timezone tzone;
 
-    bool childrenLive;
+    volatile bool childrenLive;
 
-    pthread_t write_tid;
-    pthread_t audio_tid;
+    NVRWriteThread *write_thread;
+    NVRAudioThread *audio_thread;
 
     bool recording;
     bool errored;
