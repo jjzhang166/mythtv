@@ -8,7 +8,6 @@
  */
 
 // POSIX headers
-#include <pthread.h>
 #include <sys/select.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -45,6 +44,11 @@ using namespace std;
 
 typedef QMap<raw1394handle_t,LinuxFirewireDevice*> handle_to_lfd_t;
 
+void LinuxControllerThread::run(void)
+{
+    m_parent->RunPortHandler();
+}
+
 class LFDPriv
 {
   public:
@@ -54,7 +58,7 @@ class LFDPriv
         avstream(NULL), channel(-1),
         output_plug(-1), input_plug(-1), bandwidth(0), no_data_cnt(0),
         is_p2p_node_open(false), is_bcast_node_open(false),
-        is_streaming(false)
+        is_streaming(false), port_handler_thread(NULL)
     {
     }
 
@@ -64,6 +68,12 @@ class LFDPriv
         for (; it != devices.end(); ++it)
             delete (*it);
         devices.clear();
+
+        if (port_handler_thread)
+        {
+            port_handler_thread->wait();
+            delete port_handler_thread;
+        }
     }
 
     uint             generation;
@@ -72,6 +82,7 @@ class LFDPriv
 
     bool             run_port_handler;
     bool             is_port_handler_running;
+    QWaitCondition   port_handler_wait;
     QMutex           start_stop_port_handler_lock;
 
     iec61883_mpeg2_t avstream;
@@ -85,8 +96,8 @@ class LFDPriv
     bool             is_bcast_node_open;
     bool             is_streaming;
 
-    QDateTime        stop_streaming_timer;
-    pthread_t        port_handler_thread;
+    QDateTime              stop_streaming_timer;
+    LinuxControllerThread *port_handler_thread;
 
     avcinfo_list_t   devices;
 
@@ -268,37 +279,20 @@ bool LinuxFirewireDevice::OpenPort(void)
     {
         VERBOSE(VB_IMPORTANT, LOC_ERR + QString("Not an STB"));
 
-        m_lock.unlock();
+        mlocker.unlock();
         ClosePort();
-        m_lock.lock();
-
-        return false;
-    }
-
-    VERBOSE(VB_RECORD, LOC + "Starting port handler thread");
-    int rval = pthread_create(&m_priv->port_handler_thread, NULL,
-                              linux_firewire_device_port_handler_thunk, this);
-    if (rval != 0)
-    {
-        VERBOSE(VB_IMPORTANT, LOC_ERR +
-                QString("Failed to create port handler thread.") + ENO);
-
-        m_lock.unlock();
-        ClosePort();
-        m_lock.lock();
 
         return false;
     }
 
     m_priv->run_port_handler = true;
 
-    VERBOSE(VB_RECORD, LOC + "Waiting for port handler thread to start");
+    VERBOSE(VB_RECORD, LOC + "Starting port handler thread");
+    m_priv->port_handler_thread = new LinuxControllerThread(this);
+    m_priv->port_handler_thread->start();
+
     while (!m_priv->is_port_handler_running)
-    {
-        m_lock.unlock();
-        usleep(5000);
-        m_lock.lock();
-    }
+        m_priv->port_handler_wait.wait(mlocker.mutex(), 100);
 
     VERBOSE(VB_RECORD, LOC + "Port handler thread started");
 
@@ -335,15 +329,16 @@ bool LinuxFirewireDevice::ClosePort(void)
 
         VERBOSE(VB_RECORD, LOC + "Waiting for port handler thread to stop");
         m_priv->run_port_handler = false;
-        while (m_priv->is_port_handler_running)
-        {
-            m_lock.unlock();
-            usleep(5000);
-            m_lock.lock();
-        }
+        m_priv->port_handler_wait.wakeAll();
 
-        VERBOSE(VB_RECORD, LOC + "Joining port handler thread");
-        pthread_join(m_priv->port_handler_thread, NULL);
+        mlocker.unlock();
+        m_priv->port_handler_thread->wait();
+        mlocker.relock();
+
+        delete m_priv->port_handler_thread;
+        m_priv->port_handler_thread = NULL;
+
+        VERBOSE(VB_RECORD, LOC + "Joined port handler thread");
 
         remove_handle(GetInfoPtr()->fw_handle);
 
@@ -597,19 +592,17 @@ bool LinuxFirewireDevice::CloseAVStream(void)
     return true;
 }
 
-void *linux_firewire_device_port_handler_thunk(void *param)
-{
-    LinuxFirewireDevice *mon = (LinuxFirewireDevice*) param;
-    mon->RunPortHandler();
-    return NULL;
-}
-
 void LinuxFirewireDevice::RunPortHandler(void)
 {
     VERBOSE(VB_RECORD, LOC + "RunPortHandler -- start");
     m_lock.lock();
     VERBOSE(VB_RECORD, LOC + "RunPortHandler -- got first lock");
     m_priv->is_port_handler_running = true;
+    m_priv->port_handler_wait.wakeAll();
+    // we need to unlock & sleep to allow wakeAll to wake other threads.
+    m_lock.unlock();
+    usleep(2500);
+    m_lock.lock();
 
     m_priv->no_data_cnt = 0;
     while (m_priv->run_port_handler)
@@ -637,9 +630,7 @@ void LinuxFirewireDevice::RunPortHandler(void)
         {
             // We unlock here because this can take a long time
             // and we don't want to block other actions.
-            m_lock.unlock();
-            usleep(kNoDataTimeout);
-            m_lock.lock();
+            m_priv->port_handler_wait.wait(&m_lock, kNoDataTimeout);
 
             m_priv->no_data_cnt += (m_priv->is_streaming) ? 1 : 0;
             continue;
@@ -678,6 +669,7 @@ void LinuxFirewireDevice::RunPortHandler(void)
     }
 
     m_priv->is_port_handler_running = false;
+    m_priv->port_handler_wait.wakeAll();
     m_lock.unlock();
     VERBOSE(VB_RECORD, LOC + "RunPortHandler -- end");
 }
