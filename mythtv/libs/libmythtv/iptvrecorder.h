@@ -47,7 +47,6 @@ class IPTVRecorder : public DTVRecorder, public TSDataListener
 
   private:
     IPTVChannel *_channel;
-    QWaitCondition  _cond_recording;
 
   private:
     IPTVRecorder &operator=(const IPTVRecorder&); //< avoid default impl

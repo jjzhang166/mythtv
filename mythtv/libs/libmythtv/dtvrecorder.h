@@ -148,10 +148,6 @@ class DTVRecorder :
 
     MPEGStreamData          *_stream_data;
 
-    // packet buffer
-    //unsigned char* _buffer;
-    //int            _buffer_size;
-
     // keyframe finding buffer
     bool                  _buffer_packets;
     vector<unsigned char> _payload_buffer;
