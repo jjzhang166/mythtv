@@ -84,16 +84,13 @@ bool DeviceReadBuffer::Setup(const QString &streamName, int streamfd,
     request_pause = false;
     paused        = false;
 
-    read_quanta   = (readQuanta) ? readQuanta : read_quanta;
-    size          = gCoreContext->GetNumSetting(
-        "HDRingbufferSize", 50 * read_quanta) * 1024;
+    size          = gCoreContext->GetNumSetting("HDRingbufferSize",
+                                            50 * TSPacket::kSize) * 1024;
     used          = 0;
-    dev_read_size = read_quanta * (using_poll ? 256 : 48);
-    dev_read_size = (deviceBufferSize) ?
-        min(dev_read_size, (size_t)deviceBufferSize) : dev_read_size;
-    min_read      = read_quanta * 4;
+    dev_read_size = TSPacket::kSize * (using_poll ? 256 : 48);
+    min_read      = TSPacket::kSize * 4;
 
-    buffer        = new unsigned char[size + dev_read_size];
+    buffer        = new unsigned char[size + TSPacket::kSize];
     readPtr       = buffer;
     writePtr      = buffer;
     endPtr        = buffer + size;
