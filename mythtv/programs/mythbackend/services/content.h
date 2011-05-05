@@ -31,7 +31,7 @@ class Content : public ContentServices
     Q_OBJECT
 
     public:
-    
+
         Q_INVOKABLE Content( QObject *parent = 0 ) {}
 
     public:
@@ -41,14 +41,20 @@ class Content : public ContentServices
 
         QStringList         GetFileList         ( const QString   &StorageGroup );
 
-        QFileInfo           GetVideoArt         ( int Id );
+        QFileInfo           GetVideoCoverart    ( int Id );
+
+        QFileInfo           GetVideoFanart      ( int Id );
+
+        QFileInfo           GetVideoBanner      ( int Id );
+
+        QFileInfo           GetVideoScreenshot  ( int Id );
 
         QFileInfo           GetAlbumArt         ( int Id, int Width, int Height );
 
         QFileInfo           GetPreviewImage     ( int              ChanId,
                                                   const QDateTime &StartTime,
-                                                  int              Width,    
-                                                  int              Height,   
+                                                  int              Width,
+                                                  int              Height,
                                                   int              SecsIn );
 
         QFileInfo           GetRecording        ( int              ChanId,
@@ -59,6 +65,10 @@ class Content : public ContentServices
 
         QString             GetHash             ( const QString   &storageGroup,
                                                   const QString   &FileName );
+
+        bool                DownloadFile        ( const QString   &URL,
+                                                  const QString   &StorageGroup );
+
 };
 
 Q_SCRIPT_DECLARE_QMETAOBJECT( Content, QObject*);

@@ -417,7 +417,7 @@ void TV::SetFuncPtr(const char *string, void *lptr)
     QString name(string);
     if (name == "playbackbox")
         RunPlaybackBoxPtr = (EMBEDRETURNVOID)lptr;
-    else if (name == ACTION_VIEWSCHEDULED)
+    else if (name == "viewscheduled")
         RunViewScheduledPtr = (EMBEDRETURNVOID)lptr;
     else if (name == "programguide")
         RunProgramGuidePtr = (EMBEDRETURNVOIDEPG)lptr;
@@ -1212,8 +1212,6 @@ TV::~TV(void)
         player.pop_back();
     }
     ReturnPlayerLock(mctx);
-
-    GetMythMainWindow()->GetPaintWindow()->show();
 
     VERBOSE(VB_PLAYBACK, "TV::~TV() -- end");
 }
@@ -2106,7 +2104,6 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
             (db_use_fixed_size) ? player_bounds.size() :
             QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
         mainWindow->setGeometry(player_bounds);
-        GetMythMainWindow()->GetPaintWindow()->hide();
         if (!weDisabledGUI)
         {
             weDisabledGUI = true;
@@ -7363,8 +7360,14 @@ void TV::ClearTunableCache(void)
     is_tunable_cache_inputs.clear();
 }
 
-bool TV::StartEmbedding(PlayerContext *ctx, WId wid, const QRect &embedRect)
+bool TV::StartEmbedding(const QRect &embedRect)
 {
+    PlayerContext *ctx = GetPlayerReadLock(-1, __FILE__, __LINE__);
+    if (!ctx)
+        return false;
+
+    WId wid = GetMythMainWindow()->GetPaintWindow()->winId();
+
     if (!ctx->IsNullVideoDesired())
         ctx->StartEmbedding(wid, embedRect);
     else
@@ -7391,15 +7394,19 @@ bool TV::StartEmbedding(PlayerContext *ctx, WId wid, const QRect &embedRect)
         KillTimer(embedCheckTimerId);
     embedCheckTimerId = StartTimer(kEmbedCheckFrequency, __LINE__);
 
-    return ctx->IsEmbedding();
+    bool embedding = ctx->IsEmbedding();
+    ReturnPlayerLock(ctx);
+    return embedding;
 }
 
-void TV::StopEmbedding(PlayerContext *ctx)
+void TV::StopEmbedding(void)
 {
-    if (!ctx->IsEmbedding())
+    PlayerContext *ctx = GetPlayerReadLock(-1, __FILE__, __LINE__);
+    if (!ctx)
         return;
 
-    ctx->StopEmbedding();
+    if (ctx->IsEmbedding())
+        ctx->StopEmbedding();
 
     // Undo any PIP hiding
     PlayerContext *mctx = GetPlayer(ctx, 0);
@@ -7416,6 +7423,8 @@ void TV::StopEmbedding(PlayerContext *ctx)
     if (embedCheckTimerId)
         KillTimer(embedCheckTimerId);
     embedCheckTimerId = 0;
+
+    ReturnPlayerLock(ctx);
 }
 
 void TV::DrawUnusedRects(void)
@@ -7590,7 +7599,6 @@ void TV::DoEditSchedule(int editType)
         GetMythMainWindow()->PopDrawDisabled();
         weDisabledGUI = false;
     }
-    GetMythMainWindow()->GetPaintWindow()->show();
 }
 
 void TV::EditSchedule(const PlayerContext *ctx, int editType)
@@ -8319,7 +8327,7 @@ void TV::customEvent(QEvent *e)
         PlayerContext *mctx;
         MythMainWindow *mwnd = GetMythMainWindow();
 
-        StopEmbedding(actx);                // Undo any embedding
+        StopEmbedding();
         MythPainter *painter = GetMythPainter();
         if (painter)
             painter->FreeResources();
@@ -8341,9 +8349,6 @@ void TV::customEvent(QEvent *e)
 
         DoSetPauseState(actx, saved_pause); // Restore pause states
         disableDrawUnusedRects = false;
-
-        GetMythMainWindow()->GetPaintWindow()->hide();
-        GetMythMainWindow()->GetPaintWindow()->clearMask();
 
         qApp->processEvents();
 

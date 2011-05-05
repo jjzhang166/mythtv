@@ -51,6 +51,7 @@
 #include "mythsystemevent.h"
 #include "main_helpers.h"
 #include "backendcontext.h"
+#include "mythtranslation.h"
 
 #include "mediaserver.h"
 #include "httpstatus.h"
@@ -678,6 +679,8 @@ int run_backend(const MythCommandLineParser &cmdline)
     g_pUPnp->Init(ismaster, !cmdline.IsUPnPEnabled());
     SSDP::Instance()->PerformSearch("ssdp:all");
 
+    MythTranslation::load("mythfrontend");
+
     if (!ismaster)
     {
         int ret = connect_to_master();
@@ -834,9 +837,8 @@ void Stage2Init::Init(void)
     {
         VERBOSE(VB_IMPORTANT, "Main::Registering HttpStatus Extension");
 
-        httpStatus = new HttpStatus(&tvList, sched, expirer, ismaster);
-        if (httpStatus)
-            pHS->RegisterExtension(httpStatus);
+        httpStatus = new HttpStatus( &tvList, sched, expirer, ismaster );
+        pHS->RegisterExtension( httpStatus );
     }
 
     VERBOSE(VB_IMPORTANT, QString("Enabled verbose msgs: %1")

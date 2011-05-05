@@ -71,10 +71,6 @@ using namespace std;
 #include "mythuihelper.h"
 #include "mythdialogbox.h"
 
-#ifdef USING_VDPAU
-#include "mythpainter_vdpau.h"
-#endif
-
 #ifdef USING_MINGW
 #include "mythpainter_d3d9.h"
 #endif
@@ -364,22 +360,6 @@ void MythPainterWindowGL::paintEvent(QPaintEvent *pe)
 }
 #endif
 
-#ifdef USING_VDPAU
-MythPainterWindowVDPAU::MythPainterWindowVDPAU(MythMainWindow *win,
-                                               MythMainWindowPrivate *priv)
-                   : QGLWidget(win),
-                     parent(win), d(priv)
-{
-    setAutoBufferSwap(false);
-}
-
-void MythPainterWindowVDPAU::paintEvent(QPaintEvent *pe)
-{
-    d->repaintRegion = d->repaintRegion.unite(pe->region());
-    parent->drawScreen();
-}
-#endif
-
 #ifdef USING_MINGW
 MythPainterWindowD3D9::MythPainterWindowD3D9(MythMainWindow *win,
                                              MythMainWindowPrivate *priv)
@@ -549,6 +529,24 @@ QWidget *MythMainWindow::GetPaintWindow(void)
     return d->paintwin;
 }
 
+void MythMainWindow::ShowPainterWindow(void)
+{
+    if (d->paintwin)
+        d->paintwin->show();
+    if (d->render)
+        d->render->Release();
+}
+
+void MythMainWindow::HidePainterWindow(void)
+{
+    if (d->paintwin)
+    {
+        d->paintwin->clearMask();
+        if (!(d->render && d->render->IsShared()))
+            d->paintwin->hide();
+    }
+}
+
 MythRender *MythMainWindow::GetRenderDevice()
 {
     return d->render;
@@ -644,7 +642,7 @@ void MythMainWindow::animate(void)
         }
     }
 
-    if (redraw)
+    if (redraw && !(d->render && d->render->IsShared()))
         d->paintwin->update(d->repaintRegion);
 
     for (it = d->stackList.begin(); it != d->stackList.end(); ++it)
@@ -704,6 +702,17 @@ void MythMainWindow::drawScreen(void)
         }
     }
 
+    if (!(d->render && d->render->IsShared()))
+        draw();
+
+    d->repaintRegion = QRegion(QRect(0, 0, 0, 0));
+}
+
+void MythMainWindow::draw(void)
+{
+    if (!d->painter)
+        return;
+
     d->painter->Begin(d->paintwin);
 
     QVector<QRect> rects = d->repaintRegion.rects();
@@ -732,8 +741,6 @@ void MythMainWindow::drawScreen(void)
     }
 
     d->painter->End();
-
-    d->repaintRegion = QRegion(QRect(0, 0, 0, 0));
 }
 
 void MythMainWindow::closeEvent(QCloseEvent *e)
@@ -945,14 +952,6 @@ void MythMainWindow::Init(void)
         }
     }
 #endif
-#ifdef USING_VDPAU
-    if (painter == "vdpau")
-    {
-        VERBOSE(VB_GENERAL, "Using the VDPAU painter");
-        d->painter = new MythVDPAUPainter();
-        d->paintwin = new MythPainterWindowVDPAU(this, d);
-    }
-#endif
 
     if (!d->painter && !d->paintwin)
     {
@@ -968,10 +967,16 @@ void MythMainWindow::Init(void)
         return;
     }
 
+    if (d->painter->GetName() != "Qt")
+    {
+        setAttribute(Qt::WA_NoSystemBackground);
+        setAutoFillBackground(false);
+    }
+
     d->paintwin->move(0, 0);
     d->paintwin->setFixedSize(size());
     d->paintwin->raise();
-    d->paintwin->show();
+    ShowPainterWindow();
     if (!GetMythDB()->GetNumSetting("HideMouseCursor", 0))
         d->paintwin->setMouseTracking(true); // Required for mouse cursor auto-hide
 
@@ -1145,7 +1150,7 @@ void MythMainWindow::ReinitDone(void)
     d->paintwin->move(0, 0);
     d->paintwin->setFixedSize(size());
     d->paintwin->raise();
-    d->paintwin->show();
+    ShowPainterWindow();
 
     d->drawTimer->start(1000 / 70);
 }
@@ -1276,11 +1281,13 @@ void MythMainWindow::SetDrawEnabled(bool enable)
             d->m_pendingUpdate = false;
         }
         d->drawTimer->start(1000 / 70);
-
+        ShowPainterWindow();
     }
     else
+    {
+        HidePainterWindow();
         d->drawTimer->stop();
-
+    }
 
     d->m_setDrawEnabledWait.wakeAll();
 }

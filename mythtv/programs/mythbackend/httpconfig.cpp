@@ -1,7 +1,9 @@
 // Qt headers
+#include <QByteArray>
 #include <QDir>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QUrl>
 
 // MythTV headers
 #include "httpconfig.h"
@@ -9,6 +11,7 @@
 #include "mythcontext.h"
 #include "mythdb.h"
 #include "mythdirs.h"
+#include "storagegroup.h"
 
 HttpConfig::HttpConfig() : HttpServerExtension("HttpConfig", QString())
 {
@@ -145,51 +148,112 @@ bool HttpConfig::ProcessRequest(HttpWorkerThread*, HTTPRequest *request)
     else if ((request->m_sMethod == "FileBrowser") &&
              (request->m_mapParams.contains("dir")))
     {
-        QString startingDir = request->m_mapParams["dir"];
-        bool dirsOnly = true;
-        if (request->m_mapParams.contains("dirsOnly"))
-            dirsOnly = request->m_mapParams["dirsOnly"].toInt();
-
-        QDir dir(request->m_mapParams["dir"]);
-        if (dir.exists())
+        QString startingDir = QUrl::fromPercentEncoding(request->m_mapParams["dir"].toUtf8());
+        if (startingDir.startsWith("myth://"))
         {
-            QTextStream os(&request->m_response);
-            os << "<ul class=\"jqueryFileTree\" style=\"display: none;\">\r\n";
+            QUrl qurl(startingDir);
+            QString dir;
 
-            QFileInfoList infoList = dir.entryInfoList();
-            for (QFileInfoList::iterator it  = infoList.begin();
-                                         it != infoList.end();
-                                       ++it )
+            QString host = qurl.host();
+            int port = qurl.port();
+
+            dir = qurl.path();
+
+            QString storageGroup = qurl.userName();
+
+            StorageGroup sgroup(storageGroup);
+            QStringList entries = sgroup.GetFileInfoList(dir);
+
+            if ((entries.size() == 1) &&
+                (entries[0].startsWith("sgdir::")))
             {
-                QFileInfo &fi = *it;
-                if (!fi.isDir())
-                    continue;
-                if (fi.fileName().startsWith("."))
-                    continue;
-
-                os << "    <li class=\"directory collapsed\"><a href=\"#\" rel=\""
-                   << fi.absoluteFilePath() << "/\">" << fi.fileName() << "</a></li>\r\n";
+                QStringList parts = entries[0].split("::");
+                entries = sgroup.GetFileInfoList(parts[1]);
             }
 
-            if (!dirsOnly)
+            if (entries.size())
             {
+                QTextStream os(&request->m_response);
+                os << "<ul class=\"jqueryFileTree\" style=\"display: none;\">\r\n";
+
+                for (QStringList::iterator it = entries.begin();
+                                           it != entries.end();
+                                           it++)
+                {
+                    QString entry = *it;
+                    QStringList parts = entry.split("::");
+                    QFileInfo fi(parts[1]);
+                    if (dir == "/")
+                        dir = "";
+                    QString path =
+                        QString("myth://%1@%2%3%4").arg(storageGroup)
+                                .arg(host).arg(dir).arg(parts[1]);
+                    if (entry.startsWith("sgdir::"))
+                    {
+                        os << "    <li class=\"directory collapsed\"><a href=\"#\" rel=\""
+                           << path << "/\">" << parts[1] << "</a></li>\r\n";
+                    }
+                    else if (entry.startsWith("dir::"))
+                    {
+                        os << "    <li class=\"directory collapsed\"><a href=\"#\" rel=\""
+                           << path << "/\">" << fi.fileName() << "</a></li>\r\n";
+                    }
+                    else if (entry.startsWith("file::"))
+                    {
+                        os << "    <li class=\"file ext_" << fi.suffix() << "\"><a href=\"#\" rel=\""
+                           << parts[3] << "\">" << fi.fileName() << "</a></li>\r\n";
+                    }
+                }
+                os << "</ul>\r\n";
+
+                handled = true;
+            }
+        } else {
+            QDir dir(startingDir);
+            if (dir.exists())
+            {
+                QTextStream os(&request->m_response);
+                os << "<ul class=\"jqueryFileTree\" style=\"display: none;\">\r\n";
+
+                QFileInfoList infoList = dir.entryInfoList();
                 for (QFileInfoList::iterator it  = infoList.begin();
                                              it != infoList.end();
                                            ++it )
                 {
                     QFileInfo &fi = *it;
-                    if (fi.isDir())
+                    if (!fi.isDir())
                         continue;
                     if (fi.fileName().startsWith("."))
                         continue;
 
-                    os << "    <li class=\"file ext_" << fi.suffix() << "\"><a href=\"#\" rel=\""
-                       << fi.fileName() << "\">" << fi.fileName() << "</a></li>\r\n";
+                    os << "    <li class=\"directory collapsed\"><a href=\"#\" rel=\""
+                       << fi.absoluteFilePath() << "/\">" << fi.fileName() << "</a></li>\r\n";
                 }
-            }
-            os << "</ul>\r\n";
 
-            handled = true;
+                bool dirsOnly = true;
+                if (request->m_mapParams.contains("dirsOnly"))
+                    dirsOnly = request->m_mapParams["dirsOnly"].toInt();
+
+                if (!dirsOnly)
+                {
+                    for (QFileInfoList::iterator it  = infoList.begin();
+                                                 it != infoList.end();
+                                               ++it )
+                    {
+                        QFileInfo &fi = *it;
+                        if (fi.isDir())
+                            continue;
+                        if (fi.fileName().startsWith("."))
+                            continue;
+
+                        os << "    <li class=\"file ext_" << fi.suffix() << "\"><a href=\"#\" rel=\""
+                           << fi.absoluteFilePath() << "\">" << fi.fileName() << "</a></li>\r\n";
+                    }
+                }
+                os << "</ul>\r\n";
+
+                handled = true;
+            }
         }
     }
     else if ((request->m_sMethod == "GetValueList") &&
@@ -211,13 +275,26 @@ bool HttpConfig::ProcessRequest(HttpWorkerThread*, HTTPRequest *request)
     {
         QString fn = GetShareDir() + "backend-config/"
             "config_backend_database.xml";
+        QString group;
         QString form("/Config/Database/Save");
 
-        PrintHeader(request->m_response, form);
-        parse_settings(database_settings, fn);
-        load_settings(database_settings, "");
-        PrintSettings(request->m_response, database_settings);
-        PrintFooter(request->m_response);
+        if (request->m_mapParams.contains("__group__"))
+            group = request->m_mapParams["__group__"];
+
+        if (group.isEmpty())
+            PrintHeader(request->m_response, form);
+        else
+            OpenForm(request->m_response, form, group);
+
+        parse_settings(general_settings, fn, group);
+        load_settings(general_settings, gCoreContext->GetHostName());
+        PrintSettings(request->m_response, general_settings);
+
+        if (group.isEmpty())
+            PrintFooter(request->m_response);
+        else
+            CloseForm(request->m_response, group);
+
         handled = true;
     }
     else if (request->m_sMethod == "General")

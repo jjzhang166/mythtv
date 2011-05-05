@@ -34,6 +34,7 @@
 #include "backendutil.h"
 #include "httprequest.h"
 #include "util.h"
+#include "mythdownloadmanager.h"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -63,7 +64,7 @@ QFileInfo Content::GetFile( const QString &sStorageGroup, const QString &sFileNa
     // ------------------------------------------------------------------
 
     StorageGroup storage( sGroup );
-    QString sFullFileName = storage.FindRecordingFile( sFileName );
+    QString sFullFileName = storage.FindFile( sFileName );
 
     if (sFullFileName.isEmpty())
     {
@@ -101,51 +102,18 @@ QStringList Content::GetFileList( const QString &sStorageGroup )
         throw sMsg;
     }
 
-    QStringList      sStorageGroupDirs;
-    QString          hostname    = gCoreContext->GetHostName();
-    QStringList      oStringList;
+    StorageGroup sgroup(sStorageGroup);
 
-    if (StorageGroup::FindDirs(sStorageGroup, hostname, &sStorageGroupDirs))
-    {
-        QStringList::iterator it = sStorageGroupDirs.begin();
-
-        for ( ; it != sStorageGroupDirs.end(); ++it)
-        {
-            QDir dir(*it);
-
-            dir.setFilter(QDir::Files);
-            dir.setSorting(QDir::Name | QDir::IgnoreCase);
-
-            QFileInfoList fileList = dir.entryInfoList();
-            QFileInfoList::iterator fit = fileList.begin();
-
-            for ( ; fit != fileList.end(); ++fit )
-            {
-                /*                                
-                if (bShowLinks)
-                {
-                    stream
-                        << "<a href='/Myth/GetFile?StorageGroup="
-                        << sStorageGroup << "&FileName=" << (*fit).fileName()
-                        << "'>" << (*fit).fileName() << "</a><br>\n";
-                }
-                else
-                */
-                oStringList.append( (*fit).fileName() );
-            }
-        }
-    }
-
-    return oStringList;
+    return sgroup.GetFileList("", true);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QFileInfo Content::GetVideoArt( int nId )
+QFileInfo Content::GetVideoCoverart( int nId )
 {
-    VERBOSE(VB_UPNP, QString("GetVideoArt ID = %1").arg(nId));
+    VERBOSE(VB_UPNP, QString("GetVideoCoverart ID = %1").arg(nId));
 
     // ----------------------------------------------------------------------
     // Read Video poster file path from database
@@ -157,7 +125,7 @@ QFileInfo Content::GetVideoArt( int nId )
     query.bindValue(":ITEMID", nId);
 
     if (!query.exec())
-        MythDB::DBError("GetVideoArt ", query);
+        MythDB::DBError("GetVideoCoverart ", query);
 
     if (!query.next())
         return QFileInfo();
@@ -176,6 +144,123 @@ QFileInfo Content::GetVideoArt( int nId )
     // ----------------------------------------------------------------------
 
     return GetFile( "Coverart", sFileName );
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QFileInfo Content::GetVideoFanart( int nId )
+{
+    VERBOSE(VB_UPNP, QString("GetVideoFanart ID = %1").arg(nId));
+
+    // ----------------------------------------------------------------------
+    // Read Video fanart file path from database
+    // ----------------------------------------------------------------------
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("SELECT fanart FROM videometadata WHERE intid = :ITEMID");
+    query.bindValue(":ITEMID", nId);
+
+    if (!query.exec())
+        MythDB::DBError("GetVideoFanart ", query);
+
+    if (!query.next())
+        return QFileInfo();
+
+    QString sFileName = query.value(0).toString();
+
+    // ----------------------------------------------------------------------
+    // check to see if albumart image is already created.
+    // ----------------------------------------------------------------------
+
+    if (QFile::exists( sFileName ))
+        return QFileInfo( sFileName );
+
+    // ----------------------------------------------------------------------
+    // Not there? Perhaps we need to look in a storage group?
+    // ----------------------------------------------------------------------
+
+    return GetFile( "Fanart", sFileName );
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QFileInfo Content::GetVideoBanner( int nId )
+{
+    VERBOSE(VB_UPNP, QString("GetVideoBanner ID = %1").arg(nId));
+
+    // ----------------------------------------------------------------------
+    // Read Video Banner file path from database
+    // ----------------------------------------------------------------------
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("SELECT banner FROM videometadata WHERE intid = :ITEMID");
+    query.bindValue(":ITEMID", nId);
+
+    if (!query.exec())
+        MythDB::DBError("GetVideoBanner ", query);
+
+    if (!query.next())
+        return QFileInfo();
+
+    QString sFileName = query.value(0).toString();
+
+    // ----------------------------------------------------------------------
+    // check to see if albumart image is already created.
+    // ----------------------------------------------------------------------
+
+    if (QFile::exists( sFileName ))
+        return QFileInfo( sFileName );
+
+    // ----------------------------------------------------------------------
+    // Not there? Perhaps we need to look in a storage group?
+    // ----------------------------------------------------------------------
+
+    return GetFile( "Banner", sFileName );
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QFileInfo Content::GetVideoScreenshot( int nId )
+{
+    VERBOSE(VB_UPNP, QString("GetVideoScreenshot ID = %1").arg(nId));
+
+    // ----------------------------------------------------------------------
+    // Read Video Screenshot file path from database
+    // ----------------------------------------------------------------------
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("SELECT screenshot FROM videometadata WHERE intid = :ITEMID");
+    query.bindValue(":ITEMID", nId);
+
+    if (!query.exec())
+        MythDB::DBError("GetVideoScreenshot ", query);
+
+    if (!query.next())
+        return QFileInfo();
+
+    QString sFileName = query.value(0).toString();
+
+    // ----------------------------------------------------------------------
+    // check to see if albumart image is already created.
+    // ----------------------------------------------------------------------
+
+    if (QFile::exists( sFileName ))
+        return QFileInfo( sFileName );
+
+    // ----------------------------------------------------------------------
+    // Not there? Perhaps we need to look in a storage group?
+    // ----------------------------------------------------------------------
+
+    return GetFile( "Screenshot", sFileName );
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -564,7 +649,7 @@ QString Content::GetHash( const QString &sStorageGroup, const QString &sFileName
 
     StorageGroup sgroup(storageGroup, gCoreContext->GetHostName());
 
-    QString fullname = sgroup.FindRecordingFile(sFileName);
+    QString fullname = sgroup.FindFile(sFileName);
     QString hash = FileHash(fullname);
 
     if (hash == "NULL")
@@ -572,3 +657,36 @@ QString Content::GetHash( const QString &sStorageGroup, const QString &sFileName
 
     return hash;
 }
+
+bool Content::DownloadFile( const QString &sURL, const QString &sStorageGroup )
+{
+    QFileInfo finfo(sURL);
+    QString filename = finfo.fileName();
+    StorageGroup sgroup(sStorageGroup, gCoreContext->GetHostName(), false);
+    QString outDir = sgroup.FindNextDirMostFree();
+    QString outFile;
+
+    if (outDir.isEmpty())
+    {
+        VERBOSE(VB_IMPORTANT, QString("Unable to determine directory "
+                "to write to in %1 write command").arg(sURL));
+        return false;
+    }
+
+    if ((filename.contains("/../")) ||
+        (filename.startsWith("../")))
+    {
+        VERBOSE(VB_IMPORTANT, QString("ERROR: %1 write "
+                "filename '%2' does not pass sanity checks.")
+                .arg(sURL).arg(filename));
+        return false;
+    }
+
+    outFile = outDir + "/" + filename;
+
+    if (GetMythDownloadManager()->download(sURL, outFile))
+        return true;
+
+    return false;
+}
+

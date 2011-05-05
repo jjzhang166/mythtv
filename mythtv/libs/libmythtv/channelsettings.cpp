@@ -1,9 +1,11 @@
 #include <QWidget>
+#include <QFile>
 
 #include "channelsettings.h"
 #include "channelutil.h"
 #include "programinfo.h" // for COMM_DETECT*, GetPreferredSkipTypeCombinations()
 #include "mpegtables.h"
+#include "mythdirs.h"
 #include "cardutil.h"
 
 QString ChannelDBStorage::GetWhereClause(MSqlBindings &bindings) const
@@ -230,12 +232,12 @@ class OutputFilters : public LineEditSetting, public ChannelDBStorage
     }
 };
 
-
-class XmltvID : public LineEditSetting, public ChannelDBStorage
+class XmltvID : public ComboBoxSetting, public ChannelDBStorage
 {
   public:
-    XmltvID(const ChannelID &id) :
-        LineEditSetting(this), ChannelDBStorage(this, id, "xmltvid")
+    XmltvID(const ChannelID &id, const QString &_sourceName) :
+        ComboBoxSetting(this, true), ChannelDBStorage(this, id, "xmltvid"),
+        sourceName(_sourceName)
     {
         setLabel(QObject::tr("XMLTV ID"));
         setHelpText(QObject::tr(
@@ -244,6 +246,47 @@ class XmltvID : public LineEditSetting, public ChannelDBStorage
                         "and a channel in their database. Normally this is "
                         "set automatically when 'mythfilldatabase' is run."));
     }
+
+    void Load(void)
+    {
+        fillSelections();
+        ChannelDBStorage::Load();
+    }
+
+    void fillSelections(void)
+    {
+        clearSelections();
+
+        QString xmltvFile = GetConfDir() + '/' + sourceName + ".xmltv";
+
+        if (QFile::exists(xmltvFile))
+        {
+            QFile file(xmltvFile);
+            if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+                return;
+
+            QStringList idList;
+
+            while (!file.atEnd())
+            {
+                QByteArray line = file.readLine();
+
+                if (line.startsWith("channel="))
+                {
+                    QString id = line.mid(8, -1).trimmed();
+                    idList.append(id);
+                }
+            }
+
+            idList.sort();
+
+            for (int x = 0; x < idList.size(); x++)
+                addSelection(idList.at(x), idList.at(x));
+        }
+    }
+
+  private:
+    QString sourceName;
 };
 
 class CommMethod : public ComboBoxSetting, public ChannelDBStorage
@@ -376,11 +419,12 @@ ChannelOptionsCommon::ChannelOptionsCommon(const ChannelID &id,
     addChild(new Name(id));
 
     Source *source = new Source(id, default_sourceid);
+    source->Load();
 
     HorizontalConfigurationGroup *group1 =
         new HorizontalConfigurationGroup(false,false,true,true);
-    HorizontalConfigurationGroup *bottomhoz =
-        new HorizontalConfigurationGroup(false, true);
+    VerticalConfigurationGroup *bottomhoz =
+        new VerticalConfigurationGroup(false, true);
     VerticalConfigurationGroup *left =
         new VerticalConfigurationGroup(false, true);
     VerticalConfigurationGroup *right =
@@ -399,7 +443,7 @@ ChannelOptionsCommon::ChannelOptionsCommon(const ChannelID &id,
     group1->addChild(right);
 
     bottomhoz->addChild(onairguide = new OnAirGuide(id));
-    bottomhoz->addChild(xmltvID = new XmltvID(id));
+    bottomhoz->addChild(xmltvID = new XmltvID(id, source->getSelectionLabel()));
     bottomhoz->addChild(new TimeOffset(id));
 
     addChild(group1);
@@ -466,6 +510,7 @@ void ChannelOptionsCommon::sourceChanged(const QString& sourceid)
 
     onairguide->setEnabled(supports_eit);
     xmltvID->setEnabled(!uses_eit_only);
+    xmltvID->Load();
 }
 
 ChannelOptionsFilters::ChannelOptionsFilters(const ChannelID& id) :

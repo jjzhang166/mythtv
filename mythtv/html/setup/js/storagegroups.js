@@ -2,22 +2,30 @@ var sgTabIDs = new Array();
 var sgTabNames = new Array();
 var sgTabCount = 0;
 
-function appendTabRow(tabID, id, group, host, dir) {
+function appendTabRow(tabID, id, host, dir) {
     var rowNum = $('#sgtable-' + tabID + ' tr').length;
     var altText = "";
     if ((rowNum/2) % 1 == 0)
         altText = "class='alt' ";
     var rowID = "sgtable-" + tabID + "-" + rowNum;
-    $("#sgtable-" + tabID + " tr:last").after("<tr " + altText + "id='" + rowID + "'><td class='invisible'>" + id +"</td><td>" + host + "</td><td>" + dir + "</td><td><input type='button' onClick=\"javascript:removeStorageGroupTableRow(" + tabID + ", '" + rowID + "')\" value='Delete'/></tr>");
+    var afterWhat = "thead:last";
+    if ($('#sgtable-' + tabID + ' tr').length > 0)
+        afterWhat = "tr:last";
+    $("#sgtable-" + tabID + " " + afterWhat).after("<tr " + altText + "id='" + rowID + "' class='ui-widget-content'><td class='invisible'>" + id +"</td><td>" + host + "</td><td>" + dir + "</td><td><input type='button' onClick=\"javascript:showConfirm('Are you sure you want to remove this group?', removeStorageGroupTableRow, ['" + tabID + "','" + rowID + "'])\" value='Delete'/></tr>");
 }
 
 function initStorageGroups(selectedGroup) {
     var selectedHost = $("#sgShowHost").val();
 
+    $("#storagegrouptabs").tabs({ select: null });
+
     while (sgTabCount > 0) {
         $("#storagegrouptabs").tabs("remove", 0);
         sgTabCount--;
     }
+    /* now remove the '+' tab */
+    $("#storagegrouptabs").tabs("remove", 0);
+
     sgTabIDs = new Array();
     sgTabNames = new Array();
     sgTabCount = 0;
@@ -42,10 +50,10 @@ function initStorageGroups(selectedGroup) {
                 sgTabIDs[value.GroupName] = sgTabID;
                 sgTabNames[sgTabID] = value.GroupName;
                 $("#storagegrouptabs").tabs("add", "#sgtabs-" + sgTabID, value.GroupName, sgTabID);
-                $("#sgtabs-" + sgTabID).html("<div id='sgtabs-" + sgTabID + "-add'><input type=button value='Add Directory' onClick='javascript:addDir(" + sgTabID + ")'></div><div id='sgtabs-" + sgTabID + "-edit' style='display: none'><b>Adding new Storage Group Directory</b><br><table><tr><th align=right>Host:</th><td>" + hostsSelect("sgtabs-" + sgTabID + "-edit-hostname") + "</td></tr><tr><th align=right>New Directory:</th><td><input id='sgtabs-" + sgTabID + "-edit-dirname' size=40><input type=button onClick='javascript:browseForNewDir( \"sgtabs-" + sgTabID + "-edit-dirname\")' value='Browse'><input type=hidden id='sgtabs-" + sgTabID + "-edit-groupname' value='" + value.GroupName + "'></td></tr><tr><td colspan=2><input type=button value='Save New Directory' onClick='javascript:saveDir(" + sgTabID + ")'> <input type=button value='Cancel' onClick='javascript:cancelDir(" + sgTabID + ")'></td></tr></table><hr></div><table id='sgtable-" + sgTabID + "' width='100%'><th class='invisible'>DirID</th><th>Host Name</th><th>Directory Path</th><th>Actions</th></tr></table>");
+                $("#sgtabs-" + sgTabID).html("<input type=button value='Add Directory' onClick='javascript:addNewStorageGroupDir(" + sgTabID + ")'><table id='sgtable-" + sgTabID + "' width='100%'><thead class='ui-widget-header'><th class='invisible'>DirID</th><th>Host Name</th><th>Directory Path</th><th>Actions</th></thead></tr></table>");
             }
 
-            appendTabRow(sgTabID, value.Id, value.GroupNme, value.HostName, value.DirName);
+            appendTabRow(sgTabID, value.Id, value.HostName, value.DirName);
         });
 
         if (selectedGroup)
@@ -71,60 +79,94 @@ function initStorageGroups(selectedGroup) {
 
         sgHostSelect += "</select>";
         $("#sgHostSelect").html(sgHostSelect);
+        setUIAttributes();
+
+        $("#storagegrouptabs").tabs("add", "#sgtabs-addNewGroup", "+", sgTabID + 1);
+        $("#storagegrouptabs").tabs({
+            select: function(event, ui) {
+                if (ui.panel.id == "sgtabs-addNewGroup") {
+                    addNewStorageGroup();
+                    return false;
+                }
+        
+                return true;
+            }
+        });
     });
 }
 
-function addNewStorageGroupTab() {
-    $("#sgAddNewGroupLink").hide();
-    $("#storagegrouptabs").tabs("add", "/setup/storagegroups-add-new.html",
-        "New Group", sgTabCount);
-    $("#storagegrouptabs").tabs("select", sgTabCount);
-}
-
 function addNewStorageGroup() {
-    var group  = $("#sgNewName").val();
-    var host   = $("#sgNewHost").val();
-    var dir    = $("#sgNewDir").val();
+    loadEditWindow("/setup/storagegroups-add-dir.html");
+    $("#sgGroupNameStatic").val("");
+    $("#sgGroupNameCell").html("<input id='sgGroupName' size=30 />");
+    $("#sgHostNameCell").html(hostsSelect("sgHostName"));
+    $("#edit").dialog({
+        modal: true,
+        width: 670,
+        height: 250,
+        'title': 'Add New Storage Group',
+        closeOnEscape: false,
+        buttons: {
+           'Save': function() { saveNewStorageGroup() },
+           'Cancel': function() { $(this).dialog('close'); }
+    }});
+    $("#edit").dialog("open");
+}
+
+function addNewStorageGroupDir(tabID) {
+    loadEditWindow("/setup/storagegroups-add-dir.html");
+    $("#sgGroupNameStatic").val(sgTabNames[tabID]);
+    $("#sgGroupNameCell").html(sgTabNames[tabID]);
+    $("#sgHostNameCell").html(hostsSelect("sgHostName"));
+    $("#edit").dialog({
+        modal: true,
+        width: 670,
+        height: 250,
+        'title': 'Add New Directory',
+        closeOnEscape: false,
+        buttons: {
+           'Save': function() { saveNewStorageGroupDir(tabID) },
+           'Cancel': function() { $(this).dialog('close'); }
+    }});
+    $("#edit").dialog("open");
+}
+
+function saveNewStorageGroupDir(tabID) {
+    saveNewDir($("#sgGroupNameStatic").val(), tabID);
+}
+
+function saveNewStorageGroup() {
+    saveNewDir($("#sgGroupName").val());
+}
+
+function saveNewDir(group, tabID) {
+    var host   = $("#sgHostName").val();
+    var dir    = $("#sgDirName").val();
+    var errorMsg;
+
+    if (group == "") {
+        errorMsg = "Save failed. Storage Group name was not supplied.";
+    } else if (host == "") {
+        errorMsg = "Save failed. Host Name was not supplied.";
+    } else if (dir == "") {
+        errorMsg = "Save failed. Directory Name was not supplied.";
+    }
+    if (errorMsg != undefined) {
+        setErrorMessage(errorMsg);
+        return;
+    }
 
     if (addStorageGroupDir(group, dir, host)) {
-        $("#storagegrouptabs").tabs("remove", sgTabCount);
-        $("#sgAddNewGroupLink").show();
-        setHeaderStatusMessage("Storage Group Directory save Succeeded.");
-        initStorageGroups(group);
+        $("#edit").dialog('close');
+        if (tabID != undefined)
+            appendTabRow(tabID, 0, group, host, dir);
+        else
+            initStorageGroups();
+        setUIAttributes();
+        setStatusMessage("Storage Group Directory save Succeeded.");
     } else {
-        setHeaderErrorMessage("Storage Group Directory save Failed!");
+        setErrorMessage("Storage Group Directory save Failed!");
     }
-}
-
-function cancelNewStorageGroup() {
-    $("#storagegrouptabs").tabs("remove", sgTabCount);
-    $("#sgAddNewGroupLink").show();
-}
-
-function addDir(tabID) {
-    $("#sgtabs-" + tabID + "-add").css("display", "none");
-    $("#sgtabs-" + tabID + "-edit").css("display", "");
-}
-
-function saveDir(tabID) {
-    var group = $("#sgtabs-" + tabID + "-edit-groupname").val();
-    var host  = $("#sgtabs-" + tabID + "-edit-hostname").val();
-    var dir   = $("#sgtabs-" + tabID + "-edit-dirname").val();
-
-    if (addStorageGroupDir(group, dir, host)) {
-        appendTabRow(tabID, 0, group, host, dir);
-        $("#sgtabs-" + tabID + "-add").css("display", "");
-        $("#sgtabs-" + tabID + "-edit").css("display", "none");
-        setHeaderStatusMessage("Storage Group Directory save Succeeded.");
-        $("#sgtabs-" + tabID + "-edit-dirname").val("");
-    } else {
-        setHeaderErrorMessage("Storage Group Directory save Failed!");
-    }
-}
-
-function cancelDir(tabID) {
-    $("#sgtabs-" + tabID + "-add").css("display", "");
-    $("#sgtabs-" + tabID + "-edit").css("display", "none");
 }
 
 function removeStorageGroupTableRow( tabID, rowID ) {
@@ -134,13 +176,13 @@ function removeStorageGroupTableRow( tabID, rowID ) {
     var dir = $("#" + rowID).find("td").eq(2).html();
 
     if (removeStorageGroupDir(group, dir, host)) {
-        setHeaderStatusMessage("Remove Storage Group Directory Succeeded.");
+        setStatusMessage("Remove Storage Group Directory Succeeded.");
         $("#" + rowID).remove();
-        if ($('#sgtable-' + tabID + ' tr').length == 1) {
+        if ($('#sgtable-' + tabID + ' tr').length == 0) {
             initStorageGroups(); /* could optimize this and not reload */
         }
     } else {
-        setHeaderErrorMessage("Remove Storage Group Directory Failed!");
+        setErrorMessage("Remove Storage Group Directory Failed!");
     }
 }
 
@@ -152,7 +194,7 @@ function newDirSelected(file) {
 function browseForNewDir( inputID ) {
     var dirs = new Array;
     sgNewDirInputID = inputID;
-    openFileBrowser("Storage Directory", dirs, newDirSelected);
+    openDirBrowser("Storage Directory", dirs, newDirSelected);
 }
 
 //////////////////////////////////////////////////////////////////////////////

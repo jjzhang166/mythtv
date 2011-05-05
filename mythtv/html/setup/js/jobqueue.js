@@ -1,10 +1,21 @@
 
 function editJob(title, descKey, commandKey) {
-    $('#editborder').attr({ class: 'editborder-fullscreen' }); 
     loadEditWindow("/setup/jobqueue-job-editor.html");
 
-    $("#jobEditTitle").html(title);
-
+    $("#edit").dialog({
+      'title': title,
+      modal:   true,
+      width:   850,
+      height:  'auto',
+      buttons: {
+         'Save': function() {
+                                saveJobEditor(); 
+                                $(this).dialog('close');
+                            },
+         'Cancel': function() { $(this).dialog('close'); }
+      }
+    });
+ 
     $("#jobEditDescKey").val(descKey);
     if ((title == "Transcoder") || (title == "Commercial Flagger"))
         $("#jobEditDesc").parent().html("<b>" + title + "</b>");
@@ -13,11 +24,6 @@ function editJob(title, descKey, commandKey) {
 
     $("#jobEditCommandKey").val(commandKey);
     $("#jobEditCommand").val(getSetting("", commandKey, ""));
-}
-
-function appendMatch(match) {
-    var newValue = $("#jobEditCommand").val() + match;
-    $("#jobEditCommand").val(newValue);
 }
 
 function saveJobEditor() {
@@ -56,10 +62,10 @@ function saveJobEditor() {
     }
 
     if (errorMessage.length)
-        setEditErrorMessage(errorMessage);
+        setErrorMessage(errorMessage);
 
     if (descSavedOK && cmdSavedOK)
-        setEditStatusMessage("Save Successful");
+        setStatusMessage("Save Successful");
 }
 
 setupTabs("jobqueuetabs");

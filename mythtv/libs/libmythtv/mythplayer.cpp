@@ -130,7 +130,8 @@ MythPlayer::MythPlayer(bool muted)
       parentWidget(NULL), embedid(0),
       embx(-1), emby(-1), embw(-1), embh(-1),
       // State
-      decoderPaused(false), pauseDecoder(false), unpauseDecoder(false),
+      totalDecoderPause(false), decoderPaused(false),
+      pauseDecoder(false), unpauseDecoder(false),
       killdecoder(false),   decoderSeek(-1),     decodeOneFrame(false),
       needNewPauseFrame(false),
       bufferPaused(false),  videoPaused(false),
@@ -2836,6 +2837,12 @@ void MythPlayer::DecoderLoop(bool pause)
     {
         DecoderPauseCheck();
 
+        if (totalDecoderPause)
+        {
+            usleep(1000);
+            continue;
+        }
+
         if (forcePositionMapSync)
         {
             if (!decoder_change_lock.tryLock(1))
@@ -4217,7 +4224,7 @@ bool MythPlayer::TranscodeGetNextFrame(
         player_ctx->playingInfo->UpdateInUseMark();
     player_ctx->UnlockPlayingInfo(__FILE__, __LINE__);
 
-    uint64_t lastDecodedFrameNumber =
+    int64_t lastDecodedFrameNumber =
         videoOutput->GetLastDecodedFrame()->frameNumber;
 
     if ((lastDecodedFrameNumber == 0) && honorCutList)
@@ -4237,7 +4244,7 @@ bool MythPlayer::TranscodeGetNextFrame(
 
     if (honorCutList && !deleteMap.IsEmpty())
     {
-        if (totalFrames && lastDecodedFrameNumber >= totalFrames)
+        if (totalFrames && lastDecodedFrameNumber >= (int64_t)totalFrames)
             return false;
 
         uint64_t jumpto = 0;
@@ -4573,6 +4580,7 @@ bool MythPlayer::SetVideoByComponentTag(int tag)
  */
 void MythPlayer::SetDecoder(DecoderBase *dec)
 {
+    totalDecoderPause = true;
     PauseDecoder();
 
     {
@@ -4589,6 +4597,8 @@ void MythPlayer::SetDecoder(DecoderBase *dec)
         }
         decoder_change_lock.unlock();
     }
+
+    totalDecoderPause = false;
 }
 
 bool MythPlayer::PosMapFromEnc(unsigned long long start,

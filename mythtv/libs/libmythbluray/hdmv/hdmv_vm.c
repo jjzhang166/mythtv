@@ -278,7 +278,7 @@ void hdmv_vm_free(HDMV_VM **p)
  * suspend/resume ("function call")
  */
 
-static void _suspend_object(HDMV_VM *p)
+static void _suspend_object(HDMV_VM *p, int psr_backup)
 {
     BD_DEBUG(DBG_HDMV, "_suspend_object()\n");
 
@@ -287,7 +287,9 @@ static void _suspend_object(HDMV_VM *p)
         // [execute the call, discard old suspended object (10.2.4.2.2)].
     }
 
-    bd_psr_save_state(p->regs);
+    if (psr_backup) {
+        bd_psr_save_state(p->regs);
+    }
 
     p->suspended_object = p->object;
     p->suspended_pc     = p->pc;
@@ -295,7 +297,7 @@ static void _suspend_object(HDMV_VM *p)
     p->object = NULL;
 }
 
-static int _resume_object(HDMV_VM *p)
+static int _resume_object(HDMV_VM *p, int psr_restore)
 {
     if (!p->suspended_object) {
         BD_DEBUG(DBG_HDMV|DBG_CRIT, "_resume_object: no suspended object!\n");
@@ -305,7 +307,9 @@ static int _resume_object(HDMV_VM *p)
     p->object = p->suspended_object;
     p->pc     = p->suspended_pc + 1;
 
-    bd_psr_restore_state(p->regs);
+    if (psr_restore) {
+        bd_psr_restore_state(p->regs);
+    }
 
     BD_DEBUG(DBG_HDMV, "resuming object %p at %d\n", p->object, p->pc + 1);
 
@@ -333,6 +337,8 @@ static int _jump_object(HDMV_VM *p, int object)
     p->pc     = 0;
     p->object = &p->movie_objects->objects[object];
 
+    /* suspended object is not discarded */
+
     return 0;
 }
 
@@ -341,11 +347,9 @@ static int _jump_title(HDMV_VM *p, int title)
     if (title >= 0 && title <= 0xffff) {
         BD_DEBUG(DBG_HDMV, "_jump_title(%d)\n", title);
 
-        if (p->suspended_object) {
-            /* discard suspended object */
-            p->suspended_object = NULL;
-            bd_psr_restore_state(p->regs);
-        }
+        /* discard suspended object */
+        p->suspended_object = NULL;
+        bd_psr_reset_backup_registers(p->regs);
 
         _queue_event(p, HDMV_EVENT_TITLE, title);
         return 0;
@@ -360,7 +364,7 @@ static int _call_object(HDMV_VM *p, int object)
 {
     BD_DEBUG(DBG_HDMV, "_call_object(%d)\n", object);
 
-    _suspend_object(p);
+    _suspend_object(p, 1);
 
     return _jump_object(p, object);
 }
@@ -370,7 +374,7 @@ static int _call_title(HDMV_VM *p, int title)
     if (title >= 0 && title <= 0xffff) {
         BD_DEBUG(DBG_HDMV, "_call_title(%d)\n", title);
 
-        _suspend_object(p);
+        _suspend_object(p, 1);
 
         _queue_event(p, HDMV_EVENT_TITLE, title);
         return 0;
@@ -406,7 +410,7 @@ static int _play_at(HDMV_VM *p, int playlist, int playitem, int playmark)
 
     if (playlist >= 0) {
         _queue_event(p, HDMV_EVENT_PLAY_PL, playlist);
-        _suspend_object(p);
+        _suspend_object(p, 0);
     }
 
     if (playitem >= 0) {
@@ -761,7 +765,7 @@ static int _hdmv_step(HDMV_VM *p)
                     switch (insn->branch_opt) {
                         case INSN_JUMP_TITLE:  _jump_title(p, dst); break;
                         case INSN_CALL_TITLE:  _call_title(p, dst); break;
-                        case INSN_RESUME:      _resume_object(p);   break;
+                        case INSN_RESUME:      _resume_object(p, 1);   break;
                         case INSN_JUMP_OBJECT: if (!_jump_object(p, dst)) { inc_pc = 0; } break;
                         case INSN_CALL_OBJECT: if (!_call_object(p, dst)) { inc_pc = 0; } break;
                         default:
@@ -794,7 +798,7 @@ static int _hdmv_step(HDMV_VM *p)
                 BD_DEBUG(DBG_HDMV|DBG_CRIT, "missing operand in BRANCH/JUMP opcode 0x%08x] ", *(uint32_t*)insn);
             }
             switch (insn->cmp_opt) {
-                case INSN_BC: p->pc += !(dst &  src); break;
+                case INSN_BC: p->pc += !!(dst & ~src); break;
                 case INSN_EQ: p->pc += !(dst == src); break;
                 case INSN_NE: p->pc += !(dst != src); break;
                 case INSN_GE: p->pc += !(dst >= src); break;
@@ -943,12 +947,28 @@ int hdmv_vm_running(HDMV_VM *p)
     return result;
 }
 
+uint32_t hdmv_vm_get_uo_mask(HDMV_VM *p)
+{
+    uint32_t     mask = 0;
+    MOBJ_OBJECT *o    = NULL;
+
+    bd_mutex_lock(&p->mutex);
+
+    if ((o = p->object ? p->object : p->suspended_object)) {
+        mask |= o->menu_call_mask;
+        mask |= o->title_search_mask << 1;
+    }
+
+    bd_mutex_unlock(&p->mutex);
+    return mask;
+}
+
 int hdmv_vm_resume(HDMV_VM *p)
 {
     int result;
     bd_mutex_lock(&p->mutex);
 
-    result = _resume_object(p);
+    result = _resume_object(p, 0);
 
     bd_mutex_unlock(&p->mutex);
     return result;
@@ -960,7 +980,7 @@ int hdmv_vm_suspend(HDMV_VM *p)
     bd_mutex_lock(&p->mutex);
 
     if (p->object && !p->ig_object) {
-        _suspend_object(p);
+        _suspend_object(p, 1);
         result = 0;
     }
 

@@ -90,6 +90,8 @@ class MUI_PUBLIC MythMainWindow : public QWidget
     MythPainter *GetCurrentPainter();
     QWidget     *GetPaintWindow();
     MythRender  *GetRenderDevice();
+    void         ShowPainterWindow();
+    void         HidePainterWindow();
 
     void GrabWindow(QImage &image);
     bool SaveScreenShot(const QImage &image);
@@ -119,6 +121,7 @@ class MUI_PUBLIC MythMainWindow : public QWidget
     uint PushDrawDisabled(void);
     uint PopDrawDisabled(void);
     void SetEffectsEnabled(bool enable);
+    void draw(void);
 
   public slots:
     void mouseTimeout();

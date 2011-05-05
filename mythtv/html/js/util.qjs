@@ -21,7 +21,7 @@ function getSetting(hostname, key, defValue) {
         function(data) {
             result = data.SettingList.Settings[0].Value;
         }).error(function(data) {
-            alert("Error: unable to retrieve setting");
+            setErrorMessage("<i18n>Unable to retrieve setting.</i18n>");
         });
     $.ajaxSetup({ async: true });
 
@@ -37,7 +37,7 @@ function putSetting(hostname, key, value) {
         function(data) {
             result = 1;
         }).error(function(data) {
-            alert("Error: unable to save setting");
+            setErrorMessage("<i18n>Unable to save setting.</i18n>");
         });
     $.ajaxSetup({ async: true });
 
@@ -47,7 +47,7 @@ function putSetting(hostname, key, value) {
 function loadDiv(divName, contentURL, jsURL) {
     divName = "#" + divName;
     
-    $(divName).html("<br><br><b>Loading...</b>");
+    $(divName).html("<br><br><b><i18n>Loading</i18n>...</b>");
 
     var html = $.ajax({
       url: contentURL,
@@ -67,6 +67,12 @@ function loadDiv(divName, contentURL, jsURL) {
 
 function setUIAttributes() {
     $( "input:button").button();
+    $("input, textarea").addClass("idle");
+    $("input, textarea").focus(function(){
+            $(this).addClass("activeField").removeClass("idle");
+    }).blur(function(){
+            $(this).removeClass("activeField").addClass("idle");
+    });
 }
 
 function clearDiv(divName) {
@@ -99,28 +105,39 @@ function loadSetupPage(pageName) {
                 "/setup/js/" + pageName + ".js");
 }
 
+function loadMiscPage(pageName) {
+    loadContent("/misc/" + pageName + ".html",
+                "/misc/js/" + pageName + ".js");
+}
+
 function loadEditWindow(contentURL, jsURL) {
     loadSetupJavascript();
-    clearEditMessages();
-    loadDiv("editcontent", contentURL, jsURL);
+    clearMessages();
+    loadDiv("edit", contentURL, jsURL);
     showEditWindow();
 }
 
-function setHeaderStatusMessage(message) {
-    $("#header_error").html("");
-    $("#header_status").html(message);
-    setTimeout('$("#header_status").html("")', statusMessageTimeout);
+var lastStatusTimer;
+function setStatusMessage(message) {
+    if (lastStatusTimer)
+        clearTimeout(lastStatusTimer);
+    $("#header_status_message").html(message);
+    $("#header_status").show();
+    setTimeout('$("#header_status").hide("slow"); lastStatusTimer = undefined', statusMessageTimeout);
 }
 
-function setHeaderErrorMessage(message) {
-    $("#header_status").html("");
-    $("#header_error").html(message);
-    setTimeout('$("#header_error").html("")', errorMessageTimeout);
+var lastErrorTimer;
+function setErrorMessage(message) {
+    if (lastErrorTimer)
+        clearTimeout(lastErrorTimer);
+    $("#header_error_message").html(message);
+    $("#header_error").show();
+    lastErrorTimer = setTimeout('$("#header_error").hide("slow"); lastErrorTimer = undefined', errorMessageTimeout);
 }
 
-function clearHeaderMessages() {
-    $("#header_status").html("");
-    $("#header_error").html("");
+function clearMessages() {
+    $("#header_status_message").html("");
+    $("#header_error_message").html("");
 }
 
 function preloadTabs(tabs) {
@@ -142,14 +159,16 @@ function preloadTabs(tabs) {
 
 function setupTabs(id, preload) {
     $tabs = $("#" + id).tabs(
-        { cache: true, fx: { opacity: 'toggle', height: 'toggle' } });
+        { cache: true,
+          spinner: "",
+          fx: { opacity: 'toggle', height: 'toggle' } });
 
     if ((preload == undefined) || (preload == true))
         setTimeout(function(){ preloadTabs($tabs); }, 10);
 }
 
 function setupNonAnimatedTabs(id, preload) {
-    $tabs = $("#" + id).tabs({ cache: true });
+    $tabs = $("#" + id).tabs({ cache: true, spinner: "" });
 
     if ((preload == undefined) || (preload == true))
         setTimeout(function(){ preloadTabs($tabs); }, 10);
@@ -166,7 +185,7 @@ function sendMessage() {
         function(data) {
             result = 1;
         }).error(function(data) {
-            alert("Error: unable to send message");
+            setErrorMessage("<i18n>Unable to send message.</i18n>");
         });
 }
 
@@ -178,3 +197,51 @@ function toggleShowDiv(id) {
         $("#" + id).show("slow");
     }
 }
+
+function hideConfirm() {
+    $("#confirmWindow").hide();
+}
+
+function showConfirm(content, functionname, params) {
+    $("#confirmWindow").dialog({
+        modal: true,
+        buttons: {
+           '<i18n>Yes</i18n>': function() {
+               if (params == null) {
+                   functionname();
+               }
+               else if (params.constructor == Array) {
+                   functionname.apply(null, params);
+               }
+               else {
+                   functionname(params);
+               }
+               $(this).dialog('close');
+               },
+           '<i18n>No</i18n>': function() { $(this).dialog('close'); }
+        }});
+    $("#confirmWindow").html(content);
+    $("#confirmWindow").show();
+    $("#confirmWindow").draggable();
+}
+
+function appendMatch(match, divname) {
+    var newValue = $("#" + divname).val() + match;
+    $("#" + divname).val(newValue);
+}
+
+function formatStr() {
+    if (arguments.length == 0)
+        return "";
+
+    if (arguments.length == 1)
+        return arguments[0];
+
+    var result = arguments[0]; 
+    for (var i = 1; i < arguments.length; i++) {
+        var regexp = '%' + i.toString();
+        result = result.replace(regexp, arguments[i]);
+    }
+    return result;
+};
+

@@ -8,20 +8,27 @@ MythTV mythbackend Internal Web Server
 <link rel="stylesheet"    href="/css/menustyle.css"    type="text/css">
 <link rel="stylesheet"    href="/css/setup.css"        type="text/css">
 <link rel="stylesheet"    href="/js/jqueryFileTree/jqueryFileTree.css"        type="text/css" media="screen">
+<link rel="stylesheet"    href="/css/ui.jqgrid.css"    type="text/css">
 <link rel="icon"          href="/images/favicon.ico"   type="image/x-icon">
 <link rel="shortcut icon" href="/images/favicon.ico"   type="image/x-icon">
 <script language="JavaScript" type="text/javascript"  src="/js/util.qjs"></script>
+<script language="JavaScript" type="text/javascript"  src="/js/databaseutil.js"></script>
 <script language="JavaScript" type="text/javascript"  src="/js/jquery.min.js"></script>
 <script language="JavaScript" type="text/javascript"  src="/js/jquery-ui.min.js"></script>
+<script language="JavaScript" type="text/javascript"  src="/js/jquery.contextmenu.js"></script>
+<script language="JavaScript" type="text/javascript"  src="/js/grid.locale-en.js"></script>
+<script language="JavaScript" type="text/javascript"  src="/js/jquery.jqGrid.min.js"></script>
 <script language="JavaScript" type="text/javascript"  src="/js/menu.js"></script>
 
 <script language="JavaScript" type="text/javascript">
 
 $(document).ready(function() {
+    $('#header_status').hide();
+    $('#header_error').hide();
     loadDiv("menu-bg", "/menu.qsp");
-    loadContent("/misc/overview.qsp");
-    showHostName();
     $('.menu').initMenu();
+    showHostName();
+    loadContent("/misc/overview.qsp");
 });
 
 </script>
@@ -32,9 +39,6 @@ $(document).ready(function() {
     <div id="header_logo">
         <a href="/"><img src="/images/mythtv.png" class="png" width="180" height="64" border="0" alt="MythTV"></a>
     </div>
-
-    <div id='header_status'></div>
-    <div id='header_error'></div>
 </div>
 
 <div id="menu-bg">
@@ -46,34 +50,32 @@ $(document).ready(function() {
 <div id="content">
 </div>
 
-<div id='edit-bg'>
+<div id='header_status' class="ui-state-highlight ui-corner-all" style="margin-top: 20px; padding: 0 .7em;"> 
+    <p><span class="ui-icon ui-icon-info" style="float: left; margin-right: .3em;"></span>
+    <div id='header_status_message'>
+    </div>
 </div>
-<div id='editborder'>
-    <div id='editStatusMessage' class='statusMessage'></div>
-    <div id='editErrorMessage' class='errorMessage'></div>
-    <div id='editcontent'>
+
+<div id='header_error' class="ui-state-error ui-corner-all" style="padding: 0 .7em;"> 
+    <p><span class="ui-icon ui-icon-alert" style="float: left; margin-right: .3em;"></span> 
+    <div id="header_error_message">
     </div>
-    <div id='editsavebutton' class='SaveButton'>
-        <a id='editsavelink' href=''>Save Changes</a>
-    </div>
-    <div id='editclosebutton' class='CloseButton'>
-        <a href='javascript:hideEditWindow()'>Close [X]</a>
-    </div>
+</div>
+
+<div id='edit' title='Setup Wizard'>
+</div>
+
+<div id='iconBrowser' title='Channel Icon Browser'>
 </div>
 
 <div id='helpWindow' title='Help'>
 </div>
 
-<div id='fileBrowser-bg'>
-    <div id='fileBrowserTitle' class='Title'>
-    </div>
+<div id='confirmWindow' title='Are You Sure?'>
+</div>
+
+<div id='fileBrowserWindow'>
     <div id='fileBrowser'>
-    </div>
-    <div id='fileBrowserSaveButton' class='SaveButton'>
-        <a href='javascript:saveFileBrowser()'>Save</a>
-    </div>
-    <div id='fileBrowserCloseButton' class='CloseButton'>
-        <a href='javascript:hideFileBrowser()'>Close [X]</a>
     </div>
 </div>
 

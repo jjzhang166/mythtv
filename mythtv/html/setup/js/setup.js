@@ -16,6 +16,9 @@ function setupPageName(path) {
 }
 
 function showHelpWindow() {
+    var helpHeight = $("#helpWindow").parent().height();
+    $("#helpWindow").dialog("option", "position",
+        [(window.innerWidth - 330), (window.innerHeight - (helpHeight + 30))]);
     $("#helpWindow").show();
     $("#helpWindow").draggable();
 }
@@ -26,7 +29,11 @@ function hideHelpWindow() {
 
 function showHelp(title, content) {
     $("#helpWindow").dialog({
-      'title': title
+      'title': title,
+      'width': 300,
+      'height': 'auto',
+      'minHeight': 20,
+      'position': [(window.innerWidth - 330), window.innerHeight]
     });
     $("#helpWindow").html(content);
     showHelpWindow();
@@ -39,31 +46,11 @@ function showSettingHelp(setting) {
 }
 
 function showEditWindow() {
-    $("#edit-bg").show();
-    $("#editborder").show();
+    $("#edit").show();
 }
 
 function hideEditWindow() {
-    $("#editborder").hide();
-    $("#edit-bg").hide();
-    $("#editsavebutton").hide();
-}
-
-function clearEditMessages() {
-    setEditStatusMessage("");
-    setEditErrorMessage("");
-}
-
-function setEditStatusMessage(message) {
-    $("#editErrorMessage").html("");
-    $("#editStatusMessage").html(message);
-    setTimeout('$("#editStatusMessage").html("")', statusMessageTimeout);
-}
-
-function setEditErrorMessage(message) {
-    $("#editStatusMessage").html("");
-    $("#editErrorMessage").html(message);
-    setTimeout('$("#editErrorMessage").html("")', errorMessageTimeout);
+    $("#edit").hide();
 }
 
 function submitConfigForm(form) {
@@ -88,9 +75,9 @@ function submitConfigForm(form) {
     $.ajaxSetup({ async: true });
 
     if (savedOK)
-        setHeaderStatusMessage("Changes saved successfully");
+        setStatusMessage("Changes saved successfully");
     else
-        setHeaderErrorMessage("Error saving changes!");
+        setErrorMessage("Error saving changes!");
 }
 
 function setSettingInputValues(divName) {
@@ -244,13 +231,8 @@ function addStorageGroupDir( group, dir, host ) {
         function(data) {
             if (data.bool == "true")
                 result = 1;
-            else
-                alert("data.bool != true");
-        }, "json").error(function(data) {
-            alert("Error: unable to add Storage Group Directory");
-        });
+        }, "json");
     $.ajaxSetup({ async: true });
-    // FIXME, better alerting
 
     return result;
 }
@@ -276,31 +258,70 @@ function removeStorageGroupDir( group, dir, host ) {
 /* File/Directory Browser                                                   */
 /****************************************************************************/
 var fileBrowserCallback;
-function openFileBrowser(title, dirs, callback) {
-    $('#fileBrowserTitle').html(title);
-    $('#fileBrowser-bg').show();
+
+function fileBrowserEntryInfoCallback(file) {
+    /* do nothing here for now */
+}
+
+function openFileBrowserWindow(title, dirs, saveCallback, onlyDirs, storageGroup) {
+    var fileBrowserWidth = 330;
+    var rootPath = "/";
+    if (storageGroup != undefined && storageGroup != "") {
+        rootPath = "myth://" + storageGroup + "@" + getHostName() + ":"
+                 + location.port + "/";
+    }
+
+    $("#fileBrowserWindow").dialog({
+        modal: true,
+        width: fileBrowserWidth,
+        height: 515,
+        'title': title,
+        closeOnEscape: false,
+        buttons: {
+           'Save': saveFileBrowser,
+           'Cancel': function() { $(this).dialog('close'); }
+        }
+    });
+
+    $('#fileBrowserWindow').dialog("open");
     $.ajaxSetup({ async: false });
-    $.getScript("/js/jqueryFileTree/jqueryFileTree.js");
+    if (typeof jQuery.fileTree == 'undefined') {
+        $.getScript("/js/jqueryFileTree/jqueryFileTree.js");
+    }
     $.ajaxSetup({ async: true });
-    fileBrowserCallback = callback;
+    fileBrowserCallback = saveCallback;
+        
     $('#fileBrowser').fileTree(
-      { root: '/',
-        script: '/Config/FileBrowser'
-      }, callback );
+      { root: rootPath,
+        script: '/Config/FileBrowser',
+        dirsOnly: onlyDirs
+      }, fileBrowserEntryInfoCallback);
+}
+
+function openFileBrowser(title, dirs, callback) {
+    openFileBrowserWindow(title, dirs, callback, 0);
+}
+
+function openDirBrowser(title, dirs, callback) {
+    openFileBrowserWindow(title, dirs, callback, 1);
+}
+
+function openStorageGroupBrowser(title, callback, group) {
+    var dirs = new Array();
+    openFileBrowserWindow(title, dirs, callback, 0, group);
 }
 
 function saveFileBrowser() {
-    var selectedDir = $('#fileBrowser').find('A.selected').attr("rel");
-    if (selectedDir && fileBrowserCallback)
+    var selectedItem = $('#fileBrowser').find('A.selected').attr("rel");
+    if (selectedItem && fileBrowserCallback)
     {
-        hideFileBrowser();
-        fileBrowserCallback(selectedDir);
+        $('#fileBrowserWindow').dialog('close');
+        if (typeof fileBrowserCallback == "string")
+            $("#" + fileBrowserCallback).val(selectedItem);
+        else
+            fileBrowserCallback(selectedItem);
     }
     else
-        alert("No directory selected.");
-}
-
-function hideFileBrowser() {
-    $('#fileBrowser-bg').hide();
+        alert("No item selected.");
 }
 

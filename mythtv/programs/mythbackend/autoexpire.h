@@ -40,7 +40,7 @@ class ExpireThread : public QThread
     Q_OBJECT
   public:
     ExpireThread(AutoExpire *p) : m_parent(p) {}
-    virtual ~ExpireThread() { wait(); }
+    virtual ~ExpireThread() { wait(); m_parent = NULL; }
     virtual void run(void);
   private:
     AutoExpire *m_parent;
@@ -51,7 +51,7 @@ class UpdateThread : public QThread
     Q_OBJECT
   public:
     UpdateThread(AutoExpire *p) : m_parent(p) {}
-    virtual ~UpdateThread() { wait(); }
+    virtual ~UpdateThread() { wait(); m_parent = NULL; }
     virtual void run(void);
   private:
     AutoExpire *m_parent;
