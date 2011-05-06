@@ -612,9 +612,10 @@ void Scheduler::UpdateRecStatus(uint cardid, uint chanid,
     }
 }
 
-/// Note schedLock must be held when this is called
 bool Scheduler::ChangeRecordingEnd(RecordingInfo *oldp, RecordingInfo *newp)
 {
+    QMutexLocker lockit(&schedLock);
+
     if (reclist_changed)
         return false;
 
@@ -2012,7 +2013,7 @@ bool Scheduler::HandleReschedule(void)
                        (fillend.tv_usec - fillstart.tv_usec)) / 1000000.0;
 
     gettimeofday(&fillstart, NULL);
-    bool worklistused = FillRecordList(false);
+    bool worklistused = FillRecordList(true);
     gettimeofday(&fillend, NULL);
     if (worklistused)
     {
