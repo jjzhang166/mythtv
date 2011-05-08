@@ -3945,7 +3945,6 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
 
     if (recorder)
     {
-        ringBuffer->SetWriteBufferSize(4*1024*1024);
         recorder->SetRingBuffer(ringBuffer);
         recorder->Initialize();
         if (recorder->IsErrored())

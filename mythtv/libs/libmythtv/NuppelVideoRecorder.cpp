@@ -2962,16 +2962,6 @@ void NuppelVideoRecorder::WriteVideo(VideoFrame *frame, bool skipsync,
         if (freecount < 5)
             raw = 1; // speed up the encode process
 
-        if (raw == 1 || compressthis == 0)
-        {
-            if (ringBuffer->IsIOBound())
-            {
-                /* need to compress, the disk can't handle any more bandwidth*/
-                raw=0;
-                compressthis=1;
-            }
-        }
-
         if (transcoding)
         {
             raw = 0;

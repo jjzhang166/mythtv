@@ -369,7 +369,6 @@ static bool named_output_file_common(
         tfw = NULL;
         return false;
     }
-    tfw->SetWriteBufferSize(64 * 1024 * 1024);
 
     bool ok = true;
     const QByteArray ba = fn.toLocal8Bit();
