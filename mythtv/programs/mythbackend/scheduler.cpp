@@ -1692,7 +1692,7 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
     return false;
 }
 
-void Scheduler::run(void)
+void Scheduler::OldRecordedFixups(void)
 {
     MSqlQuery query(dbConn);
 
@@ -1730,12 +1730,17 @@ void Scheduler::run(void)
                   "      endtime < (NOW() - INTERVAL 8 HOUR)");
     if (!query.exec())
         MythDB::DBError("UpdateFuture", query);
+}
 
+void Scheduler::run(void)
+{
     // Notify constructor that we're actually running
     {
         QMutexLocker lockit(&schedLock);
         reschedWait.wakeAll();
     }
+
+    OldRecordedFixups();
 
     // wait for slaves to connect
     sleep(3);
@@ -1781,10 +1786,10 @@ void Scheduler::run(void)
         }
         else
         {
-            int sched_sleep = (secs_to_next - schedRunTime - 1) * 1000;
-            sched_sleep = min(sched_sleep, maxSleep);
             if (reschedQueue.empty())
             {
+                int sched_sleep = (secs_to_next - schedRunTime - 1) * 1000;
+                sched_sleep = min(sched_sleep, maxSleep);
                 VERBOSE(VB_SCHEDULE,
                         QString("sleeping for %1 ms (interuptable)")
                         .arg(sched_sleep));

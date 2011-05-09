@@ -151,6 +151,7 @@ class Scheduler : public QThread
         const QDateTime &curtime,
         RecConstIter startIter, const RecList &reclist,
         int prerollseconds, int max_sleep /*ms*/);
+    void OldRecordedFixups(void);
     bool HandleReschedule(void);
     bool HandleRunSchedulerStartup(
         int prerollseconds, int idleWaitForRecordingTime);
