@@ -4061,7 +4061,8 @@ void TVRec::TuningRestartRecorder(void)
     recorder->Reset();
 
     // Set file descriptor of channel from recorder for V4L
-    channel->SetFd(recorder->GetVideoFd());
+    if (GetV4LChannel())
+        channel->SetFd(recorder->GetVideoFd());
 
     // Some recorders unpause on Reset, others do not...
     recorder->Unpause();

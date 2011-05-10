@@ -26,7 +26,7 @@ class DVBRecorder : public DTVRecorder
     void StartRecording(void);
 
     bool Open(void);
-    bool IsOpen(void) const { return _stream_fd >= 0; }
+    bool IsOpen(void) const;
     void Close(void);
 
   private:

@@ -58,19 +58,23 @@ bool DVBRecorder::Open(void)
 
     _stream_handler = DVBStreamHandler::Get(videodevice);
 
-    VERBOSE(VB_RECORD, LOC + QString("Card opened successfully fd(%1)")
-            .arg(_stream_fd));
+    VERBOSE(VB_RECORD, LOC + "Card opened successfully");
 
     return true;
 }
 
+bool DVBRecorder::IsOpen(void) const
+{
+    return (NULL != _stream_handler);
+}
+
 void DVBRecorder::Close(void)
 {
-    VERBOSE(VB_RECORD, LOC + "Close() fd("<<_stream_fd<<") -- begin");
+    VERBOSE(VB_RECORD, LOC + "Close() -- begin");
 
     DVBStreamHandler::Return(_stream_handler);
 
-    VERBOSE(VB_RECORD, LOC + "Close() fd("<<_stream_fd<<") -- end");
+    VERBOSE(VB_RECORD, LOC + "Close() -- end");
 }
 
 void DVBRecorder::StartRecording(void)
