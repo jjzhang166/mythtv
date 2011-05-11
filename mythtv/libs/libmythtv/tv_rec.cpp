@@ -781,7 +781,7 @@ void TVRec::StartedRecording(RecordingInfo *curRec)
  *  \sa ProgramInfo::FinishedRecording(bool prematurestop)
  *  \param curRec ProgramInfo or recording to mark as done
  */
-void TVRec::FinishedRecording(RecordingInfo *curRec, int caller_line)
+void TVRec::FinishedRecording(RecordingInfo *curRec)
 {
     if (!curRec)
         return;
@@ -826,15 +826,14 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, int caller_line)
     VERBOSE(VB_RECORD, LOC +
             QString("FinishedRecording(%1)"
                     "\n\t\t\tkey: %2\n\t\t\t"
-                    "in recgroup: %3 status: %4:%5 %6 %7 @ %8")
+                    "in recgroup: %3 status: %4:%5 %6 %7")
             .arg(curRec->GetTitle())
             .arg(curRec->MakeUniqueKey())
             .arg(recgrp)
             .arg(toString(ors, kSingleRecord))
             .arg(toString(curRec->GetRecordingStatus(), kSingleRecord))
             .arg(HasFlags(kFlagDummyRecorderRunning)?"is_dummy":"not_dummy")
-            .arg(was_finished?"already_finished":"finished_now")
-            .arg(caller_line));
+            .arg(was_finished?"already_finished":"finished_now"));
 
     // This has already been called on this recording..
     if (was_finished)
@@ -3216,7 +3215,7 @@ void TVRec::RingBufferChanged(RingBuffer *rb, ProgramInfo *pginfo)
     {
         if (curRecording)
         {
-            FinishedRecording(curRecording, 1);
+            FinishedRecording(curRecording);
             curRecording->MarkAsInUse(false, kRecorderInUseID);
             delete curRecording;
         }
@@ -3467,7 +3466,7 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
         if (HasFlags(kFlagDummyRecorderRunning))
         {
             finrun = true;
-            FinishedRecording(curRecording, 2);
+            FinishedRecording(curRecording);
             ClearFlags(kFlagDummyRecorderRunning);
             curRecording->MarkAsInUse(false, kRecorderInUseID);
         }
@@ -3477,7 +3476,7 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
             if (!finrun)
             {
                 finrun = true;
-                FinishedRecording(curRecording, 3);
+                FinishedRecording(curRecording);
             }
             curRecording->MarkAsInUse(false, kRecorderInUseID);
         }
@@ -3487,7 +3486,7 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
         {
             if (!finrun)
             {
-                FinishedRecording(curRecording, 4);
+                FinishedRecording(curRecording);
                 curRecording->MarkAsInUse(false, kRecorderInUseID);
             }
             stateChangeLock.unlock();
@@ -3874,7 +3873,7 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
     bool had_dummyrec = false;
     if (HasFlags(kFlagDummyRecorderRunning))
     {
-        FinishedRecording(curRecording, 5);
+        FinishedRecording(curRecording);
         ClearFlags(kFlagDummyRecorderRunning);
         curRecording->MarkAsInUse(false, kRecorderInUseID);
         had_dummyrec = true;
@@ -4039,7 +4038,7 @@ void TVRec::TuningRestartRecorder(void)
 
     if (curRecording)
     {
-        FinishedRecording(curRecording, 6);
+        FinishedRecording(curRecording);
         curRecording->MarkAsInUse(false, kRecorderInUseID);
     }
 
@@ -4395,7 +4394,7 @@ bool TVRec::SwitchLiveTVRingBuffer(const QString & channum,
     {
         RecordingInfo *oldinfo = new RecordingInfo(*pi);
         delete pi;
-        FinishedRecording(oldinfo, 7);
+        FinishedRecording(oldinfo);
         delete oldinfo;
     }
 
@@ -4449,7 +4448,7 @@ RecordingInfo *TVRec::SwitchRecordingRingBuffer(const RecordingInfo &rcinfo)
     if (!rb->IsOpen())
     {
         ri->SetRecordingStatus(rsFailed);
-        FinishedRecording(ri, 8);
+        FinishedRecording(ri);
         ri->MarkAsInUse(false, kRecorderInUseID);
         delete ri;
         VERBOSE(VB_RECORD, LOC + "SwitchRecordingRingBuffer() -> false 2");

@@ -320,7 +320,7 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener
     RecordingInfo *SwitchRecordingRingBuffer(const RecordingInfo &rcinfo);
 
     void StartedRecording(RecordingInfo*);
-    void FinishedRecording(RecordingInfo*, int line);
+    void FinishedRecording(RecordingInfo*);
     QDateTime GetRecordEndTime(const ProgramInfo*) const;
     void CheckForRecGroupChange(void);
     void NotifySchedulerOfRecording(RecordingInfo*);
