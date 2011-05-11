@@ -101,7 +101,7 @@ class MTV_PUBLIC CardUtil
         if ("ASI" == name)
             return ASI;
         if ("OCUR" == name)
-            return ASI;
+            return OCUR;
         return ERROR_UNKNOWN;
     }
 
