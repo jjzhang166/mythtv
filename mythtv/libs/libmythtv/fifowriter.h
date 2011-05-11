@@ -47,7 +47,7 @@ class MTV_PUBLIC FIFOWriter
         struct fifo_buf *next;
         unsigned char *data;
         long blksize;
-     } **fifo_buf, **fb_inptr, **fb_outptr;
+    } **fifo_buf, **fb_inptr, **fb_outptr;
 
     FIFOThread     *fifothrds;
     QMutex         *fifo_lock;
