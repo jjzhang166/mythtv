@@ -162,6 +162,8 @@ int main(int argc, char **argv)
         VERBOSE(VB_IMPORTANT, versionStr);
     }
 
+    setHttpProxy();
+
     gContext = new MythContext(MYTH_BINARY_VERSION);
 
     if (cmdline.HasBackendCommand())
