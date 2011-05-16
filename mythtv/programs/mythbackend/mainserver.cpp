@@ -289,7 +289,7 @@ MainServer::MainServer(bool master, int port,
     masterBackendOverride = gCoreContext->GetNumSetting("MasterBackendOverride", 0);
 
     mythserver = new MythServer();
-    if (!mythserver->listen(QHostAddress::Any, port))
+    if (!mythserver->listen(QHostAddress::AnyIPv6, port))
     {
         VERBOSE(VB_IMPORTANT, QString("Failed to bind port %1. Exiting.")
                 .arg(port));
@@ -1722,8 +1722,7 @@ void MainServer::HandleQueryRecordings(QString type, PlaybackSock *pbs)
         if ((proginfo->GetHostname() == gCoreContext->GetHostName()) ||
             (!slave && masterBackendOverride))
         {
-            proginfo->SetPathname(QString("myth://") + ip + ':' + port +
-                                  '/' + proginfo->GetBasename());
+            proginfo->SetPathname(gCoreContext->GenMythURL(ip,port,proginfo->GetBasename()));
             if (!proginfo->GetFilesize())
             {
                 QString tmpURL = GetPlaybackURL(proginfo);
@@ -1787,10 +1786,9 @@ void MainServer::HandleQueryRecordings(QString type, PlaybackSock *pbs)
                     backendPortMap[p->GetHostname()] =
                         gCoreContext->GetSettingOnHost("BackendServerPort",
                                                    p->GetHostname());
-                p->SetPathname(QString("myth://") +
-                               backendIpMap[p->GetHostname()] + ":" +
-                               backendPortMap[p->GetHostname()] + "/" +
-                               p->GetBasename());
+                p->SetPathname(gCoreContext->GenMythURL(backendIpMap[p->GetHostname()],
+                                                        backendPortMap[p->GetHostname()],
+                                                        p->GetBasename()));
             }
         }
 
@@ -1871,8 +1869,7 @@ void MainServer::HandleFillProgramInfo(QStringList &slist, PlaybackSock *pbs)
         if (playbackhost == gCoreContext->GetHostName())
             pginfo.SetPathname(lpath);
         else
-            pginfo.SetPathname(QString("myth://") + ip + ":" + port + "/" +
-                               pginfo.GetBasename());
+            pginfo.SetPathname(gCoreContext->GenMythURL(ip,port,pginfo.GetBasename()));
 
         const QFileInfo info(lpath);
         pginfo.SetFilesize(info.size());
@@ -2081,10 +2078,12 @@ void MainServer::DeleteRecordedFiles(const DeleteStruct *ds)
 
             StorageGroup sgroup(storagegroup);
             QString localFile = sgroup.FindFile(basename);
-            QString url = QString("myth://%1@%2:%3/%4").arg(storagegroup)
-                .arg(gCoreContext->GetSettingOnHost("BackendServerIP", hostname))
-                .arg(gCoreContext->GetSettingOnHost("BackendServerPort", hostname))
-                .arg(basename);
+
+            QString url = gCoreContext->GenMythURL(
+                                  gCoreContext->GetSettingOnHost("BackendServerIP", hostname),
+                                  gCoreContext->GetSettingOnHost("BackendServerPort", hostname),
+                                  basename,
+                                  storagegroup);
 
             if ((((hostname == gCoreContext->GetHostName()) ||
                   (!localFile.isEmpty())) &&
@@ -3304,8 +3303,8 @@ void MainServer::HandleSGFileQuery(QStringList &sList,
 
     bool slaveUnreachable = false;
 
-    VERBOSE(VB_FILE, QString("HandleSGFileQuery: myth://%1@%2/%3")
-                             .arg(groupname).arg(wantHost).arg(filename));
+    VERBOSE(VB_FILE, QString("HandleSGFileQuery: %1")
+                             .arg(gCoreContext->GenMythURL(wantHost,0,filename,groupname)));
 
     if ((wantHost.toLower() == gCoreContext->GetHostName().toLower()) ||
         (wantHost == gCoreContext->GetSetting("BackendServerIP")))

@@ -58,6 +58,9 @@ MMulticastSocketDevice::MMulticastSocketDevice(
     if (ttl == 0)
         ttl = 4;
 
+    setProtocol(IPv4);
+    setSocket(createNewSocket(), MSocketDevice::Datagram);
+
     m_imr.imr_multiaddr.s_addr = inet_addr(sAddress.toAscii().constData());
     m_imr.imr_interface.s_addr = htonl(INADDR_ANY);
 

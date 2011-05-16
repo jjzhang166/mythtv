@@ -119,7 +119,7 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
 
         QString sHeader = QString( "NOTIFY * HTTP/1.1\r\n"
                                    "HOST: %1:%2\r\n"    
-                                   "LOCATION: http://%3:%4/getDeviceDesc\r\n" )
+                                   "LOCATION: http://[%3]:%4/getDeviceDesc\r\n")
                              .arg( pSocket->address().toString() )
                              .arg( pSocket->port() )
                              .arg( *it )
