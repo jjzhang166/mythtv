@@ -649,8 +649,6 @@ uint DeviceReadBuffer::WaitForUnused(uint needed) const
     return unused;
 }
 
-#include <cassert>
-
 /** \fn DeviceReadBuffer::WaitForUsed(uint,uint) const
  *  \param needed Number of bytes we want to read
  *  \param max_wait Number of milliseconds to wait for the needed data

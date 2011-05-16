@@ -35,7 +35,7 @@ class ChannelBase
 {
     friend class SignalMonitor;
 
- public:
+  public:
     ChannelBase(TVRec *parent);
     virtual ~ChannelBase(void);
 
