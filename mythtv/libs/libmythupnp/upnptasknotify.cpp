@@ -91,10 +91,11 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
                             .arg( sUSN         )
                             .arg( m_nMaxAge    );
 
-//    VERBOSE(VB_UPNP, QString("UPnpNotifyTask::SendNotifyMsg : %1 : %2 : %3")
-//                        .arg( pSocket->address().toString() )
-//                        .arg( sNT  )
-//                        .arg( sUSN ));
+    VERBOSE(VB_UPNP, QString("UPnpNotifyTask::SendNotifyMsg : %1:%2 : %3 : %4")
+                        .arg( pSocket->address().toString() )
+                        .arg( pSocket->port() )
+                        .arg( sNT  )
+                        .arg( sUSN ));
 
     {
     QMutexLocker qml(&m_mutex); // for addressList
@@ -119,8 +120,8 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
         QString sHeader = QString( "NOTIFY * HTTP/1.1\r\n"
                                    "HOST: %1:%2\r\n"    
                                    "LOCATION: http://%3:%4/getDeviceDesc\r\n" )
-                             .arg( SSDP_GROUP ) // pSocket->address().toString() )
-                             .arg( SSDP_PORT )  // pSocket->port() )
+                             .arg( pSocket->address().toString() )
+                             .arg( pSocket->port() )
                              .arg( *it )
                              .arg( m_nServicePort);
 
