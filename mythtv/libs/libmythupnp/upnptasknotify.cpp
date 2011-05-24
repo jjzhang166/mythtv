@@ -104,12 +104,6 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
     // Refresh IP Address List in case of changes
     // ----------------------------------------------------------------------
 
-    QString address = pSocket->address().toString();
-
-    // If this looks like an IPv6 address, then enclose it in []'s
-    if (address.contains(":"))
-        address = "[" + address + "]";
-
     QStringList addressList = UPnp::g_IPAddrList;
 
     for ( QStringList::Iterator it  = addressList.begin(); 
@@ -123,12 +117,18 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
             continue;
         }
 
+        QString ipaddress = *it;
+
+        // If this looks like an IPv6 address, then enclose it in []'s
+        if (ipaddress.contains(":"))
+            ipaddress = "[" + ipaddress + "]";
+
         QString sHeader = QString( "NOTIFY * HTTP/1.1\r\n"
                                    "HOST: %1:%2\r\n"    
-                                   "LOCATION: http://%3:%4/getDeviceDesc\r\n")
-                             .arg( address )
+                                   "LOCATION: http://%3:%4/getDeviceDesc\r\n" )
+                             .arg( pSocket->address().toString() )
                              .arg( pSocket->port() )
-                             .arg( *it )
+                             .arg( ipaddress )
                              .arg( m_nServicePort);
 
         QString  sPacket  = sHeader + sData;

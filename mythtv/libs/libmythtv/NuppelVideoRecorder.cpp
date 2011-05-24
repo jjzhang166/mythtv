@@ -43,19 +43,20 @@ extern "C" {
 #include "libswscale/swscale.h"
 }
 
-#ifdef USING_V4L
-#include <linux/videodev.h>
+#ifdef USING_V4L2
 #include <linux/videodev2.h>
 
 #include "go7007_myth.h"
+
+#ifdef USING_V4L1
+#include <linux/videodev.h>
+#endif // USING_V4L1
 
 #ifndef MJPIOC_S_PARAMS
 #include "videodev_mjpeg.h"
 #endif
 
-#else  // USING_V4l
-#define VT_WIDTH 0
-#endif // USING_V4l
+#endif // USING_V4L2
 
 #define KEYFRAMEDIST   30
 
@@ -601,16 +602,9 @@ bool NuppelVideoRecorder::SetupAVCodecVideo(void)
     mpa_vidctx->prediction_method = FF_PRED_LEFT;
     if (videocodec.toLower() == "huffyuv" || videocodec.toLower() == "mjpeg")
         mpa_vidctx->strict_std_compliance = FF_COMPLIANCE_INOFFICIAL;
+    mpa_vidctx->thread_count = encoding_thread_count;
 
     QMutexLocker locker(avcodeclock);
-
-#ifdef USING_FFMPEG_THREADS
-    if ((encoding_thread_count > 1) &&
-        avcodec_thread_init(mpa_vidctx, encoding_thread_count))
-    {
-        VERBOSE(VB_IMPORTANT, LOC + "FFMPEG couldn't start threading...");
-    }
-#endif
 
     if (avcodec_open(mpa_vidctx, mpa_vidcodec) < 0)
     {
@@ -838,7 +832,7 @@ int NuppelVideoRecorder::AudioInit(bool skipdevice)
  */
 bool NuppelVideoRecorder::MJPEGInit(void)
 {
-#ifdef USING_V4L
+#ifdef USING_V4L1
     bool we_opened_fd = false;
     int init_fd = fd;
     if (init_fd < 0)
@@ -880,7 +874,7 @@ bool NuppelVideoRecorder::MJPEGInit(void)
             hmjpg_maxw = 640;
         return true;
     }
-#endif // USING_V4L
+#endif // USING_V4L1
 
     VERBOSE(VB_IMPORTANT, LOC_ERR + "MJPEG not supported by device");
     return false;
@@ -1029,7 +1023,7 @@ bool NuppelVideoRecorder::Open(void)
 
 void NuppelVideoRecorder::ProbeV4L2(void)
 {
-#ifdef USING_V4L
+#ifdef USING_V4L2
     usingv4l2 = true;
 
     struct v4l2_capability vcap;
@@ -1059,7 +1053,7 @@ void NuppelVideoRecorder::ProbeV4L2(void)
     QString driver = (char *)vcap.driver;
     if (driver == "go7007")
         go7007 = true;
-#endif // USING_V4L
+#endif // USING_V4L2
 }
 
 void NuppelVideoRecorder::StartRecording(void)
@@ -1141,11 +1135,11 @@ void NuppelVideoRecorder::StartRecording(void)
         return;
     }
     else
-        DoV4L();
+        DoV4L1();
 }
 
-#ifdef USING_V4L
-void NuppelVideoRecorder::DoV4L(void)
+#ifdef USING_V4L1
+void NuppelVideoRecorder::DoV4L1(void)
 {
     struct video_capability vc;
     struct video_mmap mm;
@@ -1335,7 +1329,11 @@ void NuppelVideoRecorder::DoV4L(void)
     recording = false;
     close(fd);
 }
+#else // if !USING_V4L1
+void NuppelVideoRecorder::DoV4L1(void) {}
+#endif // !USING_V4L1
 
+#ifdef USING_V4L2
 bool NuppelVideoRecorder::SetFormatV4L2(void)
 {
     struct v4l2_format     vfmt;
@@ -1412,7 +1410,11 @@ bool NuppelVideoRecorder::SetFormatV4L2(void)
 
     return true;
 }
+#else // if !USING_V4L2
+bool NuppelVideoRecorder::SetFormatV4L2(void) { return false; }
+#endif // !USING_V4L2
 
+#ifdef USING_V4L2
 #define MAX_VIDEO_BUFFERS 5
 void NuppelVideoRecorder::DoV4L2(void)
 {
@@ -1739,7 +1741,11 @@ again:
     close(fd);
     close(channelfd);
 }
+#else // if !USING_V4L2
+void NuppelVideoRecorder::DoV4L2(void) {}
+#endif // !USING_V4L2
 
+#ifdef USING_V4L1
 void NuppelVideoRecorder::DoMJPEG(void)
 {
     struct mjpeg_params bparm;
@@ -1880,13 +1886,9 @@ void NuppelVideoRecorder::DoMJPEG(void)
     recording = false;
     close(fd);
 }
-
-#else  // USING_V4L
-void NuppelVideoRecorder::DoV4L(void)         {}
-bool NuppelVideoRecorder::SetFormatV4L2(void) { return false; }
-void NuppelVideoRecorder::DoV4L2(void)        {}
-void NuppelVideoRecorder::DoMJPEG(void)       {}
-#endif // USING_V4L
+#else // if !USING_V4L1
+void NuppelVideoRecorder::DoMJPEG(void) {}
+#endif // !USING_V4L1
 
 bool NuppelVideoRecorder::SpawnChildren(void)
 {
@@ -1932,11 +1934,6 @@ void NuppelVideoRecorder::KillChildren(void)
         delete vbi_thread;
         vbi_thread = NULL;
     }
-
-#ifdef USING_FFMPEG_THREADS
-    if (useavcodec && encoding_thread_count > 1)
-        avcodec_thread_free(mpa_vidctx);
-#endif
 }
 
 void NuppelVideoRecorder::BufferIt(unsigned char *buf, int len, bool forcekey)
@@ -2460,7 +2457,7 @@ void NuppelVideoRecorder::doAudioThread(void)
         audio_device->Close();
 }
 
-#ifdef USING_V4L
+#ifdef USING_V4L2
 void NuppelVideoRecorder::FormatTT(struct VBIData *vbidata)
 {
     struct timeval tnow;
@@ -2627,9 +2624,9 @@ void NuppelVideoRecorder::FormatTT(struct VBIData *vbidata)
         act_text_buffer = 0;
     textbuffer[act]->freeToEncode = 1;
 }
-#else  // USING_V4L
-void NuppelVideoRecorder::FormatTeletextSubtitles(struct VBIData *vbidata) {}
-#endif // USING_V4L
+#else  // USING_V4L2
+void NuppelVideoRecorder::FormatTT(struct VBIData*) {}
+#endif // USING_V4L2
 
 void NuppelVideoRecorder::FormatCC(struct cc *cc)
 {

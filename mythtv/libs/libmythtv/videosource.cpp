@@ -47,7 +47,7 @@ using namespace std;
 #include "dvbtypes.h"
 #endif
 
-#ifdef USING_V4L
+#ifdef USING_V4L2
 #include <linux/videodev2.h>
 #endif
 
@@ -2282,7 +2282,7 @@ CaptureCardGroup::CaptureCardGroup(CaptureCard &parent) :
     setTrigger(cardtype);
     setSaveAll(false);
 
-#ifdef USING_V4L
+#ifdef USING_V4L2
     addTarget("V4L",       new V4LConfigurationGroup(parent));
 # ifdef USING_IVTV
     addTarget("MPEG",      new MPEGConfigurationGroup(parent));
@@ -2290,7 +2290,7 @@ CaptureCardGroup::CaptureCardGroup(CaptureCard &parent) :
 # ifdef USING_HDPVR
     addTarget("HDPVR",     new HDPVRConfigurationGroup(parent));
 # endif // USING_HDPVR
-#endif // USING_V4L
+#endif // USING_V4L2
 
 #ifdef USING_DVB
     addTarget("DVB",       new DVBConfigurationGroup(parent));
@@ -2479,7 +2479,7 @@ CardType::CardType(const CaptureCard &parent) :
 
 void CardType::fillSelections(SelectSetting* setting)
 {
-#ifdef USING_V4L
+#ifdef USING_V4L2
     setting->addSelection(
         QObject::tr("Analog V4L capture card"), "V4L");
     setting->addSelection(
@@ -2492,7 +2492,7 @@ void CardType::fillSelections(SelectSetting* setting)
     setting->addSelection(
         QObject::tr("H.264 encoder card (HD-PVR)"), "HDPVR");
 # endif // USING_HDPVR
-#endif // USING_V4L
+#endif // USING_V4L2
 
 #ifdef USING_DVB
     setting->addSelection(
@@ -2504,11 +2504,11 @@ void CardType::fillSelections(SelectSetting* setting)
         QObject::tr("FireWire cable box"), "FIREWIRE");
 #endif // USING_FIREWIRE
 
-#ifdef USING_V4L
+#ifdef USING_V4L2
     setting->addSelection(
         QObject::tr("USB MPEG-4 encoder box (Plextor ConvertX, etc)"),
         "GO7007");
-#endif // USING_V4L
+#endif // USING_V4L2
 
 #ifdef USING_HDHOMERUN
     setting->addSelection(
