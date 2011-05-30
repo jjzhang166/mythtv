@@ -518,6 +518,8 @@ void PlaybackBoxHelper::UndeleteRecording(
 void PlaybackBoxHelper::run(void)
 {
     m_eventHandler = new PBHEventHandler(*this);
+    // Prime the pump so the disk free display starts updating
+    ForceFreeSpaceUpdate();
     exec();
 }
 
@@ -534,6 +536,8 @@ void PlaybackBoxHelper::UpdateFreeSpace(void)
             m_freeSpaceUsedMB  = (uint64_t) (fsInfos[i].usedSpaceKB  >> 10);
         }
     }
+    MythEvent *e = new MythEvent("UPDATE_USAGE_UI");
+    QCoreApplication::postEvent(m_listener, e);
 }
 
 uint64_t PlaybackBoxHelper::GetFreeSpaceTotalMB(void) const
