@@ -24,6 +24,7 @@
 #define MYTH_APPNAME_MYTHMESSAGE "mythmessage"
 #define MYTH_APPNAME_MYTHLCDSERVER "mythlcdserver"
 #define MYTH_APPNAME_MYTHAVTEST "mythavtest"
+#define MYTH_APPNAME_MYTHMEDIASERVER "mythmediaserver"
 
 class MDBManager;
 class MythCoreContextPrivate;
@@ -94,8 +95,6 @@ class MBASE_PUBLIC MythCoreContext : public MythObservable, public MythSocketCBs
     QString GetHostName(void);
     QString GetFilePrefix(void);
 
-    void RefreshBackendConfig(void);
-
     bool IsConnectedToMaster(void);
     void SetBackend(bool backend);
     bool IsBackend(void);        ///< is this process a backend process
@@ -153,9 +152,6 @@ class MBASE_PUBLIC MythCoreContext : public MythObservable, public MythSocketCBs
 
     void dispatch(const MythEvent &event);
     void dispatchNow(const MythEvent &event) MDEPRECATED;
-
-    void LogEntry(const QString &module, int priority,
-                  const QString &message, const QString &details);
 
     void InitLocale(void);
     const MythLocale *GetLocale(void);

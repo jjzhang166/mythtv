@@ -28,8 +28,9 @@ using namespace std;
 
 #include "mythverbose.h"
 #include "threadpool.h"
-#include "upnp.h"       // only needed for Config... remove once config is moved.
+#include "upnp.h"    // only needed for Config... remove once config is moved.
 #include "mythverbose.h"
+#include "mythlogging.h"
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -251,6 +252,8 @@ void WorkerThread::SetTimeout( long nIdleTimeout )
 
 void WorkerThread::run( void )
 {
+    threadRegister("WorkerThread");
+
     m_timer = new QTimer();
     m_timer->setSingleShot(true);
 
@@ -278,6 +281,7 @@ void WorkerThread::run( void )
     delete m_timer;
 
     VERBOSE( VB_UPNP, QString( "WorkerThread:Run - Exiting: %1" ).arg( m_sName ));
+    threadDeregister();
 }
 
 /////////////////////////////////////////////////////////////////////////////

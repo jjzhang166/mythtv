@@ -8,6 +8,7 @@
 #include <QString>
 #include <QThread>
 #include <QMutex>
+#include <QMap>
 
 #include "mythconfig.h"
 
@@ -45,8 +46,11 @@ class MTV_PUBLIC RingBuffer : protected QThread
     void SetOldFile(bool is_old);
     void UpdateRawBitrate(uint rawbitrate);
     void UpdatePlaySpeed(float playspeed);
+    void EnableBitrateMonitor(bool enable) { bitrateMonitorEnabled = enable; }
+    void SetBufferSizeFactors(bool estbitrate, bool matroska);
 
     // Gets
+    QString   GetSafeFilename(void) { return safefilename; }
     QString   GetFilename(void)      const;
     QString   GetSubtitleFilename(void) const;
     /// Returns value of stopreads
@@ -55,6 +59,9 @@ class MTV_PUBLIC RingBuffer : protected QThread
     bool      isPaused(void)         const;
     /// \brief Returns how far into the file we have read.
     virtual long long GetReadPosition(void)  const = 0;
+    QString GetDecoderRate(void);
+    QString GetStorageRate(void);
+    QString GetAvailableBuffer(void);
     long long GetWritePosition(void) const;
     /// \brief Returns the size of the file we are reading/writing,
     ///        or -1 if the query fails.
@@ -62,8 +69,11 @@ class MTV_PUBLIC RingBuffer : protected QThread
     bool      IsNearEnd(double fps, uint vvf) const;
     /// \brief Returns true if open for either reading or writing.
     virtual bool IsOpen(void) const = 0;
-    virtual bool IsStreamed(void)     { return LiveMode(); }
-    virtual int  BestBufferSize(void) { return 32768; }
+    virtual bool IsStreamed(void)       { return LiveMode(); }
+    virtual bool IsSeekingAllowed(void) { return true;  }
+    virtual bool IsBookmarkAllowed(void) { return true; }
+    virtual int  BestBufferSize(void)   { return 32768; }
+    static QString BitrateToString(uint64_t rate);
 
     // DVD and bluray methods
     bool IsDisc(void) const { return IsDVD() || IsBD(); }
@@ -134,6 +144,7 @@ class MTV_PUBLIC RingBuffer : protected QThread
     RingBuffer();
 
     void run(void); // QThread
+    void CreateReadAheadBuffer(void);
     void CalcReadAheadThresh(void);
     bool PauseAndWait(void);
     virtual int safe_read(void *data, uint sz) = 0;
@@ -148,6 +159,9 @@ class MTV_PUBLIC RingBuffer : protected QThread
 
     void ResetReadAhead(long long newinternal);
     void KillReadAheadThread(void);
+
+    uint64_t UpdateDecoderRate(uint64_t latest = 0);
+    uint64_t UpdateStorageRate(uint64_t latest = 0);
 
   protected:
     mutable QReadWriteLock poslock;
@@ -166,6 +180,7 @@ class MTV_PUBLIC RingBuffer : protected QThread
 
     mutable QReadWriteLock rwlock;
 
+    QString safefilename;         // unprotected (for debugging)
     QString filename;             // protected by rwlock
     QString subtitlefilename;     // protected by rwlock
 
@@ -176,6 +191,9 @@ class MTV_PUBLIC RingBuffer : protected QThread
 
     RemoteFile *remotefile;       // protected by rwlock
 
+    uint      bufferSize;         // protected by rwlock
+    bool      fileismatroska;     // protected by rwlock
+    bool      unknownbitrate;     // protected by rwlock
     bool      startreadahead;     // protected by rwlock
     char     *readAheadBuffer;    // protected by rwlock
     bool      readaheadrunning;   // protected by rwlock
@@ -202,6 +220,13 @@ class MTV_PUBLIC RingBuffer : protected QThread
 
     long long readAdjust;         // protected by rwlock
 
+    // bitrate monitors
+    bool              bitrateMonitorEnabled;
+    QMutex            decoderReadLock;
+    QMap<qint64, uint64_t> decoderReads;
+    QMutex            storageReadLock;
+    QMap<qint64, uint64_t> storageReads;
+
     // note 1: numfailures is modified with only a read lock in the
     // read ahead thread, but this is safe since all other places
     // that use it are protected by a write lock. But this is a
@@ -215,10 +240,6 @@ class MTV_PUBLIC RingBuffer : protected QThread
     static QMutex subExtLock;
     static QStringList subExt;
     static QStringList subExtNoCheck;
-
-    // constants
-  public:
-    static const uint kBufferSize;
 };
 
 #endif // _RINGBUFFER_H_

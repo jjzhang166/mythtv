@@ -66,6 +66,8 @@ using namespace std;
 #include "mythdownloadmanager.h"
 #include "videoscan.h"
 #include "videoutils.h"
+#include "mythlogging.h"
+#include "filesysteminfo.h"
 
 /** Milliseconds to wait for an existing thread from
  *  process request thread pool.
@@ -172,6 +174,7 @@ void TruncateThread::AddDelete(DeleteStruct *ds)
 
 void TruncateThread::run(void)
 {
+    threadRegister("Truncate");
     QMutexLocker locker(&m_lock);
     while (m_run)
     {
@@ -196,6 +199,7 @@ void TruncateThread::run(void)
         if (m_run && m_list.empty())
             m_wait.wait(locker.mutex());
     }
+    threadDeregister();
 }
 
 QMutex MainServer::truncate_and_close_lock;
@@ -228,6 +232,7 @@ class ProcessRequestThread : public QThread
 
     virtual void run(void)
     {
+        threadRegister("ProcessRequest");
         QMutexLocker locker(&lock);
         threadlives = true;
         waitCond.wakeAll(); // Signal to creating thread
@@ -247,6 +252,7 @@ class ProcessRequestThread : public QThread
             socket = NULL;
             parent->MarkUnused(this);
         }
+        threadDeregister();
     }
 
     QMutex lock;
@@ -1541,6 +1547,9 @@ void MainServer::HandleAnnounce(QStringList &slist, QStringList commands,
             }
 
             QString basename = qurl.path();
+            if (qurl.hasFragment())
+                basename += "#" + qurl.fragment();
+
             if (basename.isEmpty())
             {
                 VERBOSE(VB_IMPORTANT, QString("ERROR: FileTransfer write "
@@ -1903,10 +1912,6 @@ void MainServer::DoDeleteThread(const DeleteStruct *ds)
                               "will NOT be deleted.")
                               .arg(ds->chanid).arg(ds->recstartts.toString());
         VERBOSE(VB_GENERAL, msg);
-        gCoreContext->LogEntry("mythbackend", LP_ERROR, "Delete Recording",
-                           QString("Unable to open database connection for %1. "
-                                   "Program will NOT be deleted.")
-                                   .arg(logInfo));
 
         deletelock.unlock();
         return;
@@ -1921,10 +1926,6 @@ void MainServer::DoDeleteThread(const DeleteStruct *ds)
                               "Recording will NOT be deleted.")
                               .arg(ds->chanid).arg(ds->recstartts.toString());
         VERBOSE(VB_GENERAL, msg);
-        gCoreContext->LogEntry("mythbackend", LP_ERROR, "Delete Recording",
-                           QString("Unable to retrieve program info for %1. "
-                                   "Program will NOT be deleted.")
-                                   .arg(logInfo));
 
         deletelock.unlock();
         return;
@@ -1942,10 +1943,6 @@ void MainServer::DoDeleteThread(const DeleteStruct *ds)
                     "doesn't exist.  Database metadata"
                     "will not be removed.")
                 .arg(ds->filename));
-        gCoreContext->LogEntry("mythbackend", LP_WARNING, "Delete Recording",
-                           QString("File %1 does not exist for %2 when trying "
-                                   "to delete recording.")
-                           .arg(ds->filename).arg(logInfo));
 
         pginfo.SaveDeletePendingFlag(false);
         deletelock.unlock();
@@ -1990,9 +1987,6 @@ void MainServer::DoDeleteThread(const DeleteStruct *ds)
         VERBOSE(VB_IMPORTANT,
             QString("Error deleting file: %1. Keeping metadata in database.")
                     .arg(ds->filename));
-        gCoreContext->LogEntry("mythbackend", LP_WARNING, "Delete Recording",
-                           QString("File %1 for %2 could not be deleted.")
-                                   .arg(ds->filename).arg(logInfo));
 
         pginfo.SaveDeletePendingFlag(false);
         deletelock.unlock();
@@ -2054,9 +2048,8 @@ void MainServer::DeleteRecordedFiles(const DeleteStruct *ds)
     if (!query.exec() || !query.isActive())
     {
         MythDB::DBError("RecordedFiles deletion", query);
-        gCoreContext->LogEntry("mythbackend", LP_ERROR, "Delete Recording Files",
-                           QString("Error querying recordedfiles for %1.")
-                                   .arg(logInfo));
+        VERBOSE(VB_IMPORTANT, QString("Error querying recordedfiles for %1.")
+                                      .arg(logInfo));
     }
 
     QString basename;
@@ -2108,11 +2101,10 @@ void MainServer::DeleteRecordedFiles(const DeleteStruct *ds)
             if (!update.exec())
             {
                 MythDB::DBError("RecordedFiles deletion", update);
-                gCoreContext->LogEntry("mythbackend", LP_ERROR,
-                       "Delete Recording Files",
-                       QString("Error querying recordedfile (%1) for %2.")
-                               .arg(query.value(1).toString())
-                               .arg(logInfo));
+                VERBOSE(VB_IMPORTANT,
+                        QString("Error querying recordedfile (%1) for %2.")
+                                .arg(query.value(1).toString())
+                                .arg(logInfo));
             }
         }
     }
@@ -2133,9 +2125,8 @@ void MainServer::DoDeleteInDB(const DeleteStruct *ds)
     if (!query.exec() || !query.isActive())
     {
         MythDB::DBError("Recorded program deletion", query);
-        gCoreContext->LogEntry("mythbackend", LP_ERROR, "Delete Recording",
-                           QString("Error deleting recorded table for %1.")
-                                   .arg(logInfo));
+        VERBOSE(VB_IMPORTANT, QString("Error deleting recorded entry for %1.")
+                                      .arg(logInfo));
     }
 
     sleep(1);
@@ -2156,9 +2147,8 @@ void MainServer::DoDeleteInDB(const DeleteStruct *ds)
     if (!query.exec())
     {
         MythDB::DBError("Recorded program delete recordedmarkup", query);
-        gCoreContext->LogEntry("mythbackend", LP_ERROR, "Delete Recording",
-                           QString("Error deleting recordedmarkup for %1.")
-                                   .arg(logInfo));
+        VERBOSE(VB_IMPORTANT, QString("Error deleting recordedmarkup for %1.")
+                                      .arg(logInfo));
     }
 
     query.prepare("DELETE FROM recordedseek "
@@ -2169,9 +2159,8 @@ void MainServer::DoDeleteInDB(const DeleteStruct *ds)
     if (!query.exec())
     {
         MythDB::DBError("Recorded program delete recordedseek", query);
-        gCoreContext->LogEntry("mythbackend", LP_ERROR, "Delete Recording",
-                           QString("Error deleting recordedseek for %1.")
-                                   .arg(logInfo));
+        VERBOSE(VB_IMPORTANT, QString("Error deleting recordedseek for %1.")
+                                      .arg(logInfo));
     }
 }
 
@@ -2664,10 +2653,6 @@ void MainServer::DoHandleDeleteRecording(
                 QString("ERROR when trying to delete file: %1. File doesn't "
                         "exist.  Database metadata will not be removed.")
                         .arg(filename));
-        gCoreContext->LogEntry("mythbackend", LP_WARNING, "Delete Recording",
-                           QString("File %1 does not exist for %2 when trying "
-                                   "to delete recording.")
-                                   .arg(filename).arg(logInfo));
         resultCode = -2;
     }
 
@@ -3797,7 +3782,7 @@ void MainServer::HandleRecorderQuery(QStringList &slist, QStringList &commands,
     else if (command == "CANCEL_NEXT_RECORDING")
     {
         QString cancel = slist[2];
-        VERBOSE(VB_IMPORTANT, "Received: CANCEL_NEXT_RECORDING "<<cancel);
+        VERBOSE(VB_IMPORTANT, QString("Received: CANCEL_NEXT_RECORDING %1").arg(cancel));
         enc->CancelNextRecording(cancel == "1");
         retlist << "ok";
     }
@@ -4242,9 +4227,9 @@ void MainServer::HandleIsActiveBackendQuery(QStringList &slist,
     SendResponse(pbs->getSocket(), retlist);
 }
 
-int MainServer::GetfsID(vector<FileSystemInfo>::iterator fsInfo)
+int MainServer::GetfsID(QList<FileSystemInfo>::iterator fsInfo)
 {
-    QString fskey = fsInfo->hostname + ":" + fsInfo->directory;
+    QString fskey = fsInfo->getHostname() + ":" + fsInfo->getPath();
     QMutexLocker lock(&fsIDcacheLock);
     if (!fsIDcache.contains(fskey))
         fsIDcache[fskey] = fsIDcache.count();
@@ -4415,20 +4400,20 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
         return;
 
     FileSystemInfo fsInfo;
-    vector<FileSystemInfo> fsInfos;
+    QList<FileSystemInfo> fsInfos;
 
     QStringList::const_iterator it = strlist.begin();
     while (it != strlist.end())
     {
-        fsInfo.hostname = *(it++);
-        fsInfo.directory = *(it++);
-        fsInfo.isLocal = (*(it++)).toInt();
-        fsInfo.fsID = (*(it++)).toInt();
-        fsInfo.dirID = (*(it++)).toInt();
-        fsInfo.blocksize = (*(it++)).toInt();
-        fsInfo.totalSpaceKB = (*(it++)).toLongLong();
-        fsInfo.usedSpaceKB = (*(it++)).toLongLong();
-        fsInfo.freeSpaceKB = fsInfo.totalSpaceKB - fsInfo.usedSpaceKB;
+        fsInfo.setHostname(*(it++));
+        fsInfo.setPath(*(it++));
+        fsInfo.setLocal((*(it++)).toInt() > 0);
+        fsInfo.setFSysID(-1);
+        it++;   // Without this, the strlist gets out of whack
+        fsInfo.setGroupID((*(it++)).toInt());
+        fsInfo.setBlockSize((*(it++)).toInt());
+        fsInfo.setTotalSpace((*(it++)).toLongLong());
+        fsInfo.setUsedSpace((*(it++)).toLongLong());
         fsInfos.push_back(fsInfo);
     }
     strlist.clear();
@@ -4436,36 +4421,36 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     // Consolidate hosts sharing storage
     size_t maxWriteFiveSec = GetCurrentMaxBitrate()/12 /*5 seconds*/;
     maxWriteFiveSec = max((size_t)2048, maxWriteFiveSec); // safety for NFS mounted dirs
-    vector<FileSystemInfo>::iterator it1, it2;
+    QList<FileSystemInfo>::iterator it1, it2;
     int bSize = 32;
     for (it1 = fsInfos.begin(); it1 != fsInfos.end(); ++it1)
     {
-        if (it1->fsID == -1)
+        if (it1->getFSysID() == -1)
         {
-            it1->fsID = GetfsID(it1);
-            it1->directory =
-                it1->hostname.section(".", 0, 0) + ":" + it1->directory;
+            it1->setFSysID(GetfsID(it1));
+            it1->setPath(
+                it1->getHostname().section(".", 0, 0) + ":" + it1->getPath());
         }
 
         for (it2 = it1 + 1; it2 != fsInfos.end(); ++it2)
         {
             // our fuzzy comparison uses the maximum of the two block sizes
             // or 32, whichever is greater
-            bSize = max(32, max(it1->blocksize, it2->blocksize) / 1024);
-            long long diffSize = it1->totalSpaceKB - it2->totalSpaceKB;
-            long long diffUsed = it1->usedSpaceKB - it2->usedSpaceKB;
+            bSize = max(32, max(it1->getBlockSize(), it2->getBlockSize()) / 1024);
+            long long diffSize = it1->getTotalSpace() - it2->getTotalSpace();
+            long long diffUsed = it1->getUsedSpace() - it2->getUsedSpace();
             if (diffSize < 0)
                 diffSize = 0 - diffSize;
             if (diffUsed < 0)
                 diffUsed = 0 - diffUsed;
 
-            if (it2->fsID == -1 && (diffSize <= bSize) && 
+            if (it2->getFSysID() == -1 && (diffSize <= bSize) && 
                 ((size_t)diffUsed <= maxWriteFiveSec))
             {
-                if (!it1->hostname.contains(it2->hostname))
-                    it1->hostname = it1->hostname + "," + it2->hostname;
-                it1->directory = it1->directory + "," +
-                    it2->hostname.section(".", 0, 0) + ":" + it2->directory;
+                if (!it1->getHostname().contains(it2->getHostname()))
+                    it1->setHostname(it1->getHostname() + "," + it2->getHostname());
+                it1->setPath(it1->getPath() + "," +
+                    it2->getHostname().section(".", 0, 0) + ":" + it2->getPath());
                 fsInfos.erase(it2);
                 it2 = it1;
             }
@@ -4477,17 +4462,17 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     usedKB  = 0;
     for (it1 = fsInfos.begin(); it1 != fsInfos.end(); ++it1)
     {
-        strlist << it1->hostname;
-        strlist << it1->directory;
-        strlist << QString::number(it1->isLocal);
-        strlist << QString::number(it1->fsID);
-        strlist << QString::number(it1->dirID);
-        strlist << QString::number(it1->blocksize);
-        strlist << QString::number(it1->totalSpaceKB);
-        strlist << QString::number(it1->usedSpaceKB);
+        strlist << it1->getHostname();
+        strlist << it1->getPath();
+        strlist << QString::number(it1->isLocal());
+        strlist << QString::number(it1->getFSysID());
+        strlist << QString::number(it1->getGroupID());
+        strlist << QString::number(it1->getBlockSize());
+        strlist << QString::number(it1->getTotalSpace());
+        strlist << QString::number(it1->getUsedSpace());
 
-        totalKB += it1->totalSpaceKB;
-        usedKB  += it1->usedSpaceKB;
+        totalKB += it1->getTotalSpace();
+        usedKB  += it1->getUsedSpace();
     }
 
     if (allHosts)
@@ -4503,7 +4488,7 @@ void MainServer::BackendQueryDiskSpace(QStringList &strlist, bool consolidated,
     }
 }
 
-void MainServer::GetFilesystemInfos(vector <FileSystemInfo> &fsInfos)
+void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos)
 {
     QStringList strlist;
     FileSystemInfo fsInfo;
@@ -4515,98 +4500,53 @@ void MainServer::GetFilesystemInfos(vector <FileSystemInfo> &fsInfos)
     QStringList::const_iterator it = strlist.begin();
     while (it != strlist.end())
     {
-        fsInfo.hostname = *(it++);
-        fsInfo.directory = *(it++);
-        fsInfo.isLocal = (*(it++)).toInt();
-        fsInfo.fsID = -1;
+        fsInfo.setHostname(*(it++));
+        fsInfo.setPath(*(it++));
+        fsInfo.setLocal((*(it++)).toInt() > 0);
+        fsInfo.setFSysID(-1);
         it++;
-        fsInfo.dirID = (*(it++)).toInt();
-        fsInfo.blocksize = (*(it++)).toInt();
-        fsInfo.totalSpaceKB = (*(it++)).toLongLong();
-        fsInfo.usedSpaceKB = (*(it++)).toLongLong();
-        fsInfo.freeSpaceKB = fsInfo.totalSpaceKB - fsInfo.usedSpaceKB;
-        fsInfo.weight = 0;
+        fsInfo.setGroupID((*(it++)).toInt());
+        fsInfo.setBlockSize((*(it++)).toInt());
+        fsInfo.setTotalSpace((*(it++)).toLongLong());
+        fsInfo.setUsedSpace((*(it++)).toLongLong());
+        fsInfo.setWeight(0);
         fsInfos.push_back(fsInfo);
     }
 
-    VERBOSE(VB_SCHEDULE+VB_FILE+VB_EXTRA, "Determining unique filesystems");
+    VERBOSE(VB_SCHEDULE|VB_FILE|VB_EXTRA, "Determining unique filesystems");
     size_t maxWriteFiveSec = GetCurrentMaxBitrate()/12  /*5 seconds*/;
-    maxWriteFiveSec = max((size_t)2048, maxWriteFiveSec); // safety for NFS mounted dirs
-    vector<FileSystemInfo>::iterator it1, it2;
-    int bSize = 32;
-    for (it1 = fsInfos.begin(); it1 != fsInfos.end(); ++it1)
-    {
-        if (it1->fsID == -1)
-            it1->fsID = GetfsID(it1);
-        else
-            continue;
+    // safety for NFS mounted dirs
+    maxWriteFiveSec = max((size_t)2048, maxWriteFiveSec); 
 
-        VERBOSE(VB_SCHEDULE+VB_FILE+VB_EXTRA,
-            QString("%1:%2 (fsID %3, dirID %4) using %5 out of %6 KB, "
-                    "looking for matches")
-                    .arg(it1->hostname).arg(it1->directory)
-                    .arg(it1->fsID).arg(it1->dirID)
-                    .arg(it1->usedSpaceKB).arg(it1->totalSpaceKB));
+    FileSystemInfo::Consolidate(fsInfos, false, maxWriteFiveSec);
 
-        for (it2 = it1 + 1; it2 != fsInfos.end(); ++it2)
-        {
-            // our fuzzy comparison uses the maximum of the two block sizes
-            // or 32, whichever is greater
-            bSize = max(32, max(it1->blocksize, it2->blocksize) / 1024);
-            long long diffSize = it1->totalSpaceKB - it2->totalSpaceKB;
-            long long diffUsed = it1->usedSpaceKB - it2->usedSpaceKB;
-            if (diffSize < 0)
-                diffSize = 0 - diffSize;
-            if (diffUsed < 0)
-                diffUsed = 0 - diffUsed;
-
-            VERBOSE(VB_SCHEDULE+VB_FILE+VB_EXTRA,
-                QString("    Checking %1:%2 (dirID %3) using %4 of %5 KB")
-                        .arg(it2->hostname).arg(it2->directory).arg(it2->dirID)
-                        .arg(it2->usedSpaceKB).arg(it2->totalSpaceKB));
-            VERBOSE(VB_SCHEDULE+VB_FILE+VB_EXTRA,
-                QString("        Total KB Diff: %1 (want <= %2)")
-                .arg((long)diffSize).arg(bSize));
-            VERBOSE(VB_SCHEDULE+VB_FILE+VB_EXTRA,
-                QString("        Used  KB Diff: %1 (want <= %2)")
-                .arg((long)diffUsed).arg(maxWriteFiveSec));
-
-            if (it2->fsID == -1 && (diffSize <= bSize) &&
-                ((size_t)diffUsed <= maxWriteFiveSec))
-            {
-                it2->fsID = it1->fsID;
-
-                VERBOSE(VB_SCHEDULE+VB_FILE+VB_EXTRA,
-                    QString("    MATCH Found: %1:%2 will use fsID %3")
-                            .arg(it2->hostname).arg(it2->directory)
-                            .arg(it2->fsID));
-            }
-        }
-    }
-
+    QList<FileSystemInfo>::iterator it1;
     if (VERBOSE_LEVEL_CHECK(VB_FILE|VB_SCHEDULE))
     {
-        cout << "--- GetFilesystemInfos directory list start ---" << endl;
+        VERBOSE(VB_FILE|VB_SCHEDULE, "--- GetFilesystemInfos directory list "
+                                     "start ---");
         for (it1 = fsInfos.begin(); it1 != fsInfos.end(); ++it1)
         {
             QString msg = QString("Dir: %1:%2")
-                .arg(it1->hostname).arg(it1->directory);
-            cout << msg.toLocal8Bit().constData() << endl;
-            cout << "     Location: ";
-            if (it1->isLocal)
-                cout << "Local";
-            else
-                cout << "Remote";
-            cout << endl;
-            cout << "     fsID    : " << it1->fsID << endl;
-            cout << "     dirID   : " << it1->dirID << endl;
-            cout << "     BlkSize : " << it1->blocksize << endl;
-            cout << "     TotalKB : " << it1->totalSpaceKB << endl;
-            cout << "     UsedKB  : " << it1->usedSpaceKB << endl;
-            cout << "     FreeKB  : " << it1->freeSpaceKB << endl;
-            cout << endl;
+                .arg(it1->getHostname()).arg(it1->getPath());
+            VERBOSE(VB_FILE|VB_SCHEDULE, msg) ;
+            VERBOSE(VB_FILE|VB_SCHEDULE, QString("     Location: %1")
+                .arg(it1->isLocal() ? "Local" : "Remote"));
+            VERBOSE(VB_FILE|VB_SCHEDULE, QString("     fsID    : %1")
+                .arg(it1->getFSysID()));
+            VERBOSE(VB_FILE|VB_SCHEDULE, QString("     dirID   : %1")
+                .arg(it1->getGroupID()));
+            VERBOSE(VB_FILE|VB_SCHEDULE, QString("     BlkSize : %1")
+                .arg(it1->getBlockSize()));
+            VERBOSE(VB_FILE|VB_SCHEDULE, QString("     TotalKB : %1")
+                .arg(it1->getTotalSpace()));
+            VERBOSE(VB_FILE|VB_SCHEDULE, QString("     UsedKB  : %1")
+                .arg(it1->getUsedSpace()));
+            VERBOSE(VB_FILE|VB_SCHEDULE, QString("     FreeKB  : %1")
+                .arg(it1->getFreeSpace()));
         }
-        cout << "--- GetFilesystemInfos directory list end ---" << endl;
+        VERBOSE(VB_FILE|VB_SCHEDULE, "--- GetFilesystemInfos directory list "
+                                     "end ---");
     }
 }
 
@@ -5308,8 +5248,8 @@ void MainServer::HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs)
 
     if (has_extra_data)
     {
-        VERBOSE(VB_PLAYBACK, "HandleGenPreviewPixmap got extra data\n\t\t\t"
-                << QString("%1%2 %3x%4 '%5'")
+        VERBOSE(VB_PLAYBACK, QString("HandleGenPreviewPixmap got extra data\n\t\t\t"
+                "%1%2 %3x%4 '%5'")
                 .arg(time).arg(time_fmt_sec?"s":"f")
                 .arg(width).arg(height).arg(outputfile));
     }
@@ -5568,8 +5508,6 @@ void MainServer::HandlePixmapGetIfModified(
 
 void MainServer::HandleBackendRefresh(MythSocket *socket)
 {
-    gCoreContext->RefreshBackendConfig();
-
     QStringList retlist( "OK" );
     SendResponse(socket, retlist);
 }
@@ -5903,6 +5841,9 @@ QString MainServer::LocalFilePath(const QUrl &url, const QString &wantgroup)
 {
     QString lpath = url.path();
 
+    if (url.hasFragment())
+        lpath += "#" + url.fragment();
+
     if (lpath.section('/', -2, -2) == "channels")
     {
         // This must be an icon request. Check channel.icon to be safe.
@@ -5972,15 +5913,15 @@ QString MainServer::LocalFilePath(const QUrl &url, const QString &wantgroup)
             {
                 lpath = tmpFile;
                 VERBOSE(VB_FILE,
-                        QString("LocalFilePath(%1 '%2')")
-                        .arg(url.toString()).arg(opath)
-                        <<", found file through exhaustive search "
-                        <<QString("at '%1'").arg(lpath));
+                        QString("LocalFilePath(%1 '%2')"
+                        ", found file through exhaustive search "
+                        "at '%3'")
+                        .arg(url.toString()).arg(opath).arg(lpath));
             }
             else
             {
-                VERBOSE(VB_IMPORTANT, "ERROR: LocalFilePath "
-                        <<QString("unable to find local path for '%1'.")
+                VERBOSE(VB_IMPORTANT, QString("ERROR: LocalFilePath "
+                        "unable to find local path for '%1'.")
                         .arg(opath));
                 lpath = "";
             }

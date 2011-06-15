@@ -16,6 +16,7 @@ using namespace std;
 #include "remoteutil.h"
 #include "mythevent.h"
 #include "mythdirs.h"
+#include "mythlogging.h"
 
 #define LOC      QString("PlaybackBoxHelper: ")
 #define LOC_WARN QString("PlaybackBoxHelper Warning: ")
@@ -517,10 +518,12 @@ void PlaybackBoxHelper::UndeleteRecording(
 
 void PlaybackBoxHelper::run(void)
 {
+    threadRegister("PlaybackBoxHelper");
     m_eventHandler = new PBHEventHandler(*this);
     // Prime the pump so the disk free display starts updating
     ForceFreeSpaceUpdate();
     exec();
+    threadDeregister();
 }
 
 void PlaybackBoxHelper::UpdateFreeSpace(void)
@@ -530,10 +533,10 @@ void PlaybackBoxHelper::UpdateFreeSpace(void)
     QMutexLocker locker(&m_lock);
     for (uint i = 0; i < fsInfos.size(); i++)
     {
-        if (fsInfos[i].directory == "TotalDiskSpace")
+        if (fsInfos[i].getPath() == "TotalDiskSpace")
         {
-            m_freeSpaceTotalMB = (uint64_t) (fsInfos[i].totalSpaceKB >> 10);
-            m_freeSpaceUsedMB  = (uint64_t) (fsInfos[i].usedSpaceKB  >> 10);
+            m_freeSpaceTotalMB = (uint64_t) (fsInfos[i].getTotalSpace() >> 10);
+            m_freeSpaceUsedMB  = (uint64_t) (fsInfos[i].getUsedSpace()  >> 10);
         }
     }
     MythEvent *e = new MythEvent("UPDATE_USAGE_UI");

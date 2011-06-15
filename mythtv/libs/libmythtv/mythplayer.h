@@ -138,13 +138,14 @@ class MTV_PUBLIC MythPlayer
     void SetDuration(int duration);
     void SetForcedAspectRatio(int mpeg2_aspect_value, int letterbox_permission);
     void SetVideoResize(const QRect &videoRect);
+    void EnableFrameRateMonitor(bool enable = false);
 
     // Gets
     QSize   GetVideoBufferSize(void) const    { return video_dim; }
     QSize   GetVideoSize(void) const          { return video_disp_dim; }
     float   GetVideoAspect(void) const        { return video_aspect; }
     float   GetFrameRate(void) const          { return video_frame_rate; }
-
+    void    GetPlaybackData(InfoMap &infoMap);
     bool    IsAudioNeeded(void) { return !using_null_videoout && player_ctx->IsAudioNeeded(); }
     uint    GetVolume(void) { return audio.GetVolume(); }
     int     GetSecondsBehind(void) const;
@@ -188,7 +189,7 @@ class MTV_PUBLIC MythPlayer
     bool    UsingNullVideo(void) const { return using_null_videoout; }
     bool    HasTVChainNext(void) const;
     bool    CanSupportDoubleRate(void);
-    bool    GetScreenShot(int width = 0, int height = 0);
+    bool    GetScreenShot(int width = 0, int height = 0, QString filename = "");
 
     // Non-const gets
     VideoOutput *getVideoOutput(void)         { return videoOutput; }
@@ -304,8 +305,7 @@ class MTV_PUBLIC MythPlayer
     void OpenDummy(void);
 
     // Non-public sets
-    virtual void SetBookmark(void);
-    virtual void ClearBookmark(bool message = true);
+    virtual void SetBookmark(bool clear = false);
     bool AddPIPPlayer(MythPlayer *pip, PIPLocation loc, uint timeout);
     bool RemovePIPPlayer(MythPlayer *pip, uint timeout);
     void DisableHardwareDecoders(void)        { no_hardware_decoders = true; }
@@ -317,7 +317,7 @@ class MTV_PUBLIC MythPlayer
     void Zoom(ZoomDirection direction);
 
     // Windowing stuff
-    void EmbedInWidget(int x, int y, int w, int h, WId id);
+    void EmbedInWidget(QRect rect);
     void StopEmbedding(void);
     void ExposeEvent(void);
     bool IsEmbedding(void);
@@ -535,8 +535,8 @@ class MTV_PUBLIC MythPlayer
 
     // Window stuff
     QWidget *parentWidget;
-    WId embedid;
-    int embx, emby, embw, embh;
+    bool     embedding;
+    QRect    embedRect;
     float defaultDisplayAspect;
 
     // State

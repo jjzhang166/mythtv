@@ -310,7 +310,7 @@ class MTV_PUBLIC TV : public QObject
     void PrepToSwitchToRecordedProgram(PlayerContext*,
                                        const ProgramInfo &);
     void PrepareToExitPlayer(PlayerContext*, int line,
-                             bool bookmark = true) const;
+                             bool bookmark = true);
     void SetExitPlayer(bool set_it, bool wants_to) const;
     void SetUpdateOSDPosition(bool set_it);
 
@@ -427,11 +427,10 @@ class MTV_PUBLIC TV : public QObject
     void DoSwitchAngle(PlayerContext*, int angle);
     void DoJumpChapter(PlayerContext*, int direction);
     void DoSkipCommercials(PlayerContext*, int direction);
-
     void DoQueueTranscode(PlayerContext*, QString profile);
-
     void SetAutoCommercialSkip(const PlayerContext*,
                                CommSkipMode skipMode = kCommSkipOff);
+    void SetBookmark(PlayerContext* ctx, bool clear = false);
 
     // Manual zoom mode
     void SetManualZoom(const PlayerContext *, bool enabled, QString msg);
@@ -440,6 +439,8 @@ class MTV_PUBLIC TV : public QObject
 
     bool ClearOSD(const PlayerContext*);
     void ToggleOSD(PlayerContext*, bool includeStatusOSD);
+    void ToggleOSDDebug(PlayerContext*);
+    void UpdateOSDDebug(const PlayerContext *ctx);
     void UpdateOSDProgInfo(const PlayerContext*, const char *whichInfo);
     void UpdateOSDStatus(const PlayerContext *ctx, QString title, QString desc,
                          QString value, int type, QString units,
@@ -808,6 +809,7 @@ class MTV_PUBLIC TV : public QObject
     volatile int         queueInputTimerId;
     volatile int         browseTimerId;
     volatile int         updateOSDPosTimerId;
+    volatile int         updateOSDDebugTimerId;
     volatile int         endOfPlaybackTimerId;
     volatile int         embedCheckTimerId;
     volatile int         endOfRecPromptTimerId;

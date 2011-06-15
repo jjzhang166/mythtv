@@ -7,6 +7,7 @@
 StreamingRingBuffer::StreamingRingBuffer(const QString &lfilename)
   : m_context(NULL)
 {
+    startreadahead = true;
     OpenFile(lfilename);
 }
 
@@ -30,6 +31,7 @@ bool StreamingRingBuffer::OpenFile(const QString &lfilename, uint retry_ms)
 {
     av_register_all();
 
+    safefilename = lfilename;
     filename = lfilename;
     VERBOSE(VB_GENERAL, LOC + QString("Trying %1").arg(filename));
 

@@ -99,19 +99,28 @@ void UPnpSearchTask::SendMsg( MSocketDevice  *pSocket,
                               .arg( sST )
                               .arg( sUSN );
 
-//    VERBOSE(VB_UPNP, QString("UPnpSearchTask::SendMsg : %1 : %2 ")
-//                        .arg( sST  )
-//                        .arg( sUSN ));
+#if 0
+    VERBOSE(VB_UPNP, QString("UPnpSearchTask::SendMsg : %1 : %2 ")
+                        .arg( sST  ) .arg( sUSN ));
 
-//cout << "UPnpSearchTask::SendMsg    m_PeerAddress = " <<  m_PeerAddress.toString() << " Port=" << m_nPeerPort << endl;
+    VERBOSE(VB_UPNP, QString("UPnpSearchTask::SendMsg    m_PeerAddress = %1"
+                             " Port=%2")
+                        .arg(m_PeerAddress.toString()) .arg(m_nPeerPort));
+#endif
 
     for ( QStringList::Iterator it  = m_addressList.begin(); 
                                 it != m_addressList.end(); 
                               ++it ) 
     {
+        QString ipaddress = *it;
+
+        // If this looks like an IPv6 address, then enclose it in []'s
+        if (ipaddress.contains(":"))
+            ipaddress = "[" + ipaddress + "]";
+
         QString sHeader = QString ( "HTTP/1.1 200 OK\r\n"
-                                    "LOCATION: http://[%1]:%2/getDeviceDesc\r\n" )
-                            .arg( *it )
+                                    "LOCATION: http://%1:%2/getDeviceDesc\r\n" )
+                            .arg( ipaddress )
                             .arg( m_nServicePort);
 
 

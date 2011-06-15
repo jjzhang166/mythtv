@@ -36,6 +36,7 @@ using namespace std;
 #include "mythimage.h"
 #include "mythxmlclient.h"
 #include "upnp.h"
+#include "mythlogging.h"
 
 #ifdef USING_MINGW
 #include <unistd.h>
@@ -1097,6 +1098,7 @@ MythContext::~MythContext()
                 "~MythContext waiting for threads to exit.");
     }
     QThreadPool::globalInstance()->waitForDone();
+    logStop();
 
     delete gCoreContext;
     gCoreContext = NULL;
