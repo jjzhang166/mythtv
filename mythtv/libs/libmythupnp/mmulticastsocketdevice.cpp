@@ -92,7 +92,9 @@ MMulticastSocketDevice::~MMulticastSocketDevice()
         (setsockopt(socket(), IPPROTO_IP, IP_DROP_MEMBERSHIP,
                     (char*)(&m_imr), sizeof(m_imr) < 0)))
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR +
+        // This isn't really an error, we will drop out of
+        // the group anyway when we close the socket.
+        VERBOSE(VB_IMPORTANT|VB_EXTRA, LOC +
                 "setsockopt - IP_DROP_MEMBERSHIP " + ENO);
     }
 }
