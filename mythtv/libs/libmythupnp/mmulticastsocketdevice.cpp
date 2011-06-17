@@ -64,8 +64,6 @@ MMulticastSocketDevice::MMulticastSocketDevice(
     m_imr.imr_multiaddr.s_addr = inet_addr(sAddress.toAscii().constData());
     m_imr.imr_interface.s_addr = htonl(INADDR_ANY);
 
-    VERBOSE(VB_IMPORTANT, LOC + "ctor");
-
     if (setsockopt(socket(), IPPROTO_IP, IP_ADD_MEMBERSHIP,
                    &m_imr, sizeof( m_imr )) < 0)
     {
@@ -123,8 +121,8 @@ qint64 MMulticastSocketDevice::writeBlock(
             int ret2 = setsockopt(socket(), IPPROTO_IP, IP_MULTICAST_IF,
                                   &interface_addr, sizeof(interface_addr));
             retx = MSocketDevice::writeBlock(data, len, host, port);
-            VERBOSE(VB_IMPORTANT, QString("writeBlock on %1 %2")
-                    .arg((*it).toString()).arg((retx==(int)len)?"ok":"err"));
+            //VERBOSE(VB_IMPORTANT, QString("writeBlock on %1 %2")
+            //        .arg((*it).toString()).arg((retx==(int)len)?"ok":"err"));
             usleep(5000 + (rand() % 5000));
         }
         return retx;
