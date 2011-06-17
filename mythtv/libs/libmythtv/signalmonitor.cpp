@@ -73,7 +73,7 @@ extern "C" {
 
 static void ALRMhandler(int /*sig*/)
 {
-     cerr<<"SignalMonitor: Got SIGALRM"<<endl;
+     VERBOSE(VB_GENERAL, "SignalMonitor: Got SIGALRM");
      signal(SIGINT, ALRMhandler);
 }
 

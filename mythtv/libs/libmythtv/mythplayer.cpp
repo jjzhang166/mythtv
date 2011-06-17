@@ -159,8 +159,8 @@ MythPlayer::MythPlayer(bool muted)
       video_disp_dim(0,0), video_dim(0,0),
       video_frame_rate(29.97f), video_aspect(4.0f / 3.0f),
       forced_video_aspect(-1),
-      m_scan(kScan_Interlaced),     m_scan_locked(false),
-      m_scan_tracker(0),            m_scan_initialized(false),
+      resetScan(kScan_Ignore), m_scan(kScan_Interlaced),
+      m_scan_locked(false), m_scan_tracker(0), m_scan_initialized(false),
       keyframedist(30),
       // Prebuffering
       buffering(false),
@@ -746,8 +746,16 @@ void MythPlayer::SetScanType(FrameScanType scan)
 {
     QMutexLocker locker(&videofiltersLock);
 
+    if (QThread::currentThread() != (QThread*)playerThread)
+    {
+        resetScan = scan;
+        return;
+    }
+
     if (!videoOutput || !videosync)
         return; // hopefully this will be called again later...
+
+    resetScan = kScan_Ignore;
 
     if (m_scan_initialized &&
         m_scan == scan &&
@@ -1008,6 +1016,13 @@ int MythPlayer::OpenFile(uint retries, bool allow_libmpeg2)
     return IsErrored() ? -1 : 0;
 }
 
+void MythPlayer::SetFramesPlayed(uint64_t played)
+{
+    framesPlayed = played;
+    if (videoOutput)
+        videoOutput->SetFramesPlayed(played);
+}
+
 void MythPlayer::SetVideoFilters(const QString &override)
 {
     videoFiltersOverride = override;
@@ -1088,7 +1103,9 @@ void MythPlayer::InitFilters(void)
  */
 VideoFrame *MythPlayer::GetNextVideoFrame(void)
 {
-    return videoOutput->GetNextFreeFrame();
+    if (videoOutput)
+        return videoOutput->GetNextFreeFrame();
+    return NULL;
 }
 
 /** \fn MythPlayer::ReleaseNextVideoFrame(VideoFrame*, int64_t)
@@ -1102,7 +1119,8 @@ void MythPlayer::ReleaseNextVideoFrame(VideoFrame *buffer,
         WrapTimecode(timecode, TC_VIDEO);
     buffer->timecode = timecode;
 
-    videoOutput->ReleaseFrame(buffer);
+    if (videoOutput)
+        videoOutput->ReleaseFrame(buffer);
 
     detect_letter_box->Detect(buffer);
 }
@@ -1135,7 +1153,15 @@ void MythPlayer::DiscardVideoFrames(bool next_frame_keyframe)
 
 void MythPlayer::DrawSlice(VideoFrame *frame, int x, int y, int w, int h)
 {
-    videoOutput->DrawSlice(frame, x, y, w, h);
+    if (videoOutput)
+        videoOutput->DrawSlice(frame, x, y, w, h);
+}
+
+void* MythPlayer::GetDecoderContext(void)
+{
+    if (videoOutput)
+        return videoOutput->GetDecoderContext();
+    return NULL;
 }
 
 VideoFrame *MythPlayer::GetCurrentFrame(int &w, int &h)
@@ -1159,6 +1185,12 @@ VideoFrame *MythPlayer::GetCurrentFrame(int &w, int &h)
         vidExitLock.unlock();
 
     return retval;
+}
+
+void MythPlayer::DeLimboFrame(VideoFrame *frame)
+{
+    if (videoOutput)
+        videoOutput->DeLimboFrame(frame);
 }
 
 void MythPlayer::ReleaseCurrentFrame(VideoFrame *frame)
@@ -2518,6 +2550,10 @@ void MythPlayer::EventLoop(void)
         SetCaptionsEnabled(true, false);
     if (disableCaptions)
         SetCaptionsEnabled(false, false);
+
+    // reset the scan (and hence deinterlacers) if triggered by the decoder
+    if (resetScan != kScan_Ignore)
+        SetScanType(resetScan);
 
     // refresh the position map for an in-progress recording while editing
     if (hasFullPositionMap && watchingrecording && player_ctx->recorder &&
