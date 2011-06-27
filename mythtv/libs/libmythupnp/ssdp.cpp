@@ -214,7 +214,7 @@ void SSDP::PerformSearch(const QString &sST, uint timeout_secs)
         "\r\n")
         .arg(timeout_secs).arg(sST);
 
-    VERBOSE(VB_IMPORTANT, QString("\n\n%1\n").arg(rRequest));
+    VERBOSE(VB_UPNP, QString("\n\n%1\n").arg(rRequest));
 
     QByteArray sRequest = rRequest.toUtf8();
 

@@ -116,10 +116,10 @@ qint64 MMulticastSocketDevice::writeBlock(
                 continue; // skip localhost address
 
             struct in_addr interface_addr;
-            int ret = inet_pton(AF_INET, addr.toAscii().constData(),
-                                (char*)&interface_addr);
-            int ret2 = setsockopt(socket(), IPPROTO_IP, IP_MULTICAST_IF,
-                                  &interface_addr, sizeof(interface_addr));
+            inet_pton(AF_INET, addr.toAscii().constData(),
+                      (char*)&interface_addr);
+            setsockopt(socket(), IPPROTO_IP, IP_MULTICAST_IF,
+                       &interface_addr, sizeof(interface_addr));
             retx = MSocketDevice::writeBlock(data, len, host, port);
             //VERBOSE(VB_IMPORTANT, QString("writeBlock on %1 %2")
             //        .arg((*it).toString()).arg((retx==(int)len)?"ok":"err"));

@@ -113,7 +113,7 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
         if ((*it).isEmpty())
         {
             VERBOSE(VB_GENERAL,
-                    "UPnpNotifyTask::SendNotifyMsg - NULL in m_addressList");
+                    "UPnpNotifyTask::SendNotifyMsg - NULL in address list");
             continue;
         }
 

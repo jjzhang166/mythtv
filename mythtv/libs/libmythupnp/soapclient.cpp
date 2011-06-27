@@ -350,19 +350,26 @@ QDomDocument SOAPClient::SendSOAPRequestGetDoc(const QString &sMethod,
                                                QString       &sErrDesc,
                                                bool           bInQtThread)
 {
-    QUrl url( m_url );
+    QUrl url(m_url);
 
-    url.setPath( m_sControlPath );
+    url.setPath(m_sControlPath);
+
+    if (m_sNamespace.isEmpty())
+    {
+        nErrCode = 0;
+        sErrDesc = "No namespace given";
+        return QDomDocument();
+    }
 
     // --------------------------------------------------------------
     // Add appropriate headers
     // --------------------------------------------------------------
 
-    QHttpRequestHeader header;
+    QHttpRequestHeader header("POST", sMethod, 1, 0);
 
     header.setValue("CONTENT-TYPE", "text/xml; charset=\"utf-8\"" );
-    header.setValue("SOAPACTION"  , QString( "\"%1#GetConnectionInfo\"" )
-                                       .arg( m_sNamespace ));
+    header.setValue("SOAPACTION",
+                    QString("\"%1#%2\"").arg(m_sNamespace).arg(sMethod));
 
     // --------------------------------------------------------------
     // Build request payload
@@ -371,8 +378,12 @@ QDomDocument SOAPClient::SendSOAPRequestGetDoc(const QString &sMethod,
     QByteArray  aBuffer;
     QTextStream os( &aBuffer );
 
+    os.setCodec("UTF-8");
+
     os << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n"; 
-    os << "<s:Envelope s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\" xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n";
+    os << "<s:Envelope "
+        " s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\""
+        " xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n";
     os << " <s:Body>\r\n";
     os << "  <u:" << sMethod << " xmlns:u=\"" << m_sNamespace << "\">\r\n";
 
@@ -380,9 +391,7 @@ QDomDocument SOAPClient::SendSOAPRequestGetDoc(const QString &sMethod,
     // Add parameters from list
     // --------------------------------------------------------------
 
-    for ( QStringMap::iterator it  = list.begin(); 
-                               it != list.end(); 
-                             ++it ) 
+    for (QStringMap::iterator it = list.begin(); it != list.end(); ++it)
     {                                                               
         os << "   <" << it.key() << ">";
         os << HTTPRequest::Encode( *it );
@@ -399,32 +408,48 @@ QDomDocument SOAPClient::SendSOAPRequestGetDoc(const QString &sMethod,
     // Perform Request
     // --------------------------------------------------------------
 
-    QBuffer     buff( &aBuffer );
+    QBuffer buff(&aBuffer);
 
-    QString sXml = HttpComms::postHttp( url, 
-                                        &header,
-                                        (QIODevice *)&buff,
-                                        10000, // ms
-                                        3,     // retries
-                                        0,     // redirects
-                                        false, // allow gzip
-                                        NULL,  // login
-                                        bInQtThread );
+    VERBOSE(VB_UPNP|VB_EXTRA,
+            QString("SOAPClient(%1) sending:\n").arg(url.toString()) +
+            header.toString() +
+            QString("\n%1\n").arg(aBuffer.constData()));
+
+    QString sXml = HttpComms::postHttp(
+        url,
+        &header,
+        &buff, // QIODevice*
+        10000, // ms -- Technically we should allow 30,000 ms per spec
+        3,     // retries
+        0,     // redirects
+        false, // allow gzip
+        NULL,  // login
+        bInQtThread,
+        QString() // userAgent, UPnP/1.0 very strict on format if set
+        );
 
     // --------------------------------------------------------------
     // Parse response
     // --------------------------------------------------------------
+
+    VERBOSE(VB_UPNP|VB_EXTRA, "SOAPClient response:\n" +QString("%1\n")
+            .arg(sXml));
+
+    // TODO handle timeout without response correctly.
 
     list.clear();
 
     QDomDocument xmlResult;
     QDomDocument doc;
 
-    if ( !doc.setContent( sXml, true, &sErrDesc, &nErrCode ))
+    if (!doc.setContent(sXml, true, &sErrDesc, &nErrCode))
     {
-        VERBOSE( VB_UPNP, QString( "MythXMLClient::SendSOAPRequest( %1 ) - Invalid response from %2" )
-                             .arg( sMethod   )
-                             .arg( url.toString() ));
+        VERBOSE(VB_UPNP,
+                QString("MythXMLClient::SendSOAPRequest( %1 ) - "
+                        "Invalid response from %2")
+                .arg(sMethod).arg(url.toString()) + 
+                QString("%1: %2").arg(nErrCode).arg(sErrDesc));
+
         return QDomDocument();
     }
 
@@ -433,7 +458,8 @@ QDomDocument SOAPClient::SendSOAPRequestGetDoc(const QString &sMethod,
     // --------------------------------------------------------------
 
     QString      sResponseName = sMethod + "Response";
-    QDomNodeList oNodeList     = doc.elementsByTagNameNS( m_sNamespace, sResponseName );
+    QDomNodeList oNodeList     =
+        doc.elementsByTagNameNS(m_sNamespace, sResponseName);
 
     if (oNodeList.count() > 0)
     {
@@ -462,3 +488,4 @@ QDomDocument SOAPClient::SendSOAPRequestGetDoc(const QString &sMethod,
 
     return xmlResult;
 }
+

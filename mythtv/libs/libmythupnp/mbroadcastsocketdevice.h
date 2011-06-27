@@ -66,7 +66,10 @@ class MBroadcastSocketDevice : public MSocketDevice
         setsockopt(socket(), SOL_SOCKET, SO_BROADCAST, &zero, sizeof(zero));
     }
 
-  public:
+    virtual QHostAddress address() const { return m_address; }
+    virtual quint16	 port() const { return m_port; }
+
+  private:
     QHostAddress    m_address;
     quint16         m_port;
     struct ip_mreq  m_imr;
