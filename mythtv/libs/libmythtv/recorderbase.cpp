@@ -18,7 +18,7 @@ using namespace std;
 #include "dvbrecorder.h"
 #include "hdhrchannel.h"
 #include "iptvchannel.h"
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "programinfo.h"
 #include "ocurchannel.h"
 #include "asichannel.h"
@@ -513,7 +513,6 @@ RecorderBase *RecorderBase::CreateRecorder(
         recorder = new DVBRecorder(
             tvrec, dynamic_cast<DVBChannel*>(channel));
         recorder->SetOption("wait_for_seqstart", genOpt.wait_for_seqstart);
-        recorder->SetOption("dvb_on_demand",     dvbOpt.dvb_on_demand);
 #endif // USING_DVB
     }
     else if (genOpt.cardtype == "FREEBOX")

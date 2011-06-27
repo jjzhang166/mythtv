@@ -27,12 +27,12 @@ class VideoOutputOpenGL : public VideoOutput
     virtual bool InputChanged(const QSize &input_size, float aspect,
                               MythCodecID  av_codec_id, void *codec_private,
                               bool &aspect_only);
-    void UpdatePauseFrame(void);
+    virtual void UpdatePauseFrame(void);
     void DrawUnusedRects(bool) { }
     void Zoom(ZoomDirection direction);
     void MoveResize(void);
-    int  SetPictureAttribute(PictureAttribute attribute, int newValue);
-    void InitPictureAttributes(void);
+    virtual int  SetPictureAttribute(PictureAttribute attribute, int newValue);
+    virtual void InitPictureAttributes(void);
     static QStringList GetAllowedRenderers(MythCodecID myth_codec_id,
                                            const QSize &video_dim);
     void EmbedInWidget(const QRect &rect);

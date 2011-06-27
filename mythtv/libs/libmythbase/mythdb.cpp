@@ -7,12 +7,15 @@ using namespace std;
 #include <QFile>
 #include <QHash>
 #include <QDir>
+#include <QThread>
+#include <QTextStream>
 
 #include "mythdb.h"
 #include "mythdbcon.h"
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "oldsettings.h"
 #include "mythdirs.h"
+#include "mythcorecontext.h"
 
 static MythDB *mythdb = NULL;
 static QMutex dbLock;
@@ -884,7 +887,7 @@ bool MythDB::LoadDatabaseParamsFromDisk(
         params.dbUserName    = "mythtv";
         params.dbPassword    = "mythtv";
         params.dbName        = "mythconverg";
-        params.dbType        = "QMYSQL3";
+        params.dbType        = "QMYSQL";
         params.localEnabled  = false;
         params.localHostName = "my-unique-identifier-goes-here";
         params.wolEnabled    = false;
@@ -1025,6 +1028,9 @@ void MythDB::WriteDelayedSettings(void)
 {
     if (!HaveValidDatabase())
         return;
+
+    if (!gCoreContext->IsUIThread())
+	return;
 
     while (!d->delayedSettings.isEmpty())
     {

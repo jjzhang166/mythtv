@@ -45,7 +45,6 @@ using namespace std;
 #include "cardutil.h"
 #include "channelutil.h"
 #include "compat.h"
-#include "mythverbose.h"
 #include "mythuihelper.h"
 #include "mythdialogbox.h"
 #include "mythmainwindow.h"
@@ -816,7 +815,6 @@ TV::TV(void)
       // Channel Editing
       chanEditMapLock(QMutex::Recursive),
       ddMapSourceId(0), ddMapLoaderRunning(false),
-      ddMapLoader(0),
       // Sleep Timer
       sleep_index(0), sleepTimerId(0), sleepDialogTimerId(0),
       // Idle Timer
@@ -860,6 +858,7 @@ TV::TV(void)
       pseudoChangeChanTimerId(0),   speedChangeTimerId(0),
       errorRecoveryTimerId(0),      exitPlayerTimerId(0)
 {
+    memset(&ddMapLoader, 0, sizeof(pthread_t));
     VERBOSE(VB_GENERAL, LOC + "Creating TV object");
     ctorTime.start();
 

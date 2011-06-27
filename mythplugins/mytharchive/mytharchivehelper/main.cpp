@@ -49,6 +49,7 @@ using namespace std;
 #include <QImage>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QTextStream>
 
 // MythTV headers
 #include <mythcommandlineparser.h>
@@ -62,7 +63,6 @@ using namespace std;
 #include <mythconfig.h>
 #include <mythsystem.h>
 #include <util.h>
-#include <mythverbose.h>
 #include <mythlogging.h>
 
 extern "C" {
@@ -977,11 +977,7 @@ int NativeArchive::exportVideo(QDomElement   &itemNode,
     query.bindValue(":INTID", intID);
 
     if (!query.exec())
-    {
-        print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
         MythDB::DBError("select countries", query);
-        print_verbose_messages = VB_JOBQUEUE;
-    }
 
     if (query.isActive() && query.size())
     {
@@ -1006,11 +1002,7 @@ int NativeArchive::exportVideo(QDomElement   &itemNode,
     query.bindValue(":INTID", intID);
 
     if (!query.exec())
-    {
-        print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
         MythDB::DBError("select genres", query);
-        print_verbose_messages = VB_JOBQUEUE;
-    }
 
     if (query.isActive() && query.size())
     {
@@ -1262,11 +1254,7 @@ int NativeArchive::importRecording(const QDomElement &itemNode,
     if (query.exec())
         VERBOSE(VB_JOBQUEUE, "Inserted recorded details into database");
     else
-    {
-        print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
         MythDB::DBError("recorded insert", query);
-        print_verbose_messages = VB_JOBQUEUE;
-    }
 
     // copy recordedmarkup to db
     nodeList = itemNode.elementsByTagName("recordedmarkup");
@@ -1301,7 +1289,6 @@ int NativeArchive::importRecording(const QDomElement &itemNode,
 
                 if (!query.exec())
                 {
-                    print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
                     MythDB::DBError("recordedmark insert", query);
                     return 1;
                 }
@@ -1344,7 +1331,6 @@ int NativeArchive::importRecording(const QDomElement &itemNode,
 
                 if (!query.exec())
                 {
-                    print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
                     MythDB::DBError("recordedseek insert", query);
                     return 1;
                 }
@@ -1457,9 +1443,7 @@ int NativeArchive::importVideo(const QDomElement &itemNode, const QString &xmlFi
         VERBOSE(VB_JOBQUEUE, "Inserted videometadata details into database");
     else
     {
-        print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
         MythDB::DBError("videometadata insert", query);
-        print_verbose_messages = VB_JOBQUEUE;
         return 1;
     }
 
@@ -1473,9 +1457,7 @@ int NativeArchive::importVideo(const QDomElement &itemNode, const QString &xmlFi
     }
     else
     {
-        print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
         MythDB::DBError("Failed to get intid", query);
-        print_verbose_messages = VB_JOBQUEUE;
         return 1;
     }
 
@@ -1746,11 +1728,7 @@ static void clearArchiveTable(void)
     query.prepare("DELETE FROM archiveitems;");
 
     if (!query.exec())
-    {
-        print_verbose_messages = VB_JOBQUEUE + VB_IMPORTANT;
         MythDB::DBError("delete archiveitems", query);
-        print_verbose_messages = VB_JOBQUEUE;
-    }
 }
 
 static int doNativeArchive(const QString &jobFile)
@@ -2587,7 +2565,7 @@ int main(int argc, char **argv)
     int quiet = 0;
 
     // by default we only output our messages
-    print_verbose_messages = VB_JOBQUEUE;
+    verboseMask = VB_JOBQUEUE | VB_IMPORTANT;
 
     MythArchiveHelperCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
@@ -2613,7 +2591,7 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationName("mytharchivehelper");
 
     if (cmdline.toBool("verbose"))
-        if (parse_verbose_arg(cmdline.toString("verbose")) ==
+        if (verboseArgParse(cmdline.toString("verbose")) ==
                     GENERIC_EXIT_INVALID_CMDLINE)
             return GENERIC_EXIT_INVALID_CMDLINE;
 
@@ -2622,13 +2600,16 @@ int main(int argc, char **argv)
         quiet = cmdline.toUInt("quiet");
         if (quiet > 1)
         {
-            print_verbose_messages = VB_NONE;
-            parse_verbose_arg("none");
+            verboseMask = VB_NONE;
+            verboseArgParse("none");
         }
     }
 
     int facility = cmdline.GetSyslogFacility();
     bool dblog = !cmdline.toBool("nodblog");
+    LogLevel_t level = cmdline.GetLogLevel();
+    if (level == LOG_UNKNOWN)
+        return GENERIC_EXIT_INVALID_CMDLINE;
 
     ///////////////////////////////////////////////////////////////////////
     // Don't listen to console input
@@ -2639,7 +2620,8 @@ int main(int argc, char **argv)
             .arg(MYTH_SOURCE_VERSION));
 
     QString logfile = cmdline.GetLogFilePath();
-    logStart(logfile, quiet, facility, dblog);
+    bool propagate = cmdline.toBool("islogpath");
+    logStart(logfile, quiet, facility, level, dblog, propagate);
 
     gContext = new MythContext(MYTH_BINARY_VERSION);
     if (!gContext->Init(false))

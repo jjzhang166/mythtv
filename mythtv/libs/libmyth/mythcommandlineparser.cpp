@@ -15,12 +15,13 @@ using namespace std;
 #include <QVariantMap>
 #include <QString>
 #include <QCoreApplication>
+#include <QTextStream>
 
 #include "mythcommandlineparser.h"
 #include "exitcodes.h"
 #include "mythconfig.h"
 #include "mythcontext.h"
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "mythversion.h"
 #include "util.h"
 
@@ -950,6 +951,11 @@ void MythCommandLineParser::addLogging(void)
             "file (currently disabled).", "");
     add(QStringList( QStringList() << "-q" << "--quiet"), "quiet", 0,
             "Don't log to the console (-q).  Don't log anywhere (-q -q)", "");
+    add("--loglevel", "loglevel", "info", 
+            "Set the logging level.  All log messages at lower levels will be "
+            "discarded.\n"
+            "In descending order: emerg, alert, crit, err, warning, notice, "
+            "info, debug\ndefaults to info", "");
     add("--syslog", "syslog", "none", 
             "Set the syslog logging facility.\nSet to \"none\" to disable, "
             "defaults to none", "");
@@ -1181,7 +1187,7 @@ void MythCommFlagCommandLineParser::LoadArguments(void)
     add("--skipdb", "skipdb", "", "Intended for external 3rd party use.");
     add("--queue", "queue", "Insert flagging job into the JobQueue, rather than "
                             "running flagging in the foreground.", "");
-    add("--nopercentage", "nopercent", "Don't print percentage done.", "");
+    add("--noprogress", "noprogress", "Don't print progress on stdout.", "");
     add("--rebuild", "rebuild", "Do not flag commercials, just rebuild the seektable.", "");
     add("--force", "force", "Force operation, even if program appears to be in use.", "");
     add("--dontwritetodb", "dontwritedb", "", "Intended for external 3rd party use.");
@@ -1548,6 +1554,10 @@ void MythTranscodeCommandLineParser::LoadArguments(void)
             "Specifies that a lossless transcode should be used.", "");
     add(QStringList( QStringList() << "-e" << "--ostream" ), "ostream", ""
             "Output stream type: dvd, ps", "");
+    add("--queue", "queue", "",
+            "Add a new transcoding job of the specified recording and "
+            "profile to the jobqueue. Accepts an optional string to define "
+            "the hostname.", "");
 }
 
 MythMediaServerCommandLineParser::MythMediaServerCommandLineParser() :
@@ -1556,7 +1566,7 @@ MythMediaServerCommandLineParser::MythMediaServerCommandLineParser() :
 
 QString MythMediaServerCommandLineParser::GetHelpHeader(void) const
 {
-    return "MythMediaServer is daemon implementing the backend file server. \n"
+    return "MythMediaServer is a daemon implementing the backend file server. \n"
            "It is intended to allow access to remote file storage on machines \n"
            "that do not have tuners, and as such cannot run a backend.";
 }
@@ -1587,12 +1597,14 @@ QString MythCommandLineParser::GetLogFilePath(void)
     QFileInfo finfo(logfile);
     if (finfo.isDir())
     {
+        m_parsed.insert("islogpath", true);
         logdir  = finfo.filePath();
         logfile = QCoreApplication::applicationName() + 
                   QString(".%1").arg(pid) + ".log";
     }
     else
     {
+        m_parsed.insert("islogpath", false);
         logdir  = finfo.path();
         logfile = finfo.fileName();
     }
@@ -1608,8 +1620,22 @@ int MythCommandLineParser::GetSyslogFacility(void)
 {
     QString setting = toString("syslog").toLower();
     if (setting == "none")
-        return 0;
+        return -2;
 
     return syslogGetFacility(setting);
+}
+
+LogLevel_t MythCommandLineParser::GetLogLevel(void)
+{
+    QString setting = toString("loglevel");
+    if (setting.isEmpty())
+        return LOG_INFO;
+
+    LogLevel_t level = logLevelGet(setting);
+    if (level == LOG_UNKNOWN)
+        cerr << "Unknown log level: " << setting.toLocal8Bit().constData() <<
+                endl;
+     
+    return level;
 }
 

@@ -30,7 +30,6 @@
 #include "util.h"
 #include "playercontext.h"
 #include "mythdirs.h"
-#include "mythverbose.h"
 #include "remoteutil.h"
 #include "mythsystem.h"
 #include "exitcodes.h"
@@ -233,20 +232,21 @@ bool PreviewGenerator::Run(void)
             else
                 command += QString(" --frame %1").arg(captureTime);
         }
-        command += " ";
-        command += QString("--chanid %1 ").arg(programInfo.GetChanID());
-        command += QString("--starttime %1 ")
+        command += QString(" --chanid %1").arg(programInfo.GetChanID());
+        command += QString(" --starttime %1")
             .arg(programInfo.GetRecordingStartTime(MythDate));
 
         if (!outFileName.isEmpty())
-            command += QString("--outfile \"%1\" ").arg(outFileName);
+            command += QString(" --outfile \"%1\"").arg(outFileName);
 
-        command += " --quiet";
+        command += logPropagateArgs;
+        if (!logPropagateQuiet())
+            command += " --quiet";
 
-        // Timeout in 5s
+        // Timeout in 30s
         uint ret = myth_system(command, kMSDontBlockInputDevs |
                                         kMSDontDisableDrawing |
-                                        kMSProcessEvents, 5000);
+                                        kMSProcessEvents, 30);
         if (ret != GENERIC_EXIT_OK)
         {
             VERBOSE(VB_IMPORTANT, LOC_ERR + 

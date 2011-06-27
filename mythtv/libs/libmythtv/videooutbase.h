@@ -144,7 +144,7 @@ class VideoOutput
 
     /// \brief Return true if HW Acceleration is running
     virtual bool hasHWAcceleration(void) const { return false; }
-    virtual void* GetDecoderContext(void) { return NULL; }
+    virtual void* GetDecoderContext(unsigned char* buf, uint8_t*& id) { return NULL; }
 
     /// \brief Sets the number of frames played
     virtual void SetFramesPlayed(long long fp) { framesPlayed = fp; };
@@ -274,8 +274,6 @@ class VideoOutput
     void ResizeVideo(VideoFrame *frame);
     void DoVideoResize(const QSize &inDim, const QSize &outDim);
     virtual void ShutdownVideoResize(void);
-
-    void SetVideoAspectRatio(float aspect);
 
     VideoOutWindow     window;
     QSize              db_display_dim;   ///< Screen dimensions in millimeters from DB

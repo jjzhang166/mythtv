@@ -224,16 +224,20 @@ bool VideoOutputOpenGL::InputChanged(const QSize &input_size,
         return false;
     }
 
-    if (input_size == window.GetActualVideoDim())
+    bool cid_changed = (video_codec_id != av_codec_id);
+    bool res_changed = input_size  != window.GetActualVideoDim();
+    bool asp_changed = aspect      != window.GetVideoAspect();
+
+    if (!res_changed && !cid_changed)
     {
-        aspect_only = video_codec_id == av_codec_id;
-        if (window.GetVideoAspect() != aspect)
+        if (asp_changed)
         {
+            aspect_only = true;
             VideoAspectRatioChanged(aspect);
             MoveResize();
-            if (wasembedding)
-                EmbedInWidget(oldrect);
         }
+        if (wasembedding)
+            EmbedInWidget(oldrect);
         return true;
     }
 
@@ -396,11 +400,12 @@ bool VideoOutputOpenGL::CreateBuffers(void)
 
 bool VideoOutputOpenGL::CreatePauseFrame(void)
 {
-    av_pause_frame.height = vbuffers.GetScratchFrame()->height;
-    av_pause_frame.width  = vbuffers.GetScratchFrame()->width;
-    av_pause_frame.bpp    = vbuffers.GetScratchFrame()->bpp;
-    av_pause_frame.size   = vbuffers.GetScratchFrame()->size;
-    av_pause_frame.buf    = new unsigned char[av_pause_frame.size + 128];
+    init(&av_pause_frame, FMT_YV12,
+         new unsigned char[vbuffers.GetScratchFrame()->size + 128],
+         vbuffers.GetScratchFrame()->width,
+         vbuffers.GetScratchFrame()->height,
+         vbuffers.GetScratchFrame()->size);
+
     av_pause_frame.frameNumber = vbuffers.GetScratchFrame()->frameNumber;
 
     if (!av_pause_frame.buf)
@@ -479,7 +484,6 @@ void VideoOutputOpenGL::ProcessFrame(VideoFrame *frame, OSD *osd,
 void VideoOutputOpenGL::PrepareFrame(VideoFrame *buffer, FrameScanType t,
                                      OSD *osd)
 {
-    (void)osd;
     if (!gl_context)
         return;
 
@@ -503,8 +507,13 @@ void VideoOutputOpenGL::PrepareFrame(VideoFrame *buffer, FrameScanType t,
         gl_context->SetBackground(0, 0, 0, 255);
     gl_context->ClearFramebuffer();
 
-    if (gl_context->IsShared() && GetMythMainWindow() && window.IsEmbedding())
-        GetMythMainWindow()->draw();
+    MythMainWindow *mwnd = GetMythMainWindow();
+    if (gl_context->IsShared() && mwnd && window.IsEmbedding())
+    {
+        if (mwnd->GetPaintWindow())
+            mwnd->GetPaintWindow()->setMask(QRegion());
+        mwnd->draw();
+    }
 
     if (gl_videochain)
     {
@@ -515,14 +524,17 @@ void VideoOutputOpenGL::PrepareFrame(VideoFrame *buffer, FrameScanType t,
                                     m_deinterlacing, framesPlayed);
     }
 
-    QMap<MythPlayer*,OpenGLVideo*>::iterator it = gl_pipchains.begin();
-    for (; it != gl_pipchains.end(); ++it)
+    if (gl_pipchains.size())
     {
-        if (gl_pip_ready[it.key()])
+        QMap<MythPlayer*,OpenGLVideo*>::iterator it = gl_pipchains.begin();
+        for (; it != gl_pipchains.end(); ++it)
         {
-            bool active = gl_pipchain_active == *it;
-            (*it)->PrepareFrame(buffer->top_field_first, t,
-                                m_deinterlacing, framesPlayed, active);
+            if (gl_pip_ready[it.key()])
+            {
+                bool active = gl_pipchain_active == *it;
+                (*it)->PrepareFrame(buffer->top_field_first, t,
+                                    m_deinterlacing, framesPlayed, active);
+            }
         }
     }
 
@@ -577,6 +589,12 @@ void VideoOutputOpenGL::MoveResize(void)
 {
     QMutexLocker locker(&gl_context_lock);
     VideoOutput::MoveResize();
+    if (gl_videochain)
+    {
+        gl_videochain->SetVideoRect(vsz_enabled ? vsz_desired_display_rect :
+                                                  window.GetDisplayVideoRect(),
+                                    window.GetVideoRect());
+    }
 }
 
 void VideoOutputOpenGL::UpdatePauseFrame(void)
@@ -608,7 +626,7 @@ int VideoOutputOpenGL::SetPictureAttribute(PictureAttribute attribute,
     if (!gl_context)
         return -1;
 
-    return videoColourSpace.SetPictureAttribute(attribute, newValue);
+    return VideoOutput::SetPictureAttribute(attribute, newValue);
 }
 
 bool VideoOutputOpenGL::SetupDeinterlace(
@@ -645,6 +663,7 @@ bool VideoOutputOpenGL::SetupDeinterlace(
         m_deintFilter = NULL;
     }
 
+    MoveResize();
     m_deinterlacing = interlaced;
 
     if (m_deinterlacing && !m_deintfiltername.isEmpty())
@@ -701,8 +720,8 @@ bool VideoOutputOpenGL::SetDeinterlacingEnabled(bool enable)
         }
     }
 
-    if (gl_videochain)
-        gl_videochain->SetDeinterlacing(enable);
+    MoveResize();
+    gl_videochain->SetDeinterlacing(enable);
 
     m_deinterlacing = enable;
 

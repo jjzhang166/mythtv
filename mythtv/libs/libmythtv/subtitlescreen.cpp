@@ -1,6 +1,6 @@
 #include <QFontMetrics>
 
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "mythfontproperties.h"
 #include "mythuitext.h"
 #include "mythuishape.h"
@@ -533,47 +533,43 @@ void SubtitleScreen::DisplayDVDButton(AVSubtitle* dvdButton, QRect &buttonPos)
     uint h = hl_button->h;
     uint w = hl_button->w;
     QRect rect = QRect(hl_button->x, hl_button->y, w, h);
-    QImage bg_image(hl_button->pict.data[0], w, h, QImage::Format_Indexed8);
+    QImage bg_image(hl_button->pict.data[0], w, h, w, QImage::Format_Indexed8);
     uint32_t *bgpalette = (uint32_t *)(hl_button->pict.data[1]);
 
-    bool blank = true;
-    for (uint x = 0; (x < w) && bgpalette; x++)
-    {
-        for (uint y = 0; y < h; y++)
-        {
-            if (qAlpha(bgpalette[bg_image.pixelIndex(x, y)]) > 0)
-            {
-                blank = false;
-                break;
-            }
-        }
-    }
+    QVector<uint32_t> bg_palette(4);
+    for (int i = 0; i < 4; i++)
+        bg_palette[i] = bgpalette[i];
+    bg_image.setColorTable(bg_palette);
 
-    if (!blank)
-    {
-        QVector<unsigned int> bg_palette;
-        for (int i = 0; i < AVPALETTE_COUNT; i++)
-            bg_palette.push_back(bgpalette[i]);
-        bg_image.setColorTable(bg_palette);
-        bg_image = bg_image.convertToFormat(QImage::Format_ARGB32);
-        AddScaledImage(bg_image, rect);
-        VERBOSE(VB_PLAYBACK, LOC + "Added DVD button background");
-    }
-
-    QImage fg_image = bg_image.copy(buttonPos);
-    QVector<unsigned int> fg_palette;
+    // copy button region of background image
+    const QRect fg_rect(buttonPos.translated(-hl_button->x, -hl_button->y));
+    QImage fg_image = bg_image.copy(fg_rect);
+    QVector<uint32_t> fg_palette(4);
     uint32_t *fgpalette = (uint32_t *)(dvdButton->rects[1]->pict.data[1]);
     if (fgpalette)
     {
-        for (int i = 0; i < AVPALETTE_COUNT; i++)
-            fg_palette.push_back(fgpalette[i]);
+        for (int i = 0; i < 4; i++)
+            fg_palette[i] = fgpalette[i];
         fg_image.setColorTable(fg_palette);
     }
 
-    // scale highlight image to match OSD size, if required
-    QRect button = buttonPos.adjusted(0, 2, 0, 0);
+    bg_image = bg_image.convertToFormat(QImage::Format_ARGB32);
     fg_image = fg_image.convertToFormat(QImage::Format_ARGB32);
-    AddScaledImage(fg_image, button);
+
+    // set pixel of highlight area to highlight color
+    for (int x=fg_rect.x(); x < fg_rect.x()+fg_rect.width(); ++x)
+    {
+        if ((x < 0) || (x > hl_button->w))
+            continue;
+        for (int y=fg_rect.y(); y < fg_rect.y()+fg_rect.height(); ++y)
+        {
+            if ((y < 0) || (y > hl_button->h))
+                continue;
+            bg_image.setPixel(x, y, fg_image.pixel(x-fg_rect.x(),y-fg_rect.y()));
+        }
+    }
+
+    AddScaledImage(bg_image, rect);
 }
 
 void SubtitleScreen::DisplayCC608Subtitles(void)

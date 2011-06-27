@@ -18,7 +18,7 @@
 #include "util.h"
 #include "mythdb.h"
 #include "mythdirs.h"
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "mythsystem.h"
 #include "exitcodes.h"
 
@@ -835,34 +835,6 @@ int DBUtil::CountClients(void)
             QString("DBUtil::CountClients() found %1").arg(count));
 
     return count;
-}
-
-/**
- *  \brief Checks whether table exists
- *
- *  \param  table  The name of the table to check (without schema name)
- *  \return true if table exists in schema or false if not
- */
-bool DBUtil::TableExists(const QString &table)
-{
-    bool result = false;
-    MSqlQuery query(MSqlQuery::InitCon());
-    if (query.isConnected())
-    {
-        QString sql = "SELECT INFORMATION_SCHEMA.TABLES.TABLE_NAME "
-                      "  FROM INFORMATION_SCHEMA.TABLES "
-                      " WHERE INFORMATION_SCHEMA.TABLES.TABLE_SCHEMA = "
-                      "       DATABASE() "
-                      "   AND INFORMATION_SCHEMA.TABLES.TABLE_NAME = "
-                      "       :TABLENAME ;";
-        if (query.prepare(sql))
-        {
-            query.bindValue(":TABLENAME", table);
-            if (query.exec() && query.next())
-                result = true;
-        }
-    }
-    return result;
 }
 
 /**

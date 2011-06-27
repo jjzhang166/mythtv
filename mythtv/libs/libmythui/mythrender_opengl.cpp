@@ -1,7 +1,7 @@
 #include <algorithm>
 using namespace std;
 
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "mythrender_opengl.h"
 #include "mythxdisplay.h"
 
@@ -102,8 +102,10 @@ void MythRenderOpenGL::doneCurrent()
 
 void MythRenderOpenGL::Release(void)
 {
+#if !defined(Q_WS_WIN)
     while (m_lock_level > 0)
         doneCurrent();
+#endif
 }
 
 void MythRenderOpenGL::MoveResizeWindow(const QRect &rect)

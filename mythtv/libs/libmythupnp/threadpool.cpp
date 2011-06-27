@@ -26,10 +26,8 @@
 #include <algorithm>
 using namespace std;
 
-#include "mythverbose.h"
 #include "threadpool.h"
 #include "upnp.h"    // only needed for Config... remove once config is moved.
-#include "mythverbose.h"
 #include "mythlogging.h"
 
 /////////////////////////////////////////////////////////////////////////////

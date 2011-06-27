@@ -136,12 +136,10 @@ class MTV_PUBLIC MythPlayer
     void SetWatchingRecording(bool mode);
     void SetWatched(bool forceWatched = false);
     void SetKeyframeDistance(int keyframedistance);
-    void SetVideoParams(int w, int h, double fps, int keydist,
-                        float a = 1.33333, FrameScanType scan = kScan_Ignore,
-                        bool video_codec_changed = false);
+    void SetVideoParams(int w, int h, double fps,
+                        FrameScanType scan = kScan_Ignore);
     void SetFileLength(int total, int frames);
     void SetDuration(int duration);
-    void SetForcedAspectRatio(int mpeg2_aspect_value, int letterbox_permission);
     void SetVideoResize(const QRect &videoRect);
     void EnableFrameRateMonitor(bool enable = false);
 
@@ -237,7 +235,7 @@ class MTV_PUBLIC MythPlayer
     void DrawSlice(VideoFrame *frame, int x, int y, int w, int h);
     /// Returns the stream decoder currently in use.
     DecoderBase *GetDecoder(void) { return decoder; }
-    void *GetDecoderContext(void);
+    void *GetDecoderContext(unsigned char* buf, uint8_t*& id);
 
     // Preview Image stuff
     void SaveScreenshot(void);

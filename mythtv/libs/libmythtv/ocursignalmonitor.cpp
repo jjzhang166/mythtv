@@ -10,16 +10,15 @@
 #include <sys/select.h>
 #endif
 
-#include "mythverbose.h"
-#include "mythdbcon.h"
 #include "ocursignalmonitor.h"
+#include "ocurstreamhandler.h"
 #include "atscstreamdata.h"
+#include "ocurrecorder.h"
+#include "mythlogging.h"
+#include "ocurchannel.h"
 #include "mpegtables.h"
 #include "atsctables.h"
-
-#include "ocurchannel.h"
-#include "ocurrecorder.h"
-#include "ocurstreamhandler.h"
+#include "mythdbcon.h"
 
 #define LOC QString("OCURSM(%1): ").arg(channel->GetDevice())
 #define LOC_ERR QString("OCURSM(%1), Error: ").arg(channel->GetDevice())

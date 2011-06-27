@@ -10,10 +10,12 @@
 #include <linux/iso_fs.h>
 #include <unistd.h>
 
+#include <QDateTime>
+
 #include "mythcdrom.h"
 #include "mythcdrom-linux.h"
 #include "mythconfig.h"      // for HAVE_BIGENDIAN
-#include "mythverbose.h"
+#include "mythlogging.h"
 #ifdef USING_LIBUDF
 #include <cdio/udf.h>
 #endif

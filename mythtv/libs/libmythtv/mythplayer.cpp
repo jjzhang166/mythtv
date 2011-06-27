@@ -53,7 +53,6 @@ using namespace std;
 #include "NuppelVideoRecorder.h"
 #include "tv_play.h"
 #include "interactivetv.h"
-#include "mythverbose.h"
 #include "myth_imgconvert.h"
 #include "mythsystemevent.h"
 #include "mythpainter.h"
@@ -812,28 +811,13 @@ void MythPlayer::SetScanType(FrameScanType scan)
 }
 
 void MythPlayer::SetVideoParams(int width, int height, double fps,
-                                int keyframedistance, float aspect,
-                                FrameScanType scan, bool video_codec_changed)
+                                FrameScanType scan)
 {
-    if (width == 0 || height == 0 || isnan(aspect) || isnan(fps))
+    if (width < 1 || height < 1 || isnan(fps))
         return;
 
-    if ((video_disp_dim == QSize(width, height)) &&
-        (video_aspect == aspect) && (video_frame_rate == fps   ) &&
-        ((keyframedistance <= 0) ||
-         ((uint64_t)keyframedistance == keyframedist)) &&
-        !video_codec_changed)
-    {
-        return;
-    }
-
-    if ((width > 0) && (height > 0))
-    {
-        video_dim      = QSize((width + 15) & ~0xf, (height + 15) & ~0xf);
-        video_disp_dim = QSize(width, height);
-    }
-    video_aspect = (aspect > 0.0f) ? aspect : video_aspect;
-    keyframedist = (keyframedistance > 0) ? keyframedistance : keyframedist;
+    video_dim      = QSize((width + 15) & ~0xf, (height + 15) & ~0xf);
+    video_disp_dim = QSize(width, height);
 
     if (fps > 0.0f && fps < 121.0f)
     {
@@ -872,7 +856,8 @@ void MythPlayer::OpenDummy(void)
 
     if (!videoOutput)
     {
-        SetVideoParams(720, 576, 25.00, 15, defaultDisplayAspect);
+        SetKeyframeDistance(15);
+        SetVideoParams(720, 576, 25.00);
     }
 
     player_ctx->LockPlayingInfo(__FILE__, __LINE__);
@@ -1157,10 +1142,10 @@ void MythPlayer::DrawSlice(VideoFrame *frame, int x, int y, int w, int h)
         videoOutput->DrawSlice(frame, x, y, w, h);
 }
 
-void* MythPlayer::GetDecoderContext(void)
+void* MythPlayer::GetDecoderContext(unsigned char* buf, uint8_t*& id)
 {
     if (videoOutput)
-        return videoOutput->GetDecoderContext();
+        return videoOutput->GetDecoderContext(buf, id);
     return NULL;
 }
 
@@ -2028,8 +2013,25 @@ void MythPlayer::DisplayNormalFrame(bool check_prebuffer)
     // clear the buffering state
     SetBuffering(false);
 
+    // retrieve the next frame
     videoOutput->StartDisplayingFrame();
     VideoFrame *frame = videoOutput->GetLastShownFrame();
+
+    // Check aspect ratio
+    if (frame)
+    {
+        if (!qFuzzyCompare(frame->aspect, video_aspect) && frame->aspect > 0.0f)
+        {
+            VERBOSE(VB_PLAYBACK, LOC +
+                QString("Video Aspect ratio changed from %1 to %2")
+                .arg(video_aspect).arg(frame->aspect));
+            video_aspect = frame->aspect;
+            if (videoOutput)
+                videoOutput->VideoAspectRatioChanged(video_aspect);
+        }
+    }
+
+    // Player specific processing (dvd, bd, mheg etc)
     PreProcessNormalFrame();
 
     // handle scan type changes
@@ -3840,26 +3842,6 @@ AdjustFillMode MythPlayer::GetAdjustFill(void) const
     return kAdjustFill_Off;
 }
 
-void MythPlayer::SetForcedAspectRatio(int mpeg2_aspect_value, int letterbox_permission)
-{
-    (void)letterbox_permission;
-
-    float forced_aspect_old = forced_video_aspect;
-
-    if (mpeg2_aspect_value == 2) // 4:3
-        forced_video_aspect = 4.0f / 3.0f;
-    else if (mpeg2_aspect_value == 3) // 16:9
-        forced_video_aspect = 16.0f / 9.0f;
-    else
-        forced_video_aspect = -1;
-
-    if (videoOutput && forced_video_aspect != forced_aspect_old)
-    {
-        float aspect = (forced_video_aspect > 0) ? forced_video_aspect : video_aspect;
-        videoOutput->VideoAspectRatioChanged(aspect);
-    }
-}
-
 void MythPlayer::ToggleAspectOverride(AspectOverrideMode aspectMode)
 {
     if (videoOutput)
@@ -4353,6 +4335,8 @@ void MythPlayer::GetPlaybackData(InfoMap &infoMap)
     infoMap.insert("decoderrate", player_ctx->buffer->GetDecoderRate());
     infoMap.insert("storagerate", player_ctx->buffer->GetStorageRate());
     infoMap.insert("bufferavail", player_ctx->buffer->GetAvailableBuffer());
+    infoMap.insert("buffersize",
+        QString::number(player_ctx->buffer->GetBufferSize() >> 20));
     infoMap.insert("avsync",
             QString::number((float)avsync_avg / (float)frame_interval, 'f', 2));
     if (videoOutput)

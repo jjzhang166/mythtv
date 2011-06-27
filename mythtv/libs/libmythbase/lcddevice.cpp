@@ -22,7 +22,7 @@
 
 // MythTV headers
 #include "lcddevice.h"
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "compat.h"
 #include "mythdb.h"
 #include "mythdirs.h"
@@ -758,7 +758,8 @@ QString LCD::quotedString(const QString &s)
 
 bool LCD::startLCDServer(void)
 {
-    QString command = GetInstallPrefix() + "/bin/mythlcdserver -v none &";
+    QString command = GetInstallPrefix() + "/bin/mythlcdserver";
+    command += logPropagateArgs;
     uint flags = kMSDontBlockInputDevs | kMSDontDisableDrawing | 
                  kMSRunBackground;
 

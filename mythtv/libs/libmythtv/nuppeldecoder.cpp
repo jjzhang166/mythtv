@@ -19,7 +19,7 @@ using namespace std;
 #include "nuppeldecoder.h"
 #include "mythplayer.h"
 #include "remoteencoder.h"
-#include "mythverbose.h"
+#include "mythlogging.h"
 #include "myth_imgconvert.h"
 #include "programinfo.h"
 
@@ -226,9 +226,9 @@ int NuppelDecoder::OpenFile(RingBuffer *rbuffer, bool novideo,
         fileheader.aspect = 4.0 / 3;
     current_aspect = fileheader.aspect;
 
+    GetPlayer()->SetKeyframeDistance(fileheader.keyframedist);
     GetPlayer()->SetVideoParams(fileheader.width, fileheader.height,
-                             fileheader.fps, fileheader.keyframedist,
-                             fileheader.aspect);
+                                fileheader.fps);
 
     video_width = fileheader.width;
     video_height = fileheader.height;
@@ -1185,6 +1185,7 @@ bool NuppelDecoder::GetFrame(DecodeType decodetype)
                 continue;
             }
 
+            buf->aspect = current_aspect;
             buf->frameNumber = framesPlayed;
             GetPlayer()->ReleaseNextVideoFrame(buf, frameheader.timecode);
 
@@ -1333,9 +1334,9 @@ bool NuppelDecoder::GetFrame(DecodeType decodetype)
                     fileheader.aspect = 4.0 / 3;
                 current_aspect = fileheader.aspect;
 
+                GetPlayer()->SetKeyframeDistance(fileheader.keyframedist);
                 GetPlayer()->SetVideoParams(fileheader.width, fileheader.height,
-                                         fileheader.fps, fileheader.keyframedist,
-                                         fileheader.aspect);
+                                            fileheader.fps);
             }
         }
     }
