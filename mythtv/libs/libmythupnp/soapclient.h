@@ -62,11 +62,11 @@ class UPNP_PUBLIC SOAPClient
     QDomNode FindNode(const QString  &sName,
                       const QDomNode &baseNode) const;
 
-    bool     SendSOAPRequest(const QString &sMethod,
-                             QStringMap    &list,
-                             int           &nErrCode,
-                             QString       &sErrDesc,
-                             bool           bInQtThread);
+    QDomDocument SendSOAPRequest(const QString &sMethod,
+                                 QStringMap    &list,
+                                 int           &nErrCode,
+                                 QString       &sErrDesc,
+                                 bool           bInQtThread);
   private:
     QDomNode FindNodeInternal(QStringList    &sParts,
                               const QDomNode &curNode) const;
@@ -74,12 +74,6 @@ class UPNP_PUBLIC SOAPClient
     QUrl    m_url;
     QString m_sNamespace;
     QString m_sControlPath;
-
-    QDomDocument SendSOAPRequestGetDoc(const QString &sMethod,
-                                       QStringMap    &list,
-                                       int           &nErrCode,
-                                       QString       &sErrDesc,
-                                       bool           bInQtThread);
 };
 
 #endif

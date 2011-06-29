@@ -139,10 +139,10 @@ bool OCURChannel::Tune(const QString &freqid, int /*finetune*/)
     args["NewCaptureMode"]   = "Live";
     int        err_code;
     QString    err_desc;
-    ok = SendSOAPRequest(
+    SendSOAPRequest(
         method, args, err_code, err_desc, true /*inQtThread*/);
 
-    if (!ok)
+    if (UPnPResult_Success != err_code)
     {
         VERBOSE(VB_IMPORTANT, QString("Error Code: %1\n\t\t\tDescription: %2")
                 .arg(err_code).arg(err_desc));
@@ -152,5 +152,5 @@ bool OCURChannel::Tune(const QString &freqid, int /*finetune*/)
         SetSIStandard("scte");
         SetDTVInfo(0,0,0,0,1);
     }
-    return ok;
+    return UPnPResult_Success == err_code;
 }

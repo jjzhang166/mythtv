@@ -27,6 +27,7 @@
 
 #include "mythlogging.h"
 #include "httprequest.h"
+#include "upnp.h"
 
 #define LOC      QString("SOAPClient: ")
 #define LOC_WARN QString("SOAPClient, Warning: ")
@@ -172,32 +173,42 @@ QString SOAPClient::GetNodeValue(
 }
 
 /** Actually sends the sMethod action to the command URL specified
- * in the constructor (url+[/]+sControlPath). list is parsed as
- * a series of key value pairs for the input params and then
- * cleared and used for the output params.
+ *  in the constructor (url+[/]+sControlPath).
  *
- * \note nErrCode and sErrDesc are only set when this method returns false.
+ * \param sMethod method to be invoked. e.g. "SetChannel",
+ *                "GetConnectionInfoResult"
+ *
+ * \param list Parsed as a series of key value pairs for the input params
+ *             and then cleared and used for the output params.
+ *
+ * \param nErrCode set to zero on success, non-zero in case of error.
+ *
+ * \param sErrCode returns error description from device, when applicable.
  *
  * \param bInQtThread May be set to true if this is run from within
  *                    a QThread with a running an event loop.
- * \return true on success, false otherwise.
+ *
+ * \return Returns a QDomDocument containing output parameters on success.
  */
-bool SOAPClient::SendSOAPRequest(const QString &sMethod,
-                                 QStringMap    &list,
-                                 int           &nErrCode,
-                                 QString       &sErrDesc,
-                                 bool           bInQtThread)
+QDomDocument SOAPClient::SendSOAPRequest(const QString &sMethod,
+                                         QStringMap    &list,
+                                         int           &nErrCode,
+                                         QString       &sErrDesc,
+                                         bool           bInQtThread)
 {
     QUrl url(m_url);
 
     url.setPath(m_sControlPath);
 
-    // TODO handle this approriately
+    nErrCode = UPnPResult_Success;
+    sErrDesc = "";
+
+    QDomDocument xmlResult;
     if (m_sNamespace.isEmpty())
     {
-        nErrCode = 0;
+        nErrCode = UPnPResult_MythTV_NoNamespaceGiven;
         sErrDesc = "No namespace given";
-        return false;
+        return xmlResult;
     }
 
     // --------------------------------------------------------------
@@ -288,7 +299,7 @@ bool SOAPClient::SendSOAPRequest(const QString &sMethod,
                 .arg(sMethod).arg(url.toString()) + 
                 QString("%1: %2").arg(nErrCode).arg(sErrDesc));
 
-        return false;
+        return xmlResult;
     }
 
     // --------------------------------------------------------------
@@ -308,15 +319,21 @@ bool SOAPClient::SendSOAPRequest(const QString &sMethod,
         nErrCode = GetNodeValue(
             doc, "Envelope/Body/Fault/detail/UPnPError/errorCode", 500);
         sErrDesc = GetNodeValue(
-            doc, "Envelope/Body/Fault/detail/UPnPError/errorDescription",
-            QString("Unknown"));
+            doc, "Envelope/Body/Fault/detail/UPnPError/errorDescription", "");
+        if (sErrDesc.isEmpty())
+            sErrDesc = QString("Unknown #%1").arg(nErrCode);
 
-        return false;
+        QDomNode oNode  = FindNode( "Envelope/Body/Fault", doc );
+
+        oNode = xmlResult.importNode( oNode, true );
+        xmlResult.appendChild( oNode );
+
+        return xmlResult;
     }
 
     QDomNode oMethod = oNodeList.item(0);
     if (oMethod.isNull())
-        return true;
+        return xmlResult;
 
     QDomNode oNode = oMethod.firstChild(); 
     for (; !oNode.isNull(); oNode = oNode.nextSibling())
@@ -337,154 +354,14 @@ bool SOAPClient::SendSOAPRequest(const QString &sMethod,
                     QUrl::fromPercentEncoding(sValue.toUtf8()));
     }
 
-    return true;
-}
+    // Create copy of oMethod that can be used with xmlResult.
 
-/////////////////////////////////////////////////////////////////////////////
-//
-/////////////////////////////////////////////////////////////////////////////
+    oMethod = xmlResult.importNode( oMethod.firstChild(), true  );
 
-QDomDocument SOAPClient::SendSOAPRequestGetDoc(const QString &sMethod,
-                                               QStringMap    &list,
-                                               int           &nErrCode,
-                                               QString       &sErrDesc,
-                                               bool           bInQtThread)
-{
-    QUrl url(m_url);
+    // importNode does not attach the new nodes to the document,
+    // do it here.
 
-    url.setPath(m_sControlPath);
-
-    if (m_sNamespace.isEmpty())
-    {
-        nErrCode = 0;
-        sErrDesc = "No namespace given";
-        return QDomDocument();
-    }
-
-    // --------------------------------------------------------------
-    // Add appropriate headers
-    // --------------------------------------------------------------
-
-    QHttpRequestHeader header("POST", sMethod, 1, 0);
-
-    header.setValue("CONTENT-TYPE", "text/xml; charset=\"utf-8\"" );
-    header.setValue("SOAPACTION",
-                    QString("\"%1#%2\"").arg(m_sNamespace).arg(sMethod));
-
-    // --------------------------------------------------------------
-    // Build request payload
-    // --------------------------------------------------------------
-
-    QByteArray  aBuffer;
-    QTextStream os( &aBuffer );
-
-    os.setCodec("UTF-8");
-
-    os << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n"; 
-    os << "<s:Envelope "
-        " s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\""
-        " xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n";
-    os << " <s:Body>\r\n";
-    os << "  <u:" << sMethod << " xmlns:u=\"" << m_sNamespace << "\">\r\n";
-
-    // --------------------------------------------------------------
-    // Add parameters from list
-    // --------------------------------------------------------------
-
-    for (QStringMap::iterator it = list.begin(); it != list.end(); ++it)
-    {                                                               
-        os << "   <" << it.key() << ">";
-        os << HTTPRequest::Encode( *it );
-        os << "</"   << it.key() << ">\r\n";
-    }
-
-    os << "  </u:" << sMethod << ">\r\n";
-    os << " </s:Body>\r\n";
-    os << "</s:Envelope>\r\n";
-
-    os.flush();
-
-    // --------------------------------------------------------------
-    // Perform Request
-    // --------------------------------------------------------------
-
-    QBuffer buff(&aBuffer);
-
-    VERBOSE(VB_UPNP|VB_EXTRA,
-            QString("SOAPClient(%1) sending:\n").arg(url.toString()) +
-            header.toString() +
-            QString("\n%1\n").arg(aBuffer.constData()));
-
-    QString sXml = HttpComms::postHttp(
-        url,
-        &header,
-        &buff, // QIODevice*
-        10000, // ms -- Technically we should allow 30,000 ms per spec
-        3,     // retries
-        0,     // redirects
-        false, // allow gzip
-        NULL,  // login
-        bInQtThread,
-        QString() // userAgent, UPnP/1.0 very strict on format if set
-        );
-
-    // --------------------------------------------------------------
-    // Parse response
-    // --------------------------------------------------------------
-
-    VERBOSE(VB_UPNP|VB_EXTRA, "SOAPClient response:\n" +QString("%1\n")
-            .arg(sXml));
-
-    // TODO handle timeout without response correctly.
-
-    list.clear();
-
-    QDomDocument xmlResult;
-    QDomDocument doc;
-
-    if (!doc.setContent(sXml, true, &sErrDesc, &nErrCode))
-    {
-        VERBOSE(VB_UPNP,
-                QString("MythXMLClient::SendSOAPRequest( %1 ) - "
-                        "Invalid response from %2")
-                .arg(sMethod).arg(url.toString()) + 
-                QString("%1: %2").arg(nErrCode).arg(sErrDesc));
-
-        return QDomDocument();
-    }
-
-    // --------------------------------------------------------------
-    // Is this a valid response?
-    // --------------------------------------------------------------
-
-    QString      sResponseName = sMethod + "Response";
-    QDomNodeList oNodeList     =
-        doc.elementsByTagNameNS(m_sNamespace, sResponseName);
-
-    if (oNodeList.count() > 0)
-    {
-        QDomNode oMethod = oNodeList.item(0);
-
-        // Create copy of oMethod that can be used with xmlResult.
-
-        oMethod = xmlResult.importNode( oMethod.firstChild(), true  );
-
-        // importNode does not attach the new nodes to the document,
-        // do it here.
-
-        xmlResult.appendChild( oMethod );
-
-        return xmlResult;
-    }
-
-    // --------------------------------------------------------------
-    // Must be a fault... parse it to return reason
-    // --------------------------------------------------------------
-
-    QDomNode oNode  = FindNode( "Envelope/Body/Fault", doc );
-
-    oNode = xmlResult.importNode( oNode, true );
-    xmlResult.appendChild( oNode );
+    xmlResult.appendChild( oMethod );
 
     return xmlResult;
 }
