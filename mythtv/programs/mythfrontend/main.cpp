@@ -59,7 +59,7 @@ using namespace std;
 #include "lcddevice.h"
 #include "langsettings.h"
 #include "mythtranslation.h"
-#include "mythcommandlineparser.h"
+#include "commandlineparser.h"
 #include "channelgroupsettings.h"
 
 #include "myththemedmenu.h"
@@ -981,7 +981,7 @@ static void TVMenuCallback(void *data, QString &selection)
         if (fa->Create())
             mainStack->AddScreen(fa);
     }
-    if (sel == "manager")
+    else if (sel == "manager")
         RunVideoScreen(VideoDialog::DLG_MANAGER);
     else if (sel == "browser")
         RunVideoScreen(VideoDialog::DLG_BROWSER);

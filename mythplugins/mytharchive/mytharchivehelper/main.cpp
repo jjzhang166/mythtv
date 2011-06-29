@@ -2471,15 +2471,15 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
     addLogging();
 
     add(QStringList( QStringList() << "-t" << "--createthumbnail" ),
-            "createthumbnail", 
+            "createthumbnail", false,
 	    "Create one or more thumbnails\n"
             "Requires: --infile, --thumblist, --outfile\n"
             "Optional: --framecount", "");
-    add("--infile", "infile", ""
+    add("--infile", "infile", "",
             "Input file name\n"
             "Used with: --createthumbnail, --getfileinfo, --isremote, "
             "--sup2dast, --importarchive", "");
-    add("--outfile", "outfile", ""
+    add("--outfile", "outfile", "",
             "Output file name\n"
             "Used with: --createthumbnail, --getfileinfo, --getdbparameters, "
             "--nativearchive\n"
@@ -2494,7 +2494,8 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
             "Used with: --createthumbnail", "");
 
     add(QStringList( QStringList() << "-i" << "--getfileinfo" ),
-            "getfileinfo", "Write file info about infile to outfile\n"
+            "getfileinfo", false, 
+            "Write file info about infile to outfile\n"
             "Requires: --infile, --outfile, --method", "");
     add("--method", "method", 0, 
             "Method of file duration calculation\n" 
@@ -2506,17 +2507,17 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
             "recordings)", "");
 
     add(QStringList( QStringList() << "-p" << "--getdbparameters" ),
-            "getdbparameters", 
+            "getdbparameters", false,
             "Write the mysql database parameters to outfile\n"
             "Requires: --outfile", "");
 
     add(QStringList( QStringList() << "-n" << "--nativearchive" ),
-            "nativearchive", 
+            "nativearchive", false,
             "Archive files to a native archive format\n"
             "Requires: --outfile", "");
 
     add(QStringList( QStringList() << "-f" << "--importarchive" ),
-            "importarchive", 
+            "importarchive", false,
             "Import an archived file\n"
             "Requires: --infile, --chanid", "");
     add("--chanid", "chanid", -1, 
@@ -2524,14 +2525,16 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
             "Used with: --importarchive", "");
 
     add(QStringList( QStringList() << "-r" << "--isremote" ),
-            "isremote", "Check if infile is on a remote filesystem\n"
+            "isremote", false,
+            "Check if infile is on a remote filesystem\n"
             "Requires: --infile\n"
             "Returns:   0 on error or file not found\n"
             "         - 1 file is on a local filesystem\n"
             "         - 2 file is on a remote filesystem", "");
 
     add(QStringList( QStringList() << "-b" << "--burndvd" ),
-            "burndvd", "Burn a created DVD to a blank disc\n"
+            "burndvd", false,
+            "Burn a created DVD to a blank disc\n"
             "Optional: --mediatype, --erasedvdrw, --nativeformat", "");
     add("--mediatype", "mediatype", 0, 
             "Type of media to burn\n" 
@@ -2539,18 +2542,18 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
             "  0 = single layer DVD (default)\n"
             "  1 = dual layer DVD\n"
             "  2 = rewritable DVD", "");
-    add("--erasedvdrw", "erasedvdrw",  
+    add("--erasedvdrw", "erasedvdrw", false,
             "Force an erase of DVD-R/W Media\n" 
             "Used with: --burndvd (optional)", "");
-    add("--nativeformat", "nativeformat", 
+    add("--nativeformat", "nativeformat", false,
             "Archive is a native archive format\n" 
             "Used with: --burndvd (optional)", "");
 
     add(QStringList( QStringList() << "-s" << "--sup2dast" ),
-            "sup2dast", 
+            "sup2dast", false,
             "Convert projectX subtitles to DVD subtitles\n"
             "Requires: --infile, --ifofile, --delay", "");
-    add("--ifofile", "ifofile", ""
+    add("--ifofile", "ifofile", "",
             "Filename of ifo file\n"
             "Used with: --sup2dast", "");
     add("--delay", "delay", 0, 
@@ -2633,7 +2636,7 @@ int main(int argc, char **argv)
 
     int res = 0;
     bool bGrabThumbnail   = cmdline.toBool("createthumbnail");
-    bool bGetDBParameters = cmdline.toBool("grabdbparameters");
+    bool bGetDBParameters = cmdline.toBool("getdbparameters");
     bool bNativeArchive   = cmdline.toBool("nativearchive");
     bool bImportArchive   = cmdline.toBool("importarchive");
     bool bGetFileInfo     = cmdline.toBool("getfileinfo");

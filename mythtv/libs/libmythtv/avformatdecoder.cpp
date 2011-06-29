@@ -1304,9 +1304,6 @@ void AvFormatDecoder::InitVideoCodec(AVStream *stream, AVCodecContext *enc,
 
     if (special_decode)
     {
-        if (special_decode & kAVSpecialDecode_SingleThreaded)
-            enc->thread_count = 1;
-
         enc->flags2 |= CODEC_FLAG2_FAST;
 
         if ((CODEC_ID_MPEG2VIDEO == codec->id) ||
@@ -1796,8 +1793,12 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                     }
                 }
 
-                bool handled = false;
-                if (!using_null_videoout && mpeg_version(enc->codec_id))
+                video_codec_id = kCodec_NONE;
+                int version = mpeg_version(enc->codec_id);
+                if (version)
+                    video_codec_id = (MythCodecID)(kCodec_MPEG1 + version - 1);
+
+                if (!using_null_videoout && version)
                 {
 #if defined(USING_VDPAU)
                     // HACK -- begin
@@ -1819,7 +1820,6 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                     {
                         enc->codec_id = (CodecID) myth2av_codecid(vdpau_mcid);
                         video_codec_id = vdpau_mcid;
-                        handled = true;
                     }
 #endif // USING_VDPAU
 #ifdef USING_VAAPI
@@ -1833,7 +1833,6 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                     {
                         enc->codec_id = (CodecID)myth2av_codecid(vaapi_mcid);
                         video_codec_id = vaapi_mcid;
-                        handled = true;
                         if (!no_hardware_decoders &&
                             codec_is_vaapi(video_codec_id))
                         {
@@ -1852,7 +1851,6 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                     {
                         enc->codec_id = (CodecID)myth2av_codecid(dxva2_mcid);
                         video_codec_id = dxva2_mcid;
-                        handled = true;
                         if (!no_hardware_decoders &&
                             codec_is_dxva2(video_codec_id))
                         {
@@ -1862,12 +1860,12 @@ int AvFormatDecoder::ScanStreams(bool novideo)
 #endif // USING_DXVA2
                 }
 
-                if (!handled)
+                // default to mpeg2
+                if (video_codec_id == kCodec_NONE)
                 {
-                    if (CODEC_IS_H264(enc->codec_id))
-                        video_codec_id = kCodec_H264;
-                    else
-                        video_codec_id = kCodec_MPEG2; // default to MPEG2
+                    VERBOSE(VB_IMPORTANT, LOC +
+                            "Unknown video codec - defaulting to MPEG2");
+                    video_codec_id = kCodec_MPEG2;
                 }
 
                 if (enc->codec)
@@ -1885,7 +1883,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                 if (selectedTrack[kTrackTypeVideo].av_stream_index < 0)
                     selectedTrack[kTrackTypeVideo] = si;
 
-                if (allow_private_decoders &&
+                if (!using_null_videoout && allow_private_decoders &&
                    (selectedTrack[kTrackTypeVideo].av_stream_index == (int) i))
                 {
                     private_dec = PrivateDecoder::Create(
@@ -1895,6 +1893,9 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                 }
 
                 if (!codec_is_std(video_codec_id))
+                    thread_count = 1;
+
+                if (special_decode & kAVSpecialDecode_SingleThreaded)
                     thread_count = 1;
 
                 VERBOSE(VB_PLAYBACK, LOC + QString("Using %1 CPUs for decoding")
@@ -2012,14 +2013,27 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                 int      i = 1;
                 while (p)
                 {
-                    if (p->name[0] != '\0')  printf("Codec %s:", p->name);
-                    else                     printf("Codec %d, null name,", i);
-                    if (p->decode == NULL)   puts("decoder is null");
+                    QString msg;
+
+                    if (p->name[0] != '\0')
+                        msg = QString("Codec %1:").arg(p->name);
+                    else
+                        msg = QString("Codec %1, null name,").arg(i);
+
+                    if (p->decode == NULL)
+                        msg += "decoder is null";
+
+                    LOG(VB_LIBAV, LOG_DEBUG, msg);
 
                     if (p->id == enc->codec_id)
-                    {   codec = p; break;    }
+                    {
+                        codec = p;
+                        break;
+                    }
 
-                    printf("Codec 0x%x != 0x%x\n", p->id, enc->codec_id);
+                    LOG(VB_LIBAV, LOG_DEBUG,
+                        QString("Codec 0x%1 != 0x%2") .arg(p->id, 0, 16)
+                            .arg(enc->codec_id, 0, 16));
                     p = av_codec_next(p);
                     ++i;
                 }

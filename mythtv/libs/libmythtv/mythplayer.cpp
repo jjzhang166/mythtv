@@ -567,7 +567,9 @@ void MythPlayer::ReinitOSD(void)
             osd->SetPainter(videoOutput->GetOSDPainter());
             videoOutput->GetOSDBounds(total, visible, aspect,
                                       scaling, 1.0f);
-            if (osd->Bounds() != visible)
+            int stretch = (int)((aspect * 100) + 0.5f);
+            if ((osd->Bounds() != visible) ||
+                (osd->GetFontStretch() != stretch))
             {
                 uint old = textDisplayMode;
                 ToggleCaptions(old);
@@ -2027,7 +2029,10 @@ void MythPlayer::DisplayNormalFrame(bool check_prebuffer)
                 .arg(video_aspect).arg(frame->aspect));
             video_aspect = frame->aspect;
             if (videoOutput)
+            {
                 videoOutput->VideoAspectRatioChanged(video_aspect);
+                ReinitOSD();
+            }
         }
     }
 
@@ -4027,7 +4032,7 @@ char *MythPlayer::GetScreenGrabAtFrame(uint64_t frameNum, bool absolute,
 
     vw = video_dim.width();
     vh = video_dim.height();
-    ar = video_aspect;
+    ar = frame->aspect;
 
     DiscardVideoFrame(frame);
     return (char *)outputbuf;

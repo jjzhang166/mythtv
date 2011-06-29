@@ -9,7 +9,7 @@
 
 #include <stdint.h>   // for uint64_t
 
-#include "mythexp.h"
+#include "mythbaseexp.h"
 #include "mythlogging.h"
 
 typedef struct commandlinearg {
@@ -20,7 +20,7 @@ typedef struct commandlinearg {
     QString         longhelp;
 } CommandLineArg;
 
-class MPUBLIC MythCommandLineParser
+class MBASE_PUBLIC MythCommandLineParser
 {
   public:
     MythCommandLineParser(QString);
@@ -34,8 +34,6 @@ class MPUBLIC MythCommandLineParser
     virtual bool Parse(int argc, const char * const * argv);
 
 // overloaded add constructors for single string options
-    void add(QString arg, QString name, QString help, QString longhelp) // bool
-                { add(arg, name, false, help, longhelp); }
     void add(QString arg, QString name, bool def,                       // bool with default
              QString help, QString longhelp)
                 { add(QStringList(arg), name, QVariant::Bool,    
@@ -82,9 +80,6 @@ class MPUBLIC MythCommandLineParser
                       def, help, longhelp); }
 
 // overloaded add constructors for multi-string options
-    void add(QStringList arglist, QString name,                         // bool
-             QString help, QString longhelp)
-                { add(arglist, name, false, help, longhelp); }
     void add(QStringList arglist, QString name, bool def,               // bool with default
              QString help, QString longhelp)
                 { add(arglist, name, QVariant::Bool,
@@ -131,10 +126,12 @@ class MPUBLIC MythCommandLineParser
     QVariant                operator[](const QString &name);
     QStringList             GetArgs(void) const { return m_remainingArgs; }
     QMap<QString,QString>   GetSettingsOverride(void);
-    QString	            GetLogFilePath(void);
+    QString	                GetLogFilePath(void);
     int                     GetSyslogFacility(void);
     LogLevel_t              GetLogLevel(void);
     QString                 GetPassthrough(void) const { return m_passthrough.join(" "); }
+
+    bool                    SetValue(const QString &key, QVariant value);
 
     bool                    toBool(QString key) const;
     int                     toInt(QString key) const;
@@ -180,131 +177,5 @@ class MPUBLIC MythCommandLineParser
     QStringList                     m_passthrough;
     bool                            m_overridesImported;
     bool                            m_verbose;
-};
-
-class MPUBLIC MythBackendCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythBackendCommandLineParser(); 
-    void LoadArguments(void);
-  protected:
-    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythFrontendCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythFrontendCommandLineParser();
-    void LoadArguments(void);
-  protected:
-    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythPreviewGeneratorCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythPreviewGeneratorCommandLineParser();
-    void LoadArguments(void);
-  protected:
-//    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythWelcomeCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythWelcomeCommandLineParser();
-    void LoadArguments(void);
-  protected:
-    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythAVTestCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythAVTestCommandLineParser();
-    void LoadArguments(void);
-  protected:
-    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythCommFlagCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythCommFlagCommandLineParser();
-    void LoadArguments(void);
-  protected:
-//    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythJobQueueCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythJobQueueCommandLineParser();
-    void LoadArguments(void);
-  protected:
-    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythFillDatabaseCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythFillDatabaseCommandLineParser();
-    void LoadArguments(void);
-  protected:
-//    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythLCDServerCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythLCDServerCommandLineParser();
-    void LoadArguments(void);
-  protected:
-//    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythMessageCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythMessageCommandLineParser();
-    void LoadArguments(void);
-  protected:
-//    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythShutdownCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythShutdownCommandLineParser();
-    void LoadArguments(void);
-  protected:
-//    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythTVSetupCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythTVSetupCommandLineParser();
-    void LoadArguments(void);
-  protected:
-    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythTranscodeCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythTranscodeCommandLineParser();
-    void LoadArguments(void);
-  protected:
-//    QString GetHelpHeader(void) const;
-};
-
-class MPUBLIC MythMediaServerCommandLineParser : public MythCommandLineParser
-{
-  public:
-    MythMediaServerCommandLineParser(); 
-    void LoadArguments(void);
-  protected:
-    QString GetHelpHeader(void) const;
 };
 
