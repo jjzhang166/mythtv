@@ -18,6 +18,7 @@ using namespace std;
 #include <QTextStream>
 
 #include "mythcommandlineparser.h"
+#include "mythcorecontext.h"
 #include "exitcodes.h"
 #include "mythconfig.h"
 #include "mythlogging.h"
@@ -1047,3 +1048,61 @@ bool MythCommandLineParser::SetValue(const QString &key, QVariant value)
     return true;
 }
 
+int MythCommandLineParser::ConfigureLogging(QString mask, unsigned int quiet)
+{
+    int err = 0;
+
+    // Setup the defaults
+    verboseString = "";
+    verboseMask   = 0;
+    verboseArgParse(mask);
+
+    if (toBool("verbose"))
+    {
+        if ((err = verboseArgParse(toString("verbose"))))
+            return err;
+    }
+    else if (toBool("verboseint"))
+        verboseMask = toUInt("verboseint");
+
+    quiet = MAX(quiet, toUInt("quiet"));
+    if (quiet > 1)
+    {
+        verboseMask = VB_NONE;
+        verboseArgParse("none");
+    }
+
+    int facility = GetSyslogFacility();
+    bool dblog = !toBool("nodblog");
+    LogLevel_t level = GetLogLevel();
+    if (level == LOG_UNKNOWN)
+        return GENERIC_EXIT_INVALID_CMDLINE;
+
+    LOG(VB_GENERAL, LOG_CRIT, QString("%1 version: %2 [%3] www.mythtv.org")
+            .arg(QCoreApplication::applicationName())
+            .arg(MYTH_SOURCE_PATH) .arg(MYTH_SOURCE_VERSION));
+    LOG(VB_GENERAL, LOG_CRIT, QString("Enabled verbose msgs: %1")
+                                  .arg(verboseString));
+
+    QString logfile = GetLogFilePath();
+    bool propogate = toBool("islogpath");
+    logStart(logfile, quiet, facility, level, dblog, propogate);
+
+    return GENERIC_EXIT_OK;
+}
+
+// WARNING: this must not be called until after MythContext is initialized
+void MythCommandLineParser::ApplySettingsOverride(void)
+{
+    QMap<QString, QString> override = GetSettingsOverride();
+    if (override.size())
+    {
+        QMap<QString, QString>::iterator it;
+        for (it = override.begin(); it != override.end(); ++it)
+        {
+            VERBOSE(VB_IMPORTANT, QString("Setting '%1' being forced to '%2'")
+                        .arg(it.key()).arg(*it));
+            gCoreContext->OverrideSettingForSession(it.key(), *it);
+        }
+    }
+}

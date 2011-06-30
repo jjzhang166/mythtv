@@ -77,3 +77,4 @@ class UPNP_PUBLIC SOAPClient
 };
 
 #endif
+

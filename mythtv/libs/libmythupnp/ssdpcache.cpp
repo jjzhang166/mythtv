@@ -332,11 +332,11 @@ DeviceLocation *SSDPCache::Find(const QString &sURI, const QString &sUSN)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-void SSDPCache::Add(const QString &sURI,
-                    const QString &sUSN,
-                    const QString &sLocation,
-                    long           sExpiresInSecs)
-{
+void SSDPCache::Add( const QString &sURI,
+                     const QString &sUSN,
+                     const QString &sLocation,
+                     long           sExpiresInSecs )
+{    
     // --------------------------------------------------------------
     // Calculate when this cache entry should expire.
     // --------------------------------------------------------------

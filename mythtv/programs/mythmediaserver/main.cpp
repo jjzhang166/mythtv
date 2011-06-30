@@ -69,18 +69,6 @@ namespace
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication a(argc, argv);
-    QMap<QString, QString> settingsOverride;
-    bool daemonize = false;
-    int quiet = 0;
-
-    QString filename;
-
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMEDIASERVER);
-
-    verboseMask = VB_IMPORTANT;
-    verboseString = "important";
-
     MythMediaServerCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -100,42 +88,19 @@ int main(int argc, char *argv[])
         return GENERIC_EXIT_OK;
     }
 
-    if (cmdline.toBool("verbose"))
-        if (verboseArgParse(cmdline.toString("verbose")) ==
-                        GENERIC_EXIT_INVALID_CMDLINE)
-            return GENERIC_EXIT_INVALID_CMDLINE;
+    QCoreApplication a(argc, argv);
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMEDIASERVER);
+
+    bool daemonize = cmdline.toBool("daemon");
+    int retval;
+    QString mask("important general");
+    if ((retval = cmdline.ConfigureLogging(mask, daemonize)) != GENERIC_EXIT_OK)
+        return retval;
 
     if (cmdline.toBool("pidfile"))
         pidfile = cmdline.toUInt("pidfile");
-    daemonize = cmdline.toBool("daemon");
-
-    if (verboseArgParse(cmdline.toString("verbose")) ==
-                        GENERIC_EXIT_INVALID_CMDLINE)
-        return GENERIC_EXIT_INVALID_CMDLINE;
-    if (cmdline.toBool("verboseint"))
-        verboseMask = cmdline.toUInt("verboseint");
-
-    if (cmdline.toBool("quiet"))
-    {
-        quiet = cmdline.toUInt("quiet");
-        if (quiet > 1)
-        {
-            verboseMask = VB_NONE;
-            verboseArgParse("none");
-        }
-    }
-
-    int facility = cmdline.GetSyslogFacility();
-    bool dblog = !cmdline.toBool("nodblog");
-    LogLevel_t level = cmdline.GetLogLevel();
-    if (level == LOG_UNKNOWN)
-        return GENERIC_EXIT_INVALID_CMDLINE;
 
     CleanupGuard callCleanup(cleanup);
-
-    QString logfile = cmdline.GetLogFilePath();
-    bool propagate = cmdline.toBool("islogpath");
-    logStart(logfile, quiet, facility, level, dblog, propagate);
 
     ofstream pidfs;
     if (pidfile.size())
@@ -143,8 +108,7 @@ int main(int argc, char *argv[])
         pidfs.open(pidfile.toAscii().constData());
         if (!pidfs)
         {
-            VERBOSE(VB_IMPORTANT, LOC_ERR +
-                    "Could not open pid file" + ENO);
+            VERBOSE(VB_IMPORTANT, LOC_ERR + "Could not open pid file" + ENO);
             return GENERIC_EXIT_PERMISSIONS_ERROR;
         }
     }
@@ -164,11 +128,6 @@ int main(int argc, char *argv[])
         pidfs.close();
     }
 
-    VERBOSE(VB_IMPORTANT, QString("%1 version: %2 [%3] www.mythtv.org")
-                            .arg(MYTH_APPNAME_MYTHMEDIASERVER)
-                            .arg(MYTH_SOURCE_PATH)
-                            .arg(MYTH_SOURCE_VERSION));
-
     gContext = new MythContext(MYTH_BINARY_VERSION);
     if (!gContext->Init(false))
     {
@@ -176,16 +135,7 @@ int main(int argc, char *argv[])
         return GENERIC_EXIT_NO_MYTHCONTEXT;
     }
 
-    if (settingsOverride.size())
-    {
-        QMap<QString, QString>::iterator it;
-        for (it = settingsOverride.begin(); it != settingsOverride.end(); ++it)
-        {
-            VERBOSE(VB_IMPORTANT, QString("Setting '%1' being forced to '%2'")
-                                          .arg(it.key()).arg(*it));
-            gCoreContext->OverrideSettingForSession(it.key(), *it);
-        }
-    }
+    cmdline.ApplySettingsOverride();
 
     if (!gCoreContext->ConnectToMasterServer())
     {
