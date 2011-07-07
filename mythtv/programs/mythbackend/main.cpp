@@ -86,9 +86,11 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHBACKEND);
 
     pidfile = cmdline.toString("pidfile");
+    int retval = cmdline.Daemonize();
+    if (retval != GENERIC_EXIT_OK)
+        return retval;
 
     bool daemonize = cmdline.toBool("daemon");
-    int retval;
     QString mask("important general");
     if ((retval = cmdline.ConfigureLogging(mask, daemonize)) != GENERIC_EXIT_OK)
         return retval;
@@ -101,13 +103,16 @@ int main(int argc, char **argv)
     signal(SIGINT, qt_exit);
     signal(SIGTERM, qt_exit);
 
-    int exitCode = setup_basics(cmdline);
-    if (exitCode != GENERIC_EXIT_OK)
-        return exitCode;
+    gContext = new MythContext(MYTH_BINARY_VERSION);
+    if (!gContext->Init(false))
+    {
+        LOG(VB_GENERAL, LOG_CRIT, "Failed to init MythContext.");
+        return GENERIC_EXIT_NO_MYTHCONTEXT;
+    }
 
     setHttpProxy();
 
-    gContext = new MythContext(MYTH_BINARY_VERSION);
+    cmdline.ApplySettingsOverride();
 
     if (cmdline.toBool("event")         || cmdline.toBool("systemevent") ||
         cmdline.toBool("setverbose")    || cmdline.toBool("printsched") ||
@@ -115,22 +120,13 @@ int main(int argc, char **argv)
         cmdline.toBool("scanvideos")    || cmdline.toBool("clearcache") ||
         cmdline.toBool("printexpire"))
     {
-        if (!setup_context(cmdline))
-            return GENERIC_EXIT_NO_MYTHCONTEXT;
+        gCoreContext->SetBackend(false);
         return handle_command(cmdline);
     }
 
-    /////////////////////////////////////////////////////////////////////////
-    // Not sure we want to keep running the backend when there is an error.
-    // Currently, it keeps repeating the same error over and over.
-    // Removing loop until reason for having it is understood.
-    //
-    //while (true)
-    //{
-        exitCode = run_backend(cmdline);
-    //}
-
-    return exitCode;
+    gCoreContext->SetBackend(true);
+    retval = run_backend(cmdline);
+    return retval;
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

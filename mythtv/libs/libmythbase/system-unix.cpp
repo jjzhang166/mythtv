@@ -378,8 +378,10 @@ void MythSystemManager::run(void)
     }
 
     // kick to allow them to close themselves cleanly
-    readThread->wake();
-    writeThread->wake();
+    if (readThread)
+        readThread->wake();
+    if (writeThread)
+        writeThread->wake();
     threadDeregister();
 }
 
@@ -683,20 +685,6 @@ void MythSystemUnix::Fork(time_t timeout)
         m_stdpipe[0] = p_stdin[1];
         m_stdpipe[1] = p_stdout[0];
         m_stdpipe[2] = p_stderr[0];
-
-        // clean up the memory use
-        if( command )
-            free((void *)command);
-
-        if( directory )
-            free((void *)directory);
-
-        if( cmdargs )
-        {
-            for (i = 0; cmdargs[i]; i++)
-                free( cmdargs[i] );
-            free( cmdargs );
-        }
     }
     else if (child == 0)
     {
@@ -801,6 +789,21 @@ void MythSystemUnix::Fork(time_t timeout)
     }
 
     /* Parent */
+
+    // clean up the memory use
+    if( command )
+        free((void *)command);
+
+    if( directory )
+        free((void *)directory);
+
+    if( cmdargs )
+    {
+        for (i = 0; cmdargs[i]; i++)
+            free( cmdargs[i] );
+        free( cmdargs );
+    }
+
     if( GetStatus() != GENERIC_EXIT_RUNNING )
     {
         CLOSE(p_stdin[0]);
