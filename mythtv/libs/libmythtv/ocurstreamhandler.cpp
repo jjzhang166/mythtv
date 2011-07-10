@@ -21,9 +21,7 @@
 #include "cardutil.h"
 #include "upnp.h"
 
-#define LOC      QString("OCURSH(%1): ").arg(_device)
-#define LOC_WARN QString("OCURSH(%1) Warning: ").arg(_device)
-#define LOC_ERR  QString("OCURSH(%1) Error: ").arg(_device)
+#define LOC QString("OCURSH(%1): ").arg(_device)
 
 QMap<QString,OCURStreamHandler*> OCURStreamHandler::_handlers;
 QMap<QString,uint>               OCURStreamHandler::_handlers_refcnt;
@@ -44,18 +42,18 @@ OCURStreamHandler *OCURStreamHandler::Get(const QString &devname)
         _handlers[devkey] = newhandler;
         _handlers_refcnt[devkey] = 1;
 
-        VERBOSE(VB_RECORD,
-                QString("OCURSH: Creating new stream handler %1 for %2")
-                .arg(devkey).arg(devname));
+        LOG(VB_RECORD, LOG_INFO,
+            QString("OCURSH: Creating new stream handler %1 for %2")
+            .arg(devkey).arg(devname));
     }
     else
     {
         _handlers_refcnt[devkey]++;
         uint rcount = _handlers_refcnt[devkey];
-        VERBOSE(VB_RECORD,
-                QString("OCURSH: Using existing stream handler %1 for %2")
-                .arg(devkey)
-                .arg(devname) + QString(" (%1 in use)").arg(rcount));
+        LOG(VB_RECORD, LOG_INFO,
+            QString("OCURSH: Using existing stream handler %1 for %2")
+            .arg(devkey)
+            .arg(devname) + QString(" (%1 in use)").arg(rcount));
     }
 
     return _handlers[devkey];
@@ -82,17 +80,16 @@ void OCURStreamHandler::Return(OCURStreamHandler * & ref)
     QMap<QString,OCURStreamHandler*>::iterator it = _handlers.find(devkey);
     if ((it != _handlers.end()) && (*it == ref))
     {
-        VERBOSE(VB_RECORD, QString("OCURSH: Closing handler for %1")
-                           .arg(devname));
+        LOG(VB_RECORD, LOG_INFO,
+            QString("OCURSH: Closing handler for %1").arg(devname));
         ref->Close();
         delete *it;
         _handlers.erase(it);
     }
     else
     {
-        VERBOSE(VB_IMPORTANT,
-                QString("OCURSH Error: Couldn't find handler for %1")
-                .arg(devname));
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("OCURSH Error: Couldn't find handler for %1").arg(devname));
     }
 
     _handlers_refcnt.erase(rit);
@@ -108,19 +105,19 @@ OCURStreamHandler::~OCURStreamHandler()
 {
     if (!_stream_data_list.empty())
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR + "dtor & _stream_data_list not empty");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "dtor & _stream_data_list not empty");
     }
 }
 
 void OCURStreamHandler::run(void)
 {
-    VERBOSE(VB_RECORD, LOC + "run(): begin");
+    LOG(VB_RECORD, LOG_INFO, LOC + "run(): begin");
 
     if (!Open())
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR +
-                QString("Failed to open device %1 : %2")
-                .arg(_device).arg(strerror(errno)));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Failed to open device %1 : %2")
+            .arg(_device).arg(strerror(errno)));
         _error = true;
         return;
     }
@@ -130,7 +127,7 @@ void OCURStreamHandler::run(void)
     bool ok = drb->Setup(_device, _fd);
     if (!ok)
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR + "Failed to allocate DRB buffer");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to allocate DRB buffer");
         delete drb;
         Close();
         _error = true;
@@ -141,7 +138,7 @@ void OCURStreamHandler::run(void)
     unsigned char *buffer = new unsigned char[buffer_size];
     if (!buffer)
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR + "Failed to allocate buffer");
+        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to allocate buffer");
         delete drb;
         Close();
         _error = true;
@@ -166,13 +163,13 @@ void OCURStreamHandler::run(void)
         // Check for DRB errors
         if (drb->IsErrored())
         {
-            VERBOSE(VB_IMPORTANT, LOC_ERR + "Device error detected");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Device error detected");
             _error = true;
         }
 
         if (drb->IsEOF())
         {
-            VERBOSE(VB_IMPORTANT, LOC_ERR + "Device EOF detected");
+            LOG(VB_GENERAL, LOG_ERR, LOC + "Device EOF detected");
             _error = true;
         }
 
@@ -207,7 +204,7 @@ void OCURStreamHandler::run(void)
         if (remainder > 0 && (len > remainder)) // leftover bytes
             memmove(buffer, &(buffer[len - remainder]), remainder);
     }
-    VERBOSE(VB_RECORD, LOC + "run(): " + "shutdown");
+    LOG(VB_RECORD, LOG_INFO, LOC + "run(): " + "shutdown");
 
     RemoveAllPIDFilters();
 
@@ -218,7 +215,7 @@ void OCURStreamHandler::run(void)
     delete[] buffer;
     Close();
 
-    VERBOSE(VB_RECORD, LOC + "run(): " + "end");
+    LOG(VB_RECORD, LOG_INFO, LOC + "run(): " + "end");
 
     SetRunning(false, true, false);
 }
@@ -231,8 +228,8 @@ bool OCURStreamHandler::Open(void)
     QStringList dev = _device.split(":");
     if (dev.size() < 2)
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR +
-                "Invalid device, should be in the form uuid:recorder_number"); 
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            "Invalid device, should be in the form uuid:recorder_number"); 
         return false;
     }
     QString uuid = dev[0].toLower();
@@ -245,8 +242,8 @@ bool OCURStreamHandler::Open(void)
     _fd = open(devive.toLocal8Bit().constData(), O_RDONLY, 0);
     if (_fd < 0)
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR +
-                QString("Failed to open '%1'").arg(devive) + ENO);
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Failed to open '%1'").arg(devive) + ENO);
         return false;
     }
     // HACK HACK HACK - end

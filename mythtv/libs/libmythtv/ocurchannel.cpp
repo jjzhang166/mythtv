@@ -7,11 +7,11 @@
 // MythTV includes
 #include "ocurchannel.h"
 #include "mythcontext.h"
+#include "mythlogging.h"
 #include "upnpdevice.h"
 #include "upnp.h"
 
-#define LOC     QString("OCURChan(%1): ").arg(GetDevice())
-#define LOC_ERR QString("OCURChan(%1), Error: ").arg(GetDevice())
+#define LOC QString("OCURChan(%1): ").arg(GetDevice())
 
 // TODO CardUtil::IsSingleInputCard() returns true for OCUR tuners,
 // but according to the API they can have multiple inputs.
@@ -40,8 +40,8 @@ bool OCURChannel::Open(void)
     QStringList dev = m_device.split(":");
     if (dev.size() < 2)
     {
-        VERBOSE(VB_IMPORTANT, LOC_ERR +
-                "Invalid device, should be in the form uuid:recorder_number"); 
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            "Invalid device, should be in the form uuid:recorder_number"); 
         return false;
     }
 
@@ -57,8 +57,8 @@ bool OCURChannel::Open(void)
     QString tuner_nt  = QString("urn:%1").arg(desired_service);
     QString tuner_usn = QString("uuid:%1::%2").arg(uuid).arg(tuner_nt);
 
-    VERBOSE(VB_CHANNEL, LOC + QString("NT  = %1").arg(tuner_nt));
-    VERBOSE(VB_CHANNEL, LOC + QString("USN = %1").arg(tuner_usn));
+    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("NT  = %1").arg(tuner_nt));
+    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("USN = %1").arg(tuner_usn));
 
     DeviceLocation *loc = SSDPCache::Instance()->Find(tuner_nt, tuner_usn);
     if (loc)
@@ -71,7 +71,7 @@ bool OCURChannel::Open(void)
             m_upnp_usn = tuner_usn;
 
             const UPnpDevice &upnpdev = desc->m_rootDevice;
-            VERBOSE(VB_IMPORTANT, LOC + upnpdev.toString());
+            LOG(VB_GENERAL, LOG_INFO, LOC + upnpdev.toString());
 
             QString control_url =
                 upnpdev.GetService(tuner_nt).m_sControlURL;
@@ -95,8 +95,8 @@ bool OCURChannel::Open(void)
             if (control_path.left(1) != "/")
                 control_path = "/" + control_path;
 
-            //VERBOSE(VB_IMPORTANT, LOC + QString("Control URL: %1/%2")
-            //        .arg(control_url).arg(control_path));
+            //LOG(VB_GENERAL, LOG_INFO, LOC + QString("Control URL: %1/%2")
+            //    .arg(control_url).arg(control_path));
 
             SOAPClient::Init(control_url, tuner_nt, control_path);
 
@@ -144,8 +144,9 @@ bool OCURChannel::Tune(const QString &freqid, int /*finetune*/)
 
     if (UPnPResult_Success != err_code)
     {
-        VERBOSE(VB_IMPORTANT, QString("Error Code: %1\n\t\t\tDescription: %2")
-                .arg(err_code).arg(err_desc));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Error Code: %1\n\t\t\tDescription: %2")
+            .arg(err_code).arg(err_desc));
     }
     else
     {

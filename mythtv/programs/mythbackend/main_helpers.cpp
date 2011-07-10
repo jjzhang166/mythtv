@@ -514,7 +514,7 @@ int run_backend(MythBackendCommandLineParser &cmdline)
         qApp->processEvents();
     }
 
-    VERBOSE(VB_GENERAL, "MythBackend exiting");
+    LOG(VB_GENERAL, LOG_INFO, "MythBackend exiting");
 
     delete sysEventHandler;
     delete stage2init;
@@ -532,9 +532,9 @@ Stage2Init::Stage2Init(const MythBackendCommandLineParser &cmdline) :
     {
         // Allow required time for UPnP SSDP responses.
         m_timerId = startTimer(5 * 1000);
-        VERBOSE(VB_IMPORTANT, LOC +
-                QString("Stage 2 init scheduled %1 seconds from now.")
-                .arg(5 * m_waitTicks));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Stage 2 init scheduled %1 seconds from now.")
+            .arg(5 * m_waitTicks));
     }
     else
     {
@@ -555,9 +555,9 @@ void Stage2Init::timerEvent(QTimerEvent *e)
         m_waitTicks--;
         if (m_waitTicks)
         {
-            VERBOSE(VB_IMPORTANT, LOC +
-                    QString("Stage 2 init scheduled %1 seconds from now.")
-                    .arg(m_waitTicks*5,2));
+            LOG(VB_GENERAL, LOG_ERR, LOC +
+                QString("Stage 2 init scheduled %1 seconds from now.")
+                .arg(m_waitTicks*5,2));
         }
         else
         {
@@ -570,7 +570,7 @@ void Stage2Init::timerEvent(QTimerEvent *e)
 
 void Stage2Init::Init(void)
 {
-    VERBOSE(VB_IMPORTANT, LOC + "Starting Stage 2 initialization");
+    LOG(VB_GENERAL, LOG_ERR, LOC + "Starting Stage 2 initialization");
 
     QString myip = gCoreContext->GetSetting("BackendServerIP");
     int     port = gCoreContext->GetNumSetting("BackendServerPort", 6543);

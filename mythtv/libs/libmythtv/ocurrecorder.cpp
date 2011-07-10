@@ -25,13 +25,10 @@
 #include "ocurstreamhandler.h"
 #include "ocurrecorder.h"
 #include "ocurchannel.h"
+#include "mythlogging.h"
 #include "tv_rec.h"
 
 #define LOC QString("OCURRec(%1): ").arg(tvrec->GetCaptureCardNum())
-#define LOC_WARN QString("OCURRec(%1), Warning: ") \
-                     .arg(tvrec->GetCaptureCardNum())
-#define LOC_ERR QString("OCURRec(%1), Error: ") \
-                    .arg(tvrec->GetCaptureCardNum())
 
 OCURRecorder::OCURRecorder(TVRec *rec, OCURChannel *channel) :
     DTVRecorder(rec), m_channel(channel), m_stream_handler(NULL)
@@ -52,7 +49,7 @@ void OCURRecorder::StartRecording(void)
     if (!Open())
     {
         _error = "Failed to open device";
-        VERBOSE(VB_IMPORTANT, LOC_ERR + _error);
+        LOG(VB_GENERAL, LOG_ERR, LOC + _error);
         return;
     }
 
@@ -96,8 +93,8 @@ void OCURRecorder::StartRecording(void)
 
         if (!_input_pmt)
         {
-            VERBOSE(VB_GENERAL, LOC_WARN +
-                    "Recording will not commence until a PMT is set.");
+            LOG(VB_GENERAL, LOG_WARNING, LOC +
+                "Recording will not commence until a PMT is set.");
             usleep(5000);
             continue;
         }
@@ -105,7 +102,7 @@ void OCURRecorder::StartRecording(void)
         if (!m_stream_handler->IsRunning())
         {
             _error = "Stream handler died unexpectedly.";
-            VERBOSE(VB_IMPORTANT, LOC_ERR + _error);
+            LOG(VB_GENERAL, LOG_ERR, LOC + _error);
         }
     }
 
@@ -126,7 +123,7 @@ bool OCURRecorder::Open(void)
 {
     if (IsOpen())
     {
-        VERBOSE(VB_GENERAL, LOC_WARN + "Card already open");
+        LOG(VB_GENERAL, LOG_WARNING, LOC + "Card already open");
         return true;
     }
 
@@ -137,7 +134,7 @@ bool OCURRecorder::Open(void)
 
     m_stream_handler = OCURStreamHandler::Get(m_channel->GetDevice());
 
-    VERBOSE(VB_RECORD, LOC + "Opened successfully");
+    LOG(VB_RECORD, LOG_INFO, LOC + "Opened successfully");
 
     return true;
 }
@@ -149,10 +146,10 @@ bool OCURRecorder::IsOpen(void) const
 
 void OCURRecorder::Close(void)
 {
-    VERBOSE(VB_RECORD, LOC + "Close() -- begin");
+    LOG(VB_RECORD, LOG_INFO, LOC + "Close() -- begin");
 
     if (IsOpen())
         OCURStreamHandler::Return(m_stream_handler);
 
-    VERBOSE(VB_RECORD, LOC + "Close() -- end");
+    LOG(VB_RECORD, LOG_INFO, LOC + "Close() -- end");
 }

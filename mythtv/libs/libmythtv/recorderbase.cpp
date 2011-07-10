@@ -35,10 +35,6 @@ using namespace std;
 
 #define LOC      QString("RecBase(%1:%2): ") \
                  .arg(TVREC_CARDNUM).arg(videodevice)
-#define LOC_WARN QString("RecBase(%1:%2) Warning: ") \
-                 .arg(TVREC_CARDNUM).arg(videodevice)
-#define LOC_ERR  QString("RecBase(%1:%2) Error: ") \
-                 .arg(TVREC_CARDNUM).arg(videodevice)
 
 RecorderBase::RecorderBase(TVRec *rec)
     : tvrec(rec),               ringBuffer(NULL),

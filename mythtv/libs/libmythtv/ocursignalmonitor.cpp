@@ -21,7 +21,6 @@
 #include "mythdbcon.h"
 
 #define LOC QString("OCURSM(%1): ").arg(channel->GetDevice())
-#define LOC_ERR QString("OCURSM(%1), Error: ").arg(channel->GetDevice())
 
 /**
  *  \brief Initializes signal lock and signal values.
@@ -42,7 +41,7 @@ OCURSignalMonitor::OCURSignalMonitor(
     DTVSignalMonitor(db_cardnum, _channel, _flags),
     streamHandlerStarted(false), streamHandler(NULL)
 {
-    VERBOSE(VB_CHANNEL, LOC + "ctor");
+    LOG(VB_CHANNEL, LOG_INFO, LOC + "ctor");
 
     signalStrength.SetThreshold(45);
 
@@ -56,7 +55,7 @@ OCURSignalMonitor::OCURSignalMonitor(
  */
 OCURSignalMonitor::~OCURSignalMonitor()
 {
-    VERBOSE(VB_CHANNEL, LOC + "dtor");
+    LOG(VB_CHANNEL, LOG_INFO, LOC + "dtor");
     Stop();
     OCURStreamHandler::Return(streamHandler);
 }
@@ -66,13 +65,13 @@ OCURSignalMonitor::~OCURSignalMonitor()
  */
 void OCURSignalMonitor::Stop(void)
 {
-    VERBOSE(VB_CHANNEL, LOC + "Stop() -- begin");
+    LOG(VB_CHANNEL, LOG_INFO, LOC + "Stop() -- begin");
     SignalMonitor::Stop();
     if (GetStreamData())
         streamHandler->RemoveListener(GetStreamData());
     streamHandlerStarted = false;
 
-    VERBOSE(VB_CHANNEL, LOC + "Stop() -- end");
+    LOG(VB_CHANNEL, LOG_INFO, LOC + "Stop() -- end");
 }
 
 OCURChannel *OCURSignalMonitor::GetOCURChannel(void)

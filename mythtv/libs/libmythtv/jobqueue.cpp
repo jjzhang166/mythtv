@@ -44,7 +44,6 @@ void QueueProcessorThread::run(void)
 }
 
 #define LOC     QString("JobQueue: ")
-#define LOC_ERR QString("JobQueue Error: ")
 
 JobQueue::JobQueue(bool master) :
     m_hostname(gCoreContext->GetHostName()),
@@ -2333,7 +2332,7 @@ void JobQueue::DoFlagCommercialsThread(int jobID)
     }
 
     if (priority <= LOG_WARNING)
-        LOG(VB_IMPORTANT, LOG_ERR, LOC + msg + ": " + details.constData());
+        LOG(VB_GENERAL, LOG_ERR, LOC + msg + ": " + details.constData());
 
     RemoveRunningJob(jobID);
     runningJobsLock->unlock();

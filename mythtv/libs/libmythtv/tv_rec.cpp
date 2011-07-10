@@ -40,7 +40,6 @@
 #define DEBUG_CHANNEL_PREFIX 0 /**< set to 1 to channel prefixing */
 
 #define LOC QString("TVRec(%1): ").arg(cardid)
-#define LOC_ERR QString("TVRec(%1) Error: ").arg(cardid)
 
 /// How many milliseconds the signal monitor should wait between checks
 const uint TVRec::kSignalMonitoringRate = 50; /* msec */
@@ -652,7 +651,7 @@ RecStatusType TVRec::StartRecording(const ProgramInfo *rcinfo)
                 .arg(curRecording->GetRecordingStartTime(ISODate))
                 .arg(curRecording->GetRecordingEndTime(ISODate));
 
-        LOG(VB_IMPORTANT, LOG_INFO, LOC + msg);
+        LOG(VB_GENERAL, LOG_INFO, LOC + msg);
     }
 
     for (int i = 0; i < pendingRecordings.size(); i++)

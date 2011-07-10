@@ -66,8 +66,6 @@ using namespace std;
 #define DEBUG_ACTIONS        0 /**< set to 1 to debug actions           */
 
 #define LOC      QString("TV: ")
-#define LOC_WARN QString("TV Warning: ")
-#define LOC_ERR  QString("TV Error: ")
 
 #define GetPlayer(X,Y) GetPlayerHaveLock(X, Y, __FILE__ , __LINE__)
 #define GetOSDLock(X) GetOSDL(X, __FILE__, __LINE__)
@@ -6766,7 +6764,7 @@ void TV::ChangeChannel(PlayerContext *ctx, uint chanid, const QString &chan)
     if (ctx->player)
         ctx->player->GetAudio()->Reset();
 
-    UnpauseLiveTV(ctx);
+    UnpauseLiveTV(ctx, chanid && GetQueuedChanID());
 
     if (oldinputname != ctx->recorder->GetInput())
         UpdateOSDInput(ctx);
@@ -8403,16 +8401,21 @@ void TV::customEvent(QEvent *e)
         QStringList signalList = me->ExtraDataList();
 
         PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        for (uint i = 0; mctx && (i < player.size()); i++)
+        OSD *osd = GetOSDLock(mctx);
+        if (osd && osd->IsWindowVisible("program_info"))
         {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            bool tc = ctx->recorder && (ctx->GetCardID() == cardnum);
-            if (tc && !signalList.empty())
+            for (uint i = 0; mctx && (i < player.size()); i++)
             {
-                UpdateOSDSignal(ctx, signalList);
-                UpdateOSDTimeoutMessage(ctx);
+                PlayerContext *ctx = GetPlayer(mctx, i);
+                bool tc = ctx->recorder && (ctx->GetCardID() == cardnum);
+                if (tc && !signalList.empty())
+                {
+                    UpdateOSDSignal(ctx, signalList);
+                    UpdateOSDTimeoutMessage(ctx);
+                }
             }
         }
+        ReturnOSDLock(mctx, osd);
         ReturnPlayerLock(mctx);
     }
 
@@ -11280,7 +11283,7 @@ void TV::PauseLiveTV(PlayerContext *ctx)
  *  \brief Used in ChangeChannel(), ChangeChannel(),
  *         and ToggleInputs() to restart video output.
  */
-void TV::UnpauseLiveTV(PlayerContext *ctx)
+void TV::UnpauseLiveTV(PlayerContext *ctx, bool bQuietly /*=false*/)
 {
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("UnpauseLiveTV() player ctx %1")
             .arg(find_player_index(ctx)));
@@ -11300,7 +11303,7 @@ void TV::UnpauseLiveTV(PlayerContext *ctx)
 
     ITVRestart(ctx, true);
 
-    if (ctx->HasPlayer())
+    if (ctx->HasPlayer() && !bQuietly)
     {
         UpdateOSDProgInfo(ctx, "program_info");
         UpdateLCD();
