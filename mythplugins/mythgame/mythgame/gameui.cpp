@@ -880,8 +880,8 @@ void GameUI::gameSearch(MythGenericTree *node,
         return;
 
     MetadataLookup *lookup = new MetadataLookup();
-    lookup->SetStep(SEARCH);
-    lookup->SetType(GAME);
+    lookup->SetStep(kLookupSearch);
+    lookup->SetType(kMetadataGame);
     lookup->SetData(qVariantFromValue(node));
 
     if (automode)
@@ -923,7 +923,7 @@ void GameUI::OnGameSearchListSelection(MetadataLookup *lookup)
     if (!lookup)
         return;
 
-    lookup->SetStep(GETDATA);
+    lookup->SetStep(kLookupData);
     m_query->prependLookup(lookup);
 }
 
@@ -956,19 +956,19 @@ void GameUI::OnGameSearchDone(MetadataLookup *lookup)
     QStringList coverart, fanart, screenshot;
 
     // Imagery
-    ArtworkList coverartlist = lookup->GetArtwork(COVERART);
+    ArtworkList coverartlist = lookup->GetArtwork(kArtworkCoverart);
     for (ArtworkList::const_iterator p = coverartlist.begin();
         p != coverartlist.end(); ++p)
     {
         coverart.prepend((*p).url);
     }
-    ArtworkList fanartlist = lookup->GetArtwork(FANART);
+    ArtworkList fanartlist = lookup->GetArtwork(kArtworkFanart);
     for (ArtworkList::const_iterator p = fanartlist.begin();
         p != fanartlist.end(); ++p)
     {
         fanart.prepend((*p).url);
     }
-    ArtworkList screenshotlist = lookup->GetArtwork(SCREENSHOT);
+    ArtworkList screenshotlist = lookup->GetArtwork(kArtworkScreenshot);
     for (ArtworkList::const_iterator p = screenshotlist.begin();
         p != screenshotlist.end(); ++p)
     {
@@ -1002,28 +1002,28 @@ void GameUI::StartGameImageSet(MythGenericTree *node, QStringList coverart,
     {
         ArtworkInfo info;
         info.url = coverart.takeAt(0).trimmed();
-        map.insert(COVERART, info);
+        map.insert(kArtworkCoverart, info);
     }
 
     if (metadata->Fanart().isEmpty() && fanart.size())
     {
         ArtworkInfo info;
         info.url = fanart.takeAt(0).trimmed();
-        map.insert(FANART, info);
+        map.insert(kArtworkFanart, info);
     }
 
     if (metadata->Screenshot().isEmpty() && screenshot.size())
     {
         ArtworkInfo info;
         info.url = screenshot.takeAt(0).trimmed();
-        map.insert(SCREENSHOT, info);
+        map.insert(kArtworkScreenshot, info);
     }
 
     MetadataLookup *lookup = new MetadataLookup();
     lookup->SetTitle(metadata->Gamename());
     lookup->SetSystem(metadata->System());
     lookup->SetInetref(metadata->Inetref());
-    lookup->SetType(GAME);
+    lookup->SetType(kMetadataGame);
     lookup->SetDownloads(map);
     lookup->SetData(qVariantFromValue(node));
 
@@ -1057,11 +1057,11 @@ void GameUI::handleDownloadedImages(MetadataLookup *lookup)
         ArtworkInfo info = i.value();
         QString filename = info.url;
 
-        if (type == COVERART)
+        if (type == kArtworkCoverart)
             metadata->setBoxart(filename);
-        else if (type == FANART)
+        else if (type == kArtworkFanart)
             metadata->setFanart(filename);
-        else if (type == SCREENSHOT)
+        else if (type == kArtworkScreenshot)
             metadata->setScreenshot(filename);
     }
 

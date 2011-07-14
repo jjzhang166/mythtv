@@ -8,11 +8,13 @@
 #include "jobqueue.h"
 #include "remoteutil.h"
 
+#include "metadataimagehelper.h"
+
 #include "lookup.h"
 
 LookerUpper::LookerUpper() :
     m_busyRecList(QList<ProgramInfo*>()),
-    m_updaterules(false)
+    m_updaterules(false), m_updateartwork(false)
 {
     m_metadataFactory = new MetadataFactory(this);
 }
@@ -102,6 +104,83 @@ void LookerUpper::HandleAllRecordingRules()
             m_metadataFactory->Lookup(pginfo, false, false);
         }
     }
+}
+
+void LookerUpper::HandleAllArtwork(bool aggressive)
+{
+    m_updateartwork = true;
+
+    if (aggressive)
+        m_updaterules = true;
+
+    // First, handle all recording rules w/ inetrefs
+    vector<ProgramInfo *> recordingList;
+
+    RemoteGetAllScheduledRecordings(recordingList);
+
+    for( int n = 0; n < (int)recordingList.size(); n++)
+    {
+        ProgramInfo *pginfo = new ProgramInfo(*(recordingList[n]));
+        bool dolookup = true;
+
+        if (!aggressive && pginfo->GetInetRef().isEmpty())
+            dolookup = false;
+        if (dolookup)
+        {
+            ArtworkMap map = GetArtwork(pginfo->GetInetRef(), pginfo->GetSeason(), true);
+            if (map.isEmpty())
+            {
+                QString msg = QString("Looking up artwork for recording rule: %1 %2")
+                                               .arg(pginfo->GetTitle())
+                                               .arg(pginfo->GetSubtitle());
+                LOG(VB_GENERAL, LOG_INFO, msg);
+
+                m_busyRecList.append(pginfo);
+                m_metadataFactory->Lookup(pginfo, false, true);
+            }
+        }
+    }
+
+    // Now, Attempt to fill in the gaps for recordings
+    QMap< QString, ProgramInfo* > recMap;
+    QMap< QString, uint32_t > inUseMap = ProgramInfo::QueryInUseMap();
+    QMap< QString, bool > isJobRunning = ProgramInfo::QueryJobsRunning(JOB_COMMFLAG);
+
+    ProgramList progList;
+
+    LoadFromRecorded( progList, false, inUseMap, isJobRunning, recMap, -1 );
+
+    for( int n = 0; n < (int)progList.size(); n++)
+    {
+        ProgramInfo *pginfo = new ProgramInfo(*(progList[n]));
+        bool dolookup = true;
+        int maxartnum = 3;
+
+        LookupType type = GuessLookupType(pginfo);
+
+        if (type == kProbableMovie || type == kUnknownVideo)
+           maxartnum = 3;
+
+        if ((!aggressive && type == kProbableGenericTelevision) ||
+             pginfo->GetRecordingGroup() == "Deleted" ||
+             pginfo->GetRecordingGroup() == "LiveTV")
+            dolookup = false;
+        if (dolookup)
+        {
+            ArtworkMap map = GetArtwork(pginfo->GetInetRef(), pginfo->GetSeason(), true);
+            if (map.isEmpty() || (aggressive && map.count() < maxartnum))
+            {
+               QString msg = QString("Looking up artwork for recording: %1 %2")
+                                           .arg(pginfo->GetTitle())
+                                           .arg(pginfo->GetSubtitle());
+                LOG(VB_GENERAL, LOG_INFO, msg);
+
+                m_busyRecList.append(pginfo);
+                m_metadataFactory->Lookup(pginfo, false, true);
+            }
+        }
+    }
+
 }
 
 void LookerUpper::CopyRuleInetrefsToRecordings()
@@ -203,11 +282,24 @@ void LookerUpper::customEvent(QEvent *levent)
         if (m_updaterules)
         {
             RecordingRule *rule = new RecordingRule();
-            rule->LoadByProgram(pginfo);
-            rule->m_inetref = lookup->GetInetref();
-            rule->Save();
+            if (rule)
+            {
+                rule->LoadByProgram(pginfo);
+                if (rule->m_inetref.isEmpty())
+                    rule->m_inetref = lookup->GetInetref();
+                rule->m_season = lookup->GetSeason();
+                rule->m_episode = lookup->GetEpisode();
+                rule->Save();
 
-            delete rule;
+                delete rule;
+            }
+        }
+
+        if (m_updateartwork)
+        {
+            ArtworkMap map = lookup->GetDownloads();
+            SetArtwork(lookup->GetInetref(), lookup->GetSeason(),
+                       gCoreContext->GetMasterHostName(), map);
         }
 
         m_busyRecList.removeAll(pginfo);

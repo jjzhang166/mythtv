@@ -33,6 +33,9 @@
 #include "videoutils.h"
 #include "mythuiutils.h"
 
+// libmythmetadata
+#include "metadataimagehelper.h"
+
 // Mythfrontend
 #include "proglist.h"
 #include "viewschedulediff.h"
@@ -1328,14 +1331,15 @@ MetadataOptions::MetadataOptions(MythScreenStack *parent,
     m_imageLookup = new MetadataDownload(this);
     m_imageDownload = new MetadataImageDownload(this);
 
+    m_artworkMap = GetArtwork(m_recordingRule->m_inetref,
+                              m_recordingRule->m_season);
+
     if (recInfo)
         m_recInfo = new RecordingInfo(*recInfo);
 }
 
 MetadataOptions::~MetadataOptions(void)
 {
-    Save();
-
     if (m_imageLookup)
     {
         m_imageLookup->cancel();
@@ -1362,7 +1366,7 @@ bool MetadataOptions::Create()
     UIUtilE::Assign(this, m_seasonSpin, "season_spinbox", &err);
     UIUtilE::Assign(this, m_episodeSpin, "episode_spinbox", &err);
     UIUtilE::Assign(this, m_queryButton, "query_button", &err);
-/*    UIUtilE::Assign(this, m_localFanartButton, "local_fanart_button", &err);
+    UIUtilE::Assign(this, m_localFanartButton, "local_fanart_button", &err);
     UIUtilE::Assign(this, m_localCoverartButton, "local_coverart_button", &err);
     UIUtilE::Assign(this, m_localBannerButton, "local_banner_button", &err);
     UIUtilE::Assign(this, m_onlineFanartButton, "online_fanart_button", &err);
@@ -1370,7 +1374,7 @@ bool MetadataOptions::Create()
     UIUtilE::Assign(this, m_onlineBannerButton, "online_banner_button", &err);
     UIUtilW::Assign(this, m_fanart, "fanart");
     UIUtilW::Assign(this, m_coverart, "coverart");
-    UIUtilW::Assign(this, m_banner, "banner");*/
+    UIUtilW::Assign(this, m_banner, "banner");
     UIUtilW::Assign(this, m_backButton, "back");
 
     if (err)
@@ -1384,7 +1388,7 @@ bool MetadataOptions::Create()
             SLOT(Close()));
     connect(m_queryButton, SIGNAL(Clicked()),
             SLOT(PerformQuery()));
-/*    connect(m_localFanartButton, SIGNAL(Clicked()),
+    connect(m_localFanartButton, SIGNAL(Clicked()),
             SLOT(SelectLocalFanart()));
     connect(m_localCoverartButton, SIGNAL(Clicked()),
             SLOT(SelectLocalCoverart()));
@@ -1395,7 +1399,10 @@ bool MetadataOptions::Create()
     connect(m_onlineCoverartButton, SIGNAL(Clicked()),
             SLOT(SelectOnlineCoverart()));
     connect(m_onlineBannerButton, SIGNAL(Clicked()),
-            SLOT(SelectOnlineBanner()));*/
+            SLOT(SelectOnlineBanner()));
+
+    connect(m_seasonSpin, SIGNAL(itemSelected(MythUIButtonListItem*)),
+                          SLOT(ValuesChanged()));
 
     // InetRef
     m_inetrefEdit->SetText(m_recordingRule->m_inetref);
@@ -1407,6 +1414,24 @@ bool MetadataOptions::Create()
     // Episode
     m_episodeSpin->SetRange(0,100,1,1);
     m_episodeSpin->SetValue(m_recordingRule->m_episode);
+
+    if (m_coverart)
+    {
+        m_coverart->SetFilename(m_artworkMap.value(kArtworkCoverart).url);
+        m_coverart->Load();
+    }
+
+    if (m_fanart)
+    {
+        m_fanart->SetFilename(m_artworkMap.value(kArtworkFanart).url);
+        m_fanart->Load();
+    }
+
+    if (m_banner)
+    {
+        m_banner->SetFilename(m_artworkMap.value(kArtworkBanner).url);
+        m_banner->Load();
+    }
 
     BuildFocusList();
 
@@ -1447,14 +1472,18 @@ void MetadataOptions::CreateBusyDialog(QString title)
 
 void MetadataOptions::PerformQuery()
 {
-    if (!m_lookup)
-        m_lookup = new MetadataLookup();
+    m_lookup = new MetadataLookup();
 
     CreateBusyDialog("Trying to manually find this "
                      "recording online...");
 
-    m_lookup->SetStep(SEARCH);
-    m_lookup->SetType(RECDNG);
+    m_lookup->SetStep(kLookupSearch);
+    m_lookup->SetType(kMetadataRecording);
+    if (m_seasonSpin->GetIntValue() > 0 ||
+           m_episodeSpin->GetIntValue() > 0)
+        m_lookup->SetSubtype(kProbableTelevision);
+    else
+        m_lookup->SetSubtype(kProbableMovie);
     m_lookup->SetAutomatic(false);
     m_lookup->SetHandleImages(false);
     m_lookup->SetHost(gCoreContext->GetMasterHostName());
@@ -1484,7 +1513,7 @@ void MetadataOptions::OnImageSearchListSelection(ArtworkInfo info,
     CreateBusyDialog(msg);
 
     m_lookup = new MetadataLookup();
-    m_lookup->SetType(VID);
+    m_lookup->SetType(kMetadataVideo);
     m_lookup->SetHost(gCoreContext->GetMasterHostName());
     m_lookup->SetAutomatic(true);
     m_lookup->SetData(qVariantFromValue<VideoArtworkType>(type));
@@ -1528,17 +1557,23 @@ void MetadataOptions::SelectLocalBanner()
 
 void MetadataOptions::SelectOnlineFanart()
 {
-    FindNetArt(FANART);
+    FindNetArt(kArtworkFanart);
 }
 
 void MetadataOptions::SelectOnlineCoverart()
 {
-    FindNetArt(COVERART);
+    FindNetArt(kArtworkCoverart);
 }
 
 void MetadataOptions::SelectOnlineBanner()
 {
-    FindNetArt(BANNER);
+    FindNetArt(kArtworkBanner);
+}
+
+void MetadataOptions::Close()
+{
+    Save();
+    MythScreenType::Close();
 }
 
 void MetadataOptions::Save()
@@ -1618,16 +1653,20 @@ QStringList MetadataOptions::GetSupportedImageExtensionFilter()
 
 void MetadataOptions::FindNetArt(VideoArtworkType type)
 {
-    if (!m_lookup)
-        m_lookup = new MetadataLookup();
+    m_lookup = new MetadataLookup();
 
     QString msg = tr("Searching for available artwork...");
     CreateBusyDialog(msg);
 
-    m_lookup->SetStep(SEARCH);
-    m_lookup->SetType(RECDNG);
+    m_lookup->SetStep(kLookupSearch);
+    m_lookup->SetType(kMetadataVideo);
     m_lookup->SetAutomatic(true);
     m_lookup->SetHandleImages(false);
+    if (m_seasonSpin->GetIntValue() > 0 ||
+           m_episodeSpin->GetIntValue() > 0)
+        m_lookup->SetSubtype(kProbableTelevision);
+    else
+        m_lookup->SetSubtype(kProbableMovie);
     m_lookup->SetData(qVariantFromValue<VideoArtworkType>(type));
     m_lookup->SetHost(gCoreContext->GetMasterHostName());
     m_lookup->SetTitle(m_recordingRule->m_title);
@@ -1664,6 +1703,59 @@ void MetadataOptions::OnArtworkSearchDone(MetadataLookup *lookup)
 
     if (resultsdialog->Create())
         m_popupStack->AddScreen(resultsdialog);
+}
+
+void MetadataOptions::HandleDownloadedImages(MetadataLookup *lookup)
+{
+    if (!lookup)
+        return;
+
+    DownloadMap map = lookup->GetDownloads();
+
+    if (!map.size())
+        return;
+
+    for (DownloadMap::const_iterator i = map.begin(); i != map.end(); ++i)
+    {
+        VideoArtworkType type = i.key();
+        ArtworkInfo info = i.value();
+
+        if (type == kArtworkCoverart)
+            m_artworkMap.replace(kArtworkCoverart, info);
+        else if (type == kArtworkFanart)
+            m_artworkMap.replace(kArtworkFanart, info);
+        else if (type == kArtworkBanner)
+            m_artworkMap.replace(kArtworkBanner, info);
+    }
+
+    SetArtwork(m_inetrefEdit->GetText(), m_seasonSpin->GetIntValue(),
+               gCoreContext->GetMasterHostName(), m_artworkMap);
+
+    ValuesChanged();
+}
+
+void MetadataOptions::ValuesChanged()
+{
+    m_artworkMap = GetArtwork(m_inetrefEdit->GetText(),
+                              m_seasonSpin->GetIntValue());
+
+    if (m_coverart)
+    {
+        m_coverart->SetFilename(m_artworkMap.value(kArtworkCoverart).url);
+        m_coverart->Load();
+    }
+
+    if (m_fanart)
+    {
+        m_fanart->SetFilename(m_artworkMap.value(kArtworkFanart).url);
+        m_fanart->Load();
+    }
+
+    if (m_banner)
+    {
+        m_banner->SetFilename(m_artworkMap.value(kArtworkBanner).url);
+        m_banner->Load();
+    }
 }
 
 void MetadataOptions::customEvent(QEvent *levent)
@@ -1723,6 +1815,16 @@ void MetadataOptions::customEvent(QEvent *levent)
             m_busyPopup->Close();
             m_busyPopup = NULL;
         }
+
+        MetadataFactoryNoResult *mfnr = dynamic_cast<MetadataFactoryNoResult*>(levent);
+
+        if (!mfnr)
+            return;
+
+        MetadataLookup *lookup = mfnr->result;
+
+        delete lookup;
+        lookup = NULL;
 
         QString title = "No match found for this recording. You can "
                         "try entering a TVDB/TMDB number, season, and "
@@ -1799,7 +1901,52 @@ void MetadataOptions::customEvent(QEvent *levent)
         if (!lookup)
             return;
 
-//        handleDownloadedImages(lookup);
+        HandleDownloadedImages(lookup);
     }
+    else if (levent->type() == ImageDLFailureEvent::kEventType)
+    {
+        if (m_busyPopup)
+        {
+            m_busyPopup->Close();
+            m_busyPopup = NULL;
+        }
+
+        ImageDLFailureEvent *ide = (ImageDLFailureEvent *)levent;
+
+        MetadataLookup *lookup = ide->item;
+
+        if (!lookup)
+            return;
+
+        delete lookup;
+        lookup = NULL;
+    }
+    else if (levent->type() == DialogCompletionEvent::kEventType)
+    {
+        DialogCompletionEvent *dce = (DialogCompletionEvent*)(levent);
+
+        const QString resultid = dce->GetId();
+        ArtworkInfo info;
+        info.url = dce->GetResultText();
+
+        if (resultid == "coverart")
+        {
+            m_artworkMap.replace(kArtworkCoverart, info);
+        }
+        else if (resultid == "fanart")
+        {
+            m_artworkMap.replace(kArtworkFanart, info);
+        }
+        else if (resultid == "banner")
+        {
+            m_artworkMap.replace(kArtworkBanner, info);
+        }
+
+        SetArtwork(m_inetrefEdit->GetText(), m_seasonSpin->GetIntValue(),
+               gCoreContext->GetMasterHostName(), m_artworkMap);
+
+        ValuesChanged();
+    }
+
 }
 

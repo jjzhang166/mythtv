@@ -18,6 +18,9 @@
 QEvent::Type ImageDLEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
 
+QEvent::Type ImageDLFailureEvent::kEventType =
+    (QEvent::Type) QEvent::registerEventType();
+
 QEvent::Type ThumbnailDLEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
 
@@ -115,6 +118,8 @@ void MetadataImageDownload::run()
                         LOG(VB_GENERAL, LOG_ERR,
                             QString("Metadata Image Download: Unable to create "
                                     "path %1, aborting download.").arg(path));
+                        QCoreApplication::postEvent(m_parent,
+                                    new ImageDLFailureEvent(lookup));
                         continue;
                     }
                 QString finalfile = path + "/" + filename;
@@ -146,6 +151,8 @@ void MetadataImageDownload::run()
                                 .arg(oldurl).arg(download->size()));
                         delete download;
                         download = NULL;
+                        QCoreApplication::postEvent(m_parent,
+                                    new ImageDLFailureEvent(lookup));
                         continue;
                     }
 
@@ -158,6 +165,8 @@ void MetadataImageDownload::run()
                             LOG(VB_GENERAL, LOG_ERR,
                                 QString("Image Download: Error Writing Image "
                                         "to file: %1").arg(finalfile));
+                            QCoreApplication::postEvent(m_parent,
+                                        new ImageDLFailureEvent(lookup));
                         }
                         else
                             downloaded.insert(type, info);
@@ -201,6 +210,8 @@ void MetadataImageDownload::run()
                                 .arg(oldurl).arg(download->size()));
                         delete download;
                         download = NULL;
+                        QCoreApplication::postEvent(m_parent,
+                                    new ImageDLFailureEvent(lookup));
                         continue;
                     }
 
@@ -214,6 +225,8 @@ void MetadataImageDownload::run()
                                     .arg(finalfile));
                         delete outFile;
                         outFile = NULL;
+                        QCoreApplication::postEvent(m_parent,
+                                    new ImageDLFailureEvent(lookup));
                     }
                     else
                     {
@@ -224,6 +237,8 @@ void MetadataImageDownload::run()
                             LOG(VB_GENERAL, LOG_ERR,
                                 QString("Image Download: Error Writing Image "
                                         "to file: %1").arg(finalfile));
+                            QCoreApplication::postEvent(m_parent,
+                                    new ImageDLFailureEvent(lookup));
                         }
                         else
                             downloaded.insert(type, info);
@@ -305,13 +320,16 @@ QString getDownloadFilename(VideoArtworkType type, MetadataLookup *lookup,
     if (season > 0 || episode > 0)
     {
         title = lookup->GetTitle();
+        if (title.contains("/"))
+            title.replace("/", "-");
         inter = QString(" Season %1").arg(QString::number(season));
-        if (type == SCREENSHOT)
+        if (type == kArtworkScreenshot)
             inter += QString("x%1").arg(QString::number(episode));
     }
-    else if (lookup->GetType() == VID)
+    else if (lookup->GetType() == kMetadataVideo ||
+             lookup->GetType() == kMetadataRecording)
         title = lookup->GetInetref();
-    else if (lookup->GetType() == GAME)
+    else if (lookup->GetType() == kMetadataGame)
         title = QString("%1 (%2)").arg(lookup->GetTitle())
                     .arg(lookup->GetSystem());
 
@@ -324,21 +342,21 @@ QString getDownloadFilename(VideoArtworkType type, MetadataLookup *lookup,
     QUrl qurl(url);
     QString ext = QFileInfo(qurl.path()).suffix();
 
-    if (type == COVERART)
+    if (type == kArtworkCoverart)
         suffix = "_coverart";
-    else if (type == FANART)
+    else if (type == kArtworkFanart)
         suffix = "_fanart";
-    else if (type == BANNER)
+    else if (type == kArtworkBanner)
         suffix = "_banner";
-    else if (type == SCREENSHOT)
+    else if (type == kArtworkScreenshot)
         suffix = "_screenshot";
-    else if (type == POSTER)
+    else if (type == kArtworkPoster)
         suffix = "_poster";
-    else if (type == BACKCOVER)
+    else if (type == kArtworkBackCover)
         suffix = "_backcover";
-    else if (type == INSIDECOVER)
+    else if (type == kArtworkInsideCover)
         suffix = "_insidecover";
-    else if (type == CDIMAGE)
+    else if (type == kArtworkCDImage)
         suffix = "_cdimage";
 
     basefilename = title + inter + suffix + "." + ext;
@@ -350,27 +368,27 @@ QString getLocalWritePath(MetadataType metadatatype, VideoArtworkType type)
 {
     QString ret;
 
-    if (metadatatype == VID)
+    if (metadatatype == kMetadataVideo)
     {
-        if (type == COVERART)
+        if (type == kArtworkCoverart)
             ret = gCoreContext->GetSetting("VideoArtworkDir");
-        else if (type == FANART)
+        else if (type == kArtworkFanart)
             ret = gCoreContext->GetSetting("mythvideo.fanartDir");
-        else if (type == BANNER)
+        else if (type == kArtworkBanner)
             ret = gCoreContext->GetSetting("mythvideo.bannerDir");
-        else if (type == SCREENSHOT)
+        else if (type == kArtworkScreenshot)
             ret = gCoreContext->GetSetting("mythvideo.screenshotDir");
     }
-    else if (metadatatype == MUSIC)
+    else if (metadatatype == kMetadataMusic)
     {
     }
-    else if (metadatatype == GAME)
+    else if (metadatatype == kMetadataGame)
     {
-        if (type == COVERART)
+        if (type == kArtworkCoverart)
             ret = gCoreContext->GetSetting("mythgame.boxartdir");
-        else if (type == FANART)
+        else if (type == kArtworkFanart)
             ret = gCoreContext->GetSetting("mythgame.fanartdir");
-        else if (type == SCREENSHOT)
+        else if (type == kArtworkScreenshot)
             ret = gCoreContext->GetSetting("mythgame.screenshotdir");
     }
 
@@ -384,13 +402,13 @@ QString getStorageGroupURL(VideoArtworkType type, QString host)
     uint port = gCoreContext->GetSettingOnHost("BackendServerPort",
                                                host).toUInt();
 
-    if (type == COVERART)
+    if (type == kArtworkCoverart)
         sgroup = "Coverart";
-    else if (type == FANART)
+    else if (type == kArtworkFanart)
         sgroup = "Fanart";
-    else if (type == BANNER)
+    else if (type == kArtworkBanner)
         sgroup = "Banners";
-    else if (type == SCREENSHOT)
+    else if (type == kArtworkScreenshot)
         sgroup = "Screenshots";
     else
         sgroup = "Default";

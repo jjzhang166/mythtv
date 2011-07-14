@@ -14,19 +14,19 @@
 #include "mythmetaexp.h"
 
 enum LookupStep {
-    SEARCH = 0,
-    GETDATA = 1
+    kLookupSearch = 0,
+    kLookupData = 1
 };
 
 enum VideoArtworkType {
-    COVERART = 0,
-    FANART = 1,
-    BANNER = 2,
-    SCREENSHOT = 3,
-    POSTER = 4,
-    BACKCOVER = 5,
-    INSIDECOVER = 6,
-    CDIMAGE = 7
+    kArtworkCoverart = 0,
+    kArtworkFanart = 1,
+    kArtworkBanner = 2,
+    kArtworkScreenshot = 3,
+    kArtworkPoster = 4,
+    kArtworkBackCover = 5,
+    kArtworkInsideCover = 6,
+    kArtworkCDImage = 7
 };
 Q_DECLARE_METATYPE(VideoArtworkType)
 
@@ -49,25 +49,34 @@ struct ArtworkInfo
 Q_DECLARE_METATYPE(ArtworkInfo)
 
 enum MetadataType {
-    VID = 0,
-    RECDNG = 1,
-    MUSIC = 2,
-    GAME = 3
+    kMetadataVideo = 0,
+    kMetadataRecording = 1,
+    kMetadataMusic = 2,
+    kMetadataGame = 3
+};
+
+enum LookupType {
+    kProbableTelevision = 0,
+    kProbableGenericTelevision = 1,
+    kProbableMovie = 2,
+    kUnknownVideo = 3,
+    kProbableMusic = 4,
+    kProbableGame = 5
 };
 
 enum PeopleType {
-    ACTOR = 0,
-    AUTHOR = 1,
-    DIRECTOR = 2,
-    PRODUCER = 3,
-    EXECPRODUCER = 4,
-    CINEMATOGRAPHER = 5,
-    COMPOSER = 6,
-    EDITOR = 7,
-    CASTINGDIRECTOR = 8,
-    ARTIST = 9,
-    ALBUMARTIST = 10,
-    GUESTSTAR = 11
+    kPersonActor = 0,
+    kPersonAuthor = 1,
+    kPersonDirector = 2,
+    kPersonProducer = 3,
+    kPersonExecProducer = 4,
+    kPersonCinematographer = 5,
+    kPersonComposer = 6,
+    kPersonEditor = 7,
+    kPersonCastingDirector = 8,
+    kPersonArtist = 9,
+    kPersonAlbumArtist = 10,
+    kPersonGuestStar = 11
 };
 
 typedef QList< ArtworkInfo > ArtworkList;
@@ -88,6 +97,7 @@ class META_PUBLIC MetadataLookup : public QObject
 
     MetadataLookup(
         MetadataType type,
+        LookupType subtype,
         QVariant data,
         LookupStep step,
         bool automatic,
@@ -149,6 +159,7 @@ class META_PUBLIC MetadataLookup : public QObject
     //ProgramInfo Constructor
     MetadataLookup(
         MetadataType type,
+        LookupType subtype,
         QVariant data,
         LookupStep step,
         bool automatic,
@@ -189,6 +200,7 @@ class META_PUBLIC MetadataLookup : public QObject
     // XBMC NFO Constructor
     MetadataLookup(
         MetadataType type,
+        LookupType subtype,
         QVariant data,
         LookupStep step,
         bool automatic,
@@ -222,6 +234,8 @@ class META_PUBLIC MetadataLookup : public QObject
 
     // Must set a type, data, and step.
     void SetType(MetadataType type) { m_type = type; };
+    // For some lookup, it helps to know the subtype (TV vs. Movie)
+    void SetSubtype(LookupType subtype) { m_subtype = subtype; };
     // Reference value- when the event comes back, need to associate with an item.
     void SetData(QVariant data) { m_data = data; };
     // Steps: SEARCH, GETDATA
@@ -258,6 +272,7 @@ class META_PUBLIC MetadataLookup : public QObject
     // GETS
 
     MetadataType GetType() const { return m_type; };
+    LookupType GetSubtype() const { return m_subtype; };
     QVariant GetData() const { return m_data; };
     LookupStep GetStep() const { return m_step; };
     bool GetAutomatic() const { return m_automatic; };
@@ -340,6 +355,7 @@ class META_PUBLIC MetadataLookup : public QObject
   private:
     // General
     MetadataType m_type;
+    LookupType m_subtype;
     QVariant m_data;
     LookupStep m_step;
     bool m_automatic;
@@ -433,10 +449,10 @@ META_PUBLIC QString nearestName(const QString& actual,
 META_PUBLIC QDateTime RFC822TimeToQDateTime(const QString& t);
 
 enum GrabberType {
-    GRAB_MOVIE = 0,
-    GRAB_TELEVISION = 1,
-    GRAB_MUSIC = 2,
-    GRAB_GAME = 3
+    kGrabberMovie = 0,
+    kGrabberTelevision = 1,
+    kGrabberMusic = 2,
+    kGrabberGame = 3
 };
 
 class META_PUBLIC MetaGrabberScript : public QObject

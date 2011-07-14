@@ -83,18 +83,11 @@ bool force = false;
 
 MythCommFlagCommandLineParser cmdline;
 
-bool fullSpeed = true;
-bool rebuildSeekTable = false;
-bool beNice = true;
-bool inJobQueue = false;
 bool watchingRecording = false;
 CommDetectorBase* commDetector = NULL;
 RemoteEncoder* recorder = NULL;
 ProgramInfo *global_program_info = NULL;
-enum SkipTypes commDetectMethod = COMM_DETECT_UNINIT;
 int recorderNum = -1;
-bool dontSubmitCommbreakListToDB =  false;
-bool onlyDumpDBCommercialBreakList = false;
 
 int jobID = -1;
 int lastCmd = -1;
@@ -149,48 +142,6 @@ static QString get_filename(ProgramInfo *program_info)
     return filename;
 }
 
-static int BuildVideoMarkup(ProgramInfo *program_info, bool useDB)
-{
-    QString filename;
-
-    if (program_info->IsMythStream())
-        filename = program_info->GetPathname();
-    else
-        filename = get_filename(program_info);
-
-    RingBuffer *tmprbuf = RingBuffer::Create(filename, false);
-    if (!tmprbuf)
-    {
-        LOG(VB_GENERAL, LOG_ERR,
-            QString("Unable to create RingBuffer for %1").arg(filename));
-        return GENERIC_EXIT_PERMISSIONS_ERROR;
-    }
-
-    if (useDB && !MSqlQuery::testDBConnection())
-    {
-        LOG(VB_GENERAL, LOG_ERR,
-            "Unable to open DB connection for commercial flagging.");
-        delete tmprbuf;
-        return GENERIC_EXIT_DB_ERROR;
-    }
-
-    MythCommFlagPlayer *cfp = new MythCommFlagPlayer();
-    PlayerContext *ctx = new PlayerContext("seektable rebuilder");
-    ctx->SetSpecialDecode(kAVSpecialDecode_NoDecode);
-    ctx->SetPlayingInfo(program_info);
-    ctx->SetRingBuffer(tmprbuf);
-    ctx->SetPlayer(cfp);
-    cfp->SetPlayerInfo(NULL, NULL, true, ctx);
-    cfp->RebuildSeekTable(progress);
-
-    if (progress)
-        cerr << "Rebuilt" << endl;
-
-    delete ctx;
-
-    return GENERIC_EXIT_OK;
-}
-
 static int QueueCommFlagJob(uint chanid, QDateTime starttime, bool rebuild)
 {
     QString startstring = starttime.toString("yyyyMMddhhmmss");
@@ -206,6 +157,14 @@ static int QueueCommFlagJob(uint chanid, QDateTime starttime, bool rebuild)
             cerr << tmp.toLocal8Bit().constData() << endl;
         }
         return GENERIC_EXIT_NO_RECORDING_DATA;
+    }
+
+    if (cmdline.toBool("dryrun"))
+    {
+        QString tmp = QString("Job have been queued for chanid %1 @ %2")
+                        .arg(chanid).arg(startstring);
+        cerr << tmp.toLocal8Bit().constData() << endl;
+        return GENERIC_EXIT_OK;
     }
 
     bool result = JobQueue::QueueJob(JOB_COMMFLAG,
@@ -629,7 +588,7 @@ static int DoFlagCommercials(
         commDetector->GetCommercialBreakList(commBreakList);
         comms_found = commBreakList.size() / 2;
 
-        if (!dontSubmitCommbreakListToDB)
+        if (useDB)
         {
             program_info->SaveMarkupFlag(MARK_UPDATED_CUT);
             program_info->SaveCommBreakList(commBreakList);
@@ -643,7 +602,7 @@ static int DoFlagCommercials(
     }
     else
     {
-        if (!dontSubmitCommbreakListToDB && useDB)
+        if (useDB)
             program_info->SaveCommFlagged(COMM_FLAG_NOT_FLAGGED);
     }
 
@@ -759,7 +718,7 @@ static bool IsMarked(uint chanid, QDateTime starttime)
 }
 
 static int FlagCommercials(ProgramInfo *program_info, int jobid,
-            const QString &outputfilename, bool useDB)
+            const QString &outputfilename, bool useDB, bool fullSpeed)
 {
     global_program_info = program_info;
 
@@ -777,8 +736,7 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
 
         // assume definition as integer value
         bool ok = true;
-        if (cmdline.toBool("commmethod"))
-            commDetectMethod = (SkipTypes) commmethod.toInt(&ok);
+        commDetectMethod = (SkipTypes) commmethod.toInt(&ok);
         if (!ok)
         {
             // not an integer, attempt comma separated list
@@ -853,6 +811,9 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
         }
 
     }
+    else if (cmdline.toBool("skipdb"))
+        // default to a cheaper method for debugging purposes
+        commDetectMethod = COMM_DETECT_BLANK;
 
     // if selection has failed, or intentionally disabled, drop out
     if (commDetectMethod == COMM_DETECT_UNINIT)
@@ -976,7 +937,8 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
 }
 
 static int FlagCommercials( uint chanid, const QDateTime &starttime,
-                            int jobid, const QString &outputfilename)
+                            int jobid, const QString &outputfilename,
+                            bool fullSpeed )
 {
     QString startstring = starttime.toString("yyyyMMddhhmmss");
     ProgramInfo pginfo(chanid, starttime);
@@ -1012,11 +974,12 @@ static int FlagCommercials( uint chanid, const QDateTime &starttime,
                  << pginfo.GetSubtitle().toLocal8Bit().constData() << endl;
     }
 
-    return FlagCommercials(&pginfo, jobid, outputfilename, true);
+    return FlagCommercials(&pginfo, jobid, outputfilename, true, fullSpeed);
 }
 
 static int FlagCommercials(QString filename, int jobid,
-                const QString outputfilename, bool useDB)
+                const QString outputfilename, bool useDB,
+                bool fullSpeed)
 {
 
     if (progress)
@@ -1026,7 +989,7 @@ static int FlagCommercials(QString filename, int jobid,
     }    
 
     ProgramInfo pginfo(filename);
-    return FlagCommercials(&pginfo, jobid, outputfilename, useDB);
+    return FlagCommercials(&pginfo, jobid, outputfilename, useDB, fullSpeed);
 }
 
 static int RebuildSeekTable(ProgramInfo *pginfo, int jobid)
@@ -1046,11 +1009,7 @@ static int RebuildSeekTable(ProgramInfo *pginfo, int jobid)
 
     MythCommFlagPlayer *cfp = new MythCommFlagPlayer();
     PlayerContext *ctx = new PlayerContext(kFlaggerInUseID);
-    AVSpecialDecode sp = (AVSpecialDecode) (kAVSpecialDecode_LowRes         |
-                                            kAVSpecialDecode_SingleThreaded |
-                                            kAVSpecialDecode_NoLoopFilter);
-
-    ctx->SetSpecialDecode(sp);
+    ctx->SetSpecialDecode(kAVSpecialDecode_NoDecode);
     ctx->SetPlayingInfo(pginfo);
     ctx->SetRingBuffer(tmprbuf);
     ctx->SetPlayer(cfp);
@@ -1183,7 +1142,8 @@ int main(int argc, char *argv[])
         else if (cmdline.toBool("rebuild"))
             result = RebuildSeekTable(chanid, starttime, -1);
         else
-            result = FlagCommercials(chanid, starttime, -1, "");
+            result = FlagCommercials(chanid, starttime, -1, 
+                                     cmdline.toString("outputfile"), true);
     }
     else if (cmdline.toBool("jobid"))
     {
@@ -1197,7 +1157,6 @@ int main(int argc, char *argv[])
                  << "JobQueue ID# " << jobID << endl;
             return GENERIC_EXIT_NO_RECORDING_DATA;
         }
-        inJobQueue = true;
         force = true;
         int jobQueueCPU = gCoreContext->GetNumSetting("JobQueueCPU", 0);
 
@@ -1207,8 +1166,6 @@ int main(int argc, char *argv[])
             myth_ioprio((0 == jobQueueCPU) ? 8 : 7);
         }
 
-        fullSpeed = jobQueueCPU != 0;
-
         progress = false;
         isVideo = false;
 
@@ -1217,7 +1174,7 @@ int main(int argc, char *argv[])
         if (JobQueue::GetJobFlags(jobID) && JOB_REBUILD)
             RebuildSeekTable(chanid, starttime, jobID);
         else
-            ret = FlagCommercials(chanid, starttime, jobID, "");
+            ret = FlagCommercials(chanid, starttime, jobID, "", jobQueueCPU != 0);
 
         if (ret > GENERIC_EXIT_NOT_OK)
             JobQueue::ChangeJobStatus(jobID, JOB_ERRORED,
@@ -1233,12 +1190,41 @@ int main(int argc, char *argv[])
     }
     else if (cmdline.toBool("file"))
     {
-        // TODO: add back handling of recording defined by the basename
+        if (cmdline.toBool("skipdb"))
+        {
+            if (cmdline.toBool("rebuild"))
+            {
+                cerr << "The --rebuild parameter builds the seektable for "
+                        "internal MythTV use only. It cannot be used in "
+                        "combination with --skipdb." << endl;
+                return GENERIC_EXIT_INVALID_CMDLINE;
+            }
 
-        // perform commercial flagging on file outside the database
-        FlagCommercials(cmdline.toString("file"), -1,
-                        cmdline.toString("outputfile"),
-                        !cmdline.toBool("skipdb"));
+            if (!cmdline.toBool("outputfile"))
+                cmdline.SetValue("outputfile", "-");
+
+            // perform commercial flagging on file outside the database
+            FlagCommercials(cmdline.toString("file"), -1,
+                            cmdline.toString("outputfile"),
+                            !cmdline.toBool("skipdb"),
+                            true);
+        }
+        else
+        {
+            ProgramInfo pginfo(cmdline.toString("file"));
+            // pass chanid and starttime
+            // inefficient, but it lets the other function
+            // handle sanity checking
+            if (cmdline.toBool("rebuild"))
+                result = RebuildSeekTable(pginfo.GetChanID(),
+                                          pginfo.GetRecordingStartTime(),
+                                          -1);
+            else
+                result = FlagCommercials(pginfo.GetChanID(),
+                                         pginfo.GetRecordingStartTime(),
+                                         -1, cmdline.toString("outputfile"),
+                                         true);
+        }
     }
     else if (cmdline.toBool("queue"))
     {

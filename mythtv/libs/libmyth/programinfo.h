@@ -501,6 +501,7 @@ class MPUBLIC ProgramInfo
     uint        QueryMplexID(void) const;
     QDateTime   QueryBookmarkTimeStamp(void) const;
     uint64_t    QueryBookmark(void) const;
+    QString     QueryCategoryType(void) const;
     QStringList QueryDVDBookmark(const QString &serialid) const;
     bool        QueryIsEditing(void) const;
     bool        QueryIsInUse(QStringList &byWho) const;
@@ -579,6 +580,8 @@ class MPUBLIC ProgramInfo
     static bool ExtractKey(const QString &uniquekey,
                            uint &chanid, QDateTime &recstartts);
     static bool ExtractKeyFromPathname(
+        const QString &pathname, uint &chanid, QDateTime &recstartts);
+    static bool QueryKeyFromPathname(
         const QString &pathname, uint &chanid, QDateTime &recstartts);
 
     static QString  QueryRecordingGroupPassword(const QString &group);

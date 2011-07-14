@@ -736,7 +736,8 @@ ProgramInfo::ProgramInfo(const QString &_pathname) :
 
     uint _chanid;
     QDateTime _recstartts;
-    if (ExtractKeyFromPathname(_pathname, _chanid, _recstartts) &&
+    if (!gCoreContext->IsDatabaseIgnored() &&
+        QueryKeyFromPathname(_pathname, _chanid, _recstartts) &&
         LoadProgramFromRecorded(_chanid, _recstartts))
     {
         return;
@@ -1096,19 +1097,6 @@ bool ProgramInfo::ExtractKeyFromPathname(
     if (basename.isEmpty())
         return false;
 
-    MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare(
-        "SELECT chanid, starttime "
-        "FROM recorded "
-        "WHERE basename = :BASENAME");
-    query.bindValue(":BASENAME", basename);
-    if (query.exec() && query.next())
-    {
-        chanid     = query.value(0).toUInt();
-        recstartts = query.value(1).toDateTime();
-        return true;
-    }
-
     QStringList lr = basename.split("_");
     if (lr.size() == 2)
     {
@@ -1124,6 +1112,28 @@ bool ProgramInfo::ExtractKeyFromPathname(
     return false;
 }
 
+bool ProgramInfo::QueryKeyFromPathname(
+    const QString &pathname, uint &chanid, QDateTime &recstartts)
+{
+    QString basename = pathname.section('/', -1);
+    if (basename.isEmpty())
+        return false;
+
+    MSqlQuery query(MSqlQuery::InitCon());
+    query.prepare(
+        "SELECT chanid, starttime "
+        "FROM recorded "
+        "WHERE basename = :BASENAME");
+    query.bindValue(":BASENAME", basename);
+    if (query.exec() && query.next())
+    {
+        chanid     = query.value(0).toUInt();
+        recstartts = query.value(1).toDateTime();
+        return true;
+    }
+
+    return ExtractKeyFromPathname(pathname, chanid, recstartts);
+}
 
 #define INT_TO_LIST(x)       do { list << QString::number(x); } while (0)
 
@@ -2410,6 +2420,33 @@ void ProgramInfo::SaveDVDBookmark(const QStringList &fields) const
 
     if (!query.exec())
         MythDB::DBError("SetDVDBookmark updating", query);
+}
+
+/** \brief Queries recordedprogram to get the category_type of the
+ *         recording.
+ *
+ *  \return string category_type
+ */
+QString ProgramInfo::QueryCategoryType(void) const
+{
+    QString ret;
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare(" SELECT category_type "
+                  " FROM recordedprogram "
+                  " WHERE chanid = :CHANID "
+                  " AND starttime = :STARTTIME;");
+
+    query.bindValue(":CHANID", chanid);
+    query.bindValue(":STARTTIME", startts);
+
+    if (query.exec() && query.next())
+    {
+        ret = query.value(0).toString();
+    }
+
+    return ret;
 }
 
 /// \brief Set "watched" field in recorded/videometadata to "watchedFlag".

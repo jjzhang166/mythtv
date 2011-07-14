@@ -7,9 +7,10 @@
 
 // null constructor
 MetadataLookup::MetadataLookup(void) :
-    m_type(VID),
+    m_type(kMetadataVideo),
+    m_subtype(kUnknownVideo),
     m_data(),
-    m_step(SEARCH),
+    m_step(kLookupSearch),
     m_automatic(false),
     m_handleimages(false),
     m_allowoverwrites(false),
@@ -71,6 +72,7 @@ MetadataLookup::MetadataLookup(void) :
 // full constructor
 MetadataLookup::MetadataLookup(
     MetadataType type,
+    LookupType subtype,
     QVariant data,
     LookupStep step,
     bool automatic,
@@ -130,6 +132,7 @@ MetadataLookup::MetadataLookup(
     DownloadMap downloads) :
 
     m_type(type),
+    m_subtype(subtype),
     m_data(data),
     m_step(step),
     m_automatic(automatic),
@@ -193,6 +196,7 @@ MetadataLookup::MetadataLookup(
 // ProgramInfo-style constructor
 MetadataLookup::MetadataLookup(
     MetadataType type,
+    LookupType subtype,
     QVariant data,
     LookupStep step,
     bool automatic,
@@ -231,6 +235,7 @@ MetadataLookup::MetadataLookup(
     const uint runtimesecs) :
 
     m_type(type),
+    m_subtype(subtype),
     m_data(data),
     m_step(step),
     m_automatic(automatic),
@@ -273,6 +278,7 @@ MetadataLookup::MetadataLookup(
 // XBMC NFO-style constructor
 MetadataLookup::MetadataLookup(
     MetadataType type,
+    LookupType subtype,
     QVariant data,
     LookupStep step,
     bool automatic,
@@ -301,6 +307,7 @@ MetadataLookup::MetadataLookup(
     DownloadMap downloads) :
 
     m_type(type),
+    m_subtype(subtype),
     m_data(data),
     m_step(step),
     m_automatic(automatic),
@@ -595,16 +602,17 @@ MetadataLookup* ParseMetadataItem(const QDomElement& item,
             season = item.firstChildElement("season").text().toUInt();
             episode = item.firstChildElement("episode").text().toUInt();
         }
-        LOG(VB_GENERAL, LOG_INFO, QString("Parsing Season, %1 %2")
+        LOG(VB_GENERAL, LOG_INFO, QString("Result Found, Season %1 Episode %2")
             .arg(season).arg(episode));
     }
 
-    return new MetadataLookup(lookup->GetType(), lookup->GetData(),
-        lookup->GetStep(), lookup->GetAutomatic(), lookup->GetHandleImages(),
-        lookup->GetAllowOverwrites(), lookup->GetPreferDVDOrdering(),
-        lookup->GetHost(), lookup->GetFilename(), title, categories,
-        userrating, language, subtitle, tagline, description,
-        season, episode, chanid, channum, chansign, channame,
+    return new MetadataLookup(lookup->GetType(), lookup->GetSubtype(),
+        lookup->GetData(), lookup->GetStep(), lookup->GetAutomatic(),
+        lookup->GetHandleImages(), lookup->GetAllowOverwrites(),
+        lookup->GetPreferDVDOrdering(), lookup->GetHost(),
+        lookup->GetFilename(), title, categories, userrating,
+        language, subtitle, tagline, description, season,
+        episode, chanid, channum, chansign, channame,
         chanplaybackfilters, recgroup, playgroup, seriesid, programid,
         storagegroup, startts, endts, recstartts, recendts, programflags,
         audioproperties, videoproperties, subtitletype, certification,
@@ -666,7 +674,7 @@ MetadataLookup* ParseMetadataMovieNFO(const QDomElement& item,
             info.name = actor.firstChildElement("name").text();
             info.role = actor.firstChildElement("role").text();
             info.thumbnail = actor.firstChildElement("thumb").text();
-            people.insert(ACTOR, info);
+            people.insert(kPersonActor, info);
             actor = actor.nextSiblingElement("actor");
         }
     }
@@ -676,11 +684,12 @@ MetadataLookup* ParseMetadataMovieNFO(const QDomElement& item,
     {
         PersonInfo info;
         info.name = director;
-        people.insert(DIRECTOR, info);
+        people.insert(kPersonDirector, info);
     }
 
-    return new MetadataLookup(lookup->GetType(), lookup->GetData(),
-        lookup->GetStep(), lookup->GetAutomatic(), lookup->GetHandleImages(),
+    return new MetadataLookup(lookup->GetType(), lookup->GetSubtype(),
+        lookup->GetData(), lookup->GetStep(),
+        lookup->GetAutomatic(), lookup->GetHandleImages(),
         lookup->GetAllowOverwrites(), lookup->GetPreferDVDOrdering(),
         lookup->GetHost(), lookup->GetFilename(), title, categories,
         userrating, subtitle, tagline, description, season, episode,
@@ -702,31 +711,31 @@ PeopleMap ParsePeople(QDomElement people)
                 QString jobstring = person.attribute("job");
                 PeopleType type;
                 if (jobstring.toLower() == "actor")
-                    type = ACTOR;
+                    type = kPersonActor;
                 else if (jobstring.toLower() == "author")
-                    type = AUTHOR;
+                    type = kPersonAuthor;
                 else if (jobstring.toLower() == "producer")
-                    type = PRODUCER;
+                    type = kPersonProducer;
                 else if (jobstring.toLower() == "executive producer")
-                    type = EXECPRODUCER;
+                    type = kPersonExecProducer;
                 else if (jobstring.toLower() == "director")
-                    type = DIRECTOR;
+                    type = kPersonDirector;
                 else if (jobstring.toLower() == "cinematographer")
-                    type = CINEMATOGRAPHER;
+                    type = kPersonCinematographer;
                 else if (jobstring.toLower() == "composer")
-                    type = COMPOSER;
+                    type = kPersonComposer;
                 else if (jobstring.toLower() == "editor")
-                    type = EDITOR;
+                    type = kPersonEditor;
                 else if (jobstring.toLower() == "casting")
-                    type = CASTINGDIRECTOR;
+                    type = kPersonCastingDirector;
                 else if (jobstring.toLower() == "artist")
-                    type = ARTIST;
+                    type = kPersonArtist;
                 else if (jobstring.toLower() == "album artist")
-                    type = ALBUMARTIST;
+                    type = kPersonAlbumArtist;
                 else if (jobstring.toLower() == "guest star")
-                    type = GUESTSTAR;
+                    type = kPersonGuestStar;
                 else
-                    type = ACTOR;
+                    type = kPersonActor;
 
                 PersonInfo info;
                 if (person.hasAttribute("name"))
@@ -760,23 +769,23 @@ ArtworkMap ParseArtwork(QDomElement artwork)
                 QString typestring = image.attribute("type");
                 VideoArtworkType type;
                 if (typestring.toLower() == "coverart")
-                    type = COVERART;
+                    type = kArtworkCoverart;
                 else if (typestring.toLower() == "fanart")
-                    type = FANART;
+                    type = kArtworkFanart;
                 else if (typestring.toLower() == "banner")
-                    type = BANNER;
+                    type = kArtworkBanner;
                 else if (typestring.toLower() == "screenshot")
-                    type = SCREENSHOT;
+                    type = kArtworkScreenshot;
                 else if (typestring.toLower() == "poster")
-                    type = POSTER;
+                    type = kArtworkPoster;
                 else if (typestring.toLower() == "back cover")
-                    type = BACKCOVER;
+                    type = kArtworkBackCover;
                 else if (typestring.toLower() == "inside cover")
-                    type = INSIDECOVER;
+                    type = kArtworkInsideCover;
                 else if (typestring.toLower() == "cd image")
-                    type = CDIMAGE;
+                    type = kArtworkCDImage;
                 else
-                    type = COVERART;
+                    type = kArtworkCoverart;
 
                 ArtworkInfo info;
                 if (image.hasAttribute("thumb"))
@@ -946,7 +955,7 @@ MetaGrabberScript* ParseGrabberVersion(const QDomElement& item)
 {
     QString name, author, thumbnail, command, description, typestring;
     float version = 0;
-    GrabberType type = GRAB_MOVIE;
+    GrabberType type = kGrabberMovie;
 
     name = item.firstChildElement("name").text();
     author = item.firstChildElement("author").text();
@@ -959,13 +968,13 @@ MetaGrabberScript* ParseGrabberVersion(const QDomElement& item)
     if (!typestring.isEmpty())
     {
         if (typestring.toLower() == "movie")
-            type = GRAB_MOVIE;
+            type = kGrabberMovie;
         else if (typestring.toLower() == "television")
-            type = GRAB_TELEVISION;
+            type = kGrabberTelevision;
         else if (typestring.toLower() == "game")
-            type = GRAB_GAME;
+            type = kGrabberGame;
         else if (typestring.toLower() == "music")
-            type = GRAB_MUSIC;
+            type = kGrabberMusic;
     }
 
     return new MetaGrabberScript(name, author, thumbnail, command,

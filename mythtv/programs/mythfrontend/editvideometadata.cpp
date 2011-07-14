@@ -709,7 +709,14 @@ void EditMetadataDialog::OnSearchListSelection(ArtworkInfo info, VideoArtworkTyp
     createBusyDialog(msg);
 
     MetadataLookup *lookup = new MetadataLookup();
-    lookup->SetType(VID);
+    lookup->SetType(kMetadataVideo);
+    if (m_workingMetadata->GetSeason() > 0 ||
+            m_workingMetadata->GetEpisode() > 0)
+        lookup->SetSubtype(kProbableTelevision);
+    else if (m_workingMetadata->GetSubtitle().isEmpty())
+        lookup->SetSubtype(kProbableMovie);
+    else
+        lookup->SetSubtype(kUnknownVideo);
     lookup->SetHost(m_workingMetadata->GetHost());
     lookup->SetAutomatic(true);
     lookup->SetData(qVariantFromValue<VideoArtworkType>(type));
@@ -746,13 +753,13 @@ void EditMetadataDialog::handleDownloadedImages(MetadataLookup *lookup)
         ArtworkInfo info = map.value(type);
         QString filename = info.url;
 
-        if (type == COVERART)
+        if (type == kArtworkCoverart)
             SetCoverArt(filename);
-        else if (type == FANART)
+        else if (type == kArtworkFanart)
             SetFanart(filename);
-        else if (type == BANNER)
+        else if (type == kArtworkBanner)
             SetBanner(filename);
-        else if (type == SCREENSHOT)
+        else if (type == kArtworkScreenshot)
             SetScreenshot(filename);
     }
 }
@@ -763,9 +770,16 @@ void EditMetadataDialog::FindNetArt(VideoArtworkType type)
     createBusyDialog(msg);
 
     MetadataLookup *lookup = new MetadataLookup();
-    lookup->SetStep(SEARCH);
-    lookup->SetType(VID);
+    lookup->SetStep(kLookupSearch);
+    lookup->SetType(kMetadataVideo);
     lookup->SetAutomatic(true);
+    if (m_workingMetadata->GetSeason() > 0 ||
+            m_workingMetadata->GetEpisode() > 0)
+        lookup->SetSubtype(kProbableTelevision);
+    else if (m_workingMetadata->GetSubtitle().isEmpty())
+        lookup->SetSubtype(kProbableMovie);
+    else
+        lookup->SetSubtype(kUnknownVideo);
     lookup->SetData(qVariantFromValue<VideoArtworkType>(type));
 
     lookup->SetTitle(m_workingMetadata->GetTitle());
@@ -779,22 +793,22 @@ void EditMetadataDialog::FindNetArt(VideoArtworkType type)
 
 void EditMetadataDialog::FindNetCoverArt()
 {
-    FindNetArt(COVERART);
+    FindNetArt(kArtworkCoverart);
 }
 
 void EditMetadataDialog::FindNetFanart()
 {
-    FindNetArt(FANART);
+    FindNetArt(kArtworkFanart);
 }
 
 void EditMetadataDialog::FindNetBanner()
 {
-    FindNetArt(BANNER);
+    FindNetArt(kArtworkBanner);
 }
 
 void EditMetadataDialog::FindNetScreenshot()
 {
-    FindNetArt(SCREENSHOT);
+    FindNetArt(kArtworkScreenshot);
 }
 
 void EditMetadataDialog::SetCoverArt(QString file)

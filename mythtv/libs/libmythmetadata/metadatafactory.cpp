@@ -56,14 +56,18 @@ void MetadataFactory::Lookup(RecordingRule *recrule, bool automatic,
         return;
 
     MetadataLookup *lookup = new MetadataLookup();
-    lookup->SetStep(SEARCH);
-    lookup->SetType(RECDNG);
+    lookup->SetStep(kLookupSearch);
+    lookup->SetType(kMetadataRecording);
+    lookup->SetSubtype(GuessLookupType(recrule));
     lookup->SetData(qVariantFromValue(recrule));
     lookup->SetAutomatic(automatic);
     lookup->SetHandleImages(getimages);
     lookup->SetHost(gCoreContext->GetMasterHostName());
     lookup->SetTitle(recrule->m_title);
     lookup->SetSubtitle(recrule->m_subtitle);
+    lookup->SetInetref(recrule->m_inetref);
+    lookup->SetSeason(recrule->m_season);
+    lookup->SetEpisode(recrule->m_episode);
 
     if (m_lookupthread->isRunning())
         m_lookupthread->prependLookup(lookup);
@@ -78,8 +82,9 @@ void MetadataFactory::Lookup(ProgramInfo *pginfo, bool automatic,
         return;
 
     MetadataLookup *lookup = new MetadataLookup();
-    lookup->SetStep(SEARCH);
-    lookup->SetType(RECDNG);
+    lookup->SetStep(kLookupSearch);
+    lookup->SetType(kMetadataRecording);
+    lookup->SetSubtype(GuessLookupType(pginfo));
     lookup->SetData(qVariantFromValue(pginfo));
     lookup->SetAutomatic(automatic);
     lookup->SetHandleImages(getimages);
@@ -103,8 +108,14 @@ void MetadataFactory::Lookup(VideoMetadata *metadata, bool automatic,
         return;
 
     MetadataLookup *lookup = new MetadataLookup();
-    lookup->SetStep(SEARCH);
-    lookup->SetType(VID);
+    lookup->SetStep(kLookupSearch);
+    lookup->SetType(kMetadataVideo);
+    if (metadata->GetSeason() > 0 || metadata->GetEpisode() > 0)
+        lookup->SetSubtype(kProbableTelevision);
+    else if (metadata->GetSubtitle().isEmpty())
+        lookup->SetSubtype(kProbableMovie);
+    else
+        lookup->SetSubtype(kUnknownVideo);
     lookup->SetData(qVariantFromValue(metadata));
     lookup->SetAutomatic(automatic);
     lookup->SetHandleImages(getimages);
@@ -157,36 +168,43 @@ void MetadataFactory::OnSingleResult(MetadataLookup *lookup)
     {
         DownloadMap map;
 
-        ArtworkList coverartlist = lookup->GetArtwork(COVERART);
+        ArtworkList coverartlist = lookup->GetArtwork(kArtworkCoverart);
         if (coverartlist.size())
         {
             ArtworkInfo info;
-            info.url = coverartlist.takeFirst().url;
-            map.insert(COVERART, info);
+            info.url = coverartlist.takeLast().url;
+            map.insert(kArtworkCoverart, info);
         }
 
-        ArtworkList fanartlist = lookup->GetArtwork(FANART);
+        ArtworkList fanartlist = lookup->GetArtwork(kArtworkFanart);
         if (fanartlist.size())
         {
             ArtworkInfo info;
-            info.url = fanartlist.takeFirst().url;
-            map.insert(FANART, info);
+            int index = 0;
+            int season = (int)lookup->GetSeason();
+            if (season > 0 && season <= fanartlist.count())
+                index = season - 1;
+            info.url = fanartlist.takeAt(index).url;
+            map.insert(kArtworkFanart, info);
         }
 
-        ArtworkList bannerlist = lookup->GetArtwork(BANNER);
+        ArtworkList bannerlist = lookup->GetArtwork(kArtworkBanner);
         if (bannerlist.size())
         {
             ArtworkInfo info;
-            info.url = bannerlist.takeFirst().url;
-            map.insert(BANNER, info);
+            info.url = bannerlist.takeLast().url;
+            map.insert(kArtworkBanner, info);
         }
 
-        ArtworkList screenshotlist = lookup->GetArtwork(SCREENSHOT);
-        if (screenshotlist.size())
+        if (!lookup->GetType() == kMetadataRecording)
         {
-            ArtworkInfo info;
-            info.url = screenshotlist.takeFirst().url;
-            map.insert(SCREENSHOT, info);
+            ArtworkList screenshotlist = lookup->GetArtwork(kArtworkScreenshot);
+            if (screenshotlist.size())
+            {
+                ArtworkInfo info;
+                info.url = screenshotlist.takeLast().url;
+                map.insert(kArtworkScreenshot, info);
+            }
         }
         lookup->SetDownloads(map);
         m_imagedownload->addDownloads(lookup);
@@ -261,5 +279,66 @@ void MetadataFactory::customEvent(QEvent *levent)
 
         OnImageResult(lookup);
     }
+}
+
+// These functions exist to determine if we have enough
+// information to conclusively call something a Show vs. Movie
+
+LookupType GuessLookupType(ProgramInfo *pginfo)
+{
+    LookupType ret = kUnknownVideo;
+
+    QString catType = pginfo->GetCategoryType();
+    if (catType.isEmpty())
+        catType = pginfo->QueryCategoryType();
+
+    if (catType == "series" || catType == "tvshow" ||
+        catType == "show")
+        ret = kProbableTelevision;
+    else if (catType == "movie" || catType == "film")
+        ret = kProbableMovie;
+    else if (pginfo->GetSeason() > 0 || pginfo->GetEpisode() > 0 ||
+        !pginfo->GetSubtitle().isEmpty())
+        ret = kProbableTelevision;
+    else
+    {
+        // Before committing to something being a movie, we
+        // want to check its rule.  If the rule has a season
+        // or episode number, but the recording doesn't,
+        // and the rec doesn't have a subtitle, this is a
+        // generic recording. If neither the rule nor the
+        // recording have an inetref, season, episode, or
+        // subtitle, it's *probably* a movie.  If it's some
+        // weird combination of both, we've got to try everything.
+        RecordingRule *rule = new RecordingRule();
+        rule->LoadByProgram(pginfo);
+        int ruleepisode = 0;
+        if (rule && rule->Load())
+            ruleepisode = rule->m_episode;
+        delete rule;
+
+        if (ruleepisode == 0 && pginfo->GetEpisode() == 0 &&
+            pginfo->GetSubtitle().isEmpty())
+            ret = kProbableMovie;
+        else if (ruleepisode > 0 && pginfo->GetSubtitle().isEmpty())
+            ret = kProbableGenericTelevision;
+        else
+            ret = kUnknownVideo;
+    }
+
+    return ret;
+}
+
+LookupType GuessLookupType(RecordingRule *recrule)
+{
+    LookupType ret = kUnknownVideo;
+
+    if (recrule->m_season > 0 || recrule->m_episode > 0 ||
+        !recrule->m_subtitle.isEmpty())
+        ret = kProbableTelevision;
+    else
+        ret = kProbableMovie;
+
+    return ret;
 }
 
