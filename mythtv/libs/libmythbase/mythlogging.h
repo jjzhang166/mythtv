@@ -33,6 +33,11 @@ typedef enum
     LOG_UNKNOWN
 } LogLevel_t;
 
+extern MBASE_PUBLIC const char *LogLevelNames[];
+extern MBASE_PUBLIC int LogLevelNameCount;
+extern MBASE_PUBLIC const char LogLevelShortNames[];
+extern MBASE_PUBLIC int LogLevelShortNameCount;
+
 #ifdef _LogLevelNames_
 const char *LogLevelNames[] =
 {
@@ -62,11 +67,6 @@ const char LogLevelShortNames[] =
 };
 int LogLevelShortNameCount = sizeof(LogLevelShortNames) / 
                              sizeof(LogLevelShortNames[0]);
-#else
-extern MBASE_PUBLIC char *LogLevelNames[];
-extern MBASE_PUBLIC int LogLevelNameCount;
-extern MBASE_PUBLIC char *LogLevelShortNames[];
-extern MBASE_PUBLIC int LogLevelShortNameCount;
 #endif
 extern MBASE_PUBLIC LogLevel_t logLevel;
 
@@ -195,6 +195,7 @@ class DatabaseLogger : public LoggerBase {
         pid_t m_pid;
         bool m_opened;
         bool m_loggingTableExists;
+        bool m_disabled;
 };
 
 class LoggerThread : public QThread {
@@ -208,6 +209,8 @@ class LoggerThread : public QThread {
     private:
         bool aborted;
 };
+
+#define MAX_QUEUE_LEN 1000
 
 class DBLoggerThread : public QThread {
     Q_OBJECT
@@ -223,6 +226,11 @@ class DBLoggerThread : public QThread {
             QMutexLocker qLock(&m_queueMutex); 
             m_queue->enqueue(item); 
             return true; 
+        }
+        bool queueFull(void)
+        {
+            QMutexLocker qLock(&m_queueMutex); 
+            return (m_queue->size() >= MAX_QUEUE_LEN);
         }
     private:
         DatabaseLogger *m_logger;

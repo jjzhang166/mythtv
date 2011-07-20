@@ -685,13 +685,11 @@ void Metadata::toMap(MetadataMap &metadataMap)
     metadataMap["compilationartist"] = m_compilation_artist;
     metadataMap["album"] = m_album;
     metadataMap["title"] = m_title;
+    metadataMap["formattitle"] = FormatTitle();
     metadataMap["tracknum"] = (m_tracknum > 0 ? QString("%1").arg(m_tracknum) : "");
     metadataMap["genre"] = m_genre;
     metadataMap["year"] = (m_year > 0 ? QString("%1").arg(m_year) : "");
-    metadataMap["artisttitle"] = QObject::tr("%1  by  %2",
-                                             "Music track 'title by artist'")
-                                             .arg(FormatTitle())
-                                             .arg(FormatArtist());
+    
     int len = m_length / 1000;
     int eh = len / 3600;
     int em = (len / 60) % 60;
@@ -701,13 +699,10 @@ void Metadata::toMap(MetadataMap &metadataMap)
     else
         metadataMap["length"] = QString().sprintf("%02d:%02d", em, es);
 
-    QString dateFormat = gCoreContext->GetSetting("DateFormat", "ddd MMMM d");
-    QString fullDateFormat = dateFormat;
-    if (!fullDateFormat.contains("yyyy"))
-        fullDateFormat += " yyyy";
-    metadataMap["lastplayed"] = m_lastplay.toString(fullDateFormat);
+    metadataMap["lastplayed"] = MythDateTimeToString(m_lastplay,
+                                              kDateFull | kSimplify | kAddYear);
 
-    metadataMap["playcount"] = QString("%1").arg(m_playcount);
+    metadataMap["playcount"] = QString::number(m_playcount);
     metadataMap["filename"] = m_filename;
 }
 
@@ -1651,16 +1646,6 @@ AlbumArtImage *AlbumArtImages::getImageAt(uint index)
     return NULL;
 }
 
-bool AlbumArtImages::saveImageType(const int id, ImageType type)
-{
-    MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare("UPDATE music_albumart SET imagetype = :TYPE "
-                    "WHERE albumart_id = :ID");
-    query.bindValue(":TYPE", type);
-    query.bindValue(":ID", id);
-    return (query.exec());
-}
-
 // static method to get a translated type name from an ImageType
 QString AlbumArtImages::getTypeName(ImageType type)
 {
@@ -1690,6 +1675,7 @@ QString AlbumArtImages::getTypeFilename(ImageType type)
 
     return QObject::tr(filename_strings[type]);
 }
+
 // static method to guess the image type from the filename
 ImageType AlbumArtImages::guessImageType(const QString &filename)
 {
@@ -1782,42 +1768,32 @@ void AlbumArtImages::dumpToDatabase(void)
 
     MSqlQuery query(MSqlQuery::InitCon());
 
+    // remove all albumart for this track from the db
+    query.prepare("DELETE FROM music_albumart "
+                  "WHERE song_id = :SONGID "
+                  "OR (embedded = 0 AND directory_id = :DIRECTORYID)");
+
+    query.bindValue(":SONGID", trackID);
+    query.bindValue(":DIRECTORYID", directoryID);
+
+    query.exec();
+
+    // now add the albumart to the db
     AlbumArtList::iterator it = m_imageList.begin();
     for (; it != m_imageList.end(); ++it)
     {
         AlbumArtImage *image = (*it);
 
-        // first check to see if the image is already in the db
-        if (image->embedded)
+        if (image->id != 0)
         {
-            query.prepare("SELECT albumart_id FROM music_albumart "
-                          "WHERE song_id = :SONGID AND imagetype = :TYPE;");
-            query.bindValue(":TYPE", image->imageType);
-            query.bindValue(":SONGID", trackID);
+            // re-use the same id this image had before
+            query.prepare("INSERT INTO music_albumart ( albumart_id, "
+                          "filename, imagetype, song_id, directory_id, embedded ) "
+                          "VALUES ( :ID, :FILENAME, :TYPE, :SONGID, :DIRECTORYID, :EMBED );");
+            query.bindValue(":ID", image->id);
         }
         else
         {
-            query.prepare("SELECT albumart_id FROM music_albumart "
-                          "WHERE directory_id = :DIRECTORYID AND imagetype = :TYPE;");
-            query.bindValue(":TYPE", image->imageType);
-            query.bindValue(":DIRECTORYID", directoryID);
-        }
-
-        if (query.exec() && query.next())
-        {
-            // update the existing record
-            int artid = query.value(0).toInt();
-
-            query.prepare("UPDATE music_albumart SET "
-                          "filename = :FILENAME, imagetype = :TYPE, "
-                          "song_id = :SONGID, directory_id = :DIRECTORYID, embedded = :EMBED "
-                          "WHERE albumart_id = :ARTID");
-
-            query.bindValue(":ARTID", artid);
-        }
-        else
-        {
-            // add new record for this image
             query.prepare("INSERT INTO music_albumart ( filename, "
                         "imagetype, song_id, directory_id, embedded ) VALUES ( "
                         ":FILENAME, :TYPE, :SONGID, :DIRECTORYID, :EMBED );");

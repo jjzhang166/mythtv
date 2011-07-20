@@ -27,6 +27,9 @@
 #define LOC QString("NetworkControl: ")
 #define LOC_ERR QString("NetworkControl Error: ")
 
+#define FE_SHORT_TO 2000
+#define FE_LONG_TO  10000
+
 static QEvent::Type kNetworkControlDataReadyEvent =
     (QEvent::Type) QEvent::registerEventType();
 QEvent::Type NetworkControlCloseEvent::kEventType =
@@ -457,7 +460,7 @@ QString NetworkControl::processJump(NetworkCommand *nc)
     // depend on all Locations matching their jumppoints
     QTime timer;
     timer.start();
-    while ((timer.elapsed() < 2000) &&
+    while ((timer.elapsed() < FE_SHORT_TO) &&
            (GetMythUI()->GetCurrentLocation().toLower() != nc->getArg(1)))
         usleep(10000);
 
@@ -584,7 +587,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
 
             QTime timer;
             timer.start();
-            while ((timer.elapsed() < 10000) &&
+            while ((timer.elapsed() < FE_LONG_TO) &&
                    (GetMythUI()->GetCurrentLocation().toLower() != "mainmenu"))
                 usleep(10000);
         }
@@ -613,7 +616,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
 
             QTime timer;
             timer.start();
-            while ((timer.elapsed() < 10000) &&
+            while ((timer.elapsed() < FE_LONG_TO) &&
                    (GetMythUI()->GetCurrentLocation().toLower() == "playback"))
                 usleep(10000);
         }
@@ -643,10 +646,23 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             QString message = QString("NETWORK_CONTROL %1 PROGRAM %2 %3 %4")
                                       .arg(action).arg(nc->getArg(2))
                                       .arg(nc->getArg(3).toUpper()).arg(clientID);
+
+            result.clear();
+            gotAnswer = false;
+            QTime timer;
+            timer.start();
+
             MythEvent me(message);
             gCoreContext->dispatch(me);
 
-            result.clear();
+            while (timer.elapsed() < FE_LONG_TO && !gotAnswer)
+                usleep(10000);
+
+            if (gotAnswer)
+                result += answer;
+            else
+                result = "ERROR: Timed out waiting for reply from player";
+
         }
         else
         {
@@ -685,7 +701,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
 
                 QTime timer;
                 timer.start();
-                while (timer.elapsed() < 2000 && !gotAnswer)
+                while (timer.elapsed() < FE_SHORT_TO && !gotAnswer)
                 {
                     qApp->processEvents();
                     usleep(10000);
@@ -705,7 +721,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
 
                 QTime timer;
                 timer.start();
-                while (timer.elapsed() < 2000 && !gotAnswer)
+                while (timer.elapsed() < FE_SHORT_TO && !gotAnswer)
                 {
                     qApp->processEvents();
                     usleep(10000);
@@ -882,7 +898,7 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
 
             QTime timer;
             timer.start();
-            while (timer.elapsed() < 2000  && !gotAnswer)
+            while (timer.elapsed() < FE_SHORT_TO  && !gotAnswer)
                 usleep(10000);
 
             if (gotAnswer)
@@ -967,7 +983,7 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
 
         QTime timer;
         timer.start();
-        while (timer.elapsed() < 2000  && !gotAnswer)
+        while (timer.elapsed() < FE_SHORT_TO  && !gotAnswer)
             usleep(10000);
 
         if (gotAnswer)
@@ -1279,20 +1295,11 @@ void NetworkControl::customEvent(QEvent *e)
             else if ((tokens.size() >= 4) &&
                      (tokens[1] == "RESPONSE"))
             {
-                int clientID = tokens[2].toInt();
-                QString response = tokens[3];
+//                int clientID = tokens[2].toInt();
+                answer = tokens[3];
                 for (int i = 4; i < tokens.size(); i++)
-                    response += QString(" ") + tokens[i];
-
-                clientLock.lock();
-                NetworkControlClient *ncc = clients.at(clientID);
-                clientLock.unlock();
-
-                nrLock.lock();
-                networkControlReplies.push_back(new NetworkCommand(ncc, response));
-                nrLock.unlock();
-
-                notifyDataAvailable();
+                    answer += QString(" ") + tokens[i];
+                gotAnswer = true;
             }
         }
     }

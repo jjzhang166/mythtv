@@ -68,10 +68,12 @@ void LookerUpper::HandleAllRecordings(bool updaterules)
     for( int n = 0; n < (int)progList.size(); n++)
     {
         ProgramInfo *pginfo = new ProgramInfo(*(progList[n]));
-        if (pginfo->GetInetRef().isEmpty() ||
+        if ((pginfo->GetRecordingGroup() != "Deleted") &&
+            (pginfo->GetRecordingGroup() != "LiveTV") &&
+            (pginfo->GetInetRef().isEmpty() ||
             (!pginfo->GetSubtitle().isEmpty() &&
-              (pginfo->GetSeason() == 0) &&
-              (pginfo->GetEpisode() == 0)))
+            (pginfo->GetSeason() == 0) &&
+            (pginfo->GetEpisode() == 0))))
         {
             QString msg = QString("Looking up: %1 %2").arg(pginfo->GetTitle())
                                            .arg(pginfo->GetSubtitle());
@@ -117,18 +119,19 @@ void LookerUpper::HandleAllArtwork(bool aggressive)
     vector<ProgramInfo *> recordingList;
 
     RemoteGetAllScheduledRecordings(recordingList);
+    int maxartnum = 3;
 
     for( int n = 0; n < (int)recordingList.size(); n++)
     {
         ProgramInfo *pginfo = new ProgramInfo(*(recordingList[n]));
         bool dolookup = true;
 
-        if (!aggressive && pginfo->GetInetRef().isEmpty())
+        if (pginfo->GetInetRef().isEmpty())
             dolookup = false;
-        if (dolookup)
+        if (dolookup || aggressive)
         {
             ArtworkMap map = GetArtwork(pginfo->GetInetRef(), pginfo->GetSeason(), true);
-            if (map.isEmpty())
+            if (map.isEmpty() || (aggressive && map.count() < maxartnum))
             {
                 QString msg = QString("Looking up artwork for recording rule: %1 %2")
                                                .arg(pginfo->GetTitle())
@@ -153,19 +156,19 @@ void LookerUpper::HandleAllArtwork(bool aggressive)
     for( int n = 0; n < (int)progList.size(); n++)
     {
         ProgramInfo *pginfo = new ProgramInfo(*(progList[n]));
+
         bool dolookup = true;
-        int maxartnum = 3;
 
         LookupType type = GuessLookupType(pginfo);
 
-        if (type == kProbableMovie || type == kUnknownVideo)
-           maxartnum = 3;
+        if (type == kProbableMovie)
+           maxartnum = 2;
 
         if ((!aggressive && type == kProbableGenericTelevision) ||
              pginfo->GetRecordingGroup() == "Deleted" ||
              pginfo->GetRecordingGroup() == "LiveTV")
             dolookup = false;
-        if (dolookup)
+        if (dolookup || aggressive)
         {
             ArtworkMap map = GetArtwork(pginfo->GetInetRef(), pginfo->GetSeason(), true);
             if (map.isEmpty() || (aggressive && map.count() < maxartnum))
@@ -219,10 +222,6 @@ void LookerUpper::customEvent(QEvent *levent)
 {
     if (levent->type() == MetadataFactoryMultiResult::kEventType)
     {
-        LOG(VB_GENERAL, LOG_INFO, "Unable to match this title, too many possible matches. "
-                                  "You may wish to manually set the season, episode, and "
-                                  "inetref in the 'Watch Recordings' screen.");
-
         MetadataFactoryMultiResult *mfmr = dynamic_cast<MetadataFactoryMultiResult*>(levent);
 
         if (!mfmr)
@@ -230,12 +229,69 @@ void LookerUpper::customEvent(QEvent *levent)
 
         MetadataLookupList list = mfmr->results;
 
-        if (list.count() >= 1)
+        if (list.count() > 1)
         {
+            int yearindex = -1;
+
+            for (int p = 0; p != list.size(); ++p)
+            {
+                ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(list[p]->GetData());
+
+                if (pginfo && !pginfo->GetSeriesID().isEmpty() &&
+                    pginfo->GetSeriesID() == (list[p])->GetTMSref())
+                {
+                    MetadataLookup *lookup = list.takeAt(p);
+                    if (!lookup->GetSubtype() == kProbableGenericTelevision)
+                        pginfo->SaveSeasonEpisode(lookup->GetSeason(), lookup->GetEpisode());
+                    pginfo->SaveInetRef(lookup->GetInetref());
+                    m_busyRecList.removeAll(pginfo);
+                    qDeleteAll(list);
+                    return;
+                }
+                else if (pginfo && pginfo->GetYearOfInitialRelease() != 0 &&
+                         (list[p])->GetYear() != 0 &&
+                         pginfo->GetYearOfInitialRelease() == (list[p])->GetYear())
+                {
+                    if (yearindex != -1)
+                    {
+                        LOG(VB_GENERAL, LOG_INFO, "Multiple results matched on year. No definite "
+                                      "match could be found.");
+                        m_busyRecList.removeAll(pginfo);
+                        qDeleteAll(list);
+                        return;
+                    }
+                    else
+                    {
+                        LOG(VB_GENERAL, LOG_INFO, "Matched from multiple results based on year. ");
+                        yearindex = p;
+                    }
+                }
+            }
+
+            if (yearindex > -1)
+            {
+                MetadataLookup *lookup = list.takeAt(yearindex);
+                ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(lookup->GetData());
+                if (!lookup->GetSubtype() == kProbableGenericTelevision)
+                    pginfo->SaveSeasonEpisode(lookup->GetSeason(), lookup->GetEpisode());
+                pginfo->SaveInetRef(lookup->GetInetref());
+                m_busyRecList.removeAll(pginfo);
+                qDeleteAll(list);
+                return;
+            }
+
+            LOG(VB_GENERAL, LOG_INFO, "Unable to match this title, too many possible matches. "
+                                      "You may wish to manually set the season, episode, and "
+                                      "inetref in the 'Watch Recordings' screen.");
+
             ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(list.takeFirst()->GetData());
 
+            qDeleteAll(list);
+
             if (pginfo)
+            {
                 m_busyRecList.removeAll(pginfo);
+            }
         }
     }
     else if (levent->type() == MetadataFactorySingleResult::kEventType)
@@ -276,7 +332,8 @@ void LookerUpper::customEvent(QEvent *levent)
         LOG(VB_GENERAL, LOG_DEBUG,
             QString("        User Rating: %1").arg(lookup->GetUserRating()));
 
-        pginfo->SaveSeasonEpisode(lookup->GetSeason(), lookup->GetEpisode());
+        if (!lookup->GetSubtype() == kProbableGenericTelevision)
+            pginfo->SaveSeasonEpisode(lookup->GetSeason(), lookup->GetEpisode());
         pginfo->SaveInetRef(lookup->GetInetref());
 
         if (m_updaterules)

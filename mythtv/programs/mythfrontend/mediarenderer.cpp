@@ -9,11 +9,14 @@
 /////////////////////////////////////////////////////////////////////////////
 
 #include <QTextStream>
+
+#include "upnpsubscription.h"
 #include "mediarenderer.h"
+#include "mythversion.h"
+#include "upnpscanner.h"
 #include "mythfexml.h"
 #include "compat.h"
-#include "upnpsubscription.h"
-#include "upnpscanner.h"
+#include "util.h"
 
 class MythFrontendStatus : public HttpServerExtension
 {
@@ -46,10 +49,6 @@ class MythFrontendStatus : public HttpServerExtension
         if (!UPnp::g_IPAddrList.isEmpty())
             ipaddress = UPnp::g_IPAddrList.at(0);
 
-        QString shortdateformat = gCoreContext->GetSetting("ShortDateFormat",
-                                                           "M/d");
-        QString timeformat      = gCoreContext->GetSetting("TimeFormat",
-                                                           "h:mm AP");
         QString hostname   = gCoreContext->GetHostName();
         QDateTime qdtNow   = QDateTime::currentDateTime();
         QString masterhost = gCoreContext->GetMasterHostName();
@@ -69,8 +68,7 @@ class MythFrontendStatus : public HttpServerExtension
            << "  <meta http-equiv=\"Content-Type\""
            << "content=\"text/html; charset=UTF-8\" />\r\n"
            << "  <title>MythFrontend Status - "
-           << qdtNow.toString(shortdateformat) << " "
-           << qdtNow.toString(timeformat) << " - "
+           << MythDateTimeToString(qdtNow, kDateTimeShort) << " - "
            << MYTH_BINARY_VERSION << "</title>\r\n"
            << "  <link rel=\"stylesheet\" href=\"/css/site.css\"   type=\"text/css\">\r\n"
            << "  <link rel=\"stylesheet\" href=\"/css/Status.css\" type=\"text/css\">\r\n"
@@ -216,8 +214,7 @@ MediaRenderer::MediaRenderer()
     if (!m_pHttpServer)
         return;
 
-    if (!m_pHttpServer->listen(QHostAddress(gCoreContext->MythHostAddressAny()),
-                               nPort))
+    if (!m_pHttpServer->listen(gCoreContext->MythHostAddressAny(), nPort))
     {
         LOG(VB_GENERAL, LOG_ERR, "MediaRenderer::HttpServer Create Error");
         delete m_pHttpServer;

@@ -840,7 +840,11 @@ static int FlagCommercials(ProgramInfo *program_info, int jobid,
 */
 
     if (!DoesFileExist(program_info))
+    {
+        LOG(VB_GENERAL, LOG_ERR,
+            "Unable to find file in defined storage paths.");
         return GENERIC_EXIT_PERMISSIONS_ERROR;
+    }
 
     QString filename = get_filename(program_info);
 
@@ -995,7 +999,11 @@ static int FlagCommercials(QString filename, int jobid,
 static int RebuildSeekTable(ProgramInfo *pginfo, int jobid)
 {
     if (!DoesFileExist(pginfo))
+    {
+        LOG(VB_GENERAL, LOG_ERR,
+            "Unable to find file in defined storage paths.");
         return GENERIC_EXIT_PERMISSIONS_ERROR;
+    }
 
     QString filename = get_filename(pginfo);
 
@@ -1066,15 +1074,9 @@ int main(int argc, char *argv[])
     bool isVideo = false;
     int result = GENERIC_EXIT_OK;
 
-    QString filename;
-    QString outputfilename = QString::null;
-
-    QDateTime starttime;
-    QString allStart = "19700101000000";
-    QString allEnd   = QDateTime::currentDateTime().toString("yyyyMMddhhmmss");
+//    QString allStart = "19700101000000";
+//    QString allEnd   = QDateTime::currentDateTime().toString("yyyyMMddhhmmss");
     int jobType = JOB_NONE;
-    QDir fullfile;
-    QString newCutList = QString::null;
 
     if (!cmdline.Parse(argc, argv))
     {
@@ -1186,7 +1188,7 @@ int main(int argc, char *argv[])
     else if (cmdline.toBool("video"))
     {
         // build skiplist for video file
-        return RebuildSeekTable(cmdline.toString(filename), -1);
+        return RebuildSeekTable(cmdline.toString("video"), -1);
     }
     else if (cmdline.toBool("file"))
     {

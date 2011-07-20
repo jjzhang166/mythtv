@@ -2,6 +2,7 @@
 #define MAINSERVER_H_
 
 #include <QReadWriteLock>
+#include <QStringList>
 #include <QThreadPool>
 #include <QRunnable>
 #include <QEvent>
@@ -30,9 +31,9 @@ using namespace std;
 class ProcessRequestThread;
 class QUrl;
 class MythServer;
-class VideoScanner;
 class QTimer;
 class FileSystemInfo;
+class MetadataFactory;
 
 class DeleteStruct : public QRunnable
 {
@@ -111,7 +112,6 @@ class MainServer : public QObject, public MythSocketCBs
     void reconnectTimeout(void);
     void deferredDeleteSlot(void);
     void autoexpireUpdate(void);
-    void finishVideoScan(bool changed);
 
   private slots:
     void newConnection(MythSocket *);
@@ -170,6 +170,7 @@ class MainServer : public QObject, public MythSocketCBs
     void HandleGetRecorderFromNum(QStringList &slist, PlaybackSock *pbs);
     void HandleMessage(QStringList &slist, PlaybackSock *pbs);
     void HandleSetVerbose(QStringList &slist, PlaybackSock *pbs);
+    void HandleSetLogLevel(QStringList &slist, PlaybackSock *pbs);
     void HandleGenPreviewPixmap(QStringList &slist, PlaybackSock *pbs);
     void HandlePixmapLastModified(QStringList &slist, PlaybackSock *pbs);
     void HandlePixmapGetIfModified(const QStringList &slist, PlaybackSock *pbs);
@@ -202,8 +203,11 @@ class MainServer : public QObject, public MythSocketCBs
     void HandleQueryTimeZone(PlaybackSock *pbs);
     void HandleBlockShutdown(bool blockShutdown, PlaybackSock *pbs);
     void HandleDownloadFile(const QStringList &command, PlaybackSock *pbs);
+    void HandleSlaveDisconnectedEvent(const MythEvent &event);
 
     void SendResponse(MythSocket *pbs, QStringList &commands);
+    void SendSlaveDisconnectedEvent(const QList<uint> &offlineEncoderIDs,
+                                    bool needsReschedule);
 
     void getGuideDataThrough(QDateTime &GuideDataThrough);
 
@@ -242,7 +246,7 @@ class MainServer : public QObject, public MythSocketCBs
     QMap<int, EncoderLink *> *encoderList;
 
     MythServer *mythserver;
-    VideoScanner *videoscanner;
+    MetadataFactory *metadatafactory;
 
     QReadWriteLock sockListLock;
     vector<PlaybackSock *> playbackList;
