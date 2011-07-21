@@ -22,6 +22,7 @@
 
 # Repair and optimize each table
     foreach $table ($dbh->tables) {
+        print "Repairing $table\n";
         unless ($dbh->do("REPAIR TABLE $table")) {
             print "Skipped:  $table\n";
             next;
