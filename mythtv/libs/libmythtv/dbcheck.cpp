@@ -22,7 +22,7 @@ using namespace std;
    mythtv/bindings/perl/MythTV.pm
 */
 /// This is the DB schema version expected by the running MythTV instance.
-const QString currentDatabaseVersion = "1279";
+const QString currentDatabaseVersion = "1280";
 
 static bool UpdateDBVersionNumber(const QString &newnumber, QString &dbver);
 static bool performActualUpdate(
@@ -1685,7 +1685,7 @@ NULL
 
     if (dbver == "1093")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1094");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1094");
 
         MSqlQuery recordids(MSqlQuery::InitCon());
         recordids.prepare("SELECT recordid,recpriority FROM record;");
@@ -3009,7 +3009,7 @@ NULL
 
     if (dbver == "1181")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1182");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1182");
 
         MSqlQuery airdates(MSqlQuery::InitCon());
         airdates.prepare("SELECT chanid, starttime FROM recordedprogram "
@@ -3076,7 +3076,7 @@ NULL
 
     if (dbver == "1185")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1186");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1186");
 
         MSqlQuery ppuq(MSqlQuery::InitCon());
 
@@ -4966,7 +4966,7 @@ NULL
 
     if (dbver == "1249")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1250");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1250");
 
         MSqlQuery select(MSqlQuery::InitCon());
         select.prepare("SELECT hostname, data FROM settings "
@@ -5061,7 +5061,7 @@ NULL
 
     if (dbver == "1251")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1252");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1252");
 
         MSqlQuery query(MSqlQuery::InitCon());
         query.prepare("SHOW INDEX FROM recgrouppassword");
@@ -5098,7 +5098,7 @@ NULL
 
     if (dbver == "1252")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1253");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1253");
 
         MSqlQuery select(MSqlQuery::InitCon());
         select.prepare("SELECT hostname, data FROM settings "
@@ -5162,7 +5162,7 @@ NULL
         if (gCoreContext->GetNumSetting("have-nit-fix") == 1)
         {
             // User has previously applied patch from ticket #7486.
-            LOG(VB_GENERAL, LOG_NOTICE,
+            LOG(VB_GENERAL, LOG_CRIT,
                 "Upgrading to MythTV schema version 1254");
             if (!UpdateDBVersionNumber("1254", dbver))
                 return false;
@@ -5266,7 +5266,7 @@ NULL
 
     if (dbver == "1258")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1259");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1259");
 
         MSqlQuery select(MSqlQuery::InitCon());
         select.prepare("SELECT hostname, data FROM settings "
@@ -5350,7 +5350,7 @@ NULL
 
     if (dbver == "1259")
     {
-        LOG(VB_GENERAL, LOG_NOTICE, "Upgrading to MythTV schema version 1260");
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1260");
 
         MSqlQuery query(MSqlQuery::InitCon());
         query.prepare("DELETE FROM keybindings WHERE "
@@ -5441,7 +5441,7 @@ NULL
     {
         if (gCoreContext->GetNumSetting("MythFillFixProgramIDsHasRunOnce", 0))
         {
-            LOG(VB_GENERAL, LOG_NOTICE,
+            LOG(VB_GENERAL, LOG_CRIT,
                 "Upgrading to MythTV schema version 1261");
             if (!UpdateDBVersionNumber("1261", dbver))
                 return false;
@@ -5783,6 +5783,69 @@ NULL
 NULL
 };
         if (!performActualUpdate(updates, "1279", dbver))
+            return false;
+    }
+
+    if (dbver == "1279")
+    {
+        LOG(VB_GENERAL, LOG_CRIT, "Upgrading to MythTV schema version 1280");
+
+        MSqlQuery select(MSqlQuery::InitCon());
+        // New DBs/hosts will not have a NoPromptOnExit, so they'll get defaults
+        select.prepare("SELECT hostname, data FROM settings "
+                       " WHERE value = 'NoPromptOnExit'");
+        if (!select.exec())
+        {
+            MythDB::DBError("Unable to retrieve confirm exit values.", select);
+        }
+        else
+        {
+            MSqlQuery update(MSqlQuery::InitCon());
+            while (select.next())
+            {
+                QString hostname = select.value(0).toString();
+                // Yes, enabled NoPromptOnExit meant to prompt on exit
+                QString prompt_on_exit = select.value(1).toString();
+                // Default EXITPROMPT is wrong for all upgrades
+                update.prepare("DELETE FROM keybindings "
+                               " WHERE action = 'EXITPROMPT' "
+                               "   AND context = 'Main Menu' "
+                               "   AND hostname = :HOSTNAME ;");
+                update.bindValue(":HOSTNAME", hostname);
+                if (!update.exec())
+                     MythDB::DBError("Unable to delete EXITPROMPT binding",
+                                     update);
+
+                if ("0" == prompt_on_exit)
+                {
+                    // EXIT is already mapped appropriately, so just create a
+                    // no-keylist mapping for EXITPROMPT to prevent conflict
+                    update.prepare("INSERT INTO keybindings (context, action, "
+                                   "        description, keylist, hostname) "
+                                   "VALUES ('Main Menu', 'EXITPROMPT', '', "
+                                   "        '', :HOSTNAME );");
+                    update.bindValue(":HOSTNAME", hostname);
+                    if (!update.exec())
+                         MythDB::DBError("Unable to create EXITPROMPT binding",
+                                         update);
+                }
+                else
+                {
+                    // EXIT must be changed to EXITPROMPT
+                    update.prepare("UPDATE keybindings "
+                                   "   SET action = 'EXITPROMPT' "
+                                   " WHERE action = 'EXIT' "
+                                   "   AND context = 'Main Menu' "
+                                   "   AND hostname = :HOSTNAME ;");
+                    update.bindValue(":HOSTNAME", hostname);
+                    if (!update.exec())
+                         MythDB::DBError("Unable to update EXITPROMPT binding",
+                                         update);
+                }
+            }
+        }
+
+        if (!UpdateDBVersionNumber("1280", dbver))
             return false;
     }
 

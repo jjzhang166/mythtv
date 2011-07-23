@@ -1670,17 +1670,6 @@ static HostComboBox *OverrideExitMenu()
     return gc;
 }
 
-static HostCheckBox *NoPromptOnExit()
-{
-    HostCheckBox *gc = new HostCheckBox("NoPromptOnExit");
-    gc->setLabel(QObject::tr("Confirm exit"));
-    gc->setValue(true);
-    gc->setHelpText(QObject::tr("If enabled, MythTV will prompt "
-                    "for confirmation when you press the System Exit "
-                    "key."));
-    return gc;
-}
-
 static HostLineEdit *RebootCommand()
 {
     HostLineEdit *ge = new HostLineEdit("RebootCommand");
@@ -2289,17 +2278,6 @@ static GlobalCheckBox *LiveTVPriority()
                     "be moved to other cards (where possible), so that "
                     "Live TV will not be interrupted."));
     return bc;
-}
-
-// EPG settings
-static HostCheckBox *EPGShowCategoryColors()
-{
-    HostCheckBox *gc = new HostCheckBox("EPGShowCategoryColors");
-    gc->setLabel(QObject::tr("Display genre colors"));
-    gc->setHelpText(QObject::tr("Colorize program guide using "
-                    "genre colors (not available for all grabbers)."));
-    gc->setValue(true);
-    return gc;
 }
 
 static HostCheckBox *ChannelGroupRememberLast()
@@ -3325,21 +3303,13 @@ MainGeneralSettings::MainGeneralSettings()
     media->addChild(mediaMon);
     addChild(media);
 
-    VerticalConfigurationGroup *exit =
-        new VerticalConfigurationGroup(false, true, false, false);
-    exit->setLabel(QObject::tr("Program Exit"));
-    HorizontalConfigurationGroup *ehor0 =
-        new HorizontalConfigurationGroup(false, false, true, true);
-    ehor0->addChild(NoPromptOnExit());
     VerticalConfigurationGroup *shutdownSettings =
         new VerticalConfigurationGroup(true, true, false, false);
     shutdownSettings->setLabel(QObject::tr("Shutdown/Reboot Settings"));
     shutdownSettings->addChild(OverrideExitMenu());
     shutdownSettings->addChild(HaltCommand());
     shutdownSettings->addChild(RebootCommand());
-    exit->addChild(ehor0);
-    exit->addChild(shutdownSettings);
-    addChild(exit);
+    addChild(shutdownSettings);
 
     VerticalConfigurationGroup *remotecontrol =
         new VerticalConfigurationGroup(false, true, false, false);
@@ -3605,7 +3575,6 @@ EPGSettings::EPGSettings()
 {
     VerticalConfigurationGroup* epg = new VerticalConfigurationGroup(false);
     epg->setLabel(QObject::tr("Program Guide") + " 1/1");
-    epg->addChild(EPGShowCategoryColors());
     epg->addChild(WatchTVGuide());
     epg->addChild(DefaultTVChannel());
     epg->addChild(EPGRecThreshold());

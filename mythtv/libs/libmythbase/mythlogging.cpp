@@ -1,5 +1,6 @@
 #include <QMutex>
 #include <QMutexLocker>
+#include <QWaitCondition>
 #include <QList>
 #include <QQueue>
 #include <QThread>
@@ -55,6 +56,7 @@ QList<LoggerBase *>     loggerList;
 
 QMutex                  logQueueMutex;
 QQueue<LoggingItem_t *> logQueue;
+QRegExp                 logRegExp = QRegExp("[%]{1,2}");
 
 QMutex                  logThreadMutex;
 QHash<uint64_t, char *> logThreadHash;
@@ -434,12 +436,25 @@ bool DatabaseLogger::logqmsg(LoggingItem_t *item)
     return true;
 }
 
+DBLoggerThread::DBLoggerThread(DatabaseLogger *logger) :
+    m_logger(logger), m_queue(new QQueue<LoggingItem_t *>),
+    m_wait(new QWaitCondition()), aborted(false)
+{
+}
+
+DBLoggerThread::~DBLoggerThread()
+{
+    stop();
+    wait();
+
+    delete m_queue;
+    delete m_wait;
+}
+
 void DBLoggerThread::run(void)
 {
     threadRegister("DBLogger");
     LoggingItem_t *item;
-
-    aborted = false;
 
     QMutexLocker qLock(&m_queueMutex);
 
@@ -447,9 +462,7 @@ void DBLoggerThread::run(void)
     {
         if (m_queue->isEmpty())
         {
-            qLock.unlock();
-            msleep(100);
-            qLock.relock();
+            m_wait->wait(qLock.mutex(), 100);
             continue;
         }
 
@@ -463,7 +476,7 @@ void DBLoggerThread::run(void)
         {
             qLock.relock();
             m_queue->prepend(item);
-            msleep(100);
+            m_wait->wait(qLock.mutex(), 100);
         } else {
             deleteItem(item);
             qLock.relock();
@@ -472,6 +485,13 @@ void DBLoggerThread::run(void)
 
     MSqlQuery::CloseLogCon();
     threadDeregister();
+}
+
+void DBLoggerThread::stop(void)
+{
+    QMutexLocker qLock(&m_queueMutex);
+    aborted = true;
+    m_wait->wakeAll();
 }
 
 bool DatabaseLogger::isDatabaseReady()
@@ -582,7 +602,8 @@ void setThreadTid( LoggingItem_t *item )
 }
 
 
-LoggerThread::LoggerThread()
+LoggerThread::LoggerThread() :
+    m_wait(new QWaitCondition()), aborted(false)
 {
     char *debug = getenv("VERBOSE_THREADS");
     if (debug != NULL)
@@ -595,6 +616,9 @@ LoggerThread::LoggerThread()
 
 LoggerThread::~LoggerThread()
 {
+    stop();
+    wait();
+
     QMutexLocker locker(&loggerListMutex);
 
     QList<LoggerBase *>::iterator it;
@@ -603,6 +627,8 @@ LoggerThread::~LoggerThread()
     {
         (*it)->deleteLater();
     }
+
+    delete m_wait;
 }
 
 void LoggerThread::run(void)
@@ -611,7 +637,6 @@ void LoggerThread::run(void)
     LoggingItem_t *item;
 
     logThreadFinished = false;
-    aborted = false;
 
     QMutexLocker qLock(&logQueueMutex);
 
@@ -619,9 +644,7 @@ void LoggerThread::run(void)
     {
         if (logQueue.isEmpty())
         {
-            qLock.unlock();
-            msleep(100);
-            qLock.relock();
+            m_wait->wait(qLock.mutex(), 100);
             continue;
         }
 
@@ -706,6 +729,13 @@ void LoggerThread::run(void)
     logThreadFinished = true;
 }
 
+void LoggerThread::stop(void)
+{
+    QMutexLocker qLock(&logQueueMutex);
+    aborted = true;
+    m_wait->wakeAll();
+}
+
 void deleteItem( LoggingItem_t *item )
 {
     if( !item )
@@ -759,7 +789,8 @@ void LogTimeStamp( struct tm *tm, uint32_t *usec )
 }
 
 void LogPrintLine( uint64_t mask, LogLevel_t level, const char *file, int line,
-                   const char *function, const char *format, ... )
+                   const char *function, int fromQString,
+                   const char *format, ... )
 {
     va_list         arguments;
     char           *message;
@@ -782,6 +813,14 @@ void LogPrintLine( uint64_t mask, LogLevel_t level, const char *file, int line,
     if( !message )
         return;
 
+    QMutexLocker qLock(&logQueueMutex);
+
+    if( fromQString && strchr(format, '%') )
+    {
+        QString string(format);
+        format = string.replace(logRegExp, "%%").toLocal8Bit().constData();
+    }
+
     va_start(arguments, format);
     vsnprintf(message, LOGLINE_MAX, format, arguments);
     va_end(arguments);
@@ -795,7 +834,6 @@ void LogPrintLine( uint64_t mask, LogLevel_t level, const char *file, int line,
     item->message  = message;
     setThreadTid(item);
 
-    QMutexLocker qLock(&logQueueMutex);
     logQueue.enqueue(item);
 }
 

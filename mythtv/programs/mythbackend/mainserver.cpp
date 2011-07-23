@@ -5040,8 +5040,8 @@ void MainServer::HandleFileTransferQuery(QStringList &slist,
                                .arg(recnum);
         }
 
-        SendResponse(pbssock, retlist);
         sockListLock.unlock();
+        SendResponse(pbssock, retlist);
         return;
     }
 

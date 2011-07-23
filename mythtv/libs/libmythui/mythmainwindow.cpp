@@ -1170,7 +1170,9 @@ void MythMainWindow::InitKeys()
         "Go forward to previous page"),     "F");
 
     RegisterKey("Main Menu",    "EXIT",       QT_TRANSLATE_NOOP("MythControls",
-        "System Exit"),                     "Esc");
+        "System Exit"),                     "");
+    RegisterKey("Main Menu",    "EXITPROMPT", QT_TRANSLATE_NOOP("MythControls",
+        "Display System Exit Prompt"),      "Esc");
 }
 
 void MythMainWindow::ResetKeys()
@@ -1802,8 +1804,8 @@ bool MythMainWindow::HandleMedia(const QString &handler, const QString &mrl,
                                  const QString &plot, const QString &title,
                                  const QString &subtitle,
                                  const QString &director, int season,
-                                 int episode, int lenMins,
-                                 const QString &year)
+                                 int episode, const QString &inetref,
+                                 int lenMins, const QString &year)
 {
     QString lhandler(handler);
     if (lhandler.isEmpty())
@@ -1813,8 +1815,8 @@ bool MythMainWindow::HandleMedia(const QString &handler, const QString &mrl,
     if (d->mediaPluginMap.count(lhandler))
     {
         d->mediaPluginMap[lhandler].playFn(mrl, plot, title, subtitle,
-                                          director, season, episode, lenMins,
-                                          year);
+                                          director, season, episode,
+                                          inetref, lenMins, year);
         return true;
     }
 
