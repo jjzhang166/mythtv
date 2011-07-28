@@ -212,6 +212,7 @@ class ProcessRequestThread : public QThread
   public:
     ProcessRequestThread(MainServer *ms) :
         parent(ms), socket(NULL), threadlives(false) {}
+    ~ProcessRequestThread() { killit(); wait(); }
 
     void setup(MythSocket *sock)
     {
@@ -341,6 +342,12 @@ MainServer::~MainServer()
     if (mythserver)
         mythserver->disconnect();
 
+    // since Scheduler::SetMainServer() isn't thread-safe
+    // we need to shut down the scheduler thread before we
+    // can call SetMainServer(NULL)
+    if (m_sched)
+        m_sched->Stop();
+
     // tell truncate runs not to waste time truncating,
     // we'll just delete in the dtor
     {
@@ -379,6 +386,23 @@ MainServer::~MainServer()
         mythserver->deleteLater();
         mythserver = NULL;
     }
+
+    if (m_sched)
+    {
+        m_sched->Wait();
+        m_sched->SetMainServer(NULL);
+    }
+
+    if (m_expirer)
+        m_expirer->SetMainServer(NULL);
+
+    QMutexLocker locker(&threadPoolLock);
+    MythDeque<ProcessRequestThread*>::iterator it;
+    for (it = threadPool.begin(); it != threadPool.end(); ++it)
+        (*it)->killit();
+    for (it = threadPool.begin(); it != threadPool.end(); ++it)
+        delete (*it);
+    threadPool.clear();
 }
 
 void MainServer::autoexpireUpdate(void)
