@@ -14,11 +14,18 @@
 
 #define LOC      QString("VirtualKeyboard: ")
 
+
+static struct ActionDefStruct<VirtualKeyboardQt> vkActions[] = {
+    { "ESCAPE", &VirtualKeyboardQt::doEscape }
+};
+static int vkActionCount = NELEMS(vkActions);
+
 VirtualKeyboardQt::VirtualKeyboardQt(MythMainWindow *parent,
-                    QWidget *parentEdit,
-                    const char *name,
-                    bool setsize)
-            : MythThemedDialog(parent, name, setsize)
+                                     QWidget *parentEdit, const char *name,
+                                     bool setsize) :
+    MythThemedDialog(parent, name, setsize),
+    m_actions(new MythActions<VirtualKeyboardQt>(this, vkActions,
+                                                 vkActionCount))
 {
     setFrameStyle(QFrame::Panel | QFrame::Raised);
     setLineWidth(1);
@@ -181,6 +188,9 @@ void VirtualKeyboardQt::SwitchLayout(const QString &lang)
 
 VirtualKeyboardQt::~VirtualKeyboardQt(void)
 {
+    if (m_actions)
+        delete m_actions;
+
     Teardown();
 }
 
@@ -215,21 +225,20 @@ void VirtualKeyboardQt::hide()
     MythDialog::hide();
 }
 
+bool VirtualKeyboardQt::doEscape(const QString &action)
+{
+    accept();
+    return true;
+}
+
 void VirtualKeyboardQt::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions, false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-        if (action == "ESCAPE")
-            accept();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     //just pass all unhandled key events for the keyboard to handle
     if (!handled && m_keyboard)

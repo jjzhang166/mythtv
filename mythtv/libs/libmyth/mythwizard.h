@@ -40,6 +40,7 @@
 
 #include "mythwidgets.h"
 #include "mythdialogs.h"
+#include "mythactions.h"
 
 #include <QEvent>
 #include <QKeyEvent>
@@ -89,6 +90,9 @@ public:
 
     virtual void keyPressEvent(QKeyEvent *);
 
+    bool doSelect(const QString &action);
+    bool doEscape(const QString &action);
+
 public slots:
     virtual void setBackEnabled(QWidget *, bool);
     virtual void setNextEnabled(QWidget *, bool);
@@ -117,6 +121,8 @@ protected:
     void layOut();
 
     MythWizardPrivate *d;
+
+    MythActions<MythWizard> *m_actions;
 };
 
 #endif

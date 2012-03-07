@@ -52,6 +52,7 @@
 #include <QLabel>
 
 #include "mythcorecontext.h"
+#include "mythactions.h"
 
 class MythWizardPrivate
 {
@@ -96,8 +97,15 @@ public:
 
 };
 
-MythWizard::MythWizard(MythMainWindow *parent, const char *name)
-          : MythDialog(parent, name)
+static struct ActionDefStruct<MythWizard> mwActions[] = {
+    { "ESCAPE",   &MythWizard::doEscape },
+    { "SELECT",   &MythWizard::doSelect }
+};
+static int mwActionCount = NELEMS(mwActions);
+
+MythWizard::MythWizard(MythMainWindow *parent, const char *name) :
+    MythDialog(parent, name),
+    m_actions(new MythActions<MythWizard>(this, mwActions, mwActionCount))
 {
     d = new MythWizardPrivate();
     d->current = 0; // not quite true, but...
@@ -145,6 +153,9 @@ MythWizard::~MythWizard()
         d->pages.pop_back();
     }
     delete d;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void MythWizard::Show()
@@ -561,39 +572,36 @@ bool MythWizard::eventFilter( QObject * o, QEvent * e )
     return QWidget::eventFilter( o, e );
 }
 
+bool MythWizard::doEscape(const QString &action)
+{
+    if (indexOf(currentPage()) == 0)
+	reject();
+    else
+    {
+	back();
+	QCoreApplication::postEvent(GetMythMainWindow(),
+	                      new QEvent(MythEvent::kExitToMainMenuEventType));
+    }
+    return true;
+}
+
+bool MythWizard::doSelect(const QString &action)
+{
+    if (indexOf(currentPage()) == pageCount()-1)
+	accept();
+    else
+	next();
+    return true;
+}
+
 void MythWizard::keyPressEvent(QKeyEvent* e)
 {
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "SELECT")
-        {
-            if (indexOf(currentPage()) == pageCount()-1)
-                accept();
-            else
-                next();
-        }
-        else if (action == "ESCAPE")
-        {
-            if (indexOf(currentPage()) == 0)
-                reject();
-            else
-            {
-                back();
-                QCoreApplication::postEvent(
-                    GetMythMainWindow(),
-                    new QEvent(MythEvent::kExitToMainMenuEventType));
-            }
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         MythDialog::keyPressEvent(e);

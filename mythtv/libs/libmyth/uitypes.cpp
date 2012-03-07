@@ -23,6 +23,7 @@ using namespace std;
 #include "x11colors.h"
 
 #include "mythlogging.h"
+#include "mythactions.h"
 
 #ifdef USING_MINGW
 #undef LoadImage
@@ -607,8 +608,20 @@ const QString comps[numcomps][3] = {
         {"y", "\"", (QChar)0xff}
 };
 
-UIKeyboardType::UIKeyboardType(const QString &name, int order)
-                    : UIType(name)
+
+static struct ActionDefStruct<UIKeyboardType> ukActions[] = {
+    { "UP",     &UIKeyboardType::doUp },
+    { "LEFT",   &UIKeyboardType::doLeft },
+    { "DOWN",   &UIKeyboardType::doDown },
+    { "RIGHT",  &UIKeyboardType::doRight },
+    { "SELECT", &UIKeyboardType::doSelect }
+};
+static int ukActionCount = NELEMS(ukActions);
+
+
+UIKeyboardType::UIKeyboardType(const QString &name, int order) :
+    UIType(name),
+    m_actions(new MythActions<UIKeyboardType>(this, ukActions, ukActionCount))
 {
     m_order = order;
     m_container = NULL;
@@ -627,6 +640,9 @@ UIKeyboardType::~UIKeyboardType()
 {
     if (m_container)
         delete m_container;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void UIKeyboardType::init()
@@ -981,38 +997,44 @@ void UIKeyboardType::shiftROnOff()
     updateButtons();
 }
 
+bool UIKeyboardType::doUp(const QString &action)
+{
+    moveUp();
+    return true;
+}
+
+bool UIKeyboardType::doDown(const QString &action)
+{
+    moveDown();
+    return true;
+}
+
+bool UIKeyboardType::doLeft(const QString &action)
+{
+    moveLeft();
+    return true;
+}
+
+bool UIKeyboardType::doRight(const QString &action)
+{
+    moveRight();
+    return true;
+}
+
+bool UIKeyboardType::doSelect(const QString &action)
+{
+    m_focusedKey->activate();
+    return true;
+}
+
 void UIKeyboardType::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions, false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP")
-        {
-            moveUp();
-        }
-        else if (action == "DOWN")
-        {
-            moveDown();
-        }
-        else if (action == "LEFT")
-        {
-            moveLeft();
-        }
-        else if (action == "RIGHT")
-        {
-            moveRight();
-        }
-        else if (action == "SELECT")
-            m_focusedKey->activate();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
     {

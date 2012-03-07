@@ -20,6 +20,7 @@ using namespace std;
 #include "mythdialogs.h"
 #include "mythwidgets.h"
 #include "mythfontproperties.h"
+#include "mythactions.h"
 
 #ifdef USING_MINGW
 #undef LoadImage
@@ -257,6 +258,12 @@ class MPUBLIC UIKeyboardType : public UIType
     virtual void calculateScreenArea();
     virtual void keyPressEvent(QKeyEvent *e);
 
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doSelect(const QString &action);
+
   private slots:
     void charKey();
     void lockOnOff();
@@ -300,6 +307,8 @@ class MPUBLIC UIKeyboardType : public UIType
 
     LayerSet  *m_container;
     KeyList   m_keyList;
+
+    MythActions<UIKeyboardType> *m_actions;
 };
 
 #endif

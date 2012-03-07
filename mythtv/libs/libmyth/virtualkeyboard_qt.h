@@ -22,10 +22,10 @@ class MPUBLIC VirtualKeyboardQt : public MythThemedDialog
 {
     Q_OBJECT
   public:
-    VirtualKeyboardQt(MythMainWindow *parent, 
-                    QWidget *parentEdit,
-                    const char *name = 0,
-                    bool setsize = true);
+    VirtualKeyboardQt(MythMainWindow *parent, QWidget *parentEdit,
+                      const char *name = 0, bool setsize = true);
+
+    bool doEscape(const QString &action);
 
   public slots:
     virtual void SwitchLayout(const QString &language);
@@ -46,6 +46,8 @@ class MPUBLIC VirtualKeyboardQt : public MythThemedDialog
     QWidget        *m_parentEdit;
     int             m_popupWidth;
     int             m_popupHeight;
+
+    MythActions<VirtualKeyboardQt> *m_actions;
 };
 
 #endif
