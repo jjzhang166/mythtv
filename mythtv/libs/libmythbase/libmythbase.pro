@@ -10,7 +10,7 @@ INSTALLS = target
 QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 
 # Input
-HEADERS += mthread.h mthreadpool.h
+HEADERS += mthread.h mthreadpool.h mythactions.h
 HEADERS += mythsocket.h mythsocket_cb.h mythsocketthread.h msocketdevice.h
 HEADERS += mythbaseexp.h mythdbcon.h mythdb.h mythdbparams.h oldsettings.h
 HEADERS += verbosedefs.h mythversion.h compat.h mythconfig.h
@@ -25,7 +25,7 @@ HEADERS += mythhttppool.h mythhttphandler.h mythdeque.h mythlogging.h
 HEADERS += mythbaseutil.h referencecounter.h version.h mythcommandlineparser.h
 HEADERS += mythscheduler.h filesysteminfo.h hardwareprofile.h serverpool.h
 
-SOURCES += mthread.cpp mthreadpool.cpp
+SOURCES += mthread.cpp mthreadpool.cpp mythactions.cpp
 SOURCES += mythsocket.cpp mythsocketthread.cpp msocketdevice.cpp
 SOURCES += mythdbcon.cpp mythdb.cpp oldsettings.cpp
 SOURCES += mythobservable.cpp mythevent.cpp httpcomms.cpp mcodecs.cpp

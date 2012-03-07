@@ -2,6 +2,7 @@
 
 #include "mythconfigdialogs.h"
 #include "mythwizard.h"
+#include "mythactions.h"
 
 #include "mythuihelper.h"
 
@@ -19,6 +20,74 @@ static void clear_widgets(vector<Configurable*> &children,
     childwidget.clear();
 }
 
+static bool cdwAccept(void *args)
+{
+    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
+    if (!cdw)
+        return false;
+    cdw->accept();
+    return true;
+}
+
+static bool cdwReject(void *args)
+{
+    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
+    if (!cdw)
+        return false;
+    cdw->reject();
+    return true;
+}
+
+static bool cdwEditButtonPressed(void *args)
+{
+    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
+    if (!cdw)
+        return false;
+    cdw->emitEditButtonPressed();
+    return true;
+}
+
+static bool cdwDeleteButtonPressed(void *args)
+{
+    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
+    if (!cdw)
+        return false;
+    cdw->emitDeleteButtonPressed();
+    return true;
+}
+
+
+static ActionDef cdwActions[] = {
+    { "SELECT", cdwAccept },
+    { "ESCAPE", cdwReject },
+    { "EDIT",   cdwEditButtonPressed },
+    { "DELETE", cdwDeleteButtonPressed }
+};
+static int cdwActionCount = NELEMS(cdwActions);
+
+ConfigurationDialogWidget::ConfigurationDialogWidget(MythMainWindow *parent,
+                                                     const char *widgetName) :
+    MythDialog(parent, widgetName),
+    m_actions(new MythActions(cdwActions, cdwActionCount))
+{
+}
+
+ConfigurationDialogWidget::~ConfigurationDialogWidget()
+{
+    if (m_actions)
+        delete m_actions;
+}
+
+void ConfigurationDialogWidget::emitEditButtonPressed(void)
+{
+    emit editButtonPressed();
+}
+
+void ConfigurationDialogWidget::emitDeleteButtonPressed(void)
+{
+    emit deleteButtonPressed();
+}
+
 void ConfigurationDialogWidget::keyPressEvent(QKeyEvent* e)
 {
     bool handled = false;
@@ -26,22 +95,8 @@ void ConfigurationDialogWidget::keyPressEvent(QKeyEvent* e)
 
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        const QString &action = actions[i];
-        handled = true;
-
-        if (action == "SELECT")
-            accept();
-        else if (action == "ESCAPE")
-            reject();
-        else if (action == "EDIT")
-            emit editButtonPressed();
-        else if (action == "DELETE")
-            emit deleteButtonPressed();
-        else
-            handled = false;
-    }
+    if (!handled && m_actions)
+        handled = m_actions->handleActions(actions, this);
 
     if (!handled)
         MythDialog::keyPressEvent(e);

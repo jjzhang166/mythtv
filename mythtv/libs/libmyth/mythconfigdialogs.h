@@ -15,21 +15,27 @@
 #include "mythstorage.h"
 #include "mythconfiggroups.h"
 #include "mythterminal.h"
+#include "mythactions.h"
 
 class MPUBLIC ConfigurationDialogWidget : public MythDialog
 {
     Q_OBJECT
 
-        public:
-    ConfigurationDialogWidget(MythMainWindow *parent,
-                              const char     *widgetName) :
-        MythDialog(parent, widgetName) { }
+  public:
+    ConfigurationDialogWidget(MythMainWindow *parent, const char *widgetName);
+    ~ConfigurationDialogWidget();
 
     virtual void keyPressEvent(QKeyEvent *e);
+
+    void emitEditButtonPressed(void);
+    void emitDeleteButtonPressed(void);
 
   signals:
     void editButtonPressed(void);
     void deleteButtonPressed(void);
+
+  private:
+    MythActions *m_actions;
 };
 
 /** \class ConfigurationDialog
