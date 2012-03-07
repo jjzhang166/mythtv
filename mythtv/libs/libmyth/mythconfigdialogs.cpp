@@ -20,55 +20,19 @@ static void clear_widgets(vector<Configurable*> &children,
     childwidget.clear();
 }
 
-static bool cdwAccept(void *args)
-{
-    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
-    if (!cdw)
-        return false;
-    cdw->accept();
-    return true;
-}
-
-static bool cdwReject(void *args)
-{
-    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
-    if (!cdw)
-        return false;
-    cdw->reject();
-    return true;
-}
-
-static bool cdwEditButtonPressed(void *args)
-{
-    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
-    if (!cdw)
-        return false;
-    cdw->emitEditButtonPressed();
-    return true;
-}
-
-static bool cdwDeleteButtonPressed(void *args)
-{
-    ConfigurationDialogWidget *cdw = (ConfigurationDialogWidget *)args;
-    if (!cdw)
-        return false;
-    cdw->emitDeleteButtonPressed();
-    return true;
-}
-
-
-static ActionDef cdwActions[] = {
-    { "SELECT", cdwAccept },
-    { "ESCAPE", cdwReject },
-    { "EDIT",   cdwEditButtonPressed },
-    { "DELETE", cdwDeleteButtonPressed }
+static struct ActionDefStruct<ConfigurationDialogWidget> cdwActions[] = {
+    { "SELECT", &ConfigurationDialogWidget::accept },
+    { "ESCAPE", &ConfigurationDialogWidget::reject },
+    { "EDIT",   &ConfigurationDialogWidget::emitEditButtonPressed },
+    { "DELETE", &ConfigurationDialogWidget::emitDeleteButtonPressed }
 };
 static int cdwActionCount = NELEMS(cdwActions);
 
 ConfigurationDialogWidget::ConfigurationDialogWidget(MythMainWindow *parent,
                                                      const char *widgetName) :
     MythDialog(parent, widgetName),
-    m_actions(new MythActions(cdwActions, cdwActionCount))
+    m_actions(new MythActions<ConfigurationDialogWidget>(this, cdwActions,
+                                                         cdwActionCount))
 {
 }
 
@@ -96,7 +60,7 @@ void ConfigurationDialogWidget::keyPressEvent(QKeyEvent* e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled && m_actions)
-        handled = m_actions->handleActions(actions, this);
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         MythDialog::keyPressEvent(e);

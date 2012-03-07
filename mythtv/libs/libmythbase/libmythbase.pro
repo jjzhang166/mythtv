@@ -25,7 +25,7 @@ HEADERS += mythhttppool.h mythhttphandler.h mythdeque.h mythlogging.h
 HEADERS += mythbaseutil.h referencecounter.h version.h mythcommandlineparser.h
 HEADERS += mythscheduler.h filesysteminfo.h hardwareprofile.h serverpool.h
 
-SOURCES += mthread.cpp mthreadpool.cpp mythactions.cpp
+SOURCES += mthread.cpp mthreadpool.cpp
 SOURCES += mythsocket.cpp mythsocketthread.cpp msocketdevice.cpp
 SOURCES += mythdbcon.cpp mythdb.cpp oldsettings.cpp
 SOURCES += mythobservable.cpp mythevent.cpp httpcomms.cpp mcodecs.cpp

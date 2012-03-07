@@ -6,24 +6,62 @@
 #include <QHash>
 #include "mythbaseexp.h"  //  MBASE_PUBLIC , etc.
 
-typedef bool (*ActionHandler)(void *args);
-
-typedef struct
+template <class T>
+struct ActionDefStruct
 {
-    QString         name;
-    ActionHandler   handler;
-} ActionDef;
+    QString     name;
+    void        (T::*handler)(void);
+};
 
 #define NELEMS(x) ((sizeof(x)) / (sizeof(x[0])))
+#define CALL_CLASS_MEMBER(pObj,pMember)  ((pObj)->*(pMember))
 
-class MBASE_PUBLIC MythActions : public QHash<QString, ActionHandler>
+template <class T>
+class ActionMap : public QHash<QString, struct ActionDefStruct<T> *>
 {
   public:
-    MythActions(ActionDef *defs, int count);
-    ~MythActions();
+    ActionMap()  {};
+    ~ActionMap() {};
+};
 
-    bool handleActions(const QStringList &actions, void *args);
-    bool handleAction(const QString &action, void *args);
+template <class T>
+class MBASE_PUBLIC MythActions : public ActionMap<T>
+{
+  public:
+    MythActions(T *parent, struct ActionDefStruct<T> *defs, int count) :
+        m_parent(parent)
+    {
+        for (int i = 0; i < count; i++)
+            insert(defs[i].name, &defs[i]);
+    }
+
+    ~MythActions() {}
+
+    bool handleActions(const QStringList &actions)
+    {
+        bool handled = false;
+        for (int i = 0; i < actions.size() && !handled; i++)
+        {
+            const QString &action = actions[i];
+            handled = handleAction(action);
+        }
+
+        return handled;
+    }
+
+    bool handleAction(const QString &action)
+    {
+        struct ActionDefStruct<T> *def = this->value(action, NULL);
+
+        if (!def || !def->handler)
+            return false;
+
+        CALL_CLASS_MEMBER(m_parent,def->handler)();
+        return true;
+    }
+
+  private:
+    T *m_parent;
 };
 
 #endif

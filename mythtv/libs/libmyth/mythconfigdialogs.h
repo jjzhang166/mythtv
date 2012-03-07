@@ -17,6 +17,8 @@
 #include "mythterminal.h"
 #include "mythactions.h"
 
+class ConfigurationDialogWidget;
+
 class MPUBLIC ConfigurationDialogWidget : public MythDialog
 {
     Q_OBJECT
@@ -35,7 +37,7 @@ class MPUBLIC ConfigurationDialogWidget : public MythDialog
     void deleteButtonPressed(void);
 
   private:
-    MythActions *m_actions;
+    MythActions<ConfigurationDialogWidget> *m_actions;
 };
 
 /** \class ConfigurationDialog
