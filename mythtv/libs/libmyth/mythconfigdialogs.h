@@ -29,8 +29,8 @@ class MPUBLIC ConfigurationDialogWidget : public MythDialog
 
     virtual void keyPressEvent(QKeyEvent *e);
 
-    bool emitEditButtonPressed(void);
-    bool emitDeleteButtonPressed(void);
+    bool doEdit(const QString &action);
+    bool doDelete(const QString &action);
 
   signals:
     void editButtonPressed(void);

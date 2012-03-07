@@ -86,9 +86,9 @@ class MPUBLIC MythDialog : public QFrame
     virtual void deleteLater(void);
 
     static int CalcItemIndex(DialogCode code);
-    bool emitMenuButtonPressed(void);
-    bool doUpLeft(void);
-    bool doDownRight(void);
+    bool doMenu(const QString &action);
+    bool doUpLeft(const QString &action);
+    bool doDownRight(const QString &action);
 
  signals:
     void menuButtonPressed();
@@ -98,8 +98,8 @@ class MPUBLIC MythDialog : public QFrame
     DialogCode exec(void);
     virtual void done(int); // Must be given a valid DialogCode
     virtual void AcceptItem(int);
-    virtual bool accept();
-    virtual bool reject();
+    virtual bool accept(const QString &action = "");
+    virtual bool reject(const QString &action = "");
 
   protected:
     ~MythDialog();
@@ -178,8 +178,8 @@ class MPUBLIC MythPopupBox : public MythDialog
 
   public slots:
     virtual void AcceptItem(int);
-    virtual bool accept(void);
-    virtual bool reject(void);
+    virtual bool accept(const QString &action);
+    virtual bool reject(const QString &action);
 
   signals:
     void popupDone(int);

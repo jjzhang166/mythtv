@@ -161,40 +161,55 @@ void MythTerminal::ProcessFinished(
 }
 
 ////////////////////////////////////////////////////////////////////////
+static struct ActionDefStruct<MythTerminalKeyFilter> mtkfActions[] = {
+    { "ESCAPE", &MythTerminalKeyFilter::doEventFilter },
+    { "UP",     &MythTerminalKeyFilter::doEventFilter },
+    { "LEFT",   &MythTerminalKeyFilter::doEventFilter },
+    { "DOWN",   &MythTerminalKeyFilter::doEventFilter },
+    { "RIGHT",  &MythTerminalKeyFilter::doEventFilter }
+};
+static int mtkfActionCount = NELEMS(mtkfActions);
+
+MythTerminalKeyFilter::MythTerminalKeyFilter() :
+    m_actions(new MythActions<MythTerminalKeyFilter>(this, mtkfActions,
+                                                     mtkfActionCount))
+{
+}
+
+MythTerminalKeyFilter::~MythTerminalKeyFilter()
+{
+    if (m_actions)
+        delete m_actions;
+}
+
+bool MythTerminalKeyFilter::doEventFilter(const QString &action)
+{
+    return QObject::eventFilter(m_actionObj, m_actionEvent);
+}
 
 bool MythTerminalKeyFilter::eventFilter(QObject *obj, QEvent *event)
 {
-    if (event->type() == QEvent::KeyPress)
-    {
-        QKeyEvent *e = (QKeyEvent*)(event);
-        QStringList actions;
-        bool handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions,
-                                                              false);
-        if (!handled && !actions.isEmpty())
-        {
-            if (actions.contains("LEFT") || actions.contains("RIGHT") ||
-                actions.contains("UP") || actions.contains("DOWN") ||
-                actions.contains("ESCAPE"))
-            {
-                return QObject::eventFilter(obj, event);
-            }
-            else
-            {
-                emit KeyPressd(e);
-                e->accept();
-                return true;
-            }
-        }
-        else
-        {
-            emit KeyPressd(e);
-            e->accept();
-            return true;
-        }
-    }
-    else
+    if (event->type() != QEvent::KeyPress)
     {
         return QObject::eventFilter(obj, event);
     }
+
+    QKeyEvent *e = (QKeyEvent*)(event);
+    QStringList actions;
+    bool handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions,
+                                                          false);
+    if (!handled && !actions.isEmpty())
+    {
+        bool touched;
+        m_actionObj = obj;
+        m_actionEvent = event;
+        handled = m_actions->handleActions(actions, &touched);
+        if (touched)
+            return handled;
+    }
+
+    emit KeyPressd(e);
+    e->accept();
+    return true;
 }
 

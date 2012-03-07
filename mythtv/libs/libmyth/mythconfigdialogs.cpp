@@ -23,8 +23,8 @@ static void clear_widgets(vector<Configurable*> &children,
 static struct ActionDefStruct<ConfigurationDialogWidget> cdwActions[] = {
     { "SELECT", &ConfigurationDialogWidget::accept },
     { "ESCAPE", &ConfigurationDialogWidget::reject },
-    { "EDIT",   &ConfigurationDialogWidget::emitEditButtonPressed },
-    { "DELETE", &ConfigurationDialogWidget::emitDeleteButtonPressed }
+    { "EDIT",   &ConfigurationDialogWidget::doEdit },
+    { "DELETE", &ConfigurationDialogWidget::doDelete }
 };
 static int cdwActionCount = NELEMS(cdwActions);
 
@@ -42,13 +42,13 @@ ConfigurationDialogWidget::~ConfigurationDialogWidget()
         delete m_actions;
 }
 
-bool ConfigurationDialogWidget::emitEditButtonPressed(void)
+bool ConfigurationDialogWidget::doEdit(const QString &action)
 {
     emit editButtonPressed();
     return true;
 }
 
-bool ConfigurationDialogWidget::emitDeleteButtonPressed(void)
+bool ConfigurationDialogWidget::doDelete(const QString &action)
 {
     emit deleteButtonPressed();
     return true;

@@ -17,6 +17,7 @@ using namespace std;
 #include "mythdialogs.h"
 #include "mythlogging.h"
 #include "mythmainwindow.h"
+#include "mythactions.h"
 
 typedef VirtualKeyboardQt* QWidgetP;
 static void qt_delete(QWidgetP &widget)
@@ -30,11 +31,24 @@ static void qt_delete(QWidgetP &widget)
     }
 }
 
+static struct ActionDefStruct<MythComboBox> mcbActions[] = {
+    { "UP",       &MythComboBox::doUp },
+    { "DOWN",     &MythComboBox::doDown },
+    { "LEFT",     &MythComboBox::doLeft },
+    { "RIGHT",    &MythComboBox::doRight },
+    { "PAGEDOWN", &MythComboBox::doPgDown },
+    { "PAGEUP",   &MythComboBox::doPgUp },
+    { "SELECT",   &MythComboBox::doSelect }
+};
+static int mcbActionCount = NELEMS(mcbActions);
+
+
 MythComboBox::MythComboBox(bool rw, QWidget *parent, const char *name) :
     QComboBox(parent),
     popup(NULL), helptext(QString::null), AcceptOnSelect(false),
     useVirtualKeyboard(true), allowVirtualKeyboard(rw),
-    popupPosition(VKQT_POSBELOWEDIT), step(1)
+    popupPosition(VKQT_POSBELOWEDIT), step(1),
+    m_actions(new MythActions<MythComboBox>(this, mcbActions, mcbActionCount))
 {
     setObjectName(name);
     setEditable(rw);
@@ -43,6 +57,9 @@ MythComboBox::MythComboBox(bool rw, QWidget *parent, const char *name) :
 
 MythComboBox::~MythComboBox()
 {
+    if (!m_actions)
+        delete m_actions;
+
     Teardown();
 }
 
@@ -76,83 +93,89 @@ void MythComboBox::popupVirtualKeyboard(void)
     qt_delete(popup);
 }
 
+bool MythComboBox::doUp(const QString &action)
+{
+    focusNextPrevChild(false);
+    return true;
+}
+
+bool MythComboBox::doDown(const QString &action)
+{
+    focusNextPrevChild(true);
+    return true;
+}
+
+bool MythComboBox::doLeft(const QString &action)
+{
+    if (currentIndex() == 0)
+        setCurrentIndex(count()-1);
+    else if (count() > 0)
+        setCurrentIndex((currentIndex() - 1) % count());
+
+    emit activated(currentIndex());
+    emit activated(itemText(currentIndex()));
+    return true;
+}
+
+bool MythComboBox::doRight(const QString &action)
+{
+    if (count() > 0)
+        setCurrentIndex((currentIndex() + 1) % count());
+
+    emit activated(currentIndex());
+    emit activated(itemText(currentIndex()));
+    return true;
+}
+
+bool MythComboBox::doPgDown(const QString &action)
+{
+    if (currentIndex() == 0)
+        setCurrentIndex(count() - (step % count()));
+    else if (count() > 0)
+        setCurrentIndex((currentIndex() + count() - (step % count())) %
+                        count());
+
+    emit activated(currentIndex());
+    emit activated(itemText(currentIndex()));
+    return true;
+}
+
+bool MythComboBox::doPgUp(const QString &action)
+{
+    if (count() > 0)
+        setCurrentIndex((currentIndex() + (step % count())) % count());
+
+    emit activated(currentIndex());
+    emit activated(itemText(currentIndex()));
+    return true;
+}
+
+bool MythComboBox::doSelect(const QString &action)
+{
+    if (AcceptOnSelect)
+        emit accepted(currentIndex());
+    else if ((m_actionEvent->text().isEmpty() ||
+              (m_actionEvent->key() == Qt::Key_Enter) ||
+              (m_actionEvent->key() == Qt::Key_Return) ||
+              (m_actionEvent->key() == Qt::Key_Space)) &&
+              useVirtualKeyboard && allowVirtualKeyboard)
+        popupVirtualKeyboard();
+    return true;
+}
 
 void MythComboBox::keyPressEvent(QKeyEvent *e)
 {
-    bool handled = false, updated = false;
+    bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions,
                                                      !allowVirtualKeyboard);
 
     if ((!popup || popup->isHidden()) && !handled)
     {
-        for (int i = 0; i < actions.size() && !handled; i++)
-        {
-            QString action = actions[i];
-            handled = true;
-
-            if (action == "UP")
-            {
-                focusNextPrevChild(false);
-            }
-            else if (action == "DOWN")
-            {
-                focusNextPrevChild(true);
-            }
-            else if (action == "LEFT")
-            {
-                if (currentIndex() == 0)
-                    setCurrentIndex(count()-1);
-                else if (count() > 0)
-                    setCurrentIndex((currentIndex() - 1) % count());
-                updated = true;
-            }
-            else if (action == "RIGHT")
-            {
-                if (count() > 0)
-                    setCurrentIndex((currentIndex() + 1) % count());
-                updated = true;
-            }
-            else if (action == "PAGEDOWN")
-            {
-                if (currentIndex() == 0)
-                    setCurrentIndex(count() - (step % count()));
-                else if (count() > 0)
-                    setCurrentIndex(
-                        (currentIndex() + count() - (step % count())) % count());
-                updated = true;
-            }
-            else if (action == "PAGEUP")
-            {
-                if (count() > 0)
-                    setCurrentIndex(
-                        (currentIndex() + (step % count())) % count());
-                updated = true;
-            }
-            else if (action == "SELECT" && AcceptOnSelect)
-                emit accepted(currentIndex());
-            else if (action == "SELECT" &&
-                    (e->text().isEmpty() ||
-                    (e->key() == Qt::Key_Enter) ||
-                    (e->key() == Qt::Key_Return) ||
-                    (e->key() == Qt::Key_Space)))
-            {
-                if (useVirtualKeyboard && allowVirtualKeyboard)
-                    popupVirtualKeyboard();
-                else
-                   handled = true;
-            }
-
-            else
-                handled = false;
-        }
+        m_actionEvent  = e;
+        handled = m_actions->handleActions(actions);
     }
 
-    if (updated)
-    {
-        emit activated(currentIndex());
-        emit activated(itemText(currentIndex()));
-    }
     if (!handled)
     {
         if (isEditable())
@@ -206,6 +229,55 @@ void MythComboBox::focusOutEvent(QFocusEvent *e)
     QComboBox::focusOutEvent(e);
 }
 
+static struct ActionDefStruct<MythCheckBox> mchkbActions[] = {
+    { "UP",       &MythCheckBox::doUp },
+    { "DOWN",     &MythCheckBox::doDown },
+    { "LEFT",     &MythCheckBox::doToggle },
+    { "RIGHT",    &MythCheckBox::doToggle },
+    { "SELECT",   &MythCheckBox::doToggle }
+};
+static int mchkbActionCount = NELEMS(mchkbActions);
+
+MythCheckBox::MythCheckBox(QWidget *parent, const char *name) :
+    QCheckBox(parent),
+    m_actions(new MythActions<MythCheckBox>(this, mchkbActions,
+                                            mchkbActionCount))
+{
+    setObjectName(name);
+}
+
+MythCheckBox::MythCheckBox(const QString &text, QWidget *parent,
+                           const char *name) : QCheckBox(text, parent),
+    m_actions(new MythActions<MythCheckBox>(this, mchkbActions,
+                                            mchkbActionCount))
+{
+    setObjectName(name);
+}
+
+MythCheckBox::~MythCheckBox()
+{
+    if (m_actions)
+        delete m_actions;
+}
+
+bool MythCheckBox::doUp(const QString &action)
+{
+    focusNextPrevChild(false);
+    return true;
+}
+
+bool MythCheckBox::doDown(const QString &action)
+{
+    focusNextPrevChild(true);
+    return true;
+}
+
+bool MythCheckBox::doToggle(const QString &action)
+{
+    toggle();
+    return true;
+}
+
 void MythCheckBox::keyPressEvent(QKeyEvent* e)
 {
     bool handled = false;
@@ -213,20 +285,8 @@ void MythCheckBox::keyPressEvent(QKeyEvent* e)
 
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for ( int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP")
-            focusNextPrevChild(false);
-        else if (action == "DOWN")
-            focusNextPrevChild(true);
-        else if (action == "LEFT" || action == "RIGHT" || action == "SELECT")
-            toggle();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         e->ignore();
@@ -258,26 +318,54 @@ void MythCheckBox::focusOutEvent(QFocusEvent *e)
     QCheckBox::focusOutEvent(e);
 }
 
+static struct ActionDefStruct<MythRadioButton> mrbActions[] = {
+    { "UP",       &MythRadioButton::doUp },
+    { "DOWN",     &MythRadioButton::doDown },
+    { "LEFT",     &MythRadioButton::doToggle },
+    { "RIGHT",    &MythRadioButton::doToggle }
+};
+static int mrbActionCount = NELEMS(mrbActions);
+
+MythRadioButton::MythRadioButton(QWidget* parent, const char* name) :
+    QRadioButton(parent),
+    m_actions(new MythActions<MythRadioButton>(this, mrbActions,
+                                               mrbActionCount))
+{
+    setObjectName(name);
+}
+
+MythRadioButton::~MythRadioButton()
+{
+    if (m_actions)
+        delete m_actions;
+}
+
+bool MythRadioButton::doUp(const QString &action)
+{
+    focusNextPrevChild(false);
+    return true;
+}
+
+bool MythRadioButton::doDown(const QString &action)
+{
+    focusNextPrevChild(true);
+    return true;
+}
+
+bool MythRadioButton::doToggle(const QString &action)
+{
+    toggle();
+    return true;
+}
+
 void MythRadioButton::keyPressEvent(QKeyEvent* e)
 {
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP")
-            focusNextPrevChild(false);
-        else if (action == "DOWN")
-            focusNextPrevChild(true);
-        else if (action == "LEFT" || action == "RIGHT")
-            toggle();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         e->ignore();
@@ -311,6 +399,74 @@ void MythRadioButton::focusOutEvent(QFocusEvent *e)
 }
 
 
+static struct ActionDefStruct<MythSpinBox> msbActions[] = {
+    { "UP",       &MythSpinBox::doUp },
+    { "DOWN",     &MythSpinBox::doDown },
+    { "LEFT",     &MythSpinBox::doLeft },
+    { "RIGHT",    &MythSpinBox::doRight },
+    { "PAGEDOWN", &MythSpinBox::doPgDown },
+    { "PAGEUP",   &MythSpinBox::doPgUp },
+    { "SELECT",   &MythSpinBox::doSelect }
+};
+static int msbActionCount = NELEMS(msbActions);
+
+MythSpinBox::MythSpinBox(QWidget* parent, const char* name,
+                bool allow_single_step) :
+    QSpinBox(parent), allowsinglestep(allow_single_step),
+    m_actions(new MythActions<MythSpinBox>(this, msbActions, msbActionCount))
+{
+    setObjectName(name);
+    if (allowsinglestep)
+        setSingleStep(10);
+}
+
+MythSpinBox::~MythSpinBox()
+{
+    if (m_actions)
+        delete m_actions;
+}
+
+bool MythSpinBox::doUp(const QString &action)
+{
+    focusNextPrevChild(false);
+    return true;
+}
+
+bool MythSpinBox::doDown(const QString &action)
+{
+    focusNextPrevChild(true);
+    return true;
+}
+
+bool MythSpinBox::doLeft(const QString &action)
+{
+    allowsinglestep ? setValue(value()-1) : stepDown();
+    return true;
+}
+
+bool MythSpinBox::doRight(const QString &action)
+{
+    allowsinglestep ? setValue(value()+1) : stepUp();
+    return true;
+}
+
+bool MythSpinBox::doPgDown(const QString &action)
+{
+    stepDown();
+    return true;
+}
+
+bool MythSpinBox::doPgUp(const QString &action)
+{
+    stepUp();
+    return true;
+}
+
+bool MythSpinBox::doSelect(const QString &action)
+{
+    return true;
+}
+
 void MythSpinBox::setHelpText(const QString &help)
 {
     bool changed = helptext != help;
@@ -325,28 +481,8 @@ void MythSpinBox::keyPressEvent(QKeyEvent* e)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP")
-            focusNextPrevChild(false);
-        else if (action == "DOWN")
-            focusNextPrevChild(true);
-        else if (action == "LEFT")
-            allowsinglestep ? setValue(value()-1) : stepDown();
-        else if (action == "RIGHT")
-            allowsinglestep ? setValue(value()+1) : stepUp();
-        else if (action == "PAGEDOWN")
-            stepDown();
-        else if (action == "PAGEUP")
-            stepUp();
-        else if (action == "SELECT")
-            handled = true;
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         QSpinBox::keyPressEvent(e);
@@ -371,30 +507,67 @@ void MythSpinBox::focusOutEvent(QFocusEvent *e)
     QSpinBox::focusOutEvent(e);
 }
 
+static struct ActionDefStruct<MythSlider> mslideActions[] = {
+    { "UP",       &MythSlider::doUp },
+    { "DOWN",     &MythSlider::doDown },
+    { "LEFT",     &MythSlider::doLeft },
+    { "RIGHT",    &MythSlider::doRight },
+    { "SELECT",   &MythSlider::doSelect }
+};
+static int mslideActionCount = NELEMS(mslideActions);
+
+MythSlider::MythSlider(QWidget* parent, const char* name) :
+    QSlider(parent),
+    m_actions(new MythActions<MythSlider>(this, mslideActions,
+                                          mslideActionCount))
+{
+    setObjectName(name);
+}
+
+MythSlider::~MythSlider()
+{
+    if (m_actions)
+        delete m_actions;
+}
+
+bool MythSlider::doUp(const QString &action)
+{
+    focusNextPrevChild(false);
+    return true;
+}
+
+bool MythSlider::doDown(const QString &action)
+{
+    focusNextPrevChild(true);
+    return true;
+}
+
+bool MythSlider::doLeft(const QString &action)
+{
+    setValue(value() - singleStep());
+    return true;
+}
+
+bool MythSlider::doRight(const QString &action)
+{
+    setValue(value() + singleStep());
+    return true;
+}
+
+bool MythSlider::doSelect(const QString &action)
+{
+    return true;
+}
+
+
 void MythSlider::keyPressEvent(QKeyEvent* e)
 {
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP")
-            focusNextPrevChild(false);
-        else if (action == "DOWN")
-            focusNextPrevChild(true);
-        else if (action == "LEFT")
-            setValue(value() - singleStep());
-        else if (action == "RIGHT")
-            setValue(value() + singleStep());
-        else if (action == "SELECT")
-            handled = true;
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         QSlider::keyPressEvent(e);
@@ -427,24 +600,34 @@ void MythSlider::focusOutEvent(QFocusEvent *e)
     QSlider::focusOutEvent(e);
 }
 
+
+static struct ActionDefStruct<MythLineEdit> mleActions[] = {
+    { "UP",       &MythLineEdit::doUp },
+    { "DOWN",     &MythLineEdit::doDown },
+    { "SELECT",   &MythLineEdit::doSelect }
+};
+static int mleActionCount = NELEMS(mleActions);
+
 MythLineEdit::MythLineEdit(QWidget *parent, const char *name) :
     QLineEdit(parent),
     popup(NULL), helptext(QString::null), rw(true),
     useVirtualKeyboard(true),
     allowVirtualKeyboard(true),
-    popupPosition(VKQT_POSBELOWEDIT)
+    popupPosition(VKQT_POSBELOWEDIT),
+    m_actions(new MythActions<MythLineEdit>(this, mleActions, mleActionCount))
 {
     setObjectName(name);
     useVirtualKeyboard = gCoreContext->GetNumSetting("UseVirtualKeyboard", 1);
 }
 
-MythLineEdit::MythLineEdit(
-    const QString &contents, QWidget *parent, const char *name) :
+MythLineEdit::MythLineEdit(const QString &contents, QWidget *parent,
+                           const char *name) :
     QLineEdit(contents, parent),
     popup(NULL), helptext(QString::null), rw(true),
     useVirtualKeyboard(true),
     allowVirtualKeyboard(true),
-    popupPosition(VKQT_POSBELOWEDIT)
+    popupPosition(VKQT_POSBELOWEDIT),
+    m_actions(new MythActions<MythLineEdit>(this, mleActions, mleActionCount))
 {
     setObjectName(name);
     useVirtualKeyboard = gCoreContext->GetNumSetting("UseVirtualKeyboard", 1);
@@ -452,6 +635,9 @@ MythLineEdit::MythLineEdit(
 
 MythLineEdit::~MythLineEdit()
 {
+    if (m_actions)
+        delete m_actions;
+
     Teardown();
 }
 
@@ -477,38 +663,44 @@ void MythLineEdit::popupVirtualKeyboard(void)
     qt_delete(popup);
 }
 
+bool MythLineEdit::doUp(const QString &action)
+{
+    focusNextPrevChild(false);
+    return true;
+}
+
+bool MythLineEdit::doDown(const QString &action)
+{
+    focusNextPrevChild(true);
+    return true;
+}
+
+bool MythLineEdit::doSelect(const QString &action)
+{
+    if (m_actionEvent->text().isEmpty() ||
+        (m_actionEvent->key() == Qt::Key_Enter) ||
+        (m_actionEvent->key() == Qt::Key_Return))
+    {
+        if (useVirtualKeyboard && allowVirtualKeyboard && rw)
+            popupVirtualKeyboard();
+        else
+            return false;
+    }
+    else if (m_actionEvent->text().isEmpty() )
+        m_actionEvent->ignore();
+    return true;
+}
+
 void MythLineEdit::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions, false);
 
-    if ((!popup || popup->isHidden()) && !handled)
+    if (!handled)
     {
-        for (int i = 0; i < actions.size() && !handled; i++)
-        {
-            QString action = actions[i];
-            handled = true;
-
-            if (action == "UP")
-                focusNextPrevChild(false);
-            else if (action == "DOWN")
-                focusNextPrevChild(true);
-            else if (action == "SELECT" &&
-                    (e->text().isEmpty() ||
-                    (e->key() == Qt::Key_Enter) ||
-                    (e->key() == Qt::Key_Return)))
-            {
-                if (useVirtualKeyboard && allowVirtualKeyboard && rw)
-                    popupVirtualKeyboard();
-                else
-                    handled = false;
-            }
-            else if (action == "SELECT" && e->text().isEmpty() )
-                e->ignore();
-            else
-                handled = false;
-        }
+        m_actionEvent = e;
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled)
@@ -574,8 +766,20 @@ void MythLineEdit::mouseDoubleClickEvent(QMouseEvent *e)
     QLineEdit::mouseDoubleClickEvent(e);
 }
 
+
+static struct ActionDefStruct<MythRemoteLineEdit> mrleActions[] = {
+    { "UP",       &MythRemoteLineEdit::doUp },
+    { "DOWN",     &MythRemoteLineEdit::doDown },
+    { "SELECT",   &MythRemoteLineEdit::doSelect },
+    { "ESCAPE",   &MythRemoteLineEdit::doEscape }
+};
+static int mrleActionCount = NELEMS(mrleActions);
+
+
 MythRemoteLineEdit::MythRemoteLineEdit(QWidget * parent, const char *name) :
-    QTextEdit(parent)
+    QTextEdit(parent),
+    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
+                                                  mrleActionCount))
 {
     setObjectName(name);
     my_font = NULL;
@@ -585,7 +789,9 @@ MythRemoteLineEdit::MythRemoteLineEdit(QWidget * parent, const char *name) :
 
 MythRemoteLineEdit::MythRemoteLineEdit(const QString & contents,
                                        QWidget * parent, const char *name) :
-    QTextEdit(parent)
+    QTextEdit(parent),
+    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
+                                                  mrleActionCount))
 {
     setObjectName(name);
     my_font = NULL;
@@ -596,7 +802,9 @@ MythRemoteLineEdit::MythRemoteLineEdit(const QString & contents,
 
 MythRemoteLineEdit::MythRemoteLineEdit(QFont *a_font, QWidget * parent,
                                        const char *name) :
-    QTextEdit(parent)
+    QTextEdit(parent),
+    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
+                                                  mrleActionCount))
 {
     setObjectName(name);
     my_font = a_font;
@@ -606,7 +814,9 @@ MythRemoteLineEdit::MythRemoteLineEdit(QFont *a_font, QWidget * parent,
 
 MythRemoteLineEdit::MythRemoteLineEdit(int lines, QWidget * parent,
                                        const char *name) :
-    QTextEdit(parent)
+    QTextEdit(parent),
+    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
+                                                  mrleActionCount))
 {
     setObjectName(name);
     my_font = NULL;
@@ -864,6 +1074,47 @@ QString MythRemoteLineEdit::text(void)
     return QTextEdit::toPlainText();
 }
 
+bool MythRemoteLineEdit::doUp(const QString &action)
+{
+    endCycle();
+    // Need to call very base one because
+    // QTextEdit reimplements it to tab
+    // through links (even if you're in
+    // PlainText Mode !!)
+    QWidget::focusNextPrevChild(false);
+    emit tryingToLooseFocus(false);
+    return true;
+}
+
+bool MythRemoteLineEdit::doDown(const QString &action)
+{
+    endCycle();
+    QWidget::focusNextPrevChild(true);
+    emit tryingToLooseFocus(true);
+    return true;
+}
+
+bool MythRemoteLineEdit::doSelect(const QString &action)
+{
+    if ((!active_cycle) && useVirtualKeyboard &&
+        ((m_actionEvent->text().isEmpty()) ||
+         (m_actionEvent->key() == Qt::Key_Enter) ||
+         (m_actionEvent->key() == Qt::Key_Return)))
+    {
+        popupVirtualKeyboard();
+    }
+    return true;
+}
+
+bool MythRemoteLineEdit::doEscape(const QString &action)
+{
+    if (active_cycle)
+        endCycle(false);
+
+    return true;
+}
+
+
 void MythRemoteLineEdit::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
@@ -872,43 +1123,8 @@ void MythRemoteLineEdit::keyPressEvent(QKeyEvent *e)
 
     if ((!popup || popup->isHidden()) && !handled)
     {
-        for (int i = 0; i < actions.size() && !handled; i++)
-        {
-            QString action = actions[i];
-            handled = true;
-
-            if (action == "UP")
-            {
-                endCycle();
-                // Need to call very base one because
-                // QTextEdit reimplements it to tab
-                // through links (even if you're in
-                // PlainText Mode !!)
-                QWidget::focusNextPrevChild(false);
-                emit tryingToLooseFocus(false);
-            }
-            else if (action == "DOWN")
-            {
-                endCycle();
-                QWidget::focusNextPrevChild(true);
-                emit tryingToLooseFocus(true);
-            }
-            else if ((action == "SELECT") &&
-                     (!active_cycle) &&
-                     ((e->text().isEmpty()) ||
-                      (e->key() == Qt::Key_Enter) ||
-                      (e->key() == Qt::Key_Return)))
-            {
-                if (useVirtualKeyboard)
-                    popupVirtualKeyboard();
-            }
-            else if ((action == "ESCAPE") && active_cycle)
-            {
-                endCycle(false);
-            }
-            else
-                handled = false;
-        }
+        m_actionEvent = e;
+        handled = m_actions->handleActions(actions);
     }
 
     if (handled)
@@ -1117,6 +1333,9 @@ void MythRemoteLineEdit::focusOutEvent(QFocusEvent *e)
 
 MythRemoteLineEdit::~MythRemoteLineEdit()
 {
+    if (m_actions)
+        delete m_actions;
+
     Teardown();
 }
 
@@ -1167,9 +1386,35 @@ void MythRemoteLineEdit::backspace()
     emit textChanged(toPlainText());
 }
 
+
+static struct ActionDefStruct<MythPushButton> mpshbActions[] = {
+    { "SELECT",   &MythPushButton::doSelect }
+};
+static int mpshbActionCount = NELEMS(mpshbActions);
+
+MythPushButton::MythPushButton(QWidget *parent, const char *name) :
+    QPushButton(parent),
+    m_actions(new MythActions<MythPushButton>(this, mpshbActions,
+                                              mpshbActionCount))
+{
+    setObjectName(name);
+    setCheckable(false);
+}
+
+MythPushButton::MythPushButton(const QString &text, QWidget *parent) :
+    QPushButton(text, parent),
+    m_actions(new MythActions<MythPushButton>(this, mpshbActions,
+                                              mpshbActionCount))
+{
+    setObjectName("MythPushButton");
+    setCheckable(false);
+}
+
 MythPushButton::MythPushButton(const QString &ontext, const QString &offtext,
-                               QWidget *parent, bool isOn)
-                               : QPushButton(ontext, parent)
+                               QWidget *parent, bool isOn) :
+    QPushButton(ontext, parent),
+    m_actions(new MythActions<MythPushButton>(this, mpshbActions,
+                                              mpshbActionCount))
 {
     onText = ontext;
     offText = offtext;
@@ -1184,12 +1429,35 @@ MythPushButton::MythPushButton(const QString &ontext, const QString &offtext,
     setChecked(isOn);
 }
 
+MythPushButton::~MythPushButton()
+{
+    if (m_actions)
+        delete m_actions;
+}
+
 void MythPushButton::setHelpText(const QString &help)
 {
     bool changed = helptext != help;
     helptext = help;
     if (hasFocus() && changed)
         emit changeHelpText(help);
+}
+
+bool MythPushButton::doSelect(const QString &action)
+{
+    if (!isDown())
+    {
+        if (isCheckable())
+            toggleText();
+        setDown(true);
+        emit pressed();
+    }
+    else
+    {
+        QKeyEvent tempe(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier, " ");
+        QPushButton::keyReleaseEvent(&tempe);
+    }
+    return true;
 }
 
 void MythPushButton::keyPressEvent(QKeyEvent *e)
@@ -1204,18 +1472,7 @@ void MythPushButton::keyPressEvent(QKeyEvent *e)
     {
         keyPressActions = actions;
 
-        for (int i = 0; i < actions.size() && !handled; i++)
-        {
-            QString action = actions[i];
-            if (action == "SELECT")
-            {
-                if (isCheckable())
-                    toggleText();
-                setDown(true);
-                emit pressed();
-                handled = true;
-            }
-        }
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled)
@@ -1226,17 +1483,8 @@ void MythPushButton::keyReleaseEvent(QKeyEvent *e)
 {
     bool handled = false;
     QStringList actions = keyPressActions;
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        if (action == "SELECT")
-        {
-            QKeyEvent tempe(QEvent::KeyRelease, Qt::Key_Space,
-                            Qt::NoModifier, " ");
-            QPushButton::keyReleaseEvent(&tempe);
-            handled = true;
-        }
-    }
+
+    handled = m_actions->handleActions(actions);
 
     if (!handled)
         QPushButton::keyReleaseEvent(e);
@@ -1271,12 +1519,46 @@ void MythPushButton::focusOutEvent(QFocusEvent *e)
     QPushButton::focusOutEvent(e);
 }
 
+static struct ActionDefStruct<MythListBox> mlstbActions[] = {
+    { "UP",       &MythListBox::doUp },
+    { "DOWN",     &MythListBox::doDown },
+    { "LEFT",     &MythListBox::doLeft },
+    { "RIGHT",    &MythListBox::doRight },
+    { "PAGEDOWN", &MythListBox::doPgDown },
+    { "PAGEUP",   &MythListBox::doPgUp },
+    { "0",        &MythListBox::doDigit },
+    { "1",        &MythListBox::doDigit },
+    { "2",        &MythListBox::doDigit },
+    { "3",        &MythListBox::doDigit },
+    { "4",        &MythListBox::doDigit },
+    { "5",        &MythListBox::doDigit },
+    { "6",        &MythListBox::doDigit },
+    { "7",        &MythListBox::doDigit },
+    { "8",        &MythListBox::doDigit },
+    { "9",        &MythListBox::doDigit },
+    { "PREVVIEW", &MythListBox::doPrevView },
+    { "NEXTVIEW", &MythListBox::doNextView },
+    { "MENU",     &MythListBox::doMenu },
+    { "EDIT",     &MythListBox::doEdit },
+    { "DELETE",   &MythListBox::doDelete },
+    { "SELECT",   &MythListBox::doSelect }
+};
+static int mlstbActionCount = NELEMS(mlstbActions);
+
 MythListBox::MythListBox(QWidget *parent, const QString &name) :
-    QListWidget(parent)
+    QListWidget(parent),
+    m_actions(new MythActions<MythListBox>(this, mlstbActions,
+                                           mlstbActionCount))
 {
     setObjectName(name);
     connect(this, SIGNAL(itemSelectionChanged()),
             this, SLOT(HandleItemSelectionChanged()));
+}
+
+MythListBox::~MythListBox()
+{
+    if (m_actions)
+        delete m_actions;
 }
 
 void MythListBox::ensurePolished(void) const
@@ -1348,111 +1630,130 @@ void MythListBox::HandleItemSelectionChanged(void)
         emit highlighted(row);
 }
 
+void MythListBox::propagateKey(int key)
+{
+    QKeyEvent ev(QEvent::KeyPress, key, Qt::NoModifier);
+    QListWidget::keyPressEvent(&ev);
+}
+
+bool MythListBox::doUp(const QString &action)
+{
+    // Qt::Key_Up at top of list allows focus to move to other widgets
+    if (currentItem() == 0)
+    {
+        focusNextPrevChild(false);
+        return true;
+    }
+
+    propagateKey(Qt::Key_Up);
+    return true;
+}
+
+bool MythListBox::doDown(const QString &action)
+{
+    // Qt::Key_down at bottom of list allows focus to move to other widgets
+    if (currentRow() == (int) count() - 1)
+    {
+        focusNextPrevChild(true);
+        return true;
+    }
+
+    propagateKey(Qt::Key_Down);
+    return true;
+}
+
+bool MythListBox::doLeft(const QString &action)
+{
+    focusNextPrevChild(false);
+    return true;
+}
+
+bool MythListBox::doRight(const QString &action)
+{
+    focusNextPrevChild(true);
+    return true;
+}
+
+bool MythListBox::doPgDown(const QString &action)
+{
+    propagateKey(Qt::Key_PageDown);
+    return true;
+}
+
+bool MythListBox::doPgUp(const QString &action)
+{
+    propagateKey(Qt::Key_PageUp);
+    return true;
+}
+
+bool MythListBox::doDigit(const QString &action)
+{
+    int percent = action.toInt() * 10;
+    int nextItem = percent * count() / 100;
+    if (!itemVisible(nextItem))
+        setTopRow(nextItem);
+    setCurrentRow(nextItem);
+    return true;
+}
+
+bool MythListBox::doPrevView(const QString &action)
+{
+    int nextItem = currentRow();
+    if (nextItem > 0)
+        nextItem--;
+    while (nextItem > 0 && text(nextItem)[0] == ' ')
+        nextItem--;
+    if (!itemVisible(nextItem))
+        setTopRow(nextItem);
+    setCurrentRow(nextItem);
+    return true;
+}
+
+bool MythListBox::doNextView(const QString &action)
+{
+    int nextItem = currentRow();
+    if (nextItem < (int)count() - 1)
+        nextItem++;
+    while (nextItem < (int)count() - 1 && text(nextItem)[0] == ' ')
+        nextItem++;
+    if (!itemVisible(nextItem))
+        setTopRow(nextItem);
+    setCurrentRow(nextItem);
+    return true;
+}
+
+bool MythListBox::doMenu(const QString &action)
+{
+    emit menuButtonPressed(currentRow());
+    return true;
+}
+
+bool MythListBox::doEdit(const QString &action)
+{
+    emit editButtonPressed(currentRow());
+    return true;
+}
+
+bool MythListBox::doDelete(const QString &action)
+{
+    emit deleteButtonPressed(currentRow());
+    return true;
+}
+
+bool MythListBox::doSelect(const QString &action)
+{
+    emit accepted(currentRow());
+    return true;
+}
+
 void MythListBox::keyPressEvent(QKeyEvent* e)
 {
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        if (action == "UP" || action == "DOWN" || action == "PAGEUP" ||
-            action == "PAGEDOWN" || action == "LEFT" || action == "RIGHT")
-        {
-            int key;
-            if (action == "UP")
-            {
-                // Qt::Key_Up at top of list allows focus to move to other widgets
-                if (currentItem() == 0)
-                {
-                    focusNextPrevChild(false);
-                    handled = true;
-                    continue;
-                }
-
-                key = Qt::Key_Up;
-            }
-            else if (action == "DOWN")
-            {
-                // Qt::Key_down at bottom of list allows focus to move to other widgets
-                if (currentRow() == (int) count() - 1)
-                {
-                    focusNextPrevChild(true);
-                    handled = true;
-                    continue;
-                }
-
-                key = Qt::Key_Down;
-            }
-            else if (action == "LEFT")
-            {
-                focusNextPrevChild(false);
-                handled = true;
-                continue;
-            }
-            else if (action == "RIGHT")
-            {
-                focusNextPrevChild(true);
-                handled = true;
-                continue;
-            }
-            else if (action == "PAGEUP")
-                key = Qt::Key_PageUp;
-            else if (action == "PAGEDOWN")
-                key = Qt::Key_PageDown;
-            else
-                key = Qt::Key_unknown;
-
-            QKeyEvent ev(QEvent::KeyPress, key, Qt::NoModifier);
-            QListWidget::keyPressEvent(&ev);
-            handled = true;
-        }
-        else if (action == "0" || action == "1" || action == "2" ||
-                    action == "3" || action == "4" || action == "5" ||
-                    action == "6" || action == "7" || action == "8" ||
-                    action == "9")
-        {
-            int percent = action.toInt() * 10;
-            int nextItem = percent * count() / 100;
-            if (!itemVisible(nextItem))
-                setTopRow(nextItem);
-            setCurrentRow(nextItem);
-            handled = true;
-        }
-        else if (action == "PREVVIEW")
-        {
-            int nextItem = currentRow();
-            if (nextItem > 0)
-                nextItem--;
-            while (nextItem > 0 && text(nextItem)[0] == ' ')
-                nextItem--;
-            if (!itemVisible(nextItem))
-                setTopRow(nextItem);
-            setCurrentRow(nextItem);
-            handled = true;
-        }
-        else if (action == "NEXTVIEW")
-        {
-            int nextItem = currentRow();
-            if (nextItem < (int)count() - 1)
-                nextItem++;
-            while (nextItem < (int)count() - 1 && text(nextItem)[0] == ' ')
-                nextItem++;
-            if (!itemVisible(nextItem))
-                setTopRow(nextItem);
-            setCurrentRow(nextItem);
-            handled = true;
-        }
-        else if (action == "MENU")
-            emit menuButtonPressed(currentRow());
-        else if (action == "EDIT")
-            emit editButtonPressed(currentRow());
-        else if (action == "DELETE")
-            emit deleteButtonPressed(currentRow());
-        else if (action == "SELECT")
-            emit accepted(currentRow());
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         e->ignore();

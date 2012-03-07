@@ -26,6 +26,7 @@
 using namespace std;
 
 #include "virtualkeyboard_qt.h"
+#include "mythactions.h"
 
 #include "mythexp.h"
 
@@ -36,7 +37,7 @@ using namespace std;
 // - Left and Right adjust the current setting
 // - Space selects
 
-
+class MythComboBox;
 class MPUBLIC MythComboBox: public QComboBox
 {
     Q_OBJECT
@@ -52,6 +53,14 @@ class MPUBLIC MythComboBox: public QComboBox
     { allowVirtualKeyboard = allowKbd; }
     void setPopupPosition(PopupPositionQt pos) { popupPosition = pos; }
     PopupPositionQt getPopupPosition(void)     { return popupPosition; }
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doPgDown(const QString &action);
+    bool doPgUp(const QString &action);
+    bool doSelect(const QString &action);
 
   signals:
     void changeHelpText(QString);
@@ -82,6 +91,9 @@ class MPUBLIC MythComboBox: public QComboBox
     bool allowVirtualKeyboard;
     PopupPositionQt popupPosition;
     int step;
+
+    MythActions<MythComboBox> *m_actions;
+    QKeyEvent *m_actionEvent;
 };
 
 class MPUBLIC MythSpinBox: public QSpinBox
@@ -90,18 +102,21 @@ class MPUBLIC MythSpinBox: public QSpinBox
 
   public:
     MythSpinBox(QWidget* parent = NULL, const char* name = "MythSpinBox",
-                bool allow_single_step = false)
-        : QSpinBox(parent), allowsinglestep(allow_single_step)
-    {
-        setObjectName(name);
-        if (allowsinglestep)
-            setSingleStep(10);
-    }
+                bool allow_single_step = false);
+    ~MythSpinBox();
 
     void setHelpText(const QString&);
 
     bool allowSingleStep(void)               { return allowsinglestep; }
     void setAllowSingleStep(bool arg = true) { allowsinglestep = arg; }
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doPgDown(const QString &action);
+    bool doPgUp(const QString &action);
+    bool doSelect(const QString &action);
 
   signals:
     void changeHelpText(QString);
@@ -114,6 +129,8 @@ class MPUBLIC MythSpinBox: public QSpinBox
   private:
     QString helptext;
     bool allowsinglestep;
+
+    MythActions<MythSpinBox> *m_actions;
 };
 
 class MPUBLIC MythSlider: public QSlider
@@ -121,10 +138,15 @@ class MPUBLIC MythSlider: public QSlider
     Q_OBJECT
 
   public:
-    MythSlider(QWidget* parent=0, const char* name="MythSlider")
-        : QSlider(parent) { setObjectName(name); };
+    MythSlider(QWidget* parent=0, const char* name="MythSlider");
+    ~MythSlider();
 
     void setHelpText(const QString&);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doSelect(const QString &action);
 
   signals:
     void changeHelpText(QString);
@@ -136,6 +158,8 @@ class MPUBLIC MythSlider: public QSlider
 
   private:
     QString helptext;
+
+    MythActions<MythSlider> *m_actions;
 };
 
 class MPUBLIC MythLineEdit : public QLineEdit
@@ -160,6 +184,10 @@ class MPUBLIC MythLineEdit : public QLineEdit
     PopupPositionQt getPopupPosition(void) { return popupPosition; }
 
     virtual QString text();
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doSelect(const QString &action);
 
   public slots:
     virtual void deleteLater(void);
@@ -186,6 +214,9 @@ class MPUBLIC MythLineEdit : public QLineEdit
     bool useVirtualKeyboard;
     bool allowVirtualKeyboard;
     PopupPositionQt popupPosition;
+
+    MythActions<MythLineEdit> *m_actions;
+    QKeyEvent *m_actionEvent;
 };
 
 /**
@@ -216,6 +247,11 @@ class MPUBLIC MythRemoteLineEdit : public QTextEdit
     PopupPositionQt getPopupPosition(void)     { return popupPosition; };
 
     virtual QString text();
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doSelect(const QString &action);
+    bool doEscape(const QString &action);
 
   signals:
     void    shiftState(bool);
@@ -275,6 +311,9 @@ class MPUBLIC MythRemoteLineEdit : public QTextEdit
     VirtualKeyboardQt *popup;
     bool             useVirtualKeyboard;
     PopupPositionQt    popupPosition;
+
+    MythActions<MythRemoteLineEdit> *m_actions;
+    QKeyEvent *m_actionEvent;
 };
 
 class MPUBLIC MythPushButton : public QPushButton
@@ -282,22 +321,13 @@ class MPUBLIC MythPushButton : public QPushButton
     Q_OBJECT
 
   public:
-    MythPushButton(QWidget *parent, const char *name = "MythPushButton")
-        : QPushButton(parent)
-    {
-        setObjectName(name);
-        setCheckable(false);
-    }
+    MythPushButton(QWidget *parent, const char *name = "MythPushButton");
 
-    MythPushButton(const QString &text, QWidget *parent)
-        : QPushButton(text, parent)
-    {
-        setObjectName("MythPushButton");
-        setCheckable(false);
-    }
+    MythPushButton(const QString &text, QWidget *parent);
 
     MythPushButton(const QString &ontext, const QString &offtext,
                    QWidget *parent, bool isOn = true);
+    ~MythPushButton();
 
     void setHelpText(const QString &help);
 
@@ -305,6 +335,8 @@ class MPUBLIC MythPushButton : public QPushButton
     void keyReleaseEvent(QKeyEvent *e);
 
     void toggleText(void);
+
+    bool doSelect(const QString &action);
 
   signals:
     void changeHelpText(QString);
@@ -320,6 +352,8 @@ class MPUBLIC MythPushButton : public QPushButton
     QString offText;
 
     QStringList keyPressActions;
+
+    MythActions<MythPushButton> *m_actions;
 };
 
 class MPUBLIC MythCheckBox: public QCheckBox
@@ -327,13 +361,15 @@ class MPUBLIC MythCheckBox: public QCheckBox
     Q_OBJECT
 
   public:
-    MythCheckBox(QWidget *parent = 0, const char *name = "MythCheckBox")
-        : QCheckBox(parent)       { setObjectName(name); };
-    MythCheckBox(const QString &text,
-                 QWidget *parent = 0, const char *name = "MythCheckBox")
-        : QCheckBox(text, parent) { setObjectName(name); };
+    MythCheckBox(QWidget *parent = 0, const char *name = "MythCheckBox");
+    MythCheckBox(const QString &text, QWidget *parent = 0,
+                 const char *name = "MythCheckBox");
+    ~MythCheckBox();
 
     void setHelpText(const QString&);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doToggle(const QString &action);
 
   signals:
     void changeHelpText(QString);
@@ -345,6 +381,7 @@ class MPUBLIC MythCheckBox: public QCheckBox
 
   private:
     QString helptext;
+    MythActions<MythCheckBox> *m_actions;
 };
 
 class MPUBLIC MythRadioButton: public QRadioButton
@@ -352,10 +389,14 @@ class MPUBLIC MythRadioButton: public QRadioButton
     Q_OBJECT
 
   public:
-    MythRadioButton(QWidget* parent = 0, const char* name = "MythRadioButton")
-        : QRadioButton(parent) { setObjectName(name); };
+    MythRadioButton(QWidget* parent = 0, const char* name = "MythRadioButton");
+    ~MythRadioButton();
 
     void setHelpText(const QString&);
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doToggle(const QString &action);
 
   signals:
     void changeHelpText(QString);
@@ -367,6 +408,8 @@ class MPUBLIC MythRadioButton: public QRadioButton
 
   private:
     QString helptext;
+
+    MythActions<MythRadioButton> *m_actions;
 };
 
 class MPUBLIC MythListBox: public QListWidget
@@ -376,6 +419,7 @@ class MPUBLIC MythListBox: public QListWidget
   public:
     MythListBox(QWidget       *parent,
                 const QString &name = QString("MythListBox"));
+    ~MythListBox();
 
     virtual void keyPressEvent(QKeyEvent* e);
 
@@ -404,6 +448,20 @@ class MPUBLIC MythListBox: public QListWidget
 
     void setHelpText(const QString&);
 
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doPgDown(const QString &action);
+    bool doPgUp(const QString &action);
+    bool doDigit(const QString &action);
+    bool doPrevView(const QString &action);
+    bool doNextView(const QString &action);
+    bool doMenu(const QString &action);
+    bool doEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doSelect(const QString &action);
+
   protected:
     void focusInEvent(QFocusEvent *e);
     void focusOutEvent(QFocusEvent *e);
@@ -428,7 +486,11 @@ class MPUBLIC MythListBox: public QListWidget
     void HandleItemSelectionChanged(void);
 
   private:
+    void propagateKey(int key);
+
     QString helptext;
+
+    MythActions<MythListBox> *m_actions;
 };
 
 #endif

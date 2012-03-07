@@ -42,7 +42,7 @@ static struct ActionDefStruct<MythDialog> mdActions[] = {
     { "LEFT",   &MythDialog::doUpLeft },
     { "DOWN",   &MythDialog::doDownRight },
     { "RIGHT",  &MythDialog::doDownRight },
-    { "MENU",   &MythDialog::emitMenuButtonPressed }
+    { "MENU",   &MythDialog::doMenu }
 };
 static int mdActionCount = NELEMS(mdActions);
 
@@ -165,14 +165,16 @@ int MythDialog::CalcItemIndex(DialogCode code)
     return (int)code - (int)kDialogCodeListStart;
 }
 
-bool MythDialog::accept()
+bool MythDialog::accept(const QString &action)
 {
+    (void)action;
     done(Accepted);
     return true;
 }
 
-bool MythDialog::reject()
+bool MythDialog::reject(const QString &action)
 {
+    (void)action;
     done(Rejected);
     return true;
 }
@@ -216,13 +218,13 @@ void MythDialog::hide(void)
 }
 
 
-bool MythDialog::emitMenuButtonPressed(void)
+bool MythDialog::doMenu(const QString &action)
 {
     emit menuButtonPressed();
     return true;
 }
 
-bool MythDialog::doUpLeft(void)
+bool MythDialog::doUpLeft(const QString &action)
 {
     if (!focusWidget() ||
 	(focusWidget()->focusPolicy() != Qt::StrongFocus &&
@@ -233,7 +235,7 @@ bool MythDialog::doUpLeft(void)
     return true;
 }
 
-bool MythDialog::doDownRight(void)
+bool MythDialog::doDownRight(const QString &action)
 {
     if (!focusWidget() ||
 	(focusWidget()->focusPolicy() != Qt::StrongFocus &&
@@ -611,14 +613,14 @@ void MythPopupBox::AcceptItem(int i)
     emit popupDone(rescode);
 }
 
-bool MythPopupBox::accept(void)
+bool MythPopupBox::accept(const QString &action)
 {
     MythDialog::done(MythDialog::Accepted);
     emit popupDone(MythDialog::Accepted);
     return true;
 }
 
-bool MythPopupBox::reject(void)
+bool MythPopupBox::reject(const QString &action)
 {
     MythDialog::done(MythDialog::Rejected);
     emit popupDone(MythDialog::Rejected);

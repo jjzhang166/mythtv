@@ -10,7 +10,7 @@ template <class T>
 struct ActionDefStruct
 {
     QString     name;
-    bool        (T::*handler)(void);
+    bool        (T::*handler)(const QString &action);
 };
 
 #define NELEMS(x) ((sizeof(x)) / (sizeof(x[0])))
@@ -37,26 +37,38 @@ class MBASE_PUBLIC MythActions : public ActionMap<T>
 
     ~MythActions() {}
 
-    bool handleActions(const QStringList &actions)
+    bool handleActions(const QStringList &actions, bool *touched = NULL)
     {
         bool handled = false;
+
+        if (touched)
+            *touched = false;
+
         for (int i = 0; i < actions.size() && !handled; i++)
         {
+            bool itemTouched;
             const QString &action = actions[i];
-            handled = handleAction(action);
+            handled = handleAction(action, itemTouched);
+
+            if (touched)
+                *touched |= itemTouched;
         }
 
         return handled;
     }
 
-    bool handleAction(const QString &action)
+    bool handleAction(const QString &action, bool &touched)
     {
         struct ActionDefStruct<T> *def = this->value(action, NULL);
+
+        touched = false;
 
         if (!def || !def->handler)
             return false;
 
-        return CALL_CLASS_MEMBER(m_parent,def->handler)();
+        touched = true;
+
+        return CALL_CLASS_MEMBER(m_parent,def->handler)(action);
     }
 
   private:

@@ -12,6 +12,7 @@
 // MythTV headers
 #include "mythexp.h"
 #include "settings.h"
+#include "mythactions.h"
 
 class MythTerminalKeyFilter;
 class MPUBLIC MythTerminal : public TransListBoxSetting
@@ -52,11 +53,21 @@ class MPUBLIC MythTerminalKeyFilter : public QObject
 {
     Q_OBJECT
 
+  public:
+    MythTerminalKeyFilter();
+    ~MythTerminalKeyFilter();
+    bool doEventFilter(const QString &action);
+
   signals:
     void KeyPressd(QKeyEvent *e);
 
   protected:
     bool eventFilter(QObject *obj, QEvent *event);
+
+  private:
+    MythActions<MythTerminalKeyFilter> *m_actions;
+    QObject *m_actionObj;
+    QEvent  *m_actionEvent;
 };
 
 #endif // MYTH_TERMINAL_H
