@@ -55,7 +55,7 @@ void InteractiveScreen::OptimiseDisplayedArea(void)
     int top  = m_safeArea.top()  - bounding.top();
     SetArea(MythRect(bounding));
 
-    i.toFront();;
+    i.toFront();
     while (i.hasNext())
     {
         MythUIType *img = i.next();

@@ -11183,7 +11183,7 @@ void TV::FillOSDMenuSource(const PlayerContext *ctx, OSD *osd,
         for (; it != cardids.end(); ++it)
         {
             vector<InputInfo> inputs = RemoteRequestFreeInputList(
-                *it, excluded_cardids);;
+                *it, excluded_cardids);
 
             for (uint i = 0; i < inputs.size(); i++)
             {

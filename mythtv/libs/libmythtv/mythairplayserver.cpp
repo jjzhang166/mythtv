@@ -141,7 +141,7 @@ class APHTTPRequest
     QMap<QByteArray,QByteArray> GetHeadersFromBody(void)
     {
         QMap<QByteArray,QByteArray> result;
-        QList<QByteArray> lines = m_body.split('\n');;
+        QList<QByteArray> lines = m_body.split('\n');
         foreach (QByteArray line, lines)
         {
             int index = line.indexOf(":");

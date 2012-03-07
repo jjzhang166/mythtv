@@ -1403,8 +1403,8 @@ cCiEnquiry::cCiEnquiry(cCiMMI *MMI)
 {
   mmi = MMI;
   text = NULL;
-  blind = false;;
-  expectedLength = 0;;
+  blind = false;
+  expectedLength = 0;
 }
 
 cCiEnquiry::~cCiEnquiry()

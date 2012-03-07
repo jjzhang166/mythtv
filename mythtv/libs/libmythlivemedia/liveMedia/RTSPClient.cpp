@@ -957,7 +957,7 @@ Boolean RTSPClient::setupMediaSubsession(MediaSubsession& subsession,
 
 	// Also look for an optional "; timeout = " parameter following this:
 	char* afterSessionId
-	  = lineStart + strlen(sessionId) + strlen ("Session: ");;
+	  = lineStart + strlen(sessionId) + strlen ("Session: ");
 	int timeoutVal;
 	if (sscanf(afterSessionId, "; timeout = %d", &timeoutVal) == 1) {
 	  fSessionTimeoutParameter = timeoutVal;

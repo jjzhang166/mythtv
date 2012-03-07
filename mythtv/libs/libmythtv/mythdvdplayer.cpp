@@ -363,7 +363,7 @@ uint64_t MythDVDPlayer::GetBookmark(void)
         }
     }
     player_ctx->UnlockPlayingInfo(__FILE__, __LINE__);
-    return frames;;
+    return frames;
 }
 
 void MythDVDPlayer::ChangeSpeed(void)

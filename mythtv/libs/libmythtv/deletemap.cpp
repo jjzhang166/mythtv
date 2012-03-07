@@ -167,7 +167,7 @@ void DeleteMap::UpdateOSD(uint64_t frame, uint64_t total, double frame_rate,
     infoMap["framedisplay"] = QString::number(frame);
     infoMap["cutindicator"] = cutmarker;
     infoMap["title"]        = QObject::tr("Edit");
-    infoMap["seekamount"]   = m_seekText;;
+    infoMap["seekamount"]   = m_seekText;
 
     QHash<QString,float> posMap;
     posMap.insert("position", (float)((double)frame/(double)total));

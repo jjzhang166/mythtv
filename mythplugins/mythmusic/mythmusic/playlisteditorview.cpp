@@ -717,7 +717,7 @@ void PlaylistEditorView::treeItemClicked(MythUIButtonListItem *item)
 
 void PlaylistEditorView::treeItemVisible(MythUIButtonListItem *item)
 {
-    MythGenericTree *node = qVariantValue<MythGenericTree*> (item->GetData());;
+    MythGenericTree *node = qVariantValue<MythGenericTree*> (item->GetData());
     MusicGenericTree *mnode = dynamic_cast<MusicGenericTree*>(node);
 
     if (!mnode)

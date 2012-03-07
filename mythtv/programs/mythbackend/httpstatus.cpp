@@ -460,7 +460,7 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
         ++sit; // ignore dirID
         ++sit; // ignore blocksize
         iTotal     = (*(sit++)).toLongLong();
-        iUsed      = (*(sit++)).toLongLong();;
+        iUsed      = (*(sit++)).toLongLong();
         iAvail     = iTotal - iUsed;
 
         if (fsID == "-2")

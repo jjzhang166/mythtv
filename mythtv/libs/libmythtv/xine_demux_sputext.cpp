@@ -682,7 +682,7 @@ static subtitle_t *sub_read_line_aqt (demux_sputext_t *demuxstr, subtitle_t *cur
   current->end = -1;
 
   if (!read_line_from_input(demuxstr, line, LINE_LEN))
-    return current;;
+    return current;
 
   sub_readtext((char *) &line,&current->text[1]);
   current->lines = 2;

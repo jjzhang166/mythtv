@@ -1526,7 +1526,7 @@ int verboseArgParse(QString arg)
             else
             {
                 cerr << "Unknown argument for -v/--verbose: " << 
-                        option.toLocal8Bit().constData() << endl;;
+                        option.toLocal8Bit().constData() << endl;
                 return GENERIC_EXIT_INVALID_CMDLINE;
             }
         }

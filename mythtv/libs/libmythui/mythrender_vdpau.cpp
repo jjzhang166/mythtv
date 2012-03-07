@@ -1893,7 +1893,7 @@ void MythRenderVDPAU::DestroyVideoSurfaces(void)
         LOG(VB_GENERAL, LOG_WARNING, LOC + "Orphaned video surfaces.");
 
     INIT_ST
-    QHash<uint, VDPAUVideoSurface>::iterator it;;
+    QHash<uint, VDPAUVideoSurface>::iterator it;
     for(it = m_videoSurfaces.begin(); it != m_videoSurfaces.end(); ++it)
     {
         vdp_st = vdp_video_surface_destroy(it.value().m_id);

@@ -1152,7 +1152,7 @@ UnZip::ErrorCode UnzipPrivate::extractFile(const QString& path, ZipEntryP& entry
 			// Run inflate() on input until output buffer not full
 			do {
 				zstr.avail_out = UNZIP_READ_BUFFER;
-				zstr.next_out = (Bytef*) buffer2;;
+				zstr.next_out = (Bytef*) buffer2;
 
 				zret = inflate(&zstr, Z_NO_FLUSH);
 

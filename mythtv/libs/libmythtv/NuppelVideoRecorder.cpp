@@ -2614,7 +2614,7 @@ void NuppelVideoRecorder::FormatTT(struct VBIData *vbidata)
         }
         if (visible)
         {
-            st.len = linebufpos - linebuf + 1;;
+            st.len = linebufpos - linebuf + 1;
             int max = 200;
             int bufsize = ((outpos - textbuffer[act]->buffer + 1) + st.len);
             if (bufsize > max)

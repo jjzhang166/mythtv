@@ -142,7 +142,7 @@ class VideoBuffers
     uint                   needfreeframes;
     uint                   needprebufferframes;
     uint                   needprebufferframes_normal;
-    uint                   needprebufferframes_small;;
+    uint                   needprebufferframes_small;
     uint                   keepprebufferframes;
     bool                   createdpauseframe;
 

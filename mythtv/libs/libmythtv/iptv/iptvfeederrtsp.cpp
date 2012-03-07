@@ -330,7 +330,7 @@ void IPTVFeederRTSP::AddListener(TSDataListener *item)
 void IPTVFeederRTSP::RemoveListener(TSDataListener *item)
 {
     LOG(VB_RECORD, LOG_INFO, LOC + QString("RemoveListener(0x%1) -- begin")
-                       .arg((uint64_t)item,0,16));;
+                       .arg((uint64_t)item,0,16));
     QMutexLocker locker(&_lock);
     vector<TSDataListener*>::iterator it =
         find(_listeners.begin(), _listeners.end(), item);

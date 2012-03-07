@@ -368,7 +368,7 @@ bool MythUIVirtualKeyboard::keyPressEvent(QKeyEvent *e)
         if (m_keyMap.contains(GetFocusWidget()->objectName()))
         {
             key = m_keyMap.value(GetFocusWidget()->objectName());
-            keyFound = true;;
+            keyFound = true;
         }
     }
 

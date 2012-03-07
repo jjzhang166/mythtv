@@ -366,7 +366,7 @@ void MythRAOPConnection::ProcessAudio(uint64_t timenow)
     uint64_t ideal_ts     = updatedsync - queue_length - avsync + m_lastLatency;
 
     m_avSync += avsync;
-    m_latencyAudio += m_audio->GetAudioBufferedTime();;
+    m_latencyAudio += m_audio->GetAudioBufferedTime();
     m_latencyQueued += queue_length;
     m_latencyCounter++;
 

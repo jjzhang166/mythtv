@@ -1516,7 +1516,7 @@ void CoreAudioData::CloseSPDIF()
 {
     OSStatus  err;
 
-    Debug(QString("CloseSPDIF: Entering [%1]").arg(mDigitalInUse));;
+    Debug(QString("CloseSPDIF: Entering [%1]").arg(mDigitalInUse));
     if (!mDigitalInUse)
         return;
 

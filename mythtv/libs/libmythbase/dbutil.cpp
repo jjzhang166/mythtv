@@ -638,7 +638,7 @@ bool DBUtil::DoBackup(const QString &backupScript, QString &filename,
     }
     else
     {
-        filename = dir.path() + "/" + dir[0];;
+        filename = dir.path() + "/" + dir[0];
         if (numfiles > 1)
         {
             LOG(VB_FILE, LOG_ERR, LOC +

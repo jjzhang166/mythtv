@@ -403,7 +403,7 @@ bool PrivateDecoderCrystalHD::Reset(void)
         st = DtsFlushInput(m_device, 2);
         CHECK_ST;
     }
-    return true;;
+    return true;
 }
 
 bool PrivateDecoderCrystalHD::HasBufferedFrames(void)

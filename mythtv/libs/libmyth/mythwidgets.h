@@ -171,7 +171,7 @@ class MPUBLIC MythLineEdit : public QLineEdit
     MythLineEdit(const QString &text,
                  QWidget *parent=NULL, const char *name="MythLineEdit");
 
-    void setHelpText(const QString&);;
+    void setHelpText(const QString&);
     void setRW(bool readwrite = true) { rw = readwrite; };
     void setRO() { rw = false; };
     void setAllowVirtualKeyboard(bool allowKbd = true)

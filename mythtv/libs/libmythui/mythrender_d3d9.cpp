@@ -819,7 +819,7 @@ IDirect3DTexture9* MythRenderD3D9::CreateTexture(const QSize &size)
         return NULL;
     }
 
-    m_textures[temp_texture] = size;;
+    m_textures[temp_texture] = size;
     return temp_texture;
 }
 

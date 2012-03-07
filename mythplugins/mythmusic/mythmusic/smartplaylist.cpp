@@ -1807,7 +1807,7 @@ void SmartPLResultViewer::showTrackInfo(void)
 
 void SmartPLResultViewer::setSQL(QString sql)
 {
-    m_trackList->Reset();;
+    m_trackList->Reset();
 
     MSqlQuery query(MSqlQuery::InitCon());
 

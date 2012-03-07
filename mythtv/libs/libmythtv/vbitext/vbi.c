@@ -202,7 +202,7 @@ vt_line(struct vbi *vbi, unsigned char *p)
            if (err & 0xf000)
                return 4;
 
-           cvtp->errors = (err >> 8) + chk_parity(p + 8, 32);;
+           cvtp->errors = (err >> 8) + chk_parity(p + 8, 32);
            cvtp->pgno = mag8 * 256 + b1;
            cvtp->subno = (b2 + b3 * 256) & 0x3f7f;
            cvtp->lang = "\0\4\2\6\1\5\3\7"[b4 >> 5] + (latin1 ? 0 : 8);

@@ -2671,7 +2671,7 @@ int main(int argc, char **argv)
     bool bIsRemote        = cmdline.toBool("isremote");
     bool bDoBurn          = cmdline.toBool("burndvd");
     bool bEraseDVDRW      = cmdline.toBool("erasedvdrw");
-    bool bNativeFormat    = cmdline.toBool("nativeformat");;
+    bool bNativeFormat    = cmdline.toBool("nativeformat");
     bool bSup2Dast        = cmdline.toBool("sup2dast");
 
     QString thumbList     = cmdline.toString("thumblist");

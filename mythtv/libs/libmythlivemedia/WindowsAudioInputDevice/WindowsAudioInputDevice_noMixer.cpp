@@ -131,7 +131,7 @@ Boolean WindowsAudioInputDevice::setInputPort(int portIndex) {
   
   if (portIndex != fCurPortIndex) { 
     // The port has changed, so close the old one and open the new one:
-    if (fCurPortIndex >= 0) ourAudioInputPorts[fCurPortIndex].close();;
+    if (fCurPortIndex >= 0) ourAudioInputPorts[fCurPortIndex].close();
     fCurPortIndex = portIndex;
     ourAudioInputPorts[fCurPortIndex].open(fNumChannels, fSamplingFrequency, fGranularityInMS);
   }

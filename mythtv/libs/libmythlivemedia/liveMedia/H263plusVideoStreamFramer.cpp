@@ -122,7 +122,7 @@ void H263plusVideoStreamFramer::continueReadProcessing()
       }
 
       // Compute "fDurationInMicroseconds" 
-      fDurationInMicroseconds = (unsigned int) frameDuration*1000;;
+      fDurationInMicroseconds = (unsigned int) frameDuration*1000;
 
       // Call our own 'after getting' function.  Because we're not a 'leaf'
       // source, we can call this directly, without risking infinite recursion.

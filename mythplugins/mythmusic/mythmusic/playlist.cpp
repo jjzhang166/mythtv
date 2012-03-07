@@ -343,7 +343,8 @@ void Playlist::shuffleTracks(MusicPlayer::ShuffleMode shuffleMode)
                 Metadata *mdata = (*it);
                 if (mdata)
                 {
-                    album = album = mdata->Album() + " ~ " + QString("%1").arg(mdata->getAlbumId());;
+                    album = mdata->Album() + " ~ " +
+                            QString("%1").arg(mdata->getAlbumId());
                     if ((Ialbum = album_map.find(album)) == album_map.end())
                     {
                         // we didn't find this album in the map,
