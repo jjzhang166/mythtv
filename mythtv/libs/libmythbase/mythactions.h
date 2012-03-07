@@ -10,7 +10,7 @@ template <class T>
 struct ActionDefStruct
 {
     QString     name;
-    void        (T::*handler)(void);
+    bool        (T::*handler)(void);
 };
 
 #define NELEMS(x) ((sizeof(x)) / (sizeof(x[0])))
@@ -56,8 +56,7 @@ class MBASE_PUBLIC MythActions : public ActionMap<T>
         if (!def || !def->handler)
             return false;
 
-        CALL_CLASS_MEMBER(m_parent,def->handler)();
-        return true;
+        return CALL_CLASS_MEMBER(m_parent,def->handler)();
     }
 
   private:

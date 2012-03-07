@@ -50,8 +50,8 @@ static int mdActionCount = NELEMS(mdActions);
 /** \class MythDialog
  *  \brief Base dialog for most dialogs in MythTV using the old UI
  */
-MythDialog::MythDialog(MythMainWindow *parent, const char *name, bool setsize)
-    : QFrame(parent), rescode(kDialogCodeAccepted),
+MythDialog::MythDialog(MythMainWindow *parent, const char *name, bool setsize) :
+    QFrame(parent), rescode(kDialogCodeAccepted),
     m_actions(new MythActions<MythDialog>(this, mdActions, mdActionCount))
 {
     setObjectName(name);
@@ -165,14 +165,16 @@ int MythDialog::CalcItemIndex(DialogCode code)
     return (int)code - (int)kDialogCodeListStart;
 }
 
-void MythDialog::accept()
+bool MythDialog::accept()
 {
     done(Accepted);
+    return true;
 }
 
-void MythDialog::reject()
+bool MythDialog::reject()
 {
     done(Rejected);
+    return true;
 }
 
 DialogCode MythDialog::exec(void)
@@ -214,12 +216,13 @@ void MythDialog::hide(void)
 }
 
 
-void MythDialog::emitMenuButtonPressed(void)
+bool MythDialog::emitMenuButtonPressed(void)
 {
     emit menuButtonPressed();
+    return true;
 }
 
-void MythDialog::doUpLeft(void)
+bool MythDialog::doUpLeft(void)
 {
     if (!focusWidget() ||
 	(focusWidget()->focusPolicy() != Qt::StrongFocus &&
@@ -227,9 +230,10 @@ void MythDialog::doUpLeft(void)
     {
 	focusNextPrevChild(false);
     }
+    return true;
 }
 
-void MythDialog::doDownRight(void)
+bool MythDialog::doDownRight(void)
 {
     if (!focusWidget() ||
 	(focusWidget()->focusPolicy() != Qt::StrongFocus &&
@@ -237,6 +241,7 @@ void MythDialog::doDownRight(void)
     {
 	focusNextPrevChild(true);
     }
+    return true;
 }
 
 
@@ -250,6 +255,11 @@ void MythDialog::keyPressEvent( QKeyEvent *e )
     if (!handled)
         handled = m_actions->handleActions(actions);
 }
+
+static struct ActionDefStruct<MythPopupBox> mpbActions[] = {
+    { "ESCAPE", &MythPopupBox::reject }
+};
+static int mpbActionCount = NELEMS(mpbActions);
 
 /** \class MythPopupBox
  *  \brief Child of MythDialog used for most popup menus in MythTV
@@ -265,8 +275,9 @@ void MythDialog::keyPressEvent( QKeyEvent *e )
  *  return the result() when the popup is finished.
  */
 
-MythPopupBox::MythPopupBox(MythMainWindow *parent, const char *name)
-            : MythDialog(parent, name, false)
+MythPopupBox::MythPopupBox(MythMainWindow *parent, const char *name) :
+    MythDialog(parent, name, false),
+    m_actions(new MythActions<MythPopupBox>(this, mpbActions, mpbActionCount))
 {
     float wmult, hmult;
 
@@ -290,10 +301,12 @@ MythPopupBox::MythPopupBox(MythMainWindow *parent, const char *name)
     setWindowFlags(Qt::FramelessWindowHint);
 }
 
+
 MythPopupBox::MythPopupBox(MythMainWindow *parent, bool graphicPopup,
                            QColor popupForeground, QColor popupBackground,
-                           QColor popupHighlight, const char *name)
-            : MythDialog(parent, name, false)
+                           QColor popupHighlight, const char *name) :
+    MythDialog(parent, name, false),
+    m_actions(new MythActions<MythPopupBox>(this, mpbActions, mpbActionCount))
 {
     float wmult, hmult;
 
@@ -331,6 +344,11 @@ MythPopupBox::MythPopupBox(MythMainWindow *parent, bool graphicPopup,
     setWindowFlags(Qt::FramelessWindowHint);
 }
 
+MythPopupBox::~MythPopupBox()
+{
+    if (m_actions)
+        delete m_actions;
+}
 
 bool MythPopupBox::focusNextPrevChild(bool next)
 {
@@ -580,16 +598,8 @@ void MythPopupBox::keyPressEvent(QKeyEvent *e)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-
-        if (action == "ESCAPE")
-        {
-            reject();
-            handled = true;
-        }
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         MythDialog::keyPressEvent(e);
@@ -601,16 +611,18 @@ void MythPopupBox::AcceptItem(int i)
     emit popupDone(rescode);
 }
 
-void MythPopupBox::accept(void)
+bool MythPopupBox::accept(void)
 {
     MythDialog::done(MythDialog::Accepted);
     emit popupDone(MythDialog::Accepted);
+    return true;
 }
 
-void MythPopupBox::reject(void)
+bool MythPopupBox::reject(void)
 {
     MythDialog::done(MythDialog::Rejected);
     emit popupDone(MythDialog::Rejected);
+    return true;
 }
 
 DialogCode MythPopupBox::ExecPopup(QObject *target, const char *slot)
@@ -795,10 +807,16 @@ DialogCode MythPopupBox::ShowButtonPopup(
     return ret;
 }
 
-MythProgressDialog::MythProgressDialog(
-    const QString &message, int totalSteps,
-    bool cancelButton, const QObject *target, const char *slot)
-    : MythDialog(GetMythMainWindow(), "progress", false)
+static struct ActionDefStruct<MythProgressDialog> mpdActions[] = {
+    { "ESCAPE", &MythProgressDialog::reject }
+};
+static int mpdActionCount = NELEMS(mpdActions);
+
+MythProgressDialog::MythProgressDialog(const QString &message, int totalSteps,
+                  bool cancelButton, const QObject *target, const char *slot) :
+    MythDialog(GetMythMainWindow(), "progress", false),
+    m_actions(new MythActions<MythProgressDialog>(this, mpdActions,
+                                                  mpdActionCount))
 {
     setObjectName("MythProgressDialog");
     int screenwidth, screenheight;
@@ -875,6 +893,8 @@ MythProgressDialog::MythProgressDialog(
 
 MythProgressDialog::~MythProgressDialog()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 void MythProgressDialog::deleteLater(void)
@@ -920,12 +940,8 @@ void MythProgressDialog::keyPressEvent(QKeyEvent *e)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        if (action == "ESCAPE")
-            handled = true;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
         MythDialog::keyPressEvent(e);
@@ -944,8 +960,8 @@ MythThemedDialog::MythThemedDialog(MythMainWindow *parent,
                                    const QString  &window_name,
                                    const QString  &theme_filename,
                                    const char     *name,
-                                   bool            setsize)
-                : MythDialog(parent, name, setsize)
+                                   bool            setsize) :
+    MythDialog(parent, name, setsize)
 {
     setNoErase();
 

@@ -42,14 +42,16 @@ ConfigurationDialogWidget::~ConfigurationDialogWidget()
         delete m_actions;
 }
 
-void ConfigurationDialogWidget::emitEditButtonPressed(void)
+bool ConfigurationDialogWidget::emitEditButtonPressed(void)
 {
     emit editButtonPressed();
+    return true;
 }
 
-void ConfigurationDialogWidget::emitDeleteButtonPressed(void)
+bool ConfigurationDialogWidget::emitDeleteButtonPressed(void)
 {
     emit deleteButtonPressed();
+    return true;
 }
 
 void ConfigurationDialogWidget::keyPressEvent(QKeyEvent* e)

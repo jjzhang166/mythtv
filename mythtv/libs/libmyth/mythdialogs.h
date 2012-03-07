@@ -86,9 +86,9 @@ class MPUBLIC MythDialog : public QFrame
     virtual void deleteLater(void);
 
     static int CalcItemIndex(DialogCode code);
-    void emitMenuButtonPressed(void);
-    void doUpLeft(void);
-    void doDownRight(void);
+    bool emitMenuButtonPressed(void);
+    bool doUpLeft(void);
+    bool doDownRight(void);
 
  signals:
     void menuButtonPressed();
@@ -98,8 +98,8 @@ class MPUBLIC MythDialog : public QFrame
     DialogCode exec(void);
     virtual void done(int); // Must be given a valid DialogCode
     virtual void AcceptItem(int);
-    virtual void accept();
-    virtual void reject();
+    virtual bool accept();
+    virtual bool reject();
 
   protected:
     ~MythDialog();
@@ -178,14 +178,14 @@ class MPUBLIC MythPopupBox : public MythDialog
 
   public slots:
     virtual void AcceptItem(int);
-    virtual void accept(void);
-    virtual void reject(void);
+    virtual bool accept(void);
+    virtual bool reject(void);
 
   signals:
     void popupDone(int);
 
   protected:
-    ~MythPopupBox() {} // use deleteLater() instead for thread safety
+    ~MythPopupBox(); // use deleteLater() instead for thread safety
     bool focusNextPrevChild(bool next);
     void keyPressEvent(QKeyEvent *e);
 
@@ -196,6 +196,8 @@ class MPUBLIC MythPopupBox : public MythDialog
     QVBoxLayout *vbox;
     QColor       popupForegroundColor;
     int          hpadding, wpadding;
+
+    MythActions<MythPopupBox> *m_actions;
 };
 
 /*!
@@ -260,6 +262,8 @@ class MPUBLIC MythProgressDialog: public MythDialog
     void setTotalSteps(int totalSteps);
     int steps;
     int m_totalSteps;
+
+    MythActions<MythProgressDialog> *m_actions;
 };
 
 
