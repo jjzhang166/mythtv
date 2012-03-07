@@ -12,6 +12,7 @@
 
 #include "mythexp.h"
 #include "mythmainwindow.h"
+#include "mythactions.h"
 #include <vector>
 using namespace std;
 
@@ -56,6 +57,7 @@ inline bool operator!=(const QDialog::DialogCode &a, const DialogCode &b)
 /*!
  * \deprecated Due for removal, use libmythui's MythScreenType instead
  */
+class MythDialog;
 class MPUBLIC MythDialog : public QFrame
 {
     Q_OBJECT
@@ -84,6 +86,9 @@ class MPUBLIC MythDialog : public QFrame
     virtual void deleteLater(void);
 
     static int CalcItemIndex(DialogCode code);
+    void emitMenuButtonPressed(void);
+    void doUpLeft(void);
+    void doDownRight(void);
 
  signals:
     void menuButtonPressed();
@@ -113,6 +118,9 @@ class MPUBLIC MythDialog : public QFrame
     bool in_loop;
 
     QFont defaultBigFont, defaultMediumFont, defaultSmallFont;
+
+  protected:
+    MythActions<MythDialog> *m_actions;
 };
 
 /*!

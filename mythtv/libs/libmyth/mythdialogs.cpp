@@ -30,17 +30,29 @@ using namespace std;
 #include "mythuihelper.h"
 #include "mythlogging.h"
 #include "mythcorecontext.h"
+#include "mythactions.h"
 
 #ifdef USING_MINGW
 #undef LoadImage
 #endif
 
+static struct ActionDefStruct<MythDialog> mdActions[] = {
+    { "ESCAPE", &MythDialog::reject },
+    { "UP",     &MythDialog::doUpLeft },
+    { "LEFT",   &MythDialog::doUpLeft },
+    { "DOWN",   &MythDialog::doDownRight },
+    { "RIGHT",  &MythDialog::doDownRight },
+    { "MENU",   &MythDialog::emitMenuButtonPressed }
+};
+static int mdActionCount = NELEMS(mdActions);
+
+
 /** \class MythDialog
  *  \brief Base dialog for most dialogs in MythTV using the old UI
  */
-
 MythDialog::MythDialog(MythMainWindow *parent, const char *name, bool setsize)
-    : QFrame(parent), rescode(kDialogCodeAccepted)
+    : QFrame(parent), rescode(kDialogCodeAccepted),
+    m_actions(new MythActions<MythDialog>(this, mdActions, mdActionCount))
 {
     setObjectName(name);
     if (!parent)
@@ -77,6 +89,8 @@ MythDialog::MythDialog(MythMainWindow *parent, const char *name, bool setsize)
 
 MythDialog::~MythDialog()
 {
+    if (m_actions)
+        delete m_actions;
     TeardownAll();
 }
 
@@ -199,6 +213,33 @@ void MythDialog::hide(void)
     }
 }
 
+
+void MythDialog::emitMenuButtonPressed(void)
+{
+    emit menuButtonPressed();
+}
+
+void MythDialog::doUpLeft(void)
+{
+    if (!focusWidget() ||
+	(focusWidget()->focusPolicy() != Qt::StrongFocus &&
+	 focusWidget()->focusPolicy() != Qt::WheelFocus))
+    {
+	focusNextPrevChild(false);
+    }
+}
+
+void MythDialog::doDownRight(void)
+{
+    if (!focusWidget() ||
+	(focusWidget()->focusPolicy() != Qt::StrongFocus &&
+	 focusWidget()->focusPolicy() != Qt::WheelFocus))
+    {
+	focusNextPrevChild(true);
+    }
+}
+
+
 void MythDialog::keyPressEvent( QKeyEvent *e )
 {
     bool handled = false;
@@ -206,38 +247,8 @@ void MythDialog::keyPressEvent( QKeyEvent *e )
 
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE")
-            reject();
-        else if (action == "UP" || action == "LEFT")
-        {
-            if (focusWidget() &&
-                (focusWidget()->focusPolicy() == Qt::StrongFocus ||
-                    focusWidget()->focusPolicy() == Qt::WheelFocus))
-            {
-            }
-            else
-                focusNextPrevChild(false);
-        }
-        else if (action == "DOWN" || action == "RIGHT")
-        {
-            if (focusWidget() &&
-                (focusWidget()->focusPolicy() == Qt::StrongFocus ||
-                    focusWidget()->focusPolicy() == Qt::WheelFocus))
-            {
-            }
-            else
-                focusNextPrevChild(true);
-        }
-        else if (action == "MENU")
-            emit menuButtonPressed();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 }
 
 /** \class MythPopupBox
