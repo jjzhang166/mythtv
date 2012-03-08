@@ -63,7 +63,7 @@ class MBASE_PUBLIC MythActions : public ActionMap<T>
     ~MythActions()
     {
         if (m_actions)
-            delete m_actions;
+            delete [] m_actions;
     }
 
     bool handleActions(const QStringList &actions, bool *touched = NULL)
