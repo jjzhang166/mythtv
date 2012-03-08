@@ -4,6 +4,7 @@
 #include "mythplayer.h"
 #include "programinfo.h"
 #include "mythscreentype.h"
+#include "mythactions.h"
 
 class MythUITextEdit;
 class MythUIButton;
@@ -21,6 +22,8 @@ class CustomEdit : public MythScreenType
    bool Create();
    bool keyPressEvent(QKeyEvent *);
    void customEvent(QEvent *event);
+
+   bool doDelete(const QString &action);
 
   protected slots:
     void ruleChanged(MythUIButtonListItem *item);
@@ -63,6 +66,8 @@ class CustomEdit : public MythScreenType
     MythUIButton *m_recordButton;
     MythUIButton *m_storeButton;
     MythUIButton *m_cancelButton;
+
+    MythActions<CustomEdit> *m_actions;
 };
 
 struct CustomRuleInfo {

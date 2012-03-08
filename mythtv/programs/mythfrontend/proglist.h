@@ -9,6 +9,7 @@
 #include "programinfo.h" // for ProgramList
 #include "schedulecommon.h"
 #include "proglist_helpers.h"
+#include "mythactions.h"
 
 enum ProgListType {
     plUnknown = 0,
@@ -47,6 +48,17 @@ class ProgLister : public ScheduleCommon
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
     void customEvent(QEvent *);
+
+    bool doPrevView(const QString &action);
+    bool doNextView(const QString &action);
+    bool doEdit(const QString &action);
+    bool doCustomEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doUpcoming(const QString &action);
+    bool doInfo(const QString &action);
+    bool doToggleRecord(const QString &action);
+    bool doOne(const QString &action);
+    bool doTwo(const QString &action);
 
   protected slots:
     void HandleSelected(MythUIButtonListItem *item);
@@ -131,6 +143,9 @@ class ProgLister : public ScheduleCommon
     MythUIText       *m_positionText;
     MythUIButtonList *m_progList;
     MythUIText       *m_messageText;
+
+    MythActions<ProgLister> *m_actions;
+    bool m_actionUpdate;
 };
 
 #endif

@@ -15,6 +15,7 @@
 #include "mythscreenstack.h"
 #include "mythscreentype.h"
 #include "themeinfo.h"
+#include "mythactions.h"
 
 class MythDialogBox;
 class MythUIButtonList;
@@ -38,6 +39,10 @@ class ThemeChooser : public MythScreenType
     void Init(void);
     bool keyPressEvent(QKeyEvent*);
     void customEvent(QEvent *e);
+
+    bool doMenu(const QString &action);
+    bool doDelete(const QString &action);
+    bool doEscape(const QString &action);
 
   private slots:
     void itemChanged(MythUIButtonListItem *item);
@@ -88,6 +93,8 @@ class ThemeChooser : public MythScreenType
     DownloadState              m_downloadState;
 
     MythDialogBox      *m_popupMenu;
+
+    MythActions<ThemeChooser> *m_actions;
 };
 
 ////////////////////////////////////////////////////////////////////////////

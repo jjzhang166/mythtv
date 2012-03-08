@@ -26,6 +26,7 @@
 #include "guidegrid.h"
 #include "customedit.h"
 #include "progfind.h"
+#include "mythactions.h"
 
 #define LOC      QString("ProgFinder: ")
 #define LOC_ERR  QString("ProgFinder, Error: ")
@@ -51,15 +52,30 @@ void RunProgramFinder(TV *player, bool embedVideo, bool allowEPG)
         delete programFind;
 }
 
+static struct ActionDefStruct<ProgFinder> pfActions[] = {
+    { "EDIT",         &ProgFinder::doEdit },
+    { "CUSTOMEDIT",   &ProgFinder::doCustomEdit },
+    { "UPCOMING",     &ProgFinder::doUpcoming },
+    { "DETAILS",      &ProgFinder::doInfo },
+    { "INFO",         &ProgFinder::doInfo },
+    { "TOGGLERECORD", &ProgFinder::doToggleRecord },
+    { "GUIDE",        &ProgFinder::doGuide },
+    { "4",            &ProgFinder::doGuide },
+    { "ESCAPE",       &ProgFinder::doEscape }
+};
+static int pfActionCount = NELEMS(pfActions);
+
+
 ProgFinder::ProgFinder(MythScreenStack *parentStack, bool allowEPG,
-                       TV *player, bool embedVideo)
-          : ScheduleCommon(parentStack, "ProgFinder"),
+                       TV *player, bool embedVideo) :
+    ScheduleCommon(parentStack, "ProgFinder"),
     m_currentLetter(""),
     m_player(player),            m_embedVideo(embedVideo),
     m_allowEPG(allowEPG),        m_allowKeypress(true),
     m_alphabetList(NULL),        m_showList(NULL),
     m_timesList(NULL),           m_searchText(NULL),
-    m_help1Text(NULL),           m_help2Text(NULL)
+    m_help1Text(NULL),           m_help2Text(NULL),
+    m_actions(new MythActions<ProgFinder>(this, pfActions, pfActionCount))
 {
 }
 
@@ -134,6 +150,9 @@ ProgFinder::~ProgFinder()
         QString message = QString("PROGFINDER_EXITING");
         qApp->postEvent(m_player, new MythEvent(message));
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void ProgFinder::alphabetListItemSelected(MythUIButtonListItem *item)
@@ -163,6 +182,54 @@ void ProgFinder::timesListTakeFocus(void)
     updateInfo();
 }
 
+
+bool ProgFinder::doEdit(const QString &action)
+{
+    edit();
+    return true;
+}
+
+bool ProgFinder::doCustomEdit(const QString &action)
+{
+    customEdit();
+    return true;
+}
+
+bool ProgFinder::doUpcoming(const QString &action)
+{
+    upcoming();
+    return true;
+}
+
+bool ProgFinder::doInfo(const QString &action)
+{
+    details();
+    return true;
+}
+
+bool ProgFinder::doToggleRecord(const QString &action)
+{
+    quickRecord();
+    return true;
+}
+
+bool ProgFinder::doGuide(const QString &action)
+{
+    showGuide();
+    return true;
+}
+
+bool ProgFinder::doEscape(const QString &action)
+{
+    // don't fade the screen if we are returning to the player
+    if (m_player && m_allowEPG)
+        GetScreenStack()->PopScreen(this, false);
+    else
+        GetScreenStack()->PopScreen(this, true);
+    return true;
+}
+
+
 bool ProgFinder::keyPressEvent(QKeyEvent *event)
 {
     if (!m_allowKeypress)
@@ -179,36 +246,11 @@ bool ProgFinder::keyPressEvent(QKeyEvent *event)
     bool handled = false;
 
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; ++i)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "EDIT")
-            edit();
-        else if (action == "CUSTOMEDIT")
-            customEdit();
-        else if (action == "UPCOMING")
-            upcoming();
-        else if (action == "DETAILS" || action == "INFO")
-            details();
-        else if (action == "TOGGLERECORD")
-            quickRecord();
-        else if (action == "GUIDE" || action == "4")
-            showGuide();
-        else if (action == "ESCAPE")
-        {
-            // don't fade the screen if we are returning to the player
-            if (m_player && m_allowEPG)
-                GetScreenStack()->PopScreen(this, false);
-            else
-                GetScreenStack()->PopScreen(this, true);
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

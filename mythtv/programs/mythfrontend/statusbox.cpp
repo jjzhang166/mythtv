@@ -25,6 +25,7 @@ using namespace std;
 #include "mythuitext.h"
 #include "mythuistatetype.h"
 #include "mythdialogbox.h"
+#include "mythactions.h"
 
 struct LogLine {
     QString line;
@@ -36,6 +37,13 @@ struct LogLine {
 };
 
 
+static struct ActionDefStruct<StatusBox> sbActions[] = {
+    { "MENU",         &StatusBox::doMenu },
+    { "^[12345678]$", &StatusBox::doDigit }
+};
+static int sbActionCount = NELEMS(sbActions);
+
+
 /** \class StatusBox
  *  \brief Reports on various status items.
  *
@@ -45,8 +53,9 @@ struct LogLine {
  *  of the job queue, and the machine status.
  */
 
-StatusBox::StatusBox(MythScreenStack *parent)
-          : MythScreenType(parent, "StatusBox")
+StatusBox::StatusBox(MythScreenStack *parent) :
+    MythScreenType(parent, "StatusBox"),
+    m_actions(new MythActions<StatusBox>(this, sbActions, sbActionCount))
 {
     m_minLevel = gCoreContext->GetNumSetting("LogDefaultView",5);
 
@@ -74,6 +83,9 @@ StatusBox::~StatusBox(void)
     if (m_logList)
         gCoreContext->SaveSetting("StatusBoxItemCurrent",
                                   m_logList->GetCurrentPos());
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool StatusBox::Create()
@@ -182,6 +194,41 @@ MythUIButtonListItem* StatusBox::AddLogLine(const QString & line,
     return item;
 }
 
+bool StatusBox::doMenu(const QString &action)
+{
+    if (m_actionItem == tr("Log Entries"))
+    {
+        QString message = tr("Acknowledge all log entries at "
+                             "this priority level or lower?");
+
+        MythConfirmationDialog *confirmPopup =
+                new MythConfirmationDialog(m_popupStack, message);
+
+        confirmPopup->SetReturnEvent(this, "LogAckAll");
+
+        if (confirmPopup->Create())
+            m_popupStack->AddScreen(confirmPopup, false);
+    }
+    return true;
+}
+
+bool StatusBox::doDigit(const QString &action)
+{
+    if (m_actionItem == tr("Log Entries"))
+    {
+        m_minLevel = action.toInt();
+        if (m_helpText)
+            m_helpText->SetText(tr("Setting priority level to %1")
+                                .arg(m_minLevel));
+        if (m_justHelpText)
+            m_justHelpText->SetText(tr("Setting priority level to %1")
+                                    .arg(m_minLevel));
+        doLogEntries();
+    }
+    return true;
+}
+
+
 bool StatusBox::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -191,50 +238,12 @@ bool StatusBox::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Status", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; ++i)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        QRegExp logNumberKeys( "^[12345678]$" );
-
-        MythUIButtonListItem* currentButton = m_categoryList->GetItemCurrent();
-        QString currentItem;
+        MythUIButtonListItem *currentButton = m_categoryList->GetItemCurrent();
         if (currentButton)
-            currentItem = currentButton->GetText();
-
-        handled = true;
-
-        if (action == "MENU")
-        {
-            if (currentItem == tr("Log Entries"))
-            {
-                QString message = tr("Acknowledge all log entries at "
-                                     "this priority level or lower?");
-
-                MythConfirmationDialog *confirmPopup =
-                        new MythConfirmationDialog(m_popupStack, message);
-
-                confirmPopup->SetReturnEvent(this, "LogAckAll");
-
-                if (confirmPopup->Create())
-                    m_popupStack->AddScreen(confirmPopup, false);
-            }
-        }
-        else if ((currentItem == tr("Log Entries")) &&
-                 (logNumberKeys.indexIn(action) == 0))
-        {
-            m_minLevel = action.toInt();
-            if (m_helpText)
-                m_helpText->SetText(tr("Setting priority level to %1")
-                                    .arg(m_minLevel));
-            if (m_justHelpText)
-                m_justHelpText->SetText(tr("Setting priority level to %1")
-                                        .arg(m_minLevel));
-            doLogEntries();
-        }
-        else
-            handled = false;
+            m_actionItem = currentButton->GetText();
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

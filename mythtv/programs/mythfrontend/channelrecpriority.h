@@ -4,6 +4,7 @@
 #include "mythscreentype.h"
 
 #include "programinfo.h"
+#include "mythactions.h"
 
 class ChannelInfo;
 
@@ -35,6 +36,13 @@ class ChannelRecPriority : public MythScreenType
         byChannel,
         byRecPriority,
     };
+
+    bool doUpcoming(const QString &action);
+    bool doRankInc(const QString &action);
+    bool doRankDec(const QString &action);
+    bool doOne(const QString &action);
+    bool doTwo(const QString &action);
+    bool doPrevNext(const QString &action);
 
   protected slots:
     void updateInfo(MythUIButtonListItem *);
@@ -70,6 +78,8 @@ class ChannelRecPriority : public MythScreenType
     SortType m_sortType;
 
     ChannelInfo *m_currentItem;
+
+    MythActions<ChannelRecPriority> *m_actions;
 };
 
 #endif

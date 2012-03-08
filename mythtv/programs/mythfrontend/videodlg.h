@@ -8,6 +8,7 @@
 
 #include "parentalcontrols.h"
 #include "quicksp.h"
+#include "mythactions.h"
 
 class MythUIText;
 class MythUIButtonList;
@@ -55,6 +56,21 @@ class VideoDialog : public MythScreenType
 
     bool Create();
     bool keyPressEvent(QKeyEvent *levent);
+
+    bool doInfo(const QString &action);
+    bool doIncParent(const QString &action);
+    bool doDecParent(const QString &action);
+    bool doSetParent(const QString &action);
+    bool doFilter(const QString &action);
+    bool doMenu(const QString &action);
+    bool doPlayAlt(const QString &action);
+    bool doDownloadData(const QString &action);
+    bool doIncSearch(const QString &action);
+    bool doItemDetail(const QString &action);
+    bool doDelete(const QString &action);
+    bool doEdit(const QString &action);
+    bool doEscape(const QString &action);
+    bool doPlayback(const QString &action);
 
   private:
     void searchStart();
@@ -209,6 +225,8 @@ class VideoDialog : public MythScreenType
     MetadataFactory *m_metadataFactory;
 
     class VideoDialogPrivate *m_d;
+
+    MythActions<VideoDialog> *m_actions;
 };
 
 class VideoListDeathDelay : public QObject

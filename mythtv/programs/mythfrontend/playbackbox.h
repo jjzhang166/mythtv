@@ -27,6 +27,7 @@ using namespace std;
 #include "schedulecommon.h"
 #include "programinfocache.h"
 #include "playbackboxhelper.h"
+#include "mythactions.h"
 
 class QKeyEvent;
 class QEvent;
@@ -132,6 +133,23 @@ class PlaybackBox : public ScheduleCommon
 
     void setInitialRecGroup(QString initialGroup) { m_recGroup = initialGroup; }
     static void * RunPlaybackBox(void *player, bool);
+
+    bool doIconHelp(const QString &action);
+    bool doMenu(const QString &action);
+    bool doNextFav(const QString &action);
+    bool doToggleFav(const QString &action);
+    bool doToggleRecord(const QString &action);
+    bool doPgRight(const QString &action);
+    bool doPgLeft(const QString &action);
+    bool doChangeRecGroup(const QString &action);
+    bool doChangeGroupView(const QString &action);
+    bool doEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doPlayback(const QString &action);
+    bool doInfo(const QString &action);
+    bool doCustomEdit(const QString &action);
+    bool doUpcoming(const QString &action);
+    bool doViewScheduled(const QString &action);
 
   public slots:
     void displayRecGroup(const QString &newRecGroup = "");
@@ -442,6 +460,8 @@ class PlaybackBox : public ScheduleCommon
     PlaybackBoxHelper   m_helper;
     /// Outstanding preview image requests
     QSet<QString>       m_preview_tokens;
+
+    MythActions<PlaybackBox> *m_actions;
 };
 
 class GroupSelector : public MythScreenType

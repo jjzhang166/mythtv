@@ -30,6 +30,7 @@ using namespace std;
 #include "customedit.h"
 #include "proglist.h"
 #include "scheduleeditor.h"
+#include "mythactions.h"
 
 // overloaded version of RecordingInfo with additional recording priority
 // values so we can keep everything together and don't
@@ -389,16 +390,43 @@ class ProgramAvgDelaySort
 
 ////////////////////////////////////////////////////////
 
+static struct ActionDefStruct<ProgramRecPriority> prpActions[] = {
+    { "RANKINC",    &ProgramRecPriority::doRankInc },
+    { "RANKDEC",    &ProgramRecPriority::doRankDec },
+    { "ESCAPE",     &ProgramRecPriority::doEscape },
+    { "1",          &ProgramRecPriority::doOne },
+    { "2",          &ProgramRecPriority::doTwo },
+    { "4",          &ProgramRecPriority::doFour },
+    { "5",          &ProgramRecPriority::doFive },
+    { "6",          &ProgramRecPriority::doSix },
+    { "7",          &ProgramRecPriority::doSeven },
+    { "8",          &ProgramRecPriority::doEight },
+    { "PREVVIEW",   &ProgramRecPriority::doToggleView },
+    { "NEXTVIEW",   &ProgramRecPriority::doToggleView },
+    { "SELECT",     &ProgramRecPriority::doEdit },
+    { "EDIT",       &ProgramRecPriority::doEdit },
+    { "MENU",       &ProgramRecPriority::doMenu },
+    { "CUSTOMEDIT", &ProgramRecPriority::doCustomEdit },
+    { "DELETE",     &ProgramRecPriority::doDelete },
+    { "UPCOMING",   &ProgramRecPriority::doUpcoming },
+    { "INFO",       &ProgramRecPriority::doInfo },
+    { "DETAILS",    &ProgramRecPriority::doInfo }
+};
+static int prpActionCount = NELEMS(prpActions);
+
+
 ProgramRecPriority::ProgramRecPriority(MythScreenStack *parent,
-                                       const QString &name)
-                   : ScheduleCommon(parent, name),
-                     m_programList(NULL), m_schedInfoText(NULL),
-                     m_rectypePriorityText(NULL), m_recPriorityText(NULL),
-                     m_recPriorityBText(NULL), m_finalPriorityText(NULL),
-                     m_lastRecordedText(NULL), m_lastRecordedDateText(NULL),
-                     m_lastRecordedTimeText(NULL), m_channameText(NULL),
-                     m_channumText(NULL), m_callsignText(NULL),
-                     m_recProfileText(NULL), m_currentItem(NULL)
+                                       const QString &name) :
+    ScheduleCommon(parent, name),
+    m_programList(NULL), m_schedInfoText(NULL),
+    m_rectypePriorityText(NULL), m_recPriorityText(NULL),
+    m_recPriorityBText(NULL), m_finalPriorityText(NULL),
+    m_lastRecordedText(NULL), m_lastRecordedDateText(NULL),
+    m_lastRecordedTimeText(NULL), m_channameText(NULL),
+    m_channumText(NULL), m_callsignText(NULL),
+    m_recProfileText(NULL), m_currentItem(NULL),
+    m_actions(new MythActions<ProgramRecPriority>(this, prpActions,
+                                                  prpActionCount))
 {
     m_sortType = (SortType)gCoreContext->GetNumSetting("ProgramRecPrioritySorting",
                                                  (int)byTitle);
@@ -407,6 +435,8 @@ ProgramRecPriority::ProgramRecPriority(MythScreenStack *parent,
 
 ProgramRecPriority::~ProgramRecPriority()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ProgramRecPriority::Create()
@@ -465,6 +495,174 @@ void ProgramRecPriority::Init(void)
     SortList();
 }
 
+bool ProgramRecPriority::doRankInc(const QString &action)
+{
+    changeRecPriority(1);
+    return true;
+}
+
+bool ProgramRecPriority::doRankDec(const QString &action)
+{
+    changeRecPriority(-1);
+    return true;
+}
+
+bool ProgramRecPriority::doEscape(const QString &action)
+{
+    saveRecPriority();
+    gCoreContext->SaveSetting("ProgramRecPrioritySorting", (int)m_sortType);
+    gCoreContext->SaveSetting("ProgramRecPriorityReverse", (int)m_reverseSort);
+    Close();
+    return true;
+}
+
+bool ProgramRecPriority::doOne(const QString &action)
+{
+    if (m_sortType != byTitle)
+    {
+        m_sortType = byTitle;
+        m_reverseSort = false;
+    }
+    else
+        m_reverseSort = !m_reverseSort;
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doTwo(const QString &action)
+{
+    if (m_sortType != byRecPriority)
+    {
+        m_sortType = byRecPriority;
+        m_reverseSort = false;
+    }
+    else
+        m_reverseSort = !m_reverseSort;
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doFour(const QString &action)
+{
+    if (m_sortType != byRecType)
+    {
+        m_sortType = byRecType;
+        m_reverseSort = false;
+    }
+    else
+        m_reverseSort = !m_reverseSort;
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doFive(const QString &action)
+{
+    if (m_sortType != byCount)
+    {
+        m_sortType = byCount;
+        m_reverseSort = false;
+    }
+    else
+    {
+        m_reverseSort = !m_reverseSort;
+    }
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doSix(const QString &action)
+{
+    if (m_sortType != byRecCount)
+    {
+        m_sortType = byRecCount;
+        m_reverseSort = false;
+    }
+    else
+        m_reverseSort = !m_reverseSort;
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doSeven(const QString &action)
+{
+    if (m_sortType != byLastRecord)
+    {
+        m_sortType = byLastRecord;
+        m_reverseSort = false;
+    }
+    else
+        m_reverseSort = !m_reverseSort;
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doEight(const QString &action)
+{
+    if (m_sortType != byAvgDelay)
+    {
+        m_sortType = byAvgDelay;
+        m_reverseSort = false;
+    }
+    else
+        m_reverseSort = !m_reverseSort;
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doToggleView(const QString &action)
+{
+    m_reverseSort = false;
+    if (m_sortType == byTitle)
+        m_sortType = byRecPriority;
+    else if (m_sortType == byRecPriority)
+        m_sortType = byRecType;
+    else
+        m_sortType = byTitle;
+    SortList();
+    return true;
+}
+
+bool ProgramRecPriority::doEdit(const QString &action)
+{
+    saveRecPriority();
+    edit(m_programList->GetItemCurrent());
+    return true;
+}
+
+bool ProgramRecPriority::doMenu(const QString &action)
+{
+    showMenu();
+    return true;
+}
+
+bool ProgramRecPriority::doCustomEdit(const QString &action)
+{
+    saveRecPriority();
+    customEdit();
+    return true;
+}
+
+bool ProgramRecPriority::doDelete(const QString &action)
+{
+    saveRecPriority();
+    remove();
+    return true;
+}
+
+bool ProgramRecPriority::doUpcoming(const QString &action)
+{
+    saveRecPriority();
+    upcoming();
+    return true;
+}
+
+bool ProgramRecPriority::doInfo(const QString &action)
+{
+    details();
+    return true;
+}
+
+
 bool ProgramRecPriority::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -472,145 +670,11 @@ bool ProgramRecPriority::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "RANKINC")
-            changeRecPriority(1);
-        else if (action == "RANKDEC")
-            changeRecPriority(-1);
-        else if (action == "ESCAPE")
-        {
-            saveRecPriority();
-            gCoreContext->SaveSetting("ProgramRecPrioritySorting",
-                                    (int)m_sortType);
-            gCoreContext->SaveSetting("ProgramRecPriorityReverse",
-                                    (int)m_reverseSort);
-            Close();
-        }
-        else if (action == "1")
-        {
-            if (m_sortType != byTitle)
-            {
-                m_sortType = byTitle;
-                m_reverseSort = false;
-            }
-            else
-                m_reverseSort = !m_reverseSort;
-            SortList();
-        }
-        else if (action == "2")
-        {
-            if (m_sortType != byRecPriority)
-            {
-                m_sortType = byRecPriority;
-                m_reverseSort = false;
-            }
-            else
-                m_reverseSort = !m_reverseSort;
-            SortList();
-        }
-        else if (action == "4")
-        {
-            if (m_sortType != byRecType)
-            {
-                m_sortType = byRecType;
-                m_reverseSort = false;
-            }
-            else
-                m_reverseSort = !m_reverseSort;
-            SortList();
-        }
-        else if (action == "5")
-        {
-            if (m_sortType != byCount)
-            {
-                m_sortType = byCount;
-                m_reverseSort = false;
-            }
-            else
-            {
-                m_reverseSort = !m_reverseSort;
-            }
-            SortList();
-        }
-        else if (action == "6")
-        {
-            if (m_sortType != byRecCount)
-            {
-                m_sortType = byRecCount;
-                m_reverseSort = false;
-            }
-            else
-                m_reverseSort = !m_reverseSort;
-            SortList();
-        }
-        else if (action == "7")
-        {
-            if (m_sortType != byLastRecord)
-            {
-                m_sortType = byLastRecord;
-                m_reverseSort = false;
-            }
-            else
-                m_reverseSort = !m_reverseSort;
-            SortList();
-        }
-        else if (action == "8")
-        {
-            if (m_sortType != byAvgDelay)
-            {
-                m_sortType = byAvgDelay;
-                m_reverseSort = false;
-            }
-            else
-                m_reverseSort = !m_reverseSort;
-            SortList();
-        }
-        else if (action == "PREVVIEW" || action == "NEXTVIEW")
-        {
-            m_reverseSort = false;
-            if (m_sortType == byTitle)
-                m_sortType = byRecPriority;
-            else if (m_sortType == byRecPriority)
-                m_sortType = byRecType;
-            else
-                m_sortType = byTitle;
-            SortList();
-        }
-        else if (action == "SELECT" || action == "EDIT")
-        {
-            saveRecPriority();
-            edit(m_programList->GetItemCurrent());
-        }
-        else if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "CUSTOMEDIT")
-        {
-            saveRecPriority();
-            customEdit();
-        }
-        else if (action == "DELETE")
-        {
-            saveRecPriority();
-            remove();
-        }
-        else if (action == "UPCOMING")
-        {
-            saveRecPriority();
-            upcoming();
-        }
-        else if (action == "INFO" || action == "DETAILS")
-            details();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

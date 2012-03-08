@@ -9,6 +9,7 @@
 #include "mythscreentype.h"
 #include "mythuiwebbrowser.h"
 #include "programinfo.h"
+#include "mythactions.h"
 
 class ProgDetails : public MythScreenType
 {
@@ -20,6 +21,9 @@ class ProgDetails : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
     void Init(void);
+
+    bool doMenu(const QString &action);
+    bool doInfo(const QString &action);
 
   private:
     QString getRatings(bool recorded, uint chanid, QDateTime startts);
@@ -38,6 +42,8 @@ class ProgDetails : public MythScreenType
     QString            m_page[2];
 
     QStringList        m_html;
+
+    MythActions<ProgDetails> *m_actions;
 };
 
 #endif

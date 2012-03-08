@@ -9,6 +9,7 @@
 #include "mythuibutton.h"
 #include "mythuiimage.h"
 #include "mythdialogbox.h"
+#include "mythactions.h"
 
 class XMLParse;
 class ScreenWizard : public MythScreenType
@@ -23,6 +24,13 @@ class ScreenWizard : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
     void customEvent(QEvent *event);
+
+    bool doSelect(const QString &action);
+    bool doMenu(const QString &action);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
 
   protected:
     void doMenu();
@@ -80,6 +88,8 @@ class ScreenWizard : public MythScreenType
     void slotChangeCoarseFine();
     void closeMenu();
     void slotResetSettings();
+
+    MythActions<ScreenWizard> *m_actions;
 };
 
 #endif

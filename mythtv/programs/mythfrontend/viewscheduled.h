@@ -10,6 +10,7 @@
 #include "schedulecommon.h"
 #include "mythscreentype.h"
 #include "programinfo.h"
+#include "mythactions.h"
 
 class TV;
 class Timer;
@@ -38,6 +39,18 @@ class ViewScheduled : public ScheduleCommon
     virtual void ShowMenu(void); // MythScreenType
     virtual bool keyPressEvent(QKeyEvent *); // QObject
     virtual void customEvent(QEvent*); // QObject
+
+    bool doEdit(const QString &action);
+    bool doCustomEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doUpcoming(const QString &action);
+    bool doViewScheduled(const QString &action);
+    bool doInfo(const QString &action);
+    bool doOne(const QString &action);
+    bool doTwo(const QString &action);
+    bool doPrevNext(const QString &action);
+    bool doViewCard(const QString &action);
+    bool doViewInput(const QString &action);
 
   protected slots:
     void ChangeGroup(MythUIButtonListItem *item);
@@ -95,6 +108,8 @@ class ViewScheduled : public ScheduleCommon
     uint m_curinput;
 
     TV *m_player;
+
+    MythActions<ViewScheduled> *m_actions;
 };
 
 #endif

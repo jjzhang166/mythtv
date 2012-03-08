@@ -31,6 +31,7 @@ using namespace std;
 #include "mythuiguidegrid.h"
 #include "mythdialogbox.h"
 #include "progfind.h"
+#include "mythactions.h"
 
 QWaitCondition epgIsVisibleCond;
 
@@ -217,18 +218,51 @@ void GuideGrid::RunProgramGuide(uint chanid, const QString &channum,
         delete gg;
 }
 
-GuideGrid::GuideGrid(MythScreenStack *parent,
-                     uint chanid, QString channum,
-                     TV *player, bool embedVideo,
-                     bool allowFinder, int changrpid)
-         : ScheduleCommon(parent, "guidegrid"),
-    m_allowFinder(allowFinder),
-    m_player(player),
+static struct ActionDefStruct<GuideGrid> ggActions[] = {
+    { ACTION_UP,            &GuideGrid::doUp },
+    { ACTION_DOWN,          &GuideGrid::doDown },
+    { ACTION_LEFT,          &GuideGrid::doLeft },
+    { ACTION_RIGHT,         &GuideGrid::doRight },
+    { "PAGEUP",             &GuideGrid::doPgUp },
+    { "PAGEDOWN",           &GuideGrid::doPgDown },
+    { ACTION_PAGELEFT,      &GuideGrid::doPgLeft },
+    { ACTION_PAGERIGHT,     &GuideGrid::doPgRight },
+    { ACTION_DAYLEFT,       &GuideGrid::doDayLeft },
+    { ACTION_DAYRIGHT,      &GuideGrid::doDayRight },
+    { "NEXTFAV",            &GuideGrid::doNextFav },
+    { ACTION_FINDER,        &GuideGrid::doFinder },
+    { "MENU",               &GuideGrid::doMenu },
+    { "ESCAPE",             &GuideGrid::doEscape },
+    { ACTION_GUIDE,         &GuideGrid::doEscape },
+    { ACTION_SELECT,        &GuideGrid::doSelect },
+    { "EDIT",               &GuideGrid::doEdit },
+    { "CUSTOMEDIT",         &GuideGrid::doCustomEdit },
+    { "DELETE",             &GuideGrid::doDelete },
+    { "UPCOMING",           &GuideGrid::doUpcoming },
+    { "DETAILS",            &GuideGrid::doInfo },
+    { "INFO",               &GuideGrid::doInfo },
+    { ACTION_TOGGLERECORD,  &GuideGrid::doToggleRecord },
+    { ACTION_TOGGLEFAV,     &GuideGrid::doToggleFav },
+    { "CHANUPDATE",         &GuideGrid::doChanUpdate },
+    { ACTION_VOLUMEUP,      &GuideGrid::doVolumeUp },
+    { ACTION_VOLUMEDOWN,    &GuideGrid::doVolumeDown },
+    { "CYCLEAUDIOCHAN",     &GuideGrid::doCycleAudio },
+    { ACTION_MUTEAUDIO,     &GuideGrid::doMuteAudio },
+    { ACTION_TOGGLEPGORDER, &GuideGrid::doTogglePgOrder }
+};
+static int ggActionCount = NELEMS(ggActions);
+
+
+GuideGrid::GuideGrid(MythScreenStack *parent, uint chanid, QString channum,
+                     TV *player, bool embedVideo, bool allowFinder, 
+                     int changrpid) :
+    ScheduleCommon(parent, "guidegrid"),
+    m_allowFinder(allowFinder), m_player(player),
     m_usingNullVideo(false), m_embedVideo(embedVideo),
     m_previewVideoRefreshTimer(new QTimer(this)),
-    m_updateTimer(NULL),
-    m_jumpToChannelLock(QMutex::Recursive),
-    m_jumpToChannel(NULL)
+    m_updateTimer(NULL), m_jumpToChannelLock(QMutex::Recursive),
+    m_jumpToChannel(NULL),
+    m_actions(new MythActions<GuideGrid>(this, ggActions, ggActionCount))
 {
     connect(m_previewVideoRefreshTimer, SIGNAL(timeout()),
             this,                     SLOT(refreshVideo()));
@@ -400,13 +434,236 @@ GuideGrid::~GuideGrid()
 
     if (gCoreContext->GetNumSetting("ChannelGroupRememberLast", 0))
         gCoreContext->SaveSetting("ChannelGroupDefault", m_changrpid);
+
+    if (m_actions)
+        delete m_actions;
 }
+
+bool GuideGrid::doUp(const QString &action)
+{
+    if (m_verticalLayout)
+        cursorLeft();
+    else
+        cursorUp();
+    return true;
+}
+
+bool GuideGrid::doDown(const QString &action)
+{
+    if (m_verticalLayout)
+        cursorRight();
+    else
+        cursorDown();
+    return true;
+}
+
+bool GuideGrid::doLeft(const QString &action)
+{
+    if (m_verticalLayout)
+        cursorUp();
+    else
+        cursorLeft();
+    return true;
+}
+
+bool GuideGrid::doRight(const QString &action)
+{
+    if (m_verticalLayout)
+        cursorDown();
+    else
+        cursorRight();
+    return true;
+}
+
+bool GuideGrid::doPgUp(const QString &action)
+{
+    if (m_verticalLayout)
+        moveLeftRight(kPageLeft);
+    else
+        moveUpDown(kPageUp);
+    return true;
+}
+
+bool GuideGrid::doPgDown(const QString &action)
+{
+    if (m_verticalLayout)
+        moveLeftRight(kPageRight);
+    else
+        moveUpDown(kPageDown);
+    return true;
+}
+
+bool GuideGrid::doPgLeft(const QString &action)
+{
+    if (m_verticalLayout)
+        moveUpDown(kPageUp);
+    else
+        moveLeftRight(kPageLeft);
+    return true;
+}
+
+bool GuideGrid::doPgRight(const QString &action)
+{
+    if (m_verticalLayout)
+        moveUpDown(kPageDown);
+    else
+        moveLeftRight(kPageRight);
+    return true;
+}
+
+bool GuideGrid::doDayLeft(const QString &action)
+{
+    moveLeftRight(kDayLeft);
+    return true;
+}
+
+bool GuideGrid::doDayRight(const QString &action)
+{
+    moveLeftRight(kDayRight);
+    return true;
+}
+
+bool GuideGrid::doNextFav(const QString &action)
+{
+    toggleGuideListing();
+    return true;
+}
+
+bool GuideGrid::doFinder(const QString &action)
+{
+    showProgFinder();
+    return true;
+}
+
+bool GuideGrid::doMenu(const QString &action)
+{
+    ShowMenu();
+    return true;
+}
+
+bool GuideGrid::doEscape(const QString &action)
+{
+    Close();
+    return true;
+}
+
+bool GuideGrid::doSelect(const QString &action)
+{
+    if (m_player && (m_player->GetState(-1) == kState_WatchingLiveTV))
+    {
+        // See if this show is far enough into the future that it's
+        // probable that the user wanted to schedule it to record
+        // instead of changing the channel.
+        ProgramInfo *pginfo =
+            m_programInfos[m_currentRow][m_currentCol];
+        int secsTillStart =
+            (pginfo) ? QDateTime::currentDateTime().secsTo(
+                pginfo->GetScheduledStartTime()) : 0;
+        if (pginfo && (pginfo->GetTitle() != kUnknownTitle) &&
+            ((secsTillStart / 60) >= m_selectRecThreshold))
+        {
+            editRecSchedule();
+        }
+        else
+        {
+            enter();
+        }
+    }
+    else
+        editRecSchedule();
+    return true;
+}
+
+bool GuideGrid::doEdit(const QString &action)
+{
+    editSchedule();
+    return true;
+}
+
+bool GuideGrid::doCustomEdit(const QString &action)
+{
+    customEdit();
+    return true;
+}
+
+bool GuideGrid::doDelete(const QString &action)
+{
+    deleteRule();
+    return true;
+}
+
+bool GuideGrid::doUpcoming(const QString &action)
+{
+    upcoming();
+    return true;
+}
+
+bool GuideGrid::doInfo(const QString &action)
+{
+    details();
+    return true;
+}
+
+bool GuideGrid::doToggleRecord(const QString &action)
+{
+    quickRecord();
+    return true;
+}
+
+bool GuideGrid::doToggleFav(const QString &action)
+{
+    if (m_changrpid == -1)
+        ChannelGroupMenu(0);
+    else
+        toggleChannelFavorite();
+    return true;
+}
+
+bool GuideGrid::doChanUpdate(const QString &action)
+{
+    channelUpdate();
+    return true;
+}
+
+bool GuideGrid::doVolumeUp(const QString &action)
+{
+    volumeUpdate(true);
+    return true;
+}
+
+bool GuideGrid::doVolumeDown(const QString &action)
+{
+    volumeUpdate(false);
+    return true;
+}
+
+bool GuideGrid::doCycleAudio(const QString &action)
+{
+    toggleMute(true);
+    return true;
+}
+
+bool GuideGrid::doMuteAudio(const QString &action)
+{
+    toggleMute();
+    return true;
+}
+
+bool GuideGrid::doTogglePgOrder(const QString &action)
+{
+    m_sortReverse = !m_sortReverse;
+    generateListings();
+    updateChannels();
+    return true;
+}
+
 
 bool GuideGrid::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
     bool handled = false;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event,
+                                                     actions);
 
     if (handled)
         return true;
@@ -422,14 +679,16 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
             chanNum.toInt(&isNum);
             if (isNum)
             {
-                // see if we can find a matching channel before creating the JumpToChannel otherwise
-                // JumpToChannel will delete itself in the ctor leading to a segfault
+                // see if we can find a matching channel before creating the
+                // JumpToChannel otherwise JumpToChannel will delete itself in
+                // the ctor leading to a segfault
                 int i = FindChannel(0, chanNum, false);
                 if (i >= 0)
                 {
                     m_jumpToChannel = new JumpToChannel(this, chanNum,
                                                         m_currentStartChannel,
-                                                        m_currentRow, m_channelCount);
+                                                        m_currentRow,
+                                                        m_channelCount);
                     updateJumpToChannel();
                 }
 
@@ -441,141 +700,8 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
             handled = m_jumpToChannel->ProcessEntry(actions, event);
     }
 
-    for (int i = 0; i < actions.size() && !handled; ++i)
-    {
-        QString action = actions[i];
-        handled = true;
-        if (action == ACTION_UP)
-        {
-            if (m_verticalLayout)
-                cursorLeft();
-            else
-                cursorUp();
-        }
-        else if (action == ACTION_DOWN)
-        {
-            if (m_verticalLayout)
-                cursorRight();
-            else
-                cursorDown();
-        }
-        else if (action == ACTION_LEFT)
-        {
-            if (m_verticalLayout)
-                cursorUp();
-            else
-                cursorLeft();
-        }
-        else if (action == ACTION_RIGHT)
-        {
-            if (m_verticalLayout)
-                cursorDown();
-            else
-                cursorRight();
-        }
-        else if (action == "PAGEUP")
-        {
-            if (m_verticalLayout)
-                moveLeftRight(kPageLeft);
-            else
-                moveUpDown(kPageUp);
-        }
-        else if (action == "PAGEDOWN")
-        {
-            if (m_verticalLayout)
-                moveLeftRight(kPageRight);
-            else
-                moveUpDown(kPageDown);
-        }
-        else if (action == ACTION_PAGELEFT)
-        {
-            if (m_verticalLayout)
-                moveUpDown(kPageUp);
-            else
-                moveLeftRight(kPageLeft);
-        }
-        else if (action == ACTION_PAGERIGHT)
-        {
-            if (m_verticalLayout)
-                moveUpDown(kPageDown);
-            else
-                moveLeftRight(kPageRight);
-        }
-        else if (action == ACTION_DAYLEFT)
-            moveLeftRight(kDayLeft);
-        else if (action == ACTION_DAYRIGHT)
-            moveLeftRight(kDayRight);
-        else if (action == "NEXTFAV")
-            toggleGuideListing();
-        else if (action == ACTION_FINDER)
-            showProgFinder();
-        else if (action == "MENU")
-            ShowMenu();
-        else if (action == "ESCAPE" || action == ACTION_GUIDE)
-            Close();
-        else if (action == ACTION_SELECT)
-        {
-            if (m_player && (m_player->GetState(-1) == kState_WatchingLiveTV))
-            {
-                // See if this show is far enough into the future that it's
-                // probable that the user wanted to schedule it to record
-                // instead of changing the channel.
-                ProgramInfo *pginfo =
-                    m_programInfos[m_currentRow][m_currentCol];
-                int secsTillStart =
-                    (pginfo) ? QDateTime::currentDateTime().secsTo(
-                        pginfo->GetScheduledStartTime()) : 0;
-                if (pginfo && (pginfo->GetTitle() != kUnknownTitle) &&
-                    ((secsTillStart / 60) >= m_selectRecThreshold))
-                {
-                    editRecSchedule();
-                }
-                else
-                {
-                    enter();
-                }
-            }
-            else
-                editRecSchedule();
-        }
-        else if (action == "EDIT")
-            editSchedule();
-        else if (action == "CUSTOMEDIT")
-            customEdit();
-        else if (action == "DELETE")
-            deleteRule();
-        else if (action == "UPCOMING")
-            upcoming();
-        else if (action == "DETAILS" || action == "INFO")
-            details();
-        else if (action == ACTION_TOGGLERECORD)
-            quickRecord();
-        else if (action == ACTION_TOGGLEFAV)
-        {
-            if (m_changrpid == -1)
-                ChannelGroupMenu(0);
-            else
-                toggleChannelFavorite();
-        }
-        else if (action == "CHANUPDATE")
-            channelUpdate();
-        else if (action == ACTION_VOLUMEUP)
-            volumeUpdate(true);
-        else if (action == ACTION_VOLUMEDOWN)
-            volumeUpdate(false);
-        else if (action == "CYCLEAUDIOCHAN")
-            toggleMute(true);
-        else if (action == ACTION_MUTEAUDIO)
-            toggleMute();
-        else if (action == ACTION_TOGGLEPGORDER)
-        {
-            m_sortReverse = !m_sortReverse;
-            generateListings();
-            updateChannels();
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

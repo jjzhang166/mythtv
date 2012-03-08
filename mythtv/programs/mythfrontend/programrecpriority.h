@@ -6,6 +6,7 @@
 
 // mythfrontend
 #include "schedulecommon.h"
+#include "mythactions.h"
 
 class QDateTime;
 
@@ -62,6 +63,24 @@ class ProgramRecPriority : public ScheduleCommon
         byAvgDelay
     };
 
+    bool doRankInc(const QString &action);
+    bool doRankDec(const QString &action);
+    bool doEscape(const QString &action);
+    bool doOne(const QString &action);
+    bool doTwo(const QString &action);
+    bool doFour(const QString &action);
+    bool doFive(const QString &action);
+    bool doSix(const QString &action);
+    bool doSeven(const QString &action);
+    bool doEight(const QString &action);
+    bool doToggleView(const QString &action);
+    bool doEdit(const QString &action);
+    bool doMenu(const QString &action);
+    bool doCustomEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doUpcoming(const QString &action);
+    bool doInfo(const QString &action);
+
   protected slots:
     void updateInfo(MythUIButtonListItem *item);
     void edit(MythUIButtonListItem *item);
@@ -117,6 +136,8 @@ class ProgramRecPriority : public ScheduleCommon
     bool m_reverseSort;
 
     SortType m_sortType;
+
+    MythActions<ProgramRecPriority> *m_actions;
 };
 
 Q_DECLARE_METATYPE(ProgramRecPriorityInfo *)

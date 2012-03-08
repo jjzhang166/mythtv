@@ -15,6 +15,7 @@
 #include "mythuibuttonlist.h"
 #include "mythdialogbox.h"
 #include "mythmainwindow.h"
+#include "mythactions.h"
 
 void *ViewScheduled::RunViewScheduled(void *player, bool showTV)
 {
@@ -30,8 +31,27 @@ void *ViewScheduled::RunViewScheduled(void *player, bool showTV)
     return NULL;
 }
 
-ViewScheduled::ViewScheduled(MythScreenStack *parent, TV* player, bool showTV)
-             : ScheduleCommon(parent, "ViewScheduled")
+static struct ActionDefStruct<ViewScheduled> vsActions[] = {
+    { "EDIT",          &ViewScheduled::doEdit },
+    { "CUSTOMEDIT",    &ViewScheduled::doCustomEdit },
+    { "DELETE",        &ViewScheduled::doDelete },
+    { "UPCOMING",      &ViewScheduled::doUpcoming },
+    { "VIEWSCHEDULED", &ViewScheduled::doViewScheduled },
+    { "DETAILS",       &ViewScheduled::doInfo },
+    { "INFO",          &ViewScheduled::doInfo },
+    { "1",             &ViewScheduled::doOne },
+    { "2",             &ViewScheduled::doTwo },
+    { "PREVVIEW",      &ViewScheduled::doPrevNext },
+    { "NEXTVIEW",      &ViewScheduled::doPrevNext },
+    { "VIEWCARD",      &ViewScheduled::doViewCard },
+    { "VIEWINPUT",     &ViewScheduled::doViewInput }
+};
+static int vsActionCount = NELEMS(vsActions);
+
+
+ViewScheduled::ViewScheduled(MythScreenStack *parent, TV* player, bool showTV) :
+    ScheduleCommon(parent, "ViewScheduled"),
+    m_actions(new MythActions<ViewScheduled>(this, vsActions, vsActionCount))
 {
     m_showAll = !gCoreContext->GetNumSetting("ViewSchedShowLevel", 0);
 
@@ -63,6 +83,9 @@ ViewScheduled::~ViewScheduled()
         QString message = QString("VIEWSCHEDULED_EXITING");
         qApp->postEvent(m_player, new MythEvent(message));
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ViewScheduled::Create()
@@ -134,6 +157,73 @@ void ViewScheduled::SwitchList()
         SetFocusWidget(m_groupList);
 }
 
+bool ViewScheduled::doEdit(const QString &action)
+{
+    edit();
+    return true;
+}
+
+bool ViewScheduled::doCustomEdit(const QString &action)
+{
+    customEdit();
+    return true;
+}
+
+bool ViewScheduled::doDelete(const QString &action)
+{
+    deleteRule();
+    return true;
+}
+
+bool ViewScheduled::doUpcoming(const QString &action)
+{
+    upcoming();
+    return true;
+}
+
+bool ViewScheduled::doViewScheduled(const QString &action)
+{
+    upcomingScheduled();
+    return true;
+}
+
+bool ViewScheduled::doInfo(const QString &action)
+{
+    details();
+    return true;
+}
+
+bool ViewScheduled::doOne(const QString &action)
+{
+    setShowAll(true);
+    return true;
+}
+
+bool ViewScheduled::doTwo(const QString &action)
+{
+    setShowAll(false);
+    return true;
+}
+
+bool ViewScheduled::doPrevNext(const QString &action)
+{
+    setShowAll(!m_showAll);
+    return true;
+}
+
+bool ViewScheduled::doViewCard(const QString &action)
+{
+    viewCards();
+    return true;
+}
+
+bool ViewScheduled::doViewInput(const QString &action)
+{
+    viewInputs();
+    return true;
+}
+
+
 bool ViewScheduled::keyPressEvent(QKeyEvent *event)
 {
     // FIXME: Blackholes keypresses, not good
@@ -153,36 +243,8 @@ bool ViewScheduled::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event,
                                                      actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "EDIT")
-            edit();
-        else if (action == "CUSTOMEDIT")
-            customEdit();
-        else if (action == "DELETE")
-            deleteRule();
-        else if (action == "UPCOMING")
-            upcoming();
-        else if (action == "VIEWSCHEDULED")
-            upcomingScheduled();
-        else if (action == "DETAILS" || action == "INFO")
-            details();
-        else if (action == "1")
-            setShowAll(true);
-        else if (action == "2")
-            setShowAll(false);
-        else if (action == "PREVVIEW" || action == "NEXTVIEW")
-            setShowAll(!m_showAll);
-        else if (action == "VIEWCARD")
-            viewCards();
-        else if (action == "VIEWINPUT")
-            viewInputs();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (m_needFill)
         LoadList();

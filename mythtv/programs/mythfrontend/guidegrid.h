@@ -20,6 +20,7 @@ using namespace std;
 
 // mythfrontend
 #include "schedulecommon.h"
+#include "mythactions.h"
 
 using namespace std;
 
@@ -101,6 +102,35 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
 
     virtual void aboutToShow();
     virtual void aboutToHide();
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doPgUp(const QString &action);
+    bool doPgDown(const QString &action);
+    bool doPgLeft(const QString &action);
+    bool doPgRight(const QString &action);
+    bool doDayLeft(const QString &action);
+    bool doDayRight(const QString &action);
+    bool doNextFav(const QString &action);
+    bool doFinder(const QString &action);
+    bool doMenu(const QString &action);
+    bool doEscape(const QString &action);
+    bool doSelect(const QString &action);
+    bool doEdit(const QString &action);
+    bool doCustomEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doUpcoming(const QString &action);
+    bool doInfo(const QString &action);
+    bool doToggleRecord(const QString &action);
+    bool doToggleFav(const QString &action);
+    bool doChanUpdate(const QString &action);
+    bool doVolumeUp(const QString &action);
+    bool doVolumeDown(const QString &action);
+    bool doCycleAudio(const QString &action);
+    bool doMuteAudio(const QString &action);
+    bool doTogglePgOrder(const QString &action);
 
   protected slots:
     void cursorLeft();
@@ -246,6 +276,8 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
     MythUIText       *m_jumpToText;
     MythUIText       *m_changroupname;
     MythUIImage      *m_channelImage;
+
+    MythActions<GuideGrid> *m_actions;
 };
 
 #endif

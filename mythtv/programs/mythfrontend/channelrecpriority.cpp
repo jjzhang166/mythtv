@@ -20,6 +20,7 @@ using namespace std;
 #include "mythuibuttonlist.h"
 #include "mythdialogbox.h"
 #include "mythmainwindow.h"
+#include "mythactions.h"
 
 typedef struct RecPriorityInfo
 {
@@ -49,16 +50,30 @@ class channelRecPrioritySort
         }
 };
 
-ChannelRecPriority::ChannelRecPriority(MythScreenStack *parent)
-                  : MythScreenType(parent, "ChannelRecPriority"),
-                    m_channelList(NULL), m_chanstringText(NULL),
-                    m_channameText(NULL), m_channumText(NULL),
-                    m_callsignText(NULL), m_sourcenameText(NULL),
-                    m_sourceidText(NULL), m_priorityText(NULL),
-                    m_iconImage(NULL)
+
+static struct ActionDefStruct<ChannelRecPriority> crpActions[] = {
+    { "UPCOMING", &ChannelRecPriority::doUpcoming },
+    { "RANKINC",  &ChannelRecPriority::doRankInc },
+    { "RANKDEC",  &ChannelRecPriority::doRankDec },
+    { "1",        &ChannelRecPriority::doOne },
+    { "2",        &ChannelRecPriority::doTwo },
+    { "PREVVIEW", &ChannelRecPriority::doPrevNext },
+    { "NEXTVIEW", &ChannelRecPriority::doPrevNext }
+};
+static int crpActionCount = NELEMS(crpActions);
+
+
+ChannelRecPriority::ChannelRecPriority(MythScreenStack *parent) :
+    MythScreenType(parent, "ChannelRecPriority"),
+    m_channelList(NULL), m_chanstringText(NULL), m_channameText(NULL),
+    m_channumText(NULL), m_callsignText(NULL), m_sourcenameText(NULL),
+    m_sourceidText(NULL), m_priorityText(NULL), m_iconImage(NULL),
+    m_actions(new MythActions<ChannelRecPriority>(this, crpActions,
+                                                  crpActionCount))
 {
-    m_sortType = (SortType)gCoreContext->GetNumSetting("ChannelRecPrioritySorting",
-                                                 (int)byChannel);
+    m_sortType =
+       (SortType)gCoreContext->GetNumSetting("ChannelRecPrioritySorting",
+                                             (int)byChannel);
 
     m_currentItem = NULL;
 
@@ -71,6 +86,9 @@ ChannelRecPriority::~ChannelRecPriority()
     gCoreContext->SaveSetting("ChannelRecPrioritySorting",
                             (int)m_sortType);
     gCoreContext->removeListener(this);
+
+    if (m_actions)
+       delete m_actions;
 }
 
 bool ChannelRecPriority::Create()
@@ -101,6 +119,55 @@ bool ChannelRecPriority::Create()
     return true;
 }
 
+bool ChannelRecPriority::doUpcoming(const QString &action)
+{
+    upcoming();
+    return true;
+}
+
+bool ChannelRecPriority::doRankInc(const QString &action)
+{
+    changeRecPriority(1);
+    return true;
+}
+
+bool ChannelRecPriority::doRankDec(const QString &action)
+{
+    changeRecPriority(-1);
+    return true;
+}
+
+bool ChannelRecPriority::doOne(const QString &action)
+{
+    if (m_sortType != byChannel)
+    {
+        m_sortType = byChannel;
+        SortList();
+    }
+    return true;
+}
+
+bool ChannelRecPriority::doTwo(const QString &action)
+{
+    if (m_sortType != byRecPriority)
+    {
+        m_sortType = byRecPriority;
+        SortList();
+    }
+    return true;
+}
+
+bool ChannelRecPriority::doPrevNext(const QString &action)
+{
+    if (m_sortType == byChannel)
+        m_sortType = byRecPriority;
+    else
+        m_sortType = byChannel;
+    SortList();
+    return true;
+}
+
+
 bool ChannelRecPriority::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -108,46 +175,11 @@ bool ChannelRecPriority::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UPCOMING")
-            upcoming();
-        else if (action == "RANKINC")
-            changeRecPriority(1);
-        else if (action == "RANKDEC")
-            changeRecPriority(-1);
-        else if (action == "1")
-        {
-            if (m_sortType != byChannel)
-            {
-                m_sortType = byChannel;
-                SortList();
-            }
-        }
-        else if (action == "2")
-        {
-            if (m_sortType != byRecPriority)
-            {
-                m_sortType = byRecPriority;
-                SortList();
-            }
-        }
-        else if (action == "PREVVIEW" || action == "NEXTVIEW")
-        {
-            if (m_sortType == byChannel)
-                m_sortType = byRecPriority;
-            else
-                m_sortType = byChannel;
-            SortList();
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

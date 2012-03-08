@@ -28,6 +28,7 @@
 #include "mythuibuttonlist.h"
 #include "mythscreenstack.h"
 #include "mythuistatetype.h"
+#include "mythactions.h"
 
 #define LOC      QString("ThemeChooser: ")
 #define LOC_WARN QString("ThemeChooser, Warning: ")
@@ -64,6 +65,13 @@ class ThemeExtractThread : public QRunnable
     QString              m_destDir;
 };
 
+static struct ActionDefStruct<ThemeChooser> tcActions[] = {
+    { "MENU",   &ThemeChooser::doMenu },
+    { "DELETE", &ThemeChooser::doDelete },
+    { "ESCAPE", &ThemeChooser::doEscape }
+};
+static int tcActionCount = NELEMS(tcActions);
+
 
 /** \brief Creates a new ThemeChooser Screen
  *  \param parent Pointer to the screen stack
@@ -79,7 +87,8 @@ ThemeChooser::ThemeChooser(MythScreenStack *parent,
     m_refreshDownloadableThemes(false),
     m_downloadTheme(NULL),
     m_downloadState(dsIdle),
-    m_popupMenu(NULL)
+    m_popupMenu(NULL),
+    m_actions(new MythActions<ThemeChooser>(this, tcActions, tcActionCount))
 {
     gCoreContext->addListener(this);
 
@@ -90,6 +99,9 @@ ThemeChooser::ThemeChooser(MythScreenStack *parent,
 ThemeChooser::~ThemeChooser()
 {
     gCoreContext->removeListener(this);
+
+    if (m_actions)
+        delete m_actions;
 }
 
 static bool sortThemeNames(const QFileInfo &s1, const QFileInfo &s2)
@@ -491,6 +503,29 @@ void ThemeChooser::popupClosed(QString which, int result)
     m_popupMenu = NULL;
 }
 
+bool ThemeChooser::doMenu(const QString &action)
+{
+    showPopupMenu();
+    return true;
+}
+
+bool ThemeChooser::doDelete(const QString &action)
+{
+    removeTheme();
+    return true;
+}
+
+bool ThemeChooser::doEscape(const QString &action)
+{
+    if (m_fullPreviewShowing)
+    {
+        toggleFullscreenPreview();
+        return true;
+    }
+    return false;
+}
+
+
 bool ThemeChooser::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -498,25 +533,11 @@ bool ThemeChooser::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Theme Chooser", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("Theme Chooser", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; ++i)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-            showPopupMenu();
-        else if (action == "DELETE")
-            removeTheme();
-        else if ((action == "ESCAPE") &&
-                 (m_fullPreviewShowing))
-        {
-            toggleFullscreenPreview();
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

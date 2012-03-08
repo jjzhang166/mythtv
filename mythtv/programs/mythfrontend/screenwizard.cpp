@@ -11,8 +11,19 @@
 #include "mythmainwindow.h"
 #include "mythuihelper.h"
 #include "mythlogging.h"
+#include "mythactions.h"
 
 using namespace std;
+
+static struct ActionDefStruct<ScreenWizard> swActions[] = {
+    { "SELECT", &ScreenWizard::doSelect },
+    { "MENU",   &ScreenWizard::doMenu },
+    { "UP",     &ScreenWizard::doUp },
+    { "DOWN",   &ScreenWizard::doDown },
+    { "LEFT",   &ScreenWizard::doLeft },
+    { "RIGHT",  &ScreenWizard::doRight }
+};
+static int swActionCount = NELEMS(swActions);
 
 
 ScreenWizard::ScreenWizard(MythScreenStack *parent, const char *name) :
@@ -31,7 +42,8 @@ ScreenWizard::ScreenWizard(MythScreenStack *parent, const char *name) :
     m_screenwidth(0),        m_screenheight(0),
     m_xsize(GetMythMainWindow()->GetUIScreenRect().width()),
     m_ysize(GetMythMainWindow()->GetUIScreenRect().height()),
-    m_menuPopup(NULL)
+    m_menuPopup(NULL),
+    m_actions(new MythActions<ScreenWizard>(this, swActions, swActionCount))
 {
     // Initialise $stuff
     // Get UI size & offset settings from database
@@ -39,7 +51,11 @@ ScreenWizard::ScreenWizard(MythScreenStack *parent, const char *name) :
     getScreenInfo();
 }
 
-ScreenWizard::~ScreenWizard() {}
+ScreenWizard::~ScreenWizard()
+{
+    if (m_actions)
+        delete m_actions;
+}
 
 
 bool ScreenWizard::Create()
@@ -112,6 +128,43 @@ void ScreenWizard::getScreenInfo()
 }
 
 
+bool ScreenWizard::doSelect(const QString &action)
+{
+    swapArrows();
+    return true;
+}
+
+bool ScreenWizard::doMenu(const QString &action)
+{
+    doMenu();
+    return true;
+}
+
+bool ScreenWizard::doUp(const QString &action)
+{
+    moveUp();
+    return true;
+}
+
+bool ScreenWizard::doDown(const QString &action)
+{
+    moveDown();
+    return true;
+}
+
+bool ScreenWizard::doLeft(const QString &action)
+{
+    moveLeft();
+    return true;
+}
+
+bool ScreenWizard::doRight(const QString &action)
+{
+    moveRight();
+    return true;
+}
+
+
 bool ScreenWizard::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -122,26 +175,8 @@ bool ScreenWizard::keyPressEvent(QKeyEvent *event)
 
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "SELECT")
-            swapArrows();
-        else if (action == "UP")
-            moveUp();
-        else if (action == "DOWN")
-            moveDown();
-        else if (action == "LEFT")
-            moveLeft();
-        else if (action == "RIGHT")
-            moveRight();
-        else if (action == "MENU")
-            doMenu();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

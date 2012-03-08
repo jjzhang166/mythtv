@@ -46,6 +46,7 @@
 #include "videofileassoc.h"
 #include "videoplayersettings.h"
 #include "videometadatasettings.h"
+#include "mythactions.h"
 
 namespace
 {
@@ -834,13 +835,35 @@ VideoDialog::VideoListDeathDelayPtr &VideoDialog::GetSavedVideoList()
     return VideoDialogPrivate::m_savedPtr;
 }
 
+static struct ActionDefStruct<VideoDialog> vdActions[] = {
+    { "INFO",         &VideoDialog::doInfo },
+    { "INCPARENT",    &VideoDialog::doIncParent },
+    { "DECPARENT",    &VideoDialog::doDecParent },
+    { "1",            &VideoDialog::doSetParent },
+    { "2",            &VideoDialog::doSetParent },
+    { "3",            &VideoDialog::doSetParent },
+    { "4",            &VideoDialog::doSetParent },
+    { "FILTER",       &VideoDialog::doFilter },
+    { "MENU",         &VideoDialog::doMenu },
+    { "PLAYALT",      &VideoDialog::doPlayAlt },
+    { "DOWNLOADDATA", &VideoDialog::doDownloadData },
+    { "INCSEARCH",    &VideoDialog::doIncSearch },
+    { "ITEMDETAIL",   &VideoDialog::doItemDetail },
+    { "DELETE",       &VideoDialog::doDelete },
+    { "EDIT",         &VideoDialog::doEdit },
+    { "ESCAPE",       &VideoDialog::doEscape },
+    { "PLAYBACK",     &VideoDialog::doPlayback }
+};
+static int vdActionCount = NELEMS(vdActions);
+
 VideoDialog::VideoDialog(MythScreenStack *lparent, QString lname,
         VideoListPtr video_list, DialogType type, BrowseType browse) :
     MythScreenType(lparent, lname), m_menuPopup(0), m_busyPopup(0),
     m_videoButtonList(0), m_videoButtonTree(0), m_titleText(0),
     m_novideoText(0), m_positionText(0), m_crumbText(0), m_coverImage(0),
     m_screenshot(0), m_banner(0), m_fanart(0), m_trailerState(0),
-    m_parentalLevelState(0), m_watchedState(0), m_studioState(0)
+    m_parentalLevelState(0), m_watchedState(0), m_studioState(0),
+    m_actions(new MythActions<VideoDialog>(this, vdActions, vdActionCount))
 {
     m_metadataFactory = new MetadataFactory(this);
 
@@ -863,6 +886,9 @@ VideoDialog::~VideoDialog()
     SavePosition();
 
     delete m_d;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void VideoDialog::SavePosition(void)
@@ -1992,6 +2018,101 @@ QString VideoDialog::GetFanart(MythGenericTree *node)
     return icon_file;
 }
 
+bool VideoDialog::doInfo(const QString &action)
+{
+    MythUIButtonListItem *item = GetItemCurrent();
+    MythGenericTree *node = GetNodePtrFromButton(item);
+    if (!m_menuPopup && node->getInt() != kUpFolder)
+        VideoMenu();
+    return true;
+}
+
+bool VideoDialog::doIncParent(const QString &action)
+{
+    shiftParental(1);
+    return true;
+}
+
+bool VideoDialog::doDecParent(const QString &action)
+{
+    shiftParental(-1);
+    return true;
+}
+
+bool VideoDialog::doSetParent(const QString &action)
+{
+    setParentalLevel((ParentalLevel::Level)action.toInt());
+    return true;
+}
+
+bool VideoDialog::doFilter(const QString &action)
+{
+    ChangeFilter();
+    return true;
+}
+
+bool VideoDialog::doMenu(const QString &action)
+{
+    if (!m_menuPopup)
+        DisplayMenu();
+    return true;
+}
+
+bool VideoDialog::doPlayAlt(const QString &action)
+{
+    if (!m_menuPopup && GetMetadata(GetItemCurrent()) &&
+         m_d->m_altPlayerEnabled)
+        playVideoAlt();
+    return true;
+}
+
+bool VideoDialog::doDownloadData(const QString &action)
+{
+    if (!m_menuPopup && GetMetadata(GetItemCurrent()))
+        VideoSearch();
+    return true;
+}
+
+bool VideoDialog::doIncSearch(const QString &action)
+{
+    searchStart();
+    return true;
+}
+
+bool VideoDialog::doItemDetail(const QString &action)
+{
+    DoItemDetailShow();
+    return true;
+}
+
+bool VideoDialog::doDelete(const QString &action)
+{
+    if (!m_menuPopup && GetMetadata(GetItemCurrent()))
+        RemoveVideo();
+    return true;
+}
+
+bool VideoDialog::doEdit(const QString &action)
+{
+    EditMetadata();
+    return true;
+}
+
+bool VideoDialog::doEscape(const QString &action)
+{
+    if (m_d->m_type != DLG_TREE && !GetMythMainWindow()->IsExitingToMain() &&
+        m_d->m_currentNode != m_d->m_rootNode)
+        return goBack();
+    return false;
+}
+
+bool VideoDialog::doPlayback(const QString &action)
+{
+    playVideo();
+    return true;
+}
+
+
 /** \fn VideoDialog::keyPressEvent(QKeyEvent *levent)
  *  \brief Handle keypresses and keybindings.
  *  \return true if the keypress was successfully handled.
@@ -2005,82 +2126,15 @@ bool VideoDialog::keyPressEvent(QKeyEvent *levent)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Video", levent, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO")
-        {
-            MythUIButtonListItem *item = GetItemCurrent();
-            MythGenericTree *node = GetNodePtrFromButton(item);
-            if (!m_menuPopup && node->getInt() != kUpFolder)
-                VideoMenu();
-        }
-        else if (action == "INCPARENT")
-            shiftParental(1);
-        else if (action == "DECPARENT")
-            shiftParental(-1);
-        else if (action == "1" || action == "2" ||
-                 action == "3" || action == "4")
-            setParentalLevel((ParentalLevel::Level)action.toInt());
-        else if (action == "FILTER")
-            ChangeFilter();
-        else if (action == "MENU")
-        {
-            if (!m_menuPopup)
-                DisplayMenu();
-        }
-        else if (action == "PLAYALT")
-        {
-            if (!m_menuPopup && GetMetadata(GetItemCurrent()) &&
-                m_d->m_altPlayerEnabled)
-                playVideoAlt();
-        }
-        else if (action == "DOWNLOADDATA")
-        {
-            if (!m_menuPopup && GetMetadata(GetItemCurrent()))
-                VideoSearch();
-        }
-        else if (action == "INCSEARCH")
-            searchStart();
-        else if (action == "ITEMDETAIL")
-            DoItemDetailShow();
-        else if (action == "DELETE")
-        {
-            if (!m_menuPopup && GetMetadata(GetItemCurrent()))
-                RemoveVideo();
-        }
-        else if (action == "EDIT" && !m_menuPopup)
-            EditMetadata();
-        else if (action == "ESCAPE")
-        {
-            if (m_d->m_type != DLG_TREE
-                    && !GetMythMainWindow()->IsExitingToMain()
-                    && m_d->m_currentNode != m_d->m_rootNode)
-                handled = goBack();
-            else
-                handled = false;
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled)
-    {
         handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", levent,
                                                          actions);
-
-        for (int i = 0; i < actions.size() && !handled; i++)
-        {
-            QString action = actions[i];
-            if (action == "PLAYBACK")
-            {
-                handled = true;
-                playVideo();
-            }
-        }
-    }
+    
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(levent))
         handled = true;

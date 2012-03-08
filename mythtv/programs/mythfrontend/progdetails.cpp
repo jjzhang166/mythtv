@@ -13,15 +13,23 @@
 #include "mythmainwindow.h"
 
 #include "progdetails.h"
-#include <mythmiscutil.h>
+#include "mythmiscutil.h"
+#include "mythactions.h"
 
 
 #define LASTPAGE 2
 
+static struct ActionDefStruct<ProgDetails> pdActions[] = {
+    { "MENU",               &ProgDetails::doMenu },
+    { "INFO",               &ProgDetails::doInfo }
+};
+static int pdActionCount = NELEMS(pdActions);
+
+
 ProgDetails::ProgDetails(MythScreenStack *parent, const ProgramInfo *progInfo) :
     MythScreenType (parent, "progdetails"),
-    m_progInfo(*progInfo), m_browser(NULL),
-    m_currentPage(0)
+    m_progInfo(*progInfo), m_browser(NULL), m_currentPage(0),
+    m_actions(new MythActions<ProgDetails>(this, pdActions, pdActionCount))
 {
 }
 
@@ -117,7 +125,27 @@ ProgDetails::~ProgDetails(void)
 {
     float zoom = m_browser->GetZoom();
     gCoreContext->SaveSetting("ProgDetailsZoom", QString().setNum(zoom));
+
+    if (m_actions)
+        delete m_actions;
 }
+
+bool ProgDetails::doMenu(const QString &action)
+{
+    showMenu();
+    return true;
+}
+
+bool ProgDetails::doInfo(const QString &action)
+{
+    m_currentPage++;
+    if (m_currentPage >= LASTPAGE)
+        m_currentPage = 0;
+
+    updatePage();
+    return true;
+}
+
 
 bool ProgDetails::keyPressEvent(QKeyEvent *event)
 {
@@ -128,24 +156,8 @@ bool ProgDetails::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO")
-        {
-            m_currentPage++;
-            if (m_currentPage >= LASTPAGE)
-                m_currentPage = 0;
-
-            updatePage();
-        }
-        else if (action == "MENU")
-            showMenu();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

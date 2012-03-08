@@ -13,6 +13,7 @@
 
 // mythfrontend
 #include "schedulecommon.h"
+#include "mythactions.h"
 
 class TV;
 class MythUIText;
@@ -30,6 +31,14 @@ class ProgFinder : public ScheduleCommon
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
+
+    bool doEdit(const QString &action);
+    bool doCustomEdit(const QString &action);
+    bool doUpcoming(const QString &action);
+    bool doInfo(const QString &action);
+    bool doToggleRecord(const QString &action);
+    bool doGuide(const QString &action);
+    bool doEscape(const QString &action);
 
   private slots:
     void alphabetListItemSelected(MythUIButtonListItem *item);
@@ -88,6 +97,9 @@ class ProgFinder : public ScheduleCommon
     MythUIText       *m_searchText;
     MythUIText       *m_help1Text;
     MythUIText       *m_help2Text;
+
+  public:
+    MythActions<ProgFinder> *m_actions;
 };
 
 class JaProgFinder : public ProgFinder

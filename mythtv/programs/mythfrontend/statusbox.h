@@ -6,6 +6,7 @@
 using namespace std;
 
 #include "mythscreentype.h"
+#include "mythactions.h"
 
 class ProgramInfo;
 class MythUIText;
@@ -25,6 +26,9 @@ class StatusBox : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
     void customEvent(QEvent*);
+
+    bool doMenu(const QString &action);
+    bool doDigit(const QString &action);
 
   signals:
     void updateLog();
@@ -71,6 +75,9 @@ class StatusBox : public MythScreenType
     int m_minLevel;
 
     bool m_isBackendActive;
+
+    MythActions<StatusBox> *m_actions;
+    QString m_actionItem;
 };
 
 #endif

@@ -41,6 +41,7 @@
 #include "playbackboxlistitem.h"
 #include "customedit.h"
 #include "proglist.h"
+#include "mythactions.h"
 
 #define LOC      QString("PlaybackBox: ")
 #define LOC_WARN QString("PlaybackBox Warning: ")
@@ -372,40 +373,59 @@ void * PlaybackBox::RunPlaybackBox(void * player, bool showTV)
     return NULL;
 }
 
-PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name, BoxType ltype,
-                            TV *player, bool showTV)
-    : ScheduleCommon(parent, name),
-      m_prefixes(QObject::tr("^(The |A |An )")),
-      m_titleChaff(" \\(.*\\)$"),
-      // Artwork Variables
-      m_artHostOverride(),
-      // Settings
-      m_type(ltype),
-      m_watchListAutoExpire(false),
-      m_watchListMaxAge(60),              m_watchListBlackOut(2),
-      m_groupnameAsAllProg(false),
-      m_listOrder(1),
-      // Recording Group settings
-      m_groupDisplayName(ProgramInfo::i18n("All Programs")),
-      m_recGroup("All Programs"),
-      m_watchGroupName(tr("Watch List")),
-      m_watchGroupLabel(m_watchGroupName.toLower()),
-      m_viewMask(VIEW_TITLES),
+static struct ActionDefStruct<PlaybackBox> pbbActions[] = {
+    { ACTION_1,             &PlaybackBox::doIconHelp },
+    { "HELP",               &PlaybackBox::doIconHelp },
+    { "MENU",               &PlaybackBox::doMenu },
+    { "NEXTFAV",            &PlaybackBox::doNextFav },
+    { "TOGGLEFAV",          &PlaybackBox::doToggleFav },
+    { ACTION_TOGGLERECORD,  &PlaybackBox::doToggleRecord },
+    { ACTION_PAGERIGHT,     &PlaybackBox::doPgRight },
+    { ACTION_PAGELEFT,      &PlaybackBox::doPgLeft },
+    { "CHANGERECGROUP",     &PlaybackBox::doChangeRecGroup },
+    { "CHANGEGROUPVIEW",    &PlaybackBox::doChangeGroupView },
+    { "EDIT",               &PlaybackBox::doEdit },
+    { "DELETE",             &PlaybackBox::doDelete },
+    { ACTION_PLAYBACK,      &PlaybackBox::doPlayback },
+    { "DETAILS",            &PlaybackBox::doInfo },
+    { "INFO",               &PlaybackBox::doInfo },
+    { "CUSTOMEDIT",         &PlaybackBox::doCustomEdit },
+    { "UPCOMING",           &PlaybackBox::doUpcoming },
+    { ACTION_VIEWSCHEDULED, &PlaybackBox::doViewScheduled }
+};
+static int pbbActionCount = NELEMS(pbbActions);
 
-      // General m_popupMenu support
-      m_menuDialog(NULL),
-      m_popupMenu(NULL),
-      m_doToggleMenu(true),
-      // Main Recording List support
-      m_progsInDB(0),
-      // Other state
-      m_op_on_playlist(false),
-      m_programInfoCache(this),           m_playingSomething(false),
-      // Selection state variables
-      m_needUpdate(false),
-      // Other
-      m_player(NULL),
-      m_helper(this)
+
+
+PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name, BoxType ltype,
+                            TV *player, bool showTV) :
+    ScheduleCommon(parent, name),
+    m_prefixes(QObject::tr("^(The |A |An )")),
+    m_titleChaff(" \\(.*\\)$"),
+    // Artwork Variables
+    m_artHostOverride(),
+    // Settings
+    m_type(ltype),               m_watchListAutoExpire(false),
+    m_watchListMaxAge(60),       m_watchListBlackOut(2),
+    m_groupnameAsAllProg(false), m_listOrder(1),
+    // Recording Group settings
+    m_groupDisplayName(ProgramInfo::i18n("All Programs")),
+    m_recGroup("All Programs"),
+    m_watchGroupName(tr("Watch List")),
+    m_watchGroupLabel(m_watchGroupName.toLower()),
+    m_viewMask(VIEW_TITLES),
+    // General m_popupMenu support
+    m_menuDialog(NULL), m_popupMenu(NULL), m_doToggleMenu(true),
+    // Main Recording List support
+    m_progsInDB(0),
+    // Other state
+    m_op_on_playlist(false),
+    m_programInfoCache(this),           m_playingSomething(false),
+    // Selection state variables
+    m_needUpdate(false),
+    // Other
+    m_player(NULL), m_helper(this),
+    m_actions(new MythActions<PlaybackBox>(this, pbbActions, pbbActionCount))
 {
     for (uint i = 0; i < sizeof(m_artImage) / sizeof(MythUIImage*); i++)
     {
@@ -499,6 +519,9 @@ PlaybackBox::~PlaybackBox(void)
         qApp->postEvent(m_player, new MythEvent(
                             message, m_player_selected_new_show));
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool PlaybackBox::Create()
@@ -3712,6 +3735,154 @@ void PlaybackBox::processNetworkControlCommand(const QString &command)
     }
 }
 
+bool PlaybackBox::doIconHelp(const QString &action)
+{
+    showIconHelp();
+    return true;
+}
+
+bool PlaybackBox::doMenu(const QString &action)
+{
+    ShowMenu();
+    return true;
+}
+
+bool PlaybackBox::doNextFav(const QString &action)
+{
+    if (GetFocusWidget() == m_groupList)
+        togglePlayListTitle();
+    else
+        togglePlayListItem();
+    return true;
+}
+
+bool PlaybackBox::doToggleFav(const QString &action)
+{
+    m_playList.clear();
+    UpdateUILists();
+    return true;
+}
+
+bool PlaybackBox::doToggleRecord(const QString &action)
+{
+    m_viewMask = m_viewMaskToggle(m_viewMask, VIEW_TITLES);
+    UpdateUILists();
+    return true;
+}
+
+bool PlaybackBox::doPgRight(const QString &action)
+{
+    QString nextGroup;
+    m_recGroupsLock.lock();
+    if (m_recGroupIdx >= 0 && !m_recGroups.empty())
+    {
+        if (++m_recGroupIdx >= m_recGroups.size())
+            m_recGroupIdx = 0;
+        nextGroup = m_recGroups[m_recGroupIdx];
+    }
+    m_recGroupsLock.unlock();
+
+    if (!nextGroup.isEmpty())
+        displayRecGroup(nextGroup);
+    return true;
+}
+
+bool PlaybackBox::doPgLeft(const QString &action)
+{
+    QString nextGroup;
+    m_recGroupsLock.lock();
+    if (m_recGroupIdx >= 0 && !m_recGroups.empty())
+    {
+        if (--m_recGroupIdx < 0)
+            m_recGroupIdx = m_recGroups.size() - 1;
+        nextGroup = m_recGroups[m_recGroupIdx];
+    }
+    m_recGroupsLock.unlock();
+
+    if (!nextGroup.isEmpty())
+        displayRecGroup(nextGroup);
+    return true;
+}
+
+bool PlaybackBox::doChangeRecGroup(const QString &action)
+{
+    showGroupFilter();
+    return true;
+}
+
+bool PlaybackBox::doChangeGroupView(const QString &action)
+{
+    showViewChanger();
+    return true;
+}
+
+bool PlaybackBox::doEdit(const QString &action)
+{
+    doEditScheduled();
+    return true;
+}
+
+bool PlaybackBox::doDelete(const QString &action)
+{
+    if (m_titleList.size() > 1)
+    {
+        deleteSelected(m_recordingList->GetItemCurrent());
+        return true;
+    }
+    return false;
+}
+
+bool PlaybackBox::doPlayback(const QString &action)
+{
+    if (m_titleList.size() > 1)
+    {
+        PlayFromBookmark();
+        return true;
+    }
+    return false;
+}
+
+bool PlaybackBox::doInfo(const QString &action)
+{
+    if (m_titleList.size() > 1)
+    {
+        details();
+        return true;
+    }
+    return false;
+}
+
+bool PlaybackBox::doCustomEdit(const QString &action)
+{
+    if (m_titleList.size() > 1)
+    {
+        customEdit();
+        return true;
+    }
+    return false;
+}
+
+bool PlaybackBox::doUpcoming(const QString &action)
+{
+    if (m_titleList.size() > 1)
+    {
+        upcoming();
+        return true;
+    }
+    return false;
+}
+
+bool PlaybackBox::doViewScheduled(const QString &action)
+{
+    if (m_titleList.size() > 1)
+    {
+        upcomingScheduled();
+        return true;
+    }
+    return false;
+}
+
+
 bool PlaybackBox::keyPressEvent(QKeyEvent *event)
 {
     // This should be an impossible keypress we've simulated
@@ -3740,90 +3911,8 @@ bool PlaybackBox::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend",
                                                      event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; ++i)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == ACTION_1 || action == "HELP")
-            showIconHelp();
-        else if (action == "MENU")
-        {
-            ShowMenu();
-        }
-        else if (action == "NEXTFAV")
-        {
-            if (GetFocusWidget() == m_groupList)
-                togglePlayListTitle();
-            else
-                togglePlayListItem();
-        }
-        else if (action == "TOGGLEFAV")
-        {
-            m_playList.clear();
-            UpdateUILists();
-        }
-        else if (action == ACTION_TOGGLERECORD)
-        {
-            m_viewMask = m_viewMaskToggle(m_viewMask, VIEW_TITLES);
-            UpdateUILists();
-        }
-        else if (action == ACTION_PAGERIGHT)
-        {
-            QString nextGroup;
-            m_recGroupsLock.lock();
-            if (m_recGroupIdx >= 0 && !m_recGroups.empty())
-            {
-                if (++m_recGroupIdx >= m_recGroups.size())
-                    m_recGroupIdx = 0;
-                nextGroup = m_recGroups[m_recGroupIdx];
-            }
-            m_recGroupsLock.unlock();
-
-            if (!nextGroup.isEmpty())
-                displayRecGroup(nextGroup);
-        }
-        else if (action == ACTION_PAGELEFT)
-        {
-            QString nextGroup;
-            m_recGroupsLock.lock();
-            if (m_recGroupIdx >= 0 && !m_recGroups.empty())
-            {
-                if (--m_recGroupIdx < 0)
-                    m_recGroupIdx = m_recGroups.size() - 1;
-                nextGroup = m_recGroups[m_recGroupIdx];
-            }
-            m_recGroupsLock.unlock();
-
-            if (!nextGroup.isEmpty())
-                displayRecGroup(nextGroup);
-        }
-        else if (action == "CHANGERECGROUP")
-            showGroupFilter();
-        else if (action == "CHANGEGROUPVIEW")
-            showViewChanger();
-        else if (action == "EDIT")
-            doEditScheduled();
-        else if (m_titleList.size() > 1)
-        {
-            if (action == "DELETE")
-                deleteSelected(m_recordingList->GetItemCurrent());
-            else if (action == ACTION_PLAYBACK)
-                PlayFromBookmark();
-            else if (action == "DETAILS" || action == "INFO")
-                details();
-            else if (action == "CUSTOMEDIT")
-                customEdit();
-            else if (action == "UPCOMING")
-                upcoming();
-            else if (action == ACTION_VIEWSCHEDULED)
-                upcomingScheduled();
-            else
-                handled = false;
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

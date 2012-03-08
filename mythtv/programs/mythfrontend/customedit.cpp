@@ -22,9 +22,17 @@
 // mythfrontend
 #include "scheduleeditor.h"
 #include "proglist.h"
+#include "mythactions.h"
 
-CustomEdit::CustomEdit(MythScreenStack *parent, ProgramInfo *pginfo)
-              : MythScreenType(parent, "CustomEdit")
+static struct ActionDefStruct<CustomEdit> ceActions[] = {
+    { "DELETE", &CustomEdit::doDelete }
+};
+static int ceActionCount = NELEMS(ceActions);
+
+
+CustomEdit::CustomEdit(MythScreenStack *parent, ProgramInfo *pginfo) :
+    MythScreenType(parent, "CustomEdit"),
+    m_actions(new MythActions<CustomEdit>(this, ceActions, ceActionCount))
 {
     if (pginfo)
         m_pginfo = new ProgramInfo(*pginfo);
@@ -43,6 +51,9 @@ CustomEdit::CustomEdit(MythScreenStack *parent, ProgramInfo *pginfo)
 
 CustomEdit::~CustomEdit(void)
 {
+    if (m_actions)
+        delete m_actions;
+
     delete m_pginfo;
 
     gCoreContext->removeListener(this);
@@ -846,6 +857,16 @@ void CustomEdit::customEvent(QEvent *event)
     }
 }
 
+bool CustomEdit::doDelete(const QString &action)
+{
+    if (GetFocusWidget() == m_clauseList)
+        deleteRule();
+    // else if (GetFocusWidget() == m_ruleList)
+    //     deleteRecordingRule();
+
+    return true;
+}
+
 bool CustomEdit::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -853,23 +874,11 @@ bool CustomEdit::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "DELETE")
-        {
-            if (GetFocusWidget() == m_clauseList)
-                deleteRule();
-            // else if (GetFocusWidget() == m_ruleList)
-            //     deleteRecordingRule();
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

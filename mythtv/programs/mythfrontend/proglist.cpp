@@ -20,10 +20,24 @@ using namespace std;
 #include "proglist.h"
 #include "mythdb.h"
 #include "mythmiscutil.h"
+#include "mythactions.h"
 
 #define LOC      QString("ProgLister: ")
-#define LOC_WARN QString("ProgLister, Warning: ")
-#define LOC_ERR  QString("ProgLister, Error: ")
+
+static struct ActionDefStruct<ProgLister> plActions[] = {
+    { "PREVVIEW",     &ProgLister::doPrevView },
+    { "NEXTVIEW",     &ProgLister::doNextView },
+    { "EDIT",         &ProgLister::doEdit },
+    { "CUSTOMEDIT",   &ProgLister::doCustomEdit },
+    { "DELETE",       &ProgLister::doDelete },
+    { "UPCOMING",     &ProgLister::doUpcoming },
+    { "DETAILS",      &ProgLister::doInfo },
+    { "INFO",         &ProgLister::doInfo },
+    { "TOGGLERECORD", &ProgLister::doToggleRecord },
+    { "1",            &ProgLister::doOne },
+    { "2",            &ProgLister::doTwo }
+};
+static int plActionCount = NELEMS(plActions);
 
 ProgLister::ProgLister(MythScreenStack *parent, ProgListType pltype,
                        const QString &view, const QString &extraArg) :
@@ -59,7 +73,8 @@ ProgLister::ProgLister(MythScreenStack *parent, ProgListType pltype,
     m_curviewText(NULL),
     m_positionText(NULL),
     m_progList(NULL),
-    m_messageText(NULL)
+    m_messageText(NULL),
+    m_actions(new MythActions<ProgLister>(this, plActions, plActionCount))
 {
     switch (pltype)
     {
@@ -108,7 +123,8 @@ ProgLister::ProgLister(
     m_curviewText(NULL),
     m_positionText(NULL),
     m_progList(NULL),
-    m_messageText(NULL)
+    m_messageText(NULL),
+    m_actions(new MythActions<ProgLister>(this, plActions, plActionCount))
 {
 }
 
@@ -116,6 +132,8 @@ ProgLister::~ProgLister()
 {
     m_itemList.clear();
     gCoreContext->removeListener(this);
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ProgLister::Create()
@@ -189,6 +207,87 @@ void ProgLister::Load(void)
     QCoreApplication::postEvent(this, slce);
 }
 
+bool ProgLister::doPrevView(const QString &action)
+{
+    SwitchToPreviousView();
+    return true;
+}
+
+bool ProgLister::doNextView(const QString &action)
+{
+    SwitchToNextView();
+    return true;
+}
+
+bool ProgLister::doEdit(const QString &action)
+{
+    if (GetCurrent())
+        ScheduleCommon::EditScheduled(GetCurrent());
+    return true;
+}
+
+bool ProgLister::doCustomEdit(const QString &action)
+{
+    if (GetCurrent())
+        ScheduleCommon::EditCustom(GetCurrent());
+    return true;
+}
+
+bool ProgLister::doDelete(const QString &action)
+{
+    ShowDeleteItemMenu();
+    return true;
+}
+
+bool ProgLister::doUpcoming(const QString &action)
+{
+    ShowUpcoming();
+    return true;
+}
+
+bool ProgLister::doInfo(const QString &action)
+{
+    ShowDetails();
+    return true;
+}
+
+bool ProgLister::doToggleRecord(const QString &action)
+{
+    RecordSelected();
+    return true;
+}
+
+bool ProgLister::doOne(const QString &action)
+{
+    if (m_titleSort == true)
+    {
+        m_titleSort = false;
+        m_reverseSort = (m_type == plPreviouslyRecorded);
+    }
+    else
+    {
+        m_reverseSort = !m_reverseSort;
+    }
+    m_actionUpdate = true;
+    return true;
+}
+
+bool ProgLister::doTwo(const QString &action)
+{
+    if (m_titleSort == false)
+    {
+        m_titleSort = true;
+        m_reverseSort = false;
+    }
+    else
+    {
+        m_reverseSort = !m_reverseSort;
+    }
+    m_actionUpdate = true;
+    return true;
+}
+
+
 bool ProgLister::keyPressEvent(QKeyEvent *e)
 {
     if (!m_allowEvents)
@@ -203,73 +302,17 @@ bool ProgLister::keyPressEvent(QKeyEvent *e)
     m_allowEvents = false;
 
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress(
-        "TV Frontend", e, actions);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", e,
+                                                          actions);
 
-    bool needUpdate = false;
-    for (uint i = 0; i < uint(actions.size()) && !handled; ++i)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "PREVVIEW")
-            SwitchToPreviousView();
-        else if (action == "NEXTVIEW")
-            SwitchToNextView();
-        else if (action == "CUSTOMEDIT")
-        {
-            if (GetCurrent())
-                ScheduleCommon::EditCustom(GetCurrent());
-        }
-        else if (action == "EDIT")
-        {
-            if (GetCurrent())
-                ScheduleCommon::EditScheduled(GetCurrent());
-        }
-        else if (action == "DELETE")
-            ShowDeleteItemMenu();
-        else if (action == "UPCOMING")
-            ShowUpcoming();
-        else if (action == "DETAILS" || action == "INFO")
-            ShowDetails();
-        else if (action == "TOGGLERECORD")
-            RecordSelected();
-        else if (action == "1")
-        {
-            if (m_titleSort == true)
-            {
-                m_titleSort = false;
-                m_reverseSort = (m_type == plPreviouslyRecorded);
-            }
-            else
-            {
-                m_reverseSort = !m_reverseSort;
-            }
-            needUpdate = true;
-        }
-        else if (action == "2")
-        {
-            if (m_titleSort == false)
-            {
-                m_titleSort = true;
-                m_reverseSort = false;
-            }
-            else
-            {
-                m_reverseSort = !m_reverseSort;
-            }
-            needUpdate = true;
-        }
-        else
-        {
-            handled = false;
-        }
-    }
+    bool m_actionUpdate = false;
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(e))
         handled = true;
 
-    if (needUpdate)
+    if (m_actionUpdate)
         LoadInBackground();
 
     m_allowEvents = true;
