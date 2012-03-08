@@ -332,8 +332,7 @@ static int mwvActionCount = NELEMS(mwvActions);
  */
 MythWebView::MythWebView(QWidget *parent, MythUIWebBrowser *parentBrowser) :
     QWebView(parent),
-    m_webpage(new MythWebPage(this)),
-    m_actions(new MythActions<MythWebView>(this, mwvActions, mwvActionCount))
+    m_webpage(new MythWebPage(this)), m_actions(NULL)
 {
     setPage(m_webpage);
 
@@ -437,6 +436,9 @@ void MythWebView::keyPressEvent(QKeyEvent *event)
 
         if (!handled)
         {
+            if (!m_actions)
+                m_actions = new MythActions<MythWebView>(this, mwvActions,
+                                                         mwvActionCount);
             m_actionKeyEvent = event;
             handled = m_actions->handleActions(actions);
             if (handled)
@@ -862,9 +864,7 @@ MythUIWebBrowser::MythUIWebBrowser(MythUIType *parent, const QString &name) :
     m_inputToggled(false), m_lastMouseAction(""),
     m_mouseKeyCount(0),    m_lastMouseActionTime(),
     m_horizontalScrollbar(NULL), m_verticalScrollbar(NULL),
-    m_actionsBypassed(new MythActions<MythUIWebBrowser>(this, muwbActions, 1)),
-    m_actions(new MythActions<MythUIWebBrowser>(this, muwbActions,
-                                                muwbActionCount))
+    m_actionsBypassed(NULL), m_actions(NULL)
 {
     SetCanTakeFocus(true);
     m_scrollAnimation.setDuration(0);
@@ -1613,12 +1613,18 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
         // if input is toggled all input goes to the web page
         if (m_inputToggled)
         {
+            if (!m_actionsBypassed)
+                m_actionsBypassed = 
+                    new MythActions<MythUIWebBrowser>(this, muwbActions, 1);
             handled = m_actionsBypassed->handleActions(actions);
             if (!handled)
                 m_browser->keyPressEvent(event);
             return true;
         }
 
+        if (!m_actions)
+            m_actions = new MythActions<MythUIWebBrowser>(this, muwbActions,
+                                                          muwbActionCount);
         m_actionFrame = m_browser->page()->currentFrame();
         m_actionKeyEvent = event;
         handled = m_actions->handleActions(actions);

@@ -100,8 +100,7 @@ static int mdbActionCount = NELEMS(mdbActions);
 MythDialogBox::MythDialogBox(const QString &text,
                              MythScreenStack *parent, const char *name,
                              bool fullscreen, bool osd) :
-    MythScreenType(parent, name, false),
-    m_actions(new MythActions<MythDialogBox>(this, mdbActions, mdbActionCount))
+    MythScreenType(parent, name, false), m_actions(NULL)
 {
     m_menu = NULL;
     m_currentMenu = NULL;
@@ -124,8 +123,7 @@ MythDialogBox::MythDialogBox(const QString &text,
 MythDialogBox::MythDialogBox(const QString &title, const QString &text,
                              MythScreenStack *parent, const char *name,
                              bool fullscreen, bool osd) :
-    MythScreenType(parent, name, false),
-    m_actions(new MythActions<MythDialogBox>(this, mdbActions, mdbActionCount))
+    MythScreenType(parent, name, false), m_actions(NULL)
 {
     m_menu = NULL;
     m_currentMenu = NULL;
@@ -149,8 +147,7 @@ MythDialogBox::MythDialogBox(const QString &title, const QString &text,
 
 MythDialogBox::MythDialogBox(MythMenu *menu, MythScreenStack *parent,
                              const char *name, bool fullscreen, bool osd) :
-    MythScreenType(parent, name, false),
-    m_actions(new MythActions<MythDialogBox>(this, mdbActions, mdbActionCount))
+    MythScreenType(parent, name, false), m_actions(NULL)
 {
     m_menu = menu;
     m_currentMenu = m_menu;
@@ -430,7 +427,12 @@ bool MythDialogBox::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythDialogBox>(this, mdbActions,
+                                                       mdbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;
@@ -496,9 +498,7 @@ static int mcdActionCount = NELEMS(mcdActions);
 MythConfirmationDialog::MythConfirmationDialog(MythScreenStack *parent,
                                                const QString &message,
                                                bool showCancel) :
-    MythScreenType(parent, "mythconfirmpopup"),
-    m_actions(new MythActions<MythConfirmationDialog>(this, mcdActions,
-                                                      mcdActionCount))
+    MythScreenType(parent, "mythconfirmpopup"), m_actions(NULL)
 {
     m_messageText = NULL;
     m_message = message;
@@ -567,7 +567,13 @@ bool MythConfirmationDialog::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions =
+                new MythActions<MythConfirmationDialog>(this, mcdActions,
+                                                        mcdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

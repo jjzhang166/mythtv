@@ -863,7 +863,7 @@ VideoDialog::VideoDialog(MythScreenStack *lparent, QString lname,
     m_novideoText(0), m_positionText(0), m_crumbText(0), m_coverImage(0),
     m_screenshot(0), m_banner(0), m_fanart(0), m_trailerState(0),
     m_parentalLevelState(0), m_watchedState(0), m_studioState(0),
-    m_actions(new MythActions<VideoDialog>(this, vdActions, vdActionCount))
+    m_actions(NULL)
 {
     m_metadataFactory = new MetadataFactory(this);
 
@@ -2127,7 +2127,12 @@ bool VideoDialog::keyPressEvent(QKeyEvent *levent)
     handled = GetMythMainWindow()->TranslateKeyPress("Video", levent, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<VideoDialog>(this, vdActions,
+                                                     vdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         handled = GetMythMainWindow()->TranslateKeyPress("TV Frontend", levent,

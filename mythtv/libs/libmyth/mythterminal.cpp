@@ -170,9 +170,7 @@ static struct ActionDefStruct<MythTerminalKeyFilter> mtkfActions[] = {
 };
 static int mtkfActionCount = NELEMS(mtkfActions);
 
-MythTerminalKeyFilter::MythTerminalKeyFilter() :
-    m_actions(new MythActions<MythTerminalKeyFilter>(this, mtkfActions,
-                                                     mtkfActionCount))
+MythTerminalKeyFilter::MythTerminalKeyFilter() : m_actions(NULL)
 {
 }
 
@@ -200,6 +198,13 @@ bool MythTerminalKeyFilter::eventFilter(QObject *obj, QEvent *event)
                                                           false);
     if (!handled && !actions.isEmpty())
     {
+        if (!m_actions)
+        {
+            m_actions = 
+                new MythActions<MythTerminalKeyFilter>(this, mtkfActions,
+                                                       mtkfActionCount);
+        }
+
         bool touched;
         m_actionObj = obj;
         m_actionEvent = event;

@@ -424,8 +424,7 @@ PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name, BoxType ltype,
     // Selection state variables
     m_needUpdate(false),
     // Other
-    m_player(NULL), m_helper(this),
-    m_actions(new MythActions<PlaybackBox>(this, pbbActions, pbbActionCount))
+    m_player(NULL), m_helper(this), m_actions(NULL)
 {
     for (uint i = 0; i < sizeof(m_artImage) / sizeof(MythUIImage*); i++)
     {
@@ -3912,7 +3911,12 @@ bool PlaybackBox::keyPressEvent(QKeyEvent *event)
                                                      event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<PlaybackBox>(this, pbbActions,
+                                                     pbbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

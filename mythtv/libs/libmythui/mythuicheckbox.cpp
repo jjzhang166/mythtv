@@ -17,9 +17,7 @@ static struct ActionDefStruct<MythUICheckBox> mucbActions[] = {
 static int mucbActionCount = NELEMS(mucbActions);
 
 MythUICheckBox::MythUICheckBox(MythUIType *parent, const QString &name) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythUICheckBox>(this, mucbActions,
-                                              mucbActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_currentCheckState = MythUIStateType::Off;
     m_state = "active";
@@ -190,7 +188,12 @@ bool MythUICheckBox::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythUICheckBox>(this, mucbActions,
+                                                        mucbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     return handled;
 }

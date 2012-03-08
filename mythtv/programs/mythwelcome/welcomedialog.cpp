@@ -51,8 +51,7 @@ WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name) :
     m_idleWaitForRecordingTime(0),
     m_idleTimeoutSecs(0),       m_screenTunerNo(0),     m_screenScheduledNo(0),
     m_statusListNo(0),          m_frontendIsRunning(false),
-    m_pendingRecListUpdate(false), m_pendingSchedUpdate(false),
-    m_actions(new MythActions<WelcomeDialog>(this, wdActions, wdActionCount))
+    m_pendingRecListUpdate(false), m_pendingSchedUpdate(false), m_actions(NULL)
 {
     gCoreContext->addListener(this);
 
@@ -326,7 +325,12 @@ bool WelcomeDialog::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Welcome", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<WelcomeDialog>(this, wdActions,
+                                                       wdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

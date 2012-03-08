@@ -54,8 +54,7 @@ static int mstActionCount = NELEMS(mstActions);
 
 MythScreenType::MythScreenType(MythScreenStack *parent, const QString &name,
                                bool fullscreen) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythScreenType>(this, mstActions, mstActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_FullScreen = fullscreen;
     m_CurrentFocusWidget = NULL;
@@ -76,8 +75,7 @@ MythScreenType::MythScreenType(MythScreenStack *parent, const QString &name,
 
 MythScreenType::MythScreenType(MythUIType *parent, const QString &name,
                                bool fullscreen) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythScreenType>(this, mstActions, mstActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_FullScreen = fullscreen;
     m_CurrentFocusWidget = NULL;
@@ -532,7 +530,12 @@ bool MythScreenType::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythScreenType>(this, mstActions,
+                                                        mstActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     return handled;
 }

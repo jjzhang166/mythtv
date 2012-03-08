@@ -13,9 +13,7 @@ static int mubdActionCount = NELEMS(mubdActions);
 
 MythUIBusyDialog::MythUIBusyDialog(const QString &message,
                                    MythScreenStack *parent, const char *name) :
-    MythScreenType(parent, name, false),
-    m_actions(new MythActions<MythUIBusyDialog>(this, mubdActions,
-                                                mubdActionCount))
+    MythScreenType(parent, name, false), m_actions(NULL)
 {
     if (!message.isEmpty())
         m_message = message;
@@ -84,7 +82,12 @@ bool MythUIBusyDialog::keyPressEvent(QKeyEvent *event)
                                                           false);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythUIBusyDialog>(this, mubdActions,
+                                                          mubdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;
@@ -135,9 +138,7 @@ static int mupdActionCount = NELEMS(mupdActions);
 MythUIProgressDialog::MythUIProgressDialog(const QString &message,
                                            MythScreenStack *parent,
                                            const char *name) :
-    MythScreenType(parent, name, false),
-    m_actions(new MythActions<MythUIProgressDialog>(this, mupdActions,
-                                                    mupdActionCount))
+    MythScreenType(parent, name, false), m_actions(NULL)
 {
     m_count = m_total = 0;
     m_message = message;
@@ -178,7 +179,12 @@ bool MythUIProgressDialog::keyPressEvent(QKeyEvent *event)
                                                           false);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythUIProgressDialog>(this, mupdActions,
+                                                              mupdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

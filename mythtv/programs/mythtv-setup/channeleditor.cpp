@@ -72,8 +72,7 @@ ChannelEditor::ChannelEditor(MythScreenStack *parent) :
     m_currentHideMode(false),
     m_channelList(NULL), m_sourceList(NULL), m_preview(NULL),
     m_channame(NULL), m_channum(NULL), m_callsign(NULL),
-    m_chanid(NULL), m_sourcename(NULL), m_compoundname(NULL),
-    m_actions(new MythActions<ChannelEditor>(this, ceActions, ceActionCount))
+    m_chanid(NULL), m_sourcename(NULL), m_compoundname(NULL), m_actions(NULL)
 {
 }
 
@@ -213,7 +212,12 @@ bool ChannelEditor::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ChannelEditor>(this, ceActions,
+                                                       ceActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

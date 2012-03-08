@@ -36,9 +36,7 @@ static int muteActionCount = NELEMS(muteActions);
 
 
 MythUITextEdit::MythUITextEdit(MythUIType *parent, const QString &name) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythUITextEdit>(this, muteActions,
-                                              muteActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_Message = "";
     m_Filter = FilterNone;
@@ -535,6 +533,9 @@ bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
 
     if (!handled)
     {
+        if (!m_actions)
+            m_actions = new MythActions<MythUITextEdit>(this, muteActions,
+                                                        muteActionCount);
         m_actionKeyNum = keynum;
         handled = m_actions->handleActions(actions);
     }

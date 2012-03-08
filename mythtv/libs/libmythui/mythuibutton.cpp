@@ -20,8 +20,7 @@ static struct ActionDefStruct<MythUIButton> mubActions[] = {
 static int mubActionCount = NELEMS(mubActions);
 
 MythUIButton::MythUIButton(MythUIType *parent, const QString &name) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythUIButton>(this, mubActions, mubActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_clickTimer = new QTimer();
     m_clickTimer->setSingleShot(true);
@@ -152,7 +151,12 @@ bool MythUIButton::keyPressEvent(QKeyEvent *e)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythUIButton>(this, mubActions,
+                                                      mubActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     return handled;
 }

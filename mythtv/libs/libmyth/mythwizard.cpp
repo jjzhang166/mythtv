@@ -104,8 +104,7 @@ static struct ActionDefStruct<MythWizard> mwActions[] = {
 static int mwActionCount = NELEMS(mwActions);
 
 MythWizard::MythWizard(MythMainWindow *parent, const char *name) :
-    MythDialog(parent, name),
-    m_actions(new MythActions<MythWizard>(this, mwActions, mwActionCount))
+    MythDialog(parent, name), m_actions(NULL)
 {
     d = new MythWizardPrivate();
     d->current = 0; // not quite true, but...
@@ -601,7 +600,12 @@ void MythWizard::keyPressEvent(QKeyEvent* e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythWizard>(this, mwActions,
+                                                    mwActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         MythDialog::keyPressEvent(e);

@@ -68,8 +68,7 @@ ChannelRecPriority::ChannelRecPriority(MythScreenStack *parent) :
     m_channelList(NULL), m_chanstringText(NULL), m_channameText(NULL),
     m_channumText(NULL), m_callsignText(NULL), m_sourcenameText(NULL),
     m_sourceidText(NULL), m_priorityText(NULL), m_iconImage(NULL),
-    m_actions(new MythActions<ChannelRecPriority>(this, crpActions,
-                                                  crpActionCount))
+    m_actions(NULL)
 {
     m_sortType =
        (SortType)gCoreContext->GetNumSetting("ChannelRecPrioritySorting",
@@ -179,7 +178,12 @@ bool ChannelRecPriority::keyPressEvent(QKeyEvent *event)
                                                      actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ChannelRecPriority>(this, crpActions,
+                                                            crpActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

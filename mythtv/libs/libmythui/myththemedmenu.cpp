@@ -106,8 +106,7 @@ MythThemedMenu::MythThemedMenu(const QString &cdir, const QString &menufile,
                                bool allowreorder, MythThemedMenuState *state) :
     MythThemedMenuState(parent, name),
     m_state(state), m_allocedstate(false), m_foundtheme(false),
-    m_ignorekeys(false), m_wantpop(false),
-    m_actions(new MythActions<MythThemedMenu>(this, mtmActions, mtmActionCount))
+    m_ignorekeys(false), m_wantpop(false), m_actions(NULL)
 {
     m_menuPopup = NULL;
 
@@ -286,7 +285,12 @@ bool MythThemedMenu::keyPressEvent(QKeyEvent *event)
                                                      actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythThemedMenu>(this, mtmActions,
+                                                        mtmActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

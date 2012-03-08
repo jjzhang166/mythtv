@@ -54,8 +54,7 @@ static int sbActionCount = NELEMS(sbActions);
  */
 
 StatusBox::StatusBox(MythScreenStack *parent) :
-    MythScreenType(parent, "StatusBox"),
-    m_actions(new MythActions<StatusBox>(this, sbActions, sbActionCount))
+    MythScreenType(parent, "StatusBox"), m_actions(NULL)
 {
     m_minLevel = gCoreContext->GetNumSetting("LogDefaultView",5);
 
@@ -240,6 +239,9 @@ bool StatusBox::keyPressEvent(QKeyEvent *event)
 
     if (!handled)
     {
+        if (!m_actions)
+            m_actions = new MythActions<StatusBox>(this, sbActions,
+                                                   sbActionCount);
         MythUIButtonListItem *currentButton = m_categoryList->GetItemCurrent();
         if (currentButton)
             m_actionItem = currentButton->GetText();

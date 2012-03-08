@@ -30,9 +30,7 @@ static int cdwActionCount = NELEMS(cdwActions);
 
 ConfigurationDialogWidget::ConfigurationDialogWidget(MythMainWindow *parent,
                                                      const char *widgetName) :
-    MythDialog(parent, widgetName),
-    m_actions(new MythActions<ConfigurationDialogWidget>(this, cdwActions,
-                                                         cdwActionCount))
+    MythDialog(parent, widgetName), m_actions(NULL)
 {
 }
 
@@ -61,8 +59,15 @@ void ConfigurationDialogWidget::keyPressEvent(QKeyEvent* e)
 
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
-    if (!handled && m_actions)
+    if (!handled)
+    {
+        if (!m_actions)
+            m_actions =
+                new MythActions<ConfigurationDialogWidget>(this, cdwActions,
+                                                           cdwActionCount);
+
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         MythDialog::keyPressEvent(e);

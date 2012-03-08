@@ -31,8 +31,7 @@ static int ceActionCount = NELEMS(ceActions);
 
 
 CustomEdit::CustomEdit(MythScreenStack *parent, ProgramInfo *pginfo) :
-    MythScreenType(parent, "CustomEdit"),
-    m_actions(new MythActions<CustomEdit>(this, ceActions, ceActionCount))
+    MythScreenType(parent, "CustomEdit"), m_actions(NULL)
 {
     if (pginfo)
         m_pginfo = new ProgramInfo(*pginfo);
@@ -878,7 +877,12 @@ bool CustomEdit::keyPressEvent(QKeyEvent *event)
                                                      actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<CustomEdit>(this, ceActions,
+                                                    ceActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

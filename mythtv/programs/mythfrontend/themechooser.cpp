@@ -88,7 +88,7 @@ ThemeChooser::ThemeChooser(MythScreenStack *parent,
     m_downloadTheme(NULL),
     m_downloadState(dsIdle),
     m_popupMenu(NULL),
-    m_actions(new MythActions<ThemeChooser>(this, tcActions, tcActionCount))
+    m_actions(NULL)
 {
     gCoreContext->addListener(this);
 
@@ -537,7 +537,12 @@ bool ThemeChooser::keyPressEvent(QKeyEvent *event)
                                                      actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ThemeChooser>(this, tcActions,
+                                                      tcActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

@@ -261,8 +261,7 @@ GuideGrid::GuideGrid(MythScreenStack *parent, uint chanid, QString channum,
     m_usingNullVideo(false), m_embedVideo(embedVideo),
     m_previewVideoRefreshTimer(new QTimer(this)),
     m_updateTimer(NULL), m_jumpToChannelLock(QMutex::Recursive),
-    m_jumpToChannel(NULL),
-    m_actions(new MythActions<GuideGrid>(this, ggActions, ggActionCount))
+    m_jumpToChannel(NULL), m_actions(NULL)
 {
     connect(m_previewVideoRefreshTimer, SIGNAL(timeout()),
             this,                     SLOT(refreshVideo()));
@@ -701,7 +700,12 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
     }
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<GuideGrid>(this, ggActions,
+                                                   ggActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

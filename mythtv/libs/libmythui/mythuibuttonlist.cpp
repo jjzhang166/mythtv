@@ -38,9 +38,7 @@ static struct ActionDefStruct<MythUIButtonList> mublActions[] = {
 static int mublActionCount = NELEMS(mublActions);
 
 MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythUIButtonList>(this, mublActions,
-                                                mublActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_showArrow = true;
     m_showScrollBar = true;
@@ -51,9 +49,7 @@ MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name) :
 MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name,
                                    const QRect &area, bool showArrow,
                                    bool showScrollArrows, bool showScrollBar) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythUIButtonList>(this, mublActions,
-                                                mublActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_Area      = area;
     m_showArrow = showArrow;
@@ -2444,7 +2440,12 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *e)
 
     // handle actions for this container
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythUIButtonList>(this, mublActions,
+                                                          mublActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     return handled;
 }
@@ -3532,9 +3533,7 @@ SearchButtonListDialog::SearchButtonListDialog(MythScreenStack *parent,
                                                const char *name,
                                                MythUIButtonList *parentList,
                                                QString searchText) :
-    MythScreenType(parent, name, false),
-    m_actions(new MythActions<SearchButtonListDialog>(this, sbldActions,
-                                                      sbldActionCount))
+    MythScreenType(parent, name, false), m_actions(NULL)
 {
     m_parentList = parentList;
     m_searchText = searchText;
@@ -3592,7 +3591,13 @@ bool SearchButtonListDialog::keyPressEvent(QKeyEvent *event)
                                                           actions, false);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions =
+               new MythActions<SearchButtonListDialog>(this, sbldActions,
+                                                       sbldActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

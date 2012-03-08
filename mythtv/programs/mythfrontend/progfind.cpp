@@ -75,7 +75,7 @@ ProgFinder::ProgFinder(MythScreenStack *parentStack, bool allowEPG,
     m_alphabetList(NULL),        m_showList(NULL),
     m_timesList(NULL),           m_searchText(NULL),
     m_help1Text(NULL),           m_help2Text(NULL),
-    m_actions(new MythActions<ProgFinder>(this, pfActions, pfActionCount))
+    m_actions(NULL)
 {
 }
 
@@ -250,7 +250,12 @@ bool ProgFinder::keyPressEvent(QKeyEvent *event)
                                                      actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ProgFinder>(this, pfActions,
+                                                    pfActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

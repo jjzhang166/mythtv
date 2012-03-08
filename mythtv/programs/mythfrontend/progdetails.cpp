@@ -28,8 +28,7 @@ static int pdActionCount = NELEMS(pdActions);
 
 ProgDetails::ProgDetails(MythScreenStack *parent, const ProgramInfo *progInfo) :
     MythScreenType (parent, "progdetails"),
-    m_progInfo(*progInfo), m_browser(NULL), m_currentPage(0),
-    m_actions(new MythActions<ProgDetails>(this, pdActions, pdActionCount))
+    m_progInfo(*progInfo), m_browser(NULL), m_currentPage(0), m_actions(NULL)
 {
 }
 
@@ -157,7 +156,12 @@ bool ProgDetails::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ProgDetails>(this, pdActions,
+                                                     pdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

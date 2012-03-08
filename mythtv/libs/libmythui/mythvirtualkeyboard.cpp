@@ -87,9 +87,7 @@ static int muvkActionCount = NELEMS(muvkActions);
 
 MythUIVirtualKeyboard::MythUIVirtualKeyboard(MythScreenStack *parentStack,
                                              MythUITextEdit *parentEdit) :
-    MythScreenType(parentStack, "MythUIVirtualKeyboard"),
-    m_actions(new MythActions<MythUIVirtualKeyboard>(this, muvkActions,
-                                                     muvkActionCount))
+    MythScreenType(parentStack, "MythUIVirtualKeyboard"), m_actions(NULL)
 {
     m_parentEdit = parentEdit;
 
@@ -413,7 +411,13 @@ bool MythUIVirtualKeyboard::keyPressEvent(QKeyEvent *e)
     }
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions =
+                new MythActions<MythUIVirtualKeyboard>(this, muvkActions,
+                                                       muvkActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(e))
         handled = true;

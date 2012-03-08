@@ -47,8 +47,7 @@ MythComboBox::MythComboBox(bool rw, QWidget *parent, const char *name) :
     QComboBox(parent),
     popup(NULL), helptext(QString::null), AcceptOnSelect(false),
     useVirtualKeyboard(true), allowVirtualKeyboard(rw),
-    popupPosition(VKQT_POSBELOWEDIT), step(1),
-    m_actions(new MythActions<MythComboBox>(this, mcbActions, mcbActionCount))
+    popupPosition(VKQT_POSBELOWEDIT), step(1), m_actions(NULL)
 {
     setObjectName(name);
     setEditable(rw);
@@ -172,6 +171,10 @@ void MythComboBox::keyPressEvent(QKeyEvent *e)
 
     if ((!popup || popup->isHidden()) && !handled)
     {
+        if (!m_actions)
+            m_actions = new MythActions<MythComboBox>(this, mcbActions,
+                                                      mcbActionCount);
+
         m_actionEvent  = e;
         handled = m_actions->handleActions(actions);
     }
@@ -239,17 +242,14 @@ static struct ActionDefStruct<MythCheckBox> mchkbActions[] = {
 static int mchkbActionCount = NELEMS(mchkbActions);
 
 MythCheckBox::MythCheckBox(QWidget *parent, const char *name) :
-    QCheckBox(parent),
-    m_actions(new MythActions<MythCheckBox>(this, mchkbActions,
-                                            mchkbActionCount))
+    QCheckBox(parent), m_actions(NULL)
 {
     setObjectName(name);
 }
 
 MythCheckBox::MythCheckBox(const QString &text, QWidget *parent,
-                           const char *name) : QCheckBox(text, parent),
-    m_actions(new MythActions<MythCheckBox>(this, mchkbActions,
-                                            mchkbActionCount))
+                           const char *name) :
+    QCheckBox(text, parent), m_actions(NULL)
 {
     setObjectName(name);
 }
@@ -286,7 +286,12 @@ void MythCheckBox::keyPressEvent(QKeyEvent* e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythCheckBox>(this, mchkbActions,
+                                                      mchkbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         e->ignore();
@@ -327,9 +332,7 @@ static struct ActionDefStruct<MythRadioButton> mrbActions[] = {
 static int mrbActionCount = NELEMS(mrbActions);
 
 MythRadioButton::MythRadioButton(QWidget* parent, const char* name) :
-    QRadioButton(parent),
-    m_actions(new MythActions<MythRadioButton>(this, mrbActions,
-                                               mrbActionCount))
+    QRadioButton(parent), m_actions(NULL)
 {
     setObjectName(name);
 }
@@ -365,7 +368,12 @@ void MythRadioButton::keyPressEvent(QKeyEvent* e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythRadioButton>(this, mrbActions,
+                                                         mrbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         e->ignore();
@@ -412,8 +420,7 @@ static int msbActionCount = NELEMS(msbActions);
 
 MythSpinBox::MythSpinBox(QWidget* parent, const char* name,
                 bool allow_single_step) :
-    QSpinBox(parent), allowsinglestep(allow_single_step),
-    m_actions(new MythActions<MythSpinBox>(this, msbActions, msbActionCount))
+    QSpinBox(parent), allowsinglestep(allow_single_step), m_actions(NULL)
 {
     setObjectName(name);
     if (allowsinglestep)
@@ -482,7 +489,12 @@ void MythSpinBox::keyPressEvent(QKeyEvent* e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythSpinBox>(this, msbActions,
+                                                     msbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         QSpinBox::keyPressEvent(e);
@@ -517,9 +529,7 @@ static struct ActionDefStruct<MythSlider> mslideActions[] = {
 static int mslideActionCount = NELEMS(mslideActions);
 
 MythSlider::MythSlider(QWidget* parent, const char* name) :
-    QSlider(parent),
-    m_actions(new MythActions<MythSlider>(this, mslideActions,
-                                          mslideActionCount))
+    QSlider(parent), m_actions(NULL)
 {
     setObjectName(name);
 }
@@ -567,7 +577,12 @@ void MythSlider::keyPressEvent(QKeyEvent* e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythSlider>(this, mslideActions,
+                                                    mslideActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         QSlider::keyPressEvent(e);
@@ -613,8 +628,7 @@ MythLineEdit::MythLineEdit(QWidget *parent, const char *name) :
     popup(NULL), helptext(QString::null), rw(true),
     useVirtualKeyboard(true),
     allowVirtualKeyboard(true),
-    popupPosition(VKQT_POSBELOWEDIT),
-    m_actions(new MythActions<MythLineEdit>(this, mleActions, mleActionCount))
+    popupPosition(VKQT_POSBELOWEDIT), m_actions(NULL)
 {
     setObjectName(name);
     useVirtualKeyboard = gCoreContext->GetNumSetting("UseVirtualKeyboard", 1);
@@ -626,8 +640,7 @@ MythLineEdit::MythLineEdit(const QString &contents, QWidget *parent,
     popup(NULL), helptext(QString::null), rw(true),
     useVirtualKeyboard(true),
     allowVirtualKeyboard(true),
-    popupPosition(VKQT_POSBELOWEDIT),
-    m_actions(new MythActions<MythLineEdit>(this, mleActions, mleActionCount))
+    popupPosition(VKQT_POSBELOWEDIT), m_actions(NULL)
 {
     setObjectName(name);
     useVirtualKeyboard = gCoreContext->GetNumSetting("UseVirtualKeyboard", 1);
@@ -699,6 +712,9 @@ void MythLineEdit::keyPressEvent(QKeyEvent *e)
 
     if (!handled)
     {
+        if (!m_actions)
+            m_actions = new MythActions<MythLineEdit>(this, mleActions,
+                                                      mleActionCount);
         m_actionEvent = e;
         handled = m_actions->handleActions(actions);
     }
@@ -777,9 +793,7 @@ static int mrleActionCount = NELEMS(mrleActions);
 
 
 MythRemoteLineEdit::MythRemoteLineEdit(QWidget * parent, const char *name) :
-    QTextEdit(parent),
-    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
-                                                  mrleActionCount))
+    QTextEdit(parent), m_actions(NULL)
 {
     setObjectName(name);
     my_font = NULL;
@@ -789,9 +803,7 @@ MythRemoteLineEdit::MythRemoteLineEdit(QWidget * parent, const char *name) :
 
 MythRemoteLineEdit::MythRemoteLineEdit(const QString & contents,
                                        QWidget * parent, const char *name) :
-    QTextEdit(parent),
-    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
-                                                  mrleActionCount))
+    QTextEdit(parent), m_actions(NULL)
 {
     setObjectName(name);
     my_font = NULL;
@@ -802,9 +814,7 @@ MythRemoteLineEdit::MythRemoteLineEdit(const QString & contents,
 
 MythRemoteLineEdit::MythRemoteLineEdit(QFont *a_font, QWidget * parent,
                                        const char *name) :
-    QTextEdit(parent),
-    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
-                                                  mrleActionCount))
+    QTextEdit(parent), m_actions(NULL)
 {
     setObjectName(name);
     my_font = a_font;
@@ -814,9 +824,7 @@ MythRemoteLineEdit::MythRemoteLineEdit(QFont *a_font, QWidget * parent,
 
 MythRemoteLineEdit::MythRemoteLineEdit(int lines, QWidget * parent,
                                        const char *name) :
-    QTextEdit(parent),
-    m_actions(new MythActions<MythRemoteLineEdit>(this, mrleActions,
-                                                  mrleActionCount))
+    QTextEdit(parent), m_actions(NULL)
 {
     setObjectName(name);
     my_font = NULL;
@@ -1123,6 +1131,9 @@ void MythRemoteLineEdit::keyPressEvent(QKeyEvent *e)
 
     if ((!popup || popup->isHidden()) && !handled)
     {
+        if (!m_actions)
+            m_actions = new MythActions<MythRemoteLineEdit>(this, mrleActions,
+                                                            mrleActionCount);
         m_actionEvent = e;
         handled = m_actions->handleActions(actions);
     }
@@ -1393,18 +1404,14 @@ static struct ActionDefStruct<MythPushButton> mpshbActions[] = {
 static int mpshbActionCount = NELEMS(mpshbActions);
 
 MythPushButton::MythPushButton(QWidget *parent, const char *name) :
-    QPushButton(parent),
-    m_actions(new MythActions<MythPushButton>(this, mpshbActions,
-                                              mpshbActionCount))
+    QPushButton(parent), m_actions(NULL)
 {
     setObjectName(name);
     setCheckable(false);
 }
 
 MythPushButton::MythPushButton(const QString &text, QWidget *parent) :
-    QPushButton(text, parent),
-    m_actions(new MythActions<MythPushButton>(this, mpshbActions,
-                                              mpshbActionCount))
+    QPushButton(text, parent), m_actions(NULL)
 {
     setObjectName("MythPushButton");
     setCheckable(false);
@@ -1412,9 +1419,7 @@ MythPushButton::MythPushButton(const QString &text, QWidget *parent) :
 
 MythPushButton::MythPushButton(const QString &ontext, const QString &offtext,
                                QWidget *parent, bool isOn) :
-    QPushButton(ontext, parent),
-    m_actions(new MythActions<MythPushButton>(this, mpshbActions,
-                                              mpshbActionCount))
+    QPushButton(ontext, parent), m_actions(NULL)
 {
     onText = ontext;
     offText = offtext;
@@ -1470,6 +1475,9 @@ void MythPushButton::keyPressEvent(QKeyEvent *e)
 
     if (!handled && !actions.isEmpty())
     {
+        if (!m_actions)
+            m_actions = new MythActions<MythPushButton>(this, mpshbActions,
+                                                        mpshbActionCount);
         keyPressActions = actions;
 
         handled = m_actions->handleActions(actions);
@@ -1483,6 +1491,10 @@ void MythPushButton::keyReleaseEvent(QKeyEvent *e)
 {
     bool handled = false;
     QStringList actions = keyPressActions;
+
+    if (!m_actions)
+        m_actions = new MythActions<MythPushButton>(this, mpshbActions,
+                                                    mpshbActionCount);
 
     handled = m_actions->handleActions(actions);
 
@@ -1546,9 +1558,7 @@ static struct ActionDefStruct<MythListBox> mlstbActions[] = {
 static int mlstbActionCount = NELEMS(mlstbActions);
 
 MythListBox::MythListBox(QWidget *parent, const QString &name) :
-    QListWidget(parent),
-    m_actions(new MythActions<MythListBox>(this, mlstbActions,
-                                           mlstbActionCount))
+    QListWidget(parent), m_actions(NULL)
 {
     setObjectName(name);
     connect(this, SIGNAL(itemSelectionChanged()),
@@ -1753,7 +1763,12 @@ void MythListBox::keyPressEvent(QKeyEvent* e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythListBox>(this, mlstbActions,
+                                                     mlstbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         e->ignore();

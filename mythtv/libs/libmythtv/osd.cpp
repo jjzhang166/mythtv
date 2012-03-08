@@ -37,8 +37,7 @@ static struct ActionDefStruct<ChannelEditor> ceActions[] = {
 static int ceActionCount = NELEMS(ceActions);
 
 ChannelEditor::ChannelEditor(QObject *retobject, const char *name) :
-    MythScreenType((MythScreenType*)NULL, name),
-    m_actions(new MythActions<ChannelEditor>(this, ceActions, ceActionCount))
+    MythScreenType((MythScreenType*)NULL, name), m_actions(NULL)
 {
     m_retObject    = retobject;
     m_callsignEdit = NULL;
@@ -129,7 +128,12 @@ bool ChannelEditor::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ChannelEditor>(this, ceActions,
+                                                       ceActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

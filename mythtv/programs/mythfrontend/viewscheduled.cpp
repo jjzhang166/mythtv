@@ -50,8 +50,7 @@ static int vsActionCount = NELEMS(vsActions);
 
 
 ViewScheduled::ViewScheduled(MythScreenStack *parent, TV* player, bool showTV) :
-    ScheduleCommon(parent, "ViewScheduled"),
-    m_actions(new MythActions<ViewScheduled>(this, vsActions, vsActionCount))
+    ScheduleCommon(parent, "ViewScheduled"), m_actions(NULL)
 {
     m_showAll = !gCoreContext->GetNumSetting("ViewSchedShowLevel", 0);
 
@@ -244,7 +243,12 @@ bool ViewScheduled::keyPressEvent(QKeyEvent *event)
                                                      actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ViewScheduled>(this, vsActions,
+                                                       vsActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (m_needFill)
         LoadList();

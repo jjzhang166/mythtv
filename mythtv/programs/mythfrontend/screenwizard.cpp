@@ -42,8 +42,7 @@ ScreenWizard::ScreenWizard(MythScreenStack *parent, const char *name) :
     m_screenwidth(0),        m_screenheight(0),
     m_xsize(GetMythMainWindow()->GetUIScreenRect().width()),
     m_ysize(GetMythMainWindow()->GetUIScreenRect().height()),
-    m_menuPopup(NULL),
-    m_actions(new MythActions<ScreenWizard>(this, swActions, swActionCount))
+    m_menuPopup(NULL), m_actions(NULL)
 {
     // Initialise $stuff
     // Get UI size & offset settings from database
@@ -176,7 +175,12 @@ bool ScreenWizard::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ScreenWizard>(this, swActions,
+                                                      swActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

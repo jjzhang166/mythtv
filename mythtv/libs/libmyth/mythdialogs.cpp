@@ -51,8 +51,7 @@ static int mdActionCount = NELEMS(mdActions);
  *  \brief Base dialog for most dialogs in MythTV using the old UI
  */
 MythDialog::MythDialog(MythMainWindow *parent, const char *name, bool setsize) :
-    QFrame(parent), rescode(kDialogCodeAccepted),
-    m_actions(new MythActions<MythDialog>(this, mdActions, mdActionCount))
+    QFrame(parent), rescode(kDialogCodeAccepted), m_actions(NULL)
 {
     setObjectName(name);
     if (!parent)
@@ -255,7 +254,12 @@ void MythDialog::keyPressEvent( QKeyEvent *e )
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythDialog>(this, mdActions,
+                                                    mdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 }
 
 static struct ActionDefStruct<MythPopupBox> mpbActions[] = {
@@ -278,8 +282,7 @@ static int mpbActionCount = NELEMS(mpbActions);
  */
 
 MythPopupBox::MythPopupBox(MythMainWindow *parent, const char *name) :
-    MythDialog(parent, name, false),
-    m_actions(new MythActions<MythPopupBox>(this, mpbActions, mpbActionCount))
+    MythDialog(parent, name, false), m_actions(NULL)
 {
     float wmult, hmult;
 
@@ -307,8 +310,7 @@ MythPopupBox::MythPopupBox(MythMainWindow *parent, const char *name) :
 MythPopupBox::MythPopupBox(MythMainWindow *parent, bool graphicPopup,
                            QColor popupForeground, QColor popupBackground,
                            QColor popupHighlight, const char *name) :
-    MythDialog(parent, name, false),
-    m_actions(new MythActions<MythPopupBox>(this, mpbActions, mpbActionCount))
+    MythDialog(parent, name, false), m_actions(NULL)
 {
     float wmult, hmult;
 
@@ -601,7 +603,12 @@ void MythPopupBox::keyPressEvent(QKeyEvent *e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythPopupBox>(this, mpbActions,
+                                                      mpbActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         MythDialog::keyPressEvent(e);
@@ -816,9 +823,7 @@ static int mpdActionCount = NELEMS(mpdActions);
 
 MythProgressDialog::MythProgressDialog(const QString &message, int totalSteps,
                   bool cancelButton, const QObject *target, const char *slot) :
-    MythDialog(GetMythMainWindow(), "progress", false),
-    m_actions(new MythActions<MythProgressDialog>(this, mpdActions,
-                                                  mpdActionCount))
+    MythDialog(GetMythMainWindow(), "progress", false), m_actions(NULL)
 {
     setObjectName("MythProgressDialog");
     int screenwidth, screenheight;
@@ -943,7 +948,12 @@ void MythProgressDialog::keyPressEvent(QKeyEvent *e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythProgressDialog>(this, mpdActions,
+                                                            mpdActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
         MythDialog::keyPressEvent(e);

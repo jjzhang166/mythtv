@@ -74,7 +74,7 @@ ProgLister::ProgLister(MythScreenStack *parent, ProgListType pltype,
     m_positionText(NULL),
     m_progList(NULL),
     m_messageText(NULL),
-    m_actions(new MythActions<ProgLister>(this, plActions, plActionCount))
+    m_actions(NULL)
 {
     switch (pltype)
     {
@@ -124,7 +124,7 @@ ProgLister::ProgLister(
     m_positionText(NULL),
     m_progList(NULL),
     m_messageText(NULL),
-    m_actions(new MythActions<ProgLister>(this, plActions, plActionCount))
+    m_actions(NULL)
 {
 }
 
@@ -307,7 +307,12 @@ bool ProgLister::keyPressEvent(QKeyEvent *e)
 
     bool m_actionUpdate = false;
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ProgLister>(this, plActions,
+                                                    plActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(e))
         handled = true;

@@ -21,9 +21,7 @@ static struct ActionDefStruct<MythUIButtonTree> mubtActions[] = {
 static int mubtActionCount = NELEMS(mubtActions);
 
 MythUIButtonTree::MythUIButtonTree(MythUIType *parent, const QString &name) :
-    MythUIType(parent, name),
-    m_actions(new MythActions<MythUIButtonTree>(this, mubtActions,
-                                                mubtActionCount))
+    MythUIType(parent, name), m_actions(NULL)
 {
     m_initialized = false;
 
@@ -659,7 +657,12 @@ bool MythUIButtonTree::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<MythUIButtonTree>(this, mubtActions,
+                                                          mubtActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && m_activeList)
         handled = m_activeList->keyPressEvent(event);

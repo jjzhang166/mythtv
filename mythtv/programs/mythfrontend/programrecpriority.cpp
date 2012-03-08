@@ -424,9 +424,7 @@ ProgramRecPriority::ProgramRecPriority(MythScreenStack *parent,
     m_lastRecordedText(NULL), m_lastRecordedDateText(NULL),
     m_lastRecordedTimeText(NULL), m_channameText(NULL),
     m_channumText(NULL), m_callsignText(NULL),
-    m_recProfileText(NULL), m_currentItem(NULL),
-    m_actions(new MythActions<ProgramRecPriority>(this, prpActions,
-                                                  prpActionCount))
+    m_recProfileText(NULL), m_currentItem(NULL), m_actions(NULL)
 {
     m_sortType = (SortType)gCoreContext->GetNumSetting("ProgramRecPrioritySorting",
                                                  (int)byTitle);
@@ -674,7 +672,12 @@ bool ProgramRecPriority::keyPressEvent(QKeyEvent *event)
                                                      actions);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<ProgramRecPriority>(this, prpActions,
+                                                            prpActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

@@ -23,9 +23,7 @@ static int vkActionCount = NELEMS(vkActions);
 VirtualKeyboardQt::VirtualKeyboardQt(MythMainWindow *parent,
                                      QWidget *parentEdit, const char *name,
                                      bool setsize) :
-    MythThemedDialog(parent, name, setsize),
-    m_actions(new MythActions<VirtualKeyboardQt>(this, vkActions,
-                                                 vkActionCount))
+    MythThemedDialog(parent, name, setsize), m_actions(NULL)
 {
     setFrameStyle(QFrame::Panel | QFrame::Raised);
     setLineWidth(1);
@@ -238,7 +236,12 @@ void VirtualKeyboardQt::keyPressEvent(QKeyEvent *e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions, false);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<VirtualKeyboardQt>(this, vkActions,
+                                                           vkActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     //just pass all unhandled key events for the keyboard to handle
     if (!handled && m_keyboard)

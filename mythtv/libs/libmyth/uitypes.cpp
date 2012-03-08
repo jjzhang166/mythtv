@@ -620,8 +620,7 @@ static int ukActionCount = NELEMS(ukActions);
 
 
 UIKeyboardType::UIKeyboardType(const QString &name, int order) :
-    UIType(name),
-    m_actions(new MythActions<UIKeyboardType>(this, ukActions, ukActionCount))
+    UIType(name), m_actions(NULL)
 {
     m_order = order;
     m_container = NULL;
@@ -1034,7 +1033,12 @@ void UIKeyboardType::keyPressEvent(QKeyEvent *e)
     handled = GetMythMainWindow()->TranslateKeyPress("qt", e, actions, false);
 
     if (!handled)
+    {
+        if (!m_actions)
+            m_actions = new MythActions<UIKeyboardType>(this, ukActions,
+                                                        ukActionCount);
         handled = m_actions->handleActions(actions);
+    }
 
     if (!handled)
     {
