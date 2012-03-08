@@ -2312,7 +2312,7 @@ uint MythUIButtonList::ItemHeight(void)
 bool MythUIButtonList::doUp(const QString &action)
 {
     if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
-	return MoveUp(MoveRow);
+        return MoveUp(MoveRow);
 
     return false;
 }
@@ -2320,7 +2320,7 @@ bool MythUIButtonList::doUp(const QString &action)
 bool MythUIButtonList::doDown(const QString &action)
 {
     if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
-	return MoveDown(MoveRow);
+        return MoveDown(MoveRow);
 
     return false;
 }
@@ -2328,10 +2328,10 @@ bool MythUIButtonList::doDown(const QString &action)
 bool MythUIButtonList::doRight(const QString &action)
 {
     if (m_layout == LayoutHorizontal)
-	return MoveDown(MoveItem);
+        return MoveDown(MoveItem);
 
     if (m_layout == LayoutGrid)
-	return MoveDown((m_scrollStyle == ScrollFree) ? MoveColumn : MoveItem);
+        return MoveDown((m_scrollStyle == ScrollFree) ? MoveColumn : MoveItem);
 
     return false;
 }
@@ -2339,10 +2339,10 @@ bool MythUIButtonList::doRight(const QString &action)
 bool MythUIButtonList::doLeft(const QString &action)
 {
     if (m_layout == LayoutHorizontal)
-	return MoveUp(MoveItem);
+        return MoveUp(MoveItem);
 
     if (m_layout == LayoutGrid)
-	return MoveUp((m_scrollStyle == ScrollFree) ? MoveColumn : MoveItem);
+        return MoveUp((m_scrollStyle == ScrollFree) ? MoveColumn : MoveItem);
 
     return false;
 }
@@ -2382,7 +2382,7 @@ bool MythUIButtonList::doSelect(const QString &action)
     MythUIButtonListItem *item = GetItemCurrent();
 
     if (item)
-	emit itemClicked(item);
+        emit itemClicked(item);
 
     return true;
 }

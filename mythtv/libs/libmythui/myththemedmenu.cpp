@@ -201,7 +201,7 @@ bool MythThemedMenu::doEscape(const QString &action)
 {
     bool callbacks  = m_state->m_callback;
     bool lastScreen =
-    		(GetMythMainWindow()->GetMainStack()->TotalScreens() == 1);
+                (GetMythMainWindow()->GetMainStack()->TotalScreens() == 1);
     QString menuaction = "UPMENU";
     QString selExit    = "EXITING_APP_PROMPT";
     if (action == "EXIT")
@@ -228,7 +228,7 @@ bool MythThemedMenu::doEscape(const QString &action)
                 m_state->m_callback(m_state->m_callbackdata, selExit);
             QCoreApplication::exit();
         }
-	return true;
+        return true;
     }
 
     if (((action != "ESCAPE") ||

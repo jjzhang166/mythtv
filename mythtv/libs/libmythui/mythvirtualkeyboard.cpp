@@ -370,28 +370,28 @@ void MythUIVirtualKeyboard::updateKeys(bool connectSignals)
 bool MythUIVirtualKeyboard::doUp(const QString &action)
 {
     if (m_actionKeyFound)
-	SetFocusWidget(GetChild(m_actionKey.up));
+        SetFocusWidget(GetChild(m_actionKey.up));
     return true;
 }
 
 bool MythUIVirtualKeyboard::doDown(const QString &action)
 {
     if (m_actionKeyFound)
-	SetFocusWidget(GetChild(m_actionKey.down));
+        SetFocusWidget(GetChild(m_actionKey.down));
     return true;
 }
 
 bool MythUIVirtualKeyboard::doLeft(const QString &action)
 {
     if (m_actionKeyFound)
-	SetFocusWidget(GetChild(m_actionKey.left));
+        SetFocusWidget(GetChild(m_actionKey.left));
     return true;
 }
 
 bool MythUIVirtualKeyboard::doRight(const QString &action)
 {
     if (m_actionKeyFound)
-	SetFocusWidget(GetChild(m_actionKey.right));
+        SetFocusWidget(GetChild(m_actionKey.right));
     return true;
 }
 

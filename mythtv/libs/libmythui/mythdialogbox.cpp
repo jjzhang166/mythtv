@@ -358,7 +358,7 @@ bool MythDialogBox::doEscape(const QString &action)
 {
     SendEvent(-1, m_exittext, m_exitdata);
     if (m_exitdata == 0 && m_exittext.isEmpty())
-	Close();
+        Close();
     return true;
 }
 

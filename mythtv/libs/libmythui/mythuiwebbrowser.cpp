@@ -1523,7 +1523,7 @@ bool MythUIWebBrowser::doLeft(const QString &action)
 
     if (pos > 0)
     {
-	Scroll(-m_browserArea.width() / 10, 0);
+        Scroll(-m_browserArea.width() / 10, 0);
         return true;
     }
 
