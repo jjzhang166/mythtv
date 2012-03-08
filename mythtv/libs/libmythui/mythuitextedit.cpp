@@ -12,6 +12,7 @@
 // libmythbase headers
 #include "mythlogging.h"
 #include "mythdb.h"
+#include "mythactions.h"
 
 // MythUI headers
 #include "mythpainter.h"
@@ -21,8 +22,23 @@
 
 #define LOC      QString("MythUITextEdit: ")
 
-MythUITextEdit::MythUITextEdit(MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+static struct ActionDefStruct<MythUITextEdit> muteActions[] = {
+    { "SELECT",    &MythUITextEdit::doSelect },
+    { "LEFT",      &MythUITextEdit::doLeft },
+    { "RIGHT",     &MythUITextEdit::doRight },
+    { "DELETE",    &MythUITextEdit::doDelete },
+    { "BACKSPACE", &MythUITextEdit::doBackspace },
+    { "CUT",       &MythUITextEdit::doCut },
+    { "COPY",      &MythUITextEdit::doCopy },
+    { "PASTE",     &MythUITextEdit::doPaste }
+};
+static int muteActionCount = NELEMS(muteActions);
+
+
+MythUITextEdit::MythUITextEdit(MythUIType *parent, const QString &name) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythUITextEdit>(this, muteActions,
+                                              muteActionCount))
 {
     m_Message = "";
     m_Filter = FilterNone;
@@ -56,6 +72,8 @@ MythUITextEdit::MythUITextEdit(MythUIType *parent, const QString &name)
 
 MythUITextEdit::~MythUITextEdit()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 void MythUITextEdit::Select()
@@ -392,6 +410,72 @@ static void LoadDeadKeys(QMap<QPair<int, int>, int> &map)
     return;
 }
 
+bool MythUITextEdit::doSelect(const QString &action)
+{
+    if (m_actionKeyNum != Qt::Key_Space &&
+        GetMythDB()->GetNumSetting("UseVirtualKeyboard", 1) == 1)
+    {
+        MythScreenStack *popupStack =
+            GetMythMainWindow()->GetStack("popup stack");
+        MythUIVirtualKeyboard *kb = new MythUIVirtualKeyboard(popupStack, this);
+
+        if (kb->Create())
+        {
+            //connect(kb, SIGNAL(keyPress(QString)), SLOT(keyPress(QString)));
+            popupStack->AddScreen(kb);
+        }
+        else
+            delete kb;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUITextEdit::doLeft(const QString &action)
+{
+    MoveCursor(MoveLeft);
+    return true;
+}
+
+bool MythUITextEdit::doRight(const QString &action)
+{
+    MoveCursor(MoveRight);
+    return true;
+}
+
+bool MythUITextEdit::doDelete(const QString &action)
+{
+    RemoveCharacter(m_Position + 1);
+    return true;
+}
+
+bool MythUITextEdit::doBackspace(const QString &action)
+{
+    RemoveCharacter(m_Position);
+    return true;
+}
+
+bool MythUITextEdit::doCut(const QString &action)
+{
+    CutTextToClipboard();
+    return true;
+}
+
+bool MythUITextEdit::doCopy(const QString &action)
+{
+    CopyTextToClipboard();
+    return true;
+}
+
+bool MythUITextEdit::doPaste(const QString &action)
+{
+    PasteTextFromClipboard();
+    return true;
+}
+
+
 bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
 {
     m_lastKeyPress.restart();
@@ -422,7 +506,9 @@ bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
         if (gDeadKeyMap.isEmpty())
             LoadDeadKeys(gDeadKeyMap);
 
-        LOG(VB_GUI, LOG_DEBUG, QString("Compose key: %1 Key: %2").arg(QString::number(m_composeKey, 16)).arg(QString::number(keynum, 16)));
+        LOG(VB_GUI, LOG_DEBUG, QString("Compose key: %1 Key: %2")
+            .arg(QString::number(m_composeKey, 16))
+            .arg(QString::number(keynum, 16)));
 
         if (gDeadKeyMap.contains(keyCombo(m_composeKey, keynum)))
         {
@@ -435,7 +521,8 @@ bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
                 character = character.toUpper();
             else
                 character = character.toLower();
-            LOG(VB_GUI, LOG_DEBUG, QString("Found match for dead-key combo - %1").arg(character));
+            LOG(VB_GUI, LOG_DEBUG,
+                QString("Found match for dead-key combo - %1").arg(character));
         }
         m_composeKey = 0;
     }
@@ -446,56 +533,10 @@ bool MythUITextEdit::keyPressEvent(QKeyEvent *event)
     if (!handled && InsertCharacter(character))
         handled = true;
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "LEFT")
-        {
-            MoveCursor(MoveLeft);
-        }
-        else if (action == "RIGHT")
-        {
-            MoveCursor(MoveRight);
-        }
-        else if (action == "DELETE")
-        {
-            RemoveCharacter(m_Position + 1);
-        }
-        else if (action == "BACKSPACE")
-        {
-            RemoveCharacter(m_Position);
-        }
-        else if (action == "SELECT" && keynum != Qt::Key_Space
-                 && GetMythDB()->GetNumSetting("UseVirtualKeyboard", 1) == 1)
-        {
-            MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
-            MythUIVirtualKeyboard *kb =  new MythUIVirtualKeyboard(popupStack, this);
-
-            if (kb->Create())
-            {
-                //connect(kb, SIGNAL(keyPress(QString)), SLOT(keyPress(QString)));
-                popupStack->AddScreen(kb);
-            }
-            else
-                delete kb;
-        }
-        else if (action == "CUT")
-        {
-            CutTextToClipboard();
-        }
-        else if (action == "COPY")
-        {
-            CopyTextToClipboard();
-        }
-        else if (action == "PASTE")
-        {
-            PasteTextFromClipboard();
-        }
-        else
-            handled = false;
+        m_actionKeyNum = keynum;
+        handled = m_actions->handleActions(actions);
     }
 
     return handled;

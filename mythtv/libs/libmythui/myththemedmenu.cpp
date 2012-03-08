@@ -27,6 +27,7 @@
 #include "mythdirs.h"
 #include "mythmedia.h"
 #include "mythversion.h"
+#include "mythactions.h"
 
 MythThemedMenuState::MythThemedMenuState(MythScreenStack *parent,
                                          const QString &name)
@@ -83,6 +84,16 @@ void MythThemedMenuState::CopyFrom(MythUIType *base)
 
 ////////////////////////////////////////////////////////////////////////////
 
+static struct ActionDefStruct<MythThemedMenu> mtmActions[] = {
+    { "ESCAPE",      &MythThemedMenu::doEscape },
+    { "EXIT",        &MythThemedMenu::doEscape },
+    { "EXITPROMPT",  &MythThemedMenu::doEscape },
+    { "HELP",        &MythThemedMenu::doHelp },
+    { "EJECT",       &MythThemedMenu::doEject }
+};
+static int mtmActionCount = NELEMS(mtmActions);
+
+
 /** \brief Creates a themed menu.
  *
  *  \param menufile     file name of menu definition file
@@ -92,10 +103,11 @@ void MythThemedMenuState::CopyFrom(MythUIType *base)
  */
 MythThemedMenu::MythThemedMenu(const QString &cdir, const QString &menufile,
                                MythScreenStack *parent, const QString &name,
-                               bool allowreorder, MythThemedMenuState *state)
-    : MythThemedMenuState(parent, name),
-      m_state(state), m_allocedstate(false), m_foundtheme(false),
-      m_ignorekeys(false), m_wantpop(false)
+                               bool allowreorder, MythThemedMenuState *state) :
+    MythThemedMenuState(parent, name),
+    m_state(state), m_allocedstate(false), m_foundtheme(false),
+    m_ignorekeys(false), m_wantpop(false),
+    m_actions(new MythActions<MythThemedMenu>(this, mtmActions, mtmActionCount))
 {
     m_menuPopup = NULL;
 
@@ -143,6 +155,9 @@ MythThemedMenu::~MythThemedMenu(void)
 {
     if (m_allocedstate)
         delete m_state;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 /// \brief Returns true iff a theme has been found by a previous call to Init()
@@ -182,6 +197,69 @@ void MythThemedMenu::setButtonActive(MythUIButtonListItem* item)
         m_descriptionText->SetText(button.description);
 }
 
+bool MythThemedMenu::doEscape(const QString &action)
+{
+    bool callbacks  = m_state->m_callback;
+    bool lastScreen =
+    		(GetMythMainWindow()->GetMainStack()->TotalScreens() == 1);
+    QString menuaction = "UPMENU";
+    QString selExit    = "EXITING_APP_PROMPT";
+    if (action == "EXIT")
+        selExit = "EXITING_APP";
+
+    if (!m_allocedstate)
+    {
+        handleAction(menuaction);
+        return true;
+    }
+
+    if (m_state->m_killable)
+    {
+        m_wantpop = true;
+        if (callbacks)
+        {
+            QString sel = "EXITING_MENU";
+            m_state->m_callback(m_state->m_callbackdata, sel);
+        }
+
+        if (lastScreen)
+        {
+            if (callbacks)
+                m_state->m_callback(m_state->m_callbackdata, selExit);
+            QCoreApplication::exit();
+        }
+	return true;
+    }
+
+    if (((action != "ESCAPE") ||
+         (QCoreApplication::applicationName() == MYTH_APPNAME_MYTHTV_SETUP)) &&
+        lastScreen)
+    {
+        if (callbacks)
+            m_state->m_callback(m_state->m_callbackdata, selExit);
+        else
+        {
+            QCoreApplication::exit();
+            m_wantpop = true;
+        }
+    }
+    return true;
+}
+
+bool MythThemedMenu::doHelp(const QString &action)
+{
+    aboutScreen();
+    return true;
+}
+
+bool MythThemedMenu::doEject(const QString &action)
+{
+    handleAction(action);
+    return true;
+}
+
+
+
 /** \brief keyboard/LIRC event handler.
  *
  *  This translates key presses through the "Main Menu" context into MythTV
@@ -207,64 +285,8 @@ bool MythThemedMenu::keyPressEvent(QKeyEvent *event)
     handled = GetMythMainWindow()->TranslateKeyPress("Main Menu", event,
                                                      actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE" || action == "EXIT" || action == "EXITPROMPT")
-        {
-            bool    callbacks  = m_state->m_callback;
-            bool    lastScreen = (GetMythMainWindow()->GetMainStack()
-                                                     ->TotalScreens() == 1);
-            QString menuaction = "UPMENU";
-            QString selExit    = "EXITING_APP_PROMPT";
-            if (action == "EXIT")
-                selExit = "EXITING_APP";
-
-            if (!m_allocedstate)
-                handleAction(menuaction);
-            else if (m_state->m_killable)
-            {
-                m_wantpop = true;
-                if (callbacks)
-                {
-                    QString sel = "EXITING_MENU";
-                    m_state->m_callback(m_state->m_callbackdata, sel);
-                }
-
-                if (lastScreen)
-                {
-                    if (callbacks)
-                        m_state->m_callback(m_state->m_callbackdata, selExit);
-                    QCoreApplication::exit();
-                }
-            }
-            else if ((action == "EXIT" || action == "EXITPROMPT" ||
-                      (action == "ESCAPE" &&
-                       (QCoreApplication::applicationName() ==
-                        MYTH_APPNAME_MYTHTV_SETUP))) && lastScreen)
-            {
-                if (callbacks)
-                    m_state->m_callback(m_state->m_callbackdata, selExit);
-                else
-                {
-                    QCoreApplication::exit();
-                    m_wantpop = true;
-                }
-            }
-        }
-        else if (action == "HELP")
-        {
-            aboutScreen();
-        }
-        else if (action == "EJECT")
-        {
-            handleAction(action);
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

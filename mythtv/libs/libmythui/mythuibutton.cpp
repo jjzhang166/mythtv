@@ -12,9 +12,16 @@
 // MythUI headers
 #include "mythmainwindow.h"
 #include "mythuigroup.h"
+#include "mythactions.h"
 
-MythUIButton::MythUIButton(MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+static struct ActionDefStruct<MythUIButton> mubActions[] = {
+    { "SELECT",      &MythUIButton::doSelect }
+};
+static int mubActionCount = NELEMS(mubActions);
+
+MythUIButton::MythUIButton(MythUIType *parent, const QString &name) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythUIButton>(this, mubActions, mubActionCount))
 {
     m_clickTimer = new QTimer();
     m_clickTimer->setSingleShot(true);
@@ -39,6 +46,9 @@ MythUIButton::~MythUIButton()
 {
     if (m_clickTimer)
         m_clickTimer->deleteLater();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void MythUIButton::SetInitialStates()
@@ -120,6 +130,18 @@ void MythUIButton::SetState(QString state)
     }
 }
 
+bool MythUIButton::doSelect(const QString &action)
+{
+    if (IsEnabled())
+    {
+        if (m_Pushed)
+            UnPush();
+        else
+            Push();
+    }
+    return true;
+}
+
 /**
  *  \copydoc MythUIType::keyPressEvent()
  */
@@ -129,24 +151,8 @@ bool MythUIButton::keyPressEvent(QKeyEvent *e)
     bool handled = false;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", e, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "SELECT")
-        {
-            if (IsEnabled())
-            {
-                if (m_Pushed)
-                    UnPush();
-                else
-                    Push();
-            }
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     return handled;
 }

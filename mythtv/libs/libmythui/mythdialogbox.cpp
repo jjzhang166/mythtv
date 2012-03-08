@@ -21,6 +21,7 @@
 #include "mythuibuttonlist.h"
 #include "mythuibutton.h"
 #include "mythuistatetype.h"
+#include "mythactions.h"
 
 QEvent::Type DialogCompletionEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
@@ -86,10 +87,21 @@ void MythMenu::AddItem(const QString &title, QVariant data, MythMenu *subMenu, b
 
 /////////////////////////////////////////////////////////////////
 
+static struct ActionDefStruct<MythDialogBox> mdbActions[] = {
+    { "ESCAPE", &MythDialogBox::doEscape },
+    { "UP",     &MythDialogBox::doUp },
+    { "LEFT",   &MythDialogBox::doLeft },
+    { "DOWN",   &MythDialogBox::doDown },
+    { "RIGHT",  &MythDialogBox::doRight },
+    { "MENU",   &MythDialogBox::doMenu }
+};
+static int mdbActionCount = NELEMS(mdbActions);
+
 MythDialogBox::MythDialogBox(const QString &text,
                              MythScreenStack *parent, const char *name,
-                             bool fullscreen, bool osd)
-         : MythScreenType(parent, name, false)
+                             bool fullscreen, bool osd) :
+    MythScreenType(parent, name, false),
+    m_actions(new MythActions<MythDialogBox>(this, mdbActions, mdbActionCount))
 {
     m_menu = NULL;
     m_currentMenu = NULL;
@@ -111,8 +123,9 @@ MythDialogBox::MythDialogBox(const QString &text,
 
 MythDialogBox::MythDialogBox(const QString &title, const QString &text,
                              MythScreenStack *parent, const char *name,
-                             bool fullscreen, bool osd)
-         : MythScreenType(parent, name, false)
+                             bool fullscreen, bool osd) :
+    MythScreenType(parent, name, false),
+    m_actions(new MythActions<MythDialogBox>(this, mdbActions, mdbActionCount))
 {
     m_menu = NULL;
     m_currentMenu = NULL;
@@ -134,9 +147,10 @@ MythDialogBox::MythDialogBox(const QString &title, const QString &text,
     m_exitdata = 0;
 }
 
-MythDialogBox::MythDialogBox(MythMenu *menu, MythScreenStack *parent, const char *name,
-                               bool fullscreen, bool osd)
-         : MythScreenType(parent, name, false)
+MythDialogBox::MythDialogBox(MythMenu *menu, MythScreenStack *parent,
+                             const char *name, bool fullscreen, bool osd) :
+    MythScreenType(parent, name, false),
+    m_actions(new MythActions<MythDialogBox>(this, mdbActions, mdbActionCount))
 {
     m_menu = menu;
     m_currentMenu = m_menu;
@@ -164,6 +178,9 @@ MythDialogBox::~MythDialogBox(void)
         delete m_menu;
         m_menu = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythDialogBox::Create(void)
@@ -337,6 +354,72 @@ void MythDialogBox::AddButton(const QString &title, const char *slot,
         m_buttonList->SetItemCurrent(button);
 }
 
+bool MythDialogBox::doEscape(const QString &action)
+{
+    SendEvent(-1, m_exittext, m_exitdata);
+    if (m_exitdata == 0 && m_exittext.isEmpty())
+	Close();
+    return true;
+}
+
+bool MythDialogBox::doUp(const QString &action)
+{
+    if (m_buttonList->GetLayout() == MythUIButtonList::LayoutHorizontal)
+    {
+        if (m_currentMenu && m_currentMenu->m_parentMenu)
+        {
+            m_currentMenu = m_currentMenu->m_parentMenu;
+            updateMenu();
+            return true;
+        }
+
+        SendEvent(-1, m_backtext, m_backdata);
+        Close();
+    }
+    return true;
+}
+
+bool MythDialogBox::doLeft(const QString &action)
+{
+    if (m_buttonList->GetLayout() == MythUIButtonList::LayoutVertical)
+    {
+        if (m_currentMenu && m_currentMenu->m_parentMenu)
+        {
+            m_currentMenu = m_currentMenu->m_parentMenu;
+            updateMenu();
+            return true;
+        }
+
+        SendEvent(-1, m_backtext, m_backdata);
+        Close();
+    }
+    return true;
+}
+
+bool MythDialogBox::doDown(const QString &action)
+{
+    if (m_buttonList->GetLayout() == MythUIButtonList::LayoutHorizontal)
+        Select(m_buttonList->GetItemCurrent());
+   
+    return true;
+}
+
+bool MythDialogBox::doRight(const QString &action)
+{
+    if (m_buttonList->GetLayout() == MythUIButtonList::LayoutVertical) 
+        Select(m_buttonList->GetItemCurrent());
+
+    return true;
+}
+
+bool MythDialogBox::doMenu(const QString &action)
+{
+    SendEvent(-2);
+    Close();
+    return true;
+}
+
+
 bool MythDialogBox::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -346,47 +429,8 @@ bool MythDialogBox::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE")
-        {
-            SendEvent(-1, m_exittext, m_exitdata);
-            if (m_exitdata == 0 && m_exittext.isEmpty())
-                Close();
-        }
-        else if ((action == "LEFT" &&
-             m_buttonList->GetLayout() == MythUIButtonList::LayoutVertical) ||
-            (action == "UP" &&
-             m_buttonList->GetLayout() == MythUIButtonList::LayoutHorizontal))
-        {
-            if (m_currentMenu && m_currentMenu->m_parentMenu)
-            {
-                m_currentMenu = m_currentMenu->m_parentMenu;
-                updateMenu();
-                return true;
-            }
-
-            SendEvent(-1, m_backtext, m_backdata);
-            Close();
-        }
-        else if (action == "MENU")
-        {
-            SendEvent(-2);
-            Close();
-        }
-        else if ((action == "RIGHT" &&
-                  m_buttonList->GetLayout() == MythUIButtonList::LayoutVertical) ||
-                 (action == "DOWN" &&
-                  m_buttonList->GetLayout() == MythUIButtonList::LayoutHorizontal))
-        {
-            Select(m_buttonList->GetItemCurrent());
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;
@@ -444,10 +488,17 @@ void MythDialogBox::SendEvent(int res, QString text, QVariant data)
 
 /////////////////////////////////////////////////////////////////
 
+static struct ActionDefStruct<MythConfirmationDialog> mcdActions[] = {
+    { "ESCAPE", &MythConfirmationDialog::doEscape }
+};
+static int mcdActionCount = NELEMS(mcdActions);
+
 MythConfirmationDialog::MythConfirmationDialog(MythScreenStack *parent,
                                                const QString &message,
-                                               bool showCancel)
-                       : MythScreenType(parent, "mythconfirmpopup")
+                                               bool showCancel) :
+    MythScreenType(parent, "mythconfirmpopup"),
+    m_actions(new MythActions<MythConfirmationDialog>(this, mcdActions,
+                                                      mcdActionCount))
 {
     m_messageText = NULL;
     m_message = message;
@@ -455,6 +506,12 @@ MythConfirmationDialog::MythConfirmationDialog(MythScreenStack *parent,
 
     m_id = "";
     m_retObject = NULL;
+}
+
+MythConfirmationDialog::~MythConfirmationDialog()
+{
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythConfirmationDialog::Create(void)
@@ -494,6 +551,12 @@ bool MythConfirmationDialog::Create(void)
     return true;
 }
 
+bool MythConfirmationDialog::doEscape(const QString &action)
+{
+    sendResult(false);
+    return true;
+}
+
 bool MythConfirmationDialog::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -503,16 +566,8 @@ bool MythConfirmationDialog::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE")
-            sendResult(false);
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

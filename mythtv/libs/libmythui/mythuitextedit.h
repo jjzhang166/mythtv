@@ -10,6 +10,7 @@
 #include "mythuistatetype.h"
 #include "mythuiimage.h"
 #include "mythvirtualkeyboard.h"
+#include "mythactions.h"
 
 class MythFontProperties;
 
@@ -59,6 +60,15 @@ class MUI_PUBLIC MythUITextEdit : public MythUIType, public StorageUser
     void SetDBValue(const QString &text) { SetText(text); }
     QString GetDBValue(void) const { return GetText(); }
 
+    bool doSelect(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doDelete(const QString &action);
+    bool doBackspace(const QString &action);
+    bool doCut(const QString &action);
+    bool doCopy(const QString &action);
+    bool doPaste(const QString &action);
+
   signals:
     void valueChanged();
 
@@ -104,6 +114,10 @@ class MUI_PUBLIC MythUITextEdit : public MythUIType, public StorageUser
     MythUIText  *m_Text;
 
     int m_composeKey;
+
+  private:
+    MythActions<MythUITextEdit> *m_actions;
+    int m_actionKeyNum;
 };
 
 #endif

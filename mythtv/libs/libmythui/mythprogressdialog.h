@@ -7,6 +7,7 @@
 #include "mythmainwindow.h"
 #include "mythuitext.h"
 #include "mythuiprogressbar.h"
+#include "mythactions.h"
 
 class MUI_PUBLIC ProgressUpdateEvent : public QEvent
 {
@@ -32,7 +33,8 @@ class MUI_PUBLIC MythUIBusyDialog : public MythScreenType
     Q_OBJECT
   public:
     MythUIBusyDialog(const QString &message,
-                  MythScreenStack *parent, const char *name);
+                     MythScreenStack *parent, const char *name);
+    ~MythUIBusyDialog();
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
@@ -40,6 +42,8 @@ class MUI_PUBLIC MythUIBusyDialog : public MythScreenType
     void Reset(void);
 
     virtual void Pulse(void);
+
+    bool doEscape(const QString &action);
 
   protected:
     QString m_origMessage;
@@ -49,6 +53,8 @@ class MUI_PUBLIC MythUIBusyDialog : public MythScreenType
     QMutex  m_newMessageLock;
 
     MythUIText *m_messageText;
+
+    MythActions<MythUIBusyDialog> *m_actions;
 };
 
 class MUI_PUBLIC MythUIProgressDialog : public MythScreenType
@@ -56,7 +62,8 @@ class MUI_PUBLIC MythUIProgressDialog : public MythScreenType
     Q_OBJECT
   public:
     MythUIProgressDialog(const QString &message,
-                  MythScreenStack *parent, const char *name);
+                         MythScreenStack *parent, const char *name);
+    ~MythUIProgressDialog();
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
@@ -64,6 +71,8 @@ class MUI_PUBLIC MythUIProgressDialog : public MythScreenType
     void SetTotal(uint total);
     void SetProgress(uint count);
     void SetMessage(const QString &message);
+
+    bool doEscape(const QString &action);
 
   protected:
     void UpdateProgress(void);
@@ -75,6 +84,9 @@ class MUI_PUBLIC MythUIProgressDialog : public MythScreenType
     MythUIText *m_messageText;
     MythUIText *m_progressText;
     MythUIProgressBar *m_progressBar;
+
+  private:
+    MythActions<MythUIProgressDialog> *m_actions;
 };
 
 MUI_PUBLIC MythUIBusyDialog  *ShowBusyPopup(const QString &message);

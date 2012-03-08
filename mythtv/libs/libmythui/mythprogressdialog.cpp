@@ -1,13 +1,21 @@
 // MythTV headers
 #include "mythprogressdialog.h"
 #include "mythlogging.h"
+#include "mythactions.h"
 
 QEvent::Type ProgressUpdateEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
 
+static struct ActionDefStruct<MythUIBusyDialog> mubdActions[] = {
+    { "ESCAPE", &MythUIBusyDialog::doEscape }
+};
+static int mubdActionCount = NELEMS(mubdActions);
+
 MythUIBusyDialog::MythUIBusyDialog(const QString &message,
-                             MythScreenStack *parent, const char *name)
-         : MythScreenType(parent, name, false)
+                                   MythScreenStack *parent, const char *name) :
+    MythScreenType(parent, name, false),
+    m_actions(new MythActions<MythUIBusyDialog>(this, mubdActions,
+                                                mubdActionCount))
 {
     if (!message.isEmpty())
         m_message = message;
@@ -16,6 +24,12 @@ MythUIBusyDialog::MythUIBusyDialog(const QString &message,
     m_origMessage = m_message;
     m_messageText = NULL;
     m_haveNewMessage = false;
+}
+
+MythUIBusyDialog::~MythUIBusyDialog()
+{
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythUIBusyDialog::Create(void)
@@ -57,23 +71,20 @@ void MythUIBusyDialog::Pulse(void)
     MythUIType::Pulse();
 }
 
+bool MythUIBusyDialog::doEscape(const QString &action)
+{
+    // eat the escape keypress
+    return true;
+}
+
 bool MythUIBusyDialog::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions, false);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions,
+                                                          false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE")
-        {
-            // eat the escape keypress
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;
@@ -116,13 +127,27 @@ MythUIBusyDialog  *ShowBusyPopup(const QString &message)
 }
 //---------------------------------------------------------
 
+static struct ActionDefStruct<MythUIProgressDialog> mupdActions[] = {
+    { "ESCAPE", &MythUIProgressDialog::doEscape }
+};
+static int mupdActionCount = NELEMS(mupdActions);
+
 MythUIProgressDialog::MythUIProgressDialog(const QString &message,
-                             MythScreenStack *parent, const char *name)
-         : MythScreenType(parent, name, false)
+                                           MythScreenStack *parent,
+                                           const char *name) :
+    MythScreenType(parent, name, false),
+    m_actions(new MythActions<MythUIProgressDialog>(this, mupdActions,
+                                                    mupdActionCount))
 {
     m_count = m_total = 0;
     m_message = message;
     m_messageText = NULL;
+}
+
+MythUIProgressDialog::~MythUIProgressDialog()
+{
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythUIProgressDialog::Create(void)
@@ -140,23 +165,20 @@ bool MythUIProgressDialog::Create(void)
     return true;
 }
 
+bool MythUIProgressDialog::doEscape(const QString &action)
+{
+    // eat the escape keypress
+    return true;
+}
+
 bool MythUIProgressDialog::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions, false);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions,
+                                                          false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE")
-        {
-            // eat the escape keypress
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

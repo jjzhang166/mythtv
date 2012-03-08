@@ -6,6 +6,7 @@
 #include "mythuistatetype.h"
 #include "mythuibuttonlist.h"
 #include "xmlparsebase.h"
+#include "mythactions.h"
 
 class MythMainWindow;
 class MythThemedMenuState;
@@ -66,7 +67,8 @@ class MUI_PUBLIC MythThemedMenu : public MythThemedMenuState
   public:
     MythThemedMenu(const QString &cdir, const QString &menufile,
                     MythScreenStack *parent, const QString &name,
-                    bool allowreorder = false, MythThemedMenuState *state = NULL);
+                    bool allowreorder = false,
+                    MythThemedMenuState *state = NULL);
    ~MythThemedMenu();
 
     bool foundTheme(void);
@@ -83,6 +85,10 @@ class MUI_PUBLIC MythThemedMenu : public MythThemedMenuState
     MythDialogBox* m_menuPopup;
     void customEvent(QEvent *event);
     void mediaEvent(MythMediaEvent *event);
+
+    bool doEscape(const QString &action);
+    bool doHelp(const QString &action);
+    bool doEject(const QString &action);
 
   protected:
     virtual bool keyPressEvent(QKeyEvent *e);
@@ -120,6 +126,8 @@ class MUI_PUBLIC MythThemedMenu : public MythThemedMenuState
     bool m_wantpop;
 
     QString m_menumode;
+
+    MythActions<MythThemedMenu> *m_actions;
 };
 
 Q_DECLARE_METATYPE(ThemedButton)

@@ -4,6 +4,7 @@
 #include "mythuitype.h"
 #include "mythgenerictree.h"
 #include "mythuibuttonlist.h"
+#include "mythactions.h"
 
 class MythUIButtonListItem;
 
@@ -36,6 +37,11 @@ class MUI_PUBLIC MythUIButtonTree : public MythUIType
     MythUIButtonListItem* GetItemCurrent(void) const;
     void RemoveItem(MythUIButtonListItem *item, bool deleteNode = false);
     void RemoveCurrentItem(bool deleteNode = false);
+
+    bool doSelect(const QString &action);
+    bool doEscape(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
 
   public slots:
     void handleSelect(MythUIButtonListItem* item);
@@ -79,6 +85,8 @@ class MUI_PUBLIC MythUIButtonTree : public MythUIType
     MythGenericTree *m_rootNode;
     MythGenericTree *m_currentNode;
     uint m_listSpacing;
+
+    MythActions<MythUIButtonTree> *m_actions;
 };
 
 #endif

@@ -4,6 +4,7 @@
 #include "mythtvexp.h"
 #include "programtypes.h"
 #include "mythscreentype.h"
+#include "mythactions.h"
 
 // Screen names are prepended with alphanumerics to force the correct ordering
 // when displayed. This is slightly complicated by the default windows
@@ -74,12 +75,15 @@ class ChannelEditor : public MythScreenType
 
   public:
     ChannelEditor(QObject *retobject, const char * name);
+    ~ChannelEditor();
 
     virtual bool Create(void);
     virtual bool keyPressEvent(QKeyEvent *event);
 
     void SetText(QHash<QString,QString>&map);
     void GetText(QHash<QString,QString>&map);
+
+    bool doEscape(const QString &action);
 
   protected:
     MythUITextEdit *m_callsignEdit;
@@ -94,6 +98,9 @@ class ChannelEditor : public MythScreenType
   public slots:
     void Confirm();
     void Probe();
+
+  private:
+    MythActions<ChannelEditor> *m_actions;
 };
 
 class MythOSDWindow : public MythScreenType

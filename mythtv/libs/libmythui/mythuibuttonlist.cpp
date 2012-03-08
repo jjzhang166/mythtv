@@ -18,11 +18,29 @@
 #include "mythuibutton.h"
 #include "mythuitext.h"
 #include "mythuitextedit.h"
+#include "mythactions.h"
 
 #define LOC     QString("MythUIButtonList(%1): ").arg(objectName())
 
-MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+static struct ActionDefStruct<MythUIButtonList> mublActions[] = {
+    { "UP",         &MythUIButtonList::doUp },
+    { "DOWN",       &MythUIButtonList::doDown },
+    { "RIGHT",      &MythUIButtonList::doRight },
+    { "LEFT",       &MythUIButtonList::doLeft },
+    { "PAGEUP",     &MythUIButtonList::doPgUp },
+    { "PAGEDOWN",   &MythUIButtonList::doPgDown },
+    { "PAGETOP",    &MythUIButtonList::doPgTop },
+    { "PAGEMIDDLE", &MythUIButtonList::doPgMid },
+    { "PAGEBOTTOM", &MythUIButtonList::doPgBot },
+    { "SELECT",     &MythUIButtonList::doSelect },
+    { "SEARCH",     &MythUIButtonList::doSearch }
+};
+static int mublActionCount = NELEMS(mublActions);
+
+MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythUIButtonList>(this, mublActions,
+                                                mublActionCount))
 {
     m_showArrow = true;
     m_showScrollBar = true;
@@ -32,8 +50,10 @@ MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name)
 
 MythUIButtonList::MythUIButtonList(MythUIType *parent, const QString &name,
                                    const QRect &area, bool showArrow,
-                                   bool showScrollArrows, bool showScrollBar)
-    : MythUIType(parent, name)
+                                   bool showScrollArrows, bool showScrollBar) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythUIButtonList>(this, mublActions,
+                                                mublActionCount))
 {
     m_Area      = area;
     m_showArrow = showArrow;
@@ -99,6 +119,9 @@ MythUIButtonList::~MythUIButtonList()
 
     while (!m_itemList.isEmpty())
         delete m_itemList.takeFirst();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void MythUIButtonList::Select()
@@ -2286,6 +2309,91 @@ uint MythUIButtonList::ItemHeight(void)
     return m_itemHeight;
 }
 
+bool MythUIButtonList::doUp(const QString &action)
+{
+    if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
+	return MoveUp(MoveRow);
+
+    return false;
+}
+
+bool MythUIButtonList::doDown(const QString &action)
+{
+    if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
+	return MoveDown(MoveRow);
+
+    return false;
+}
+
+bool MythUIButtonList::doRight(const QString &action)
+{
+    if (m_layout == LayoutHorizontal)
+	return MoveDown(MoveItem);
+
+    if (m_layout == LayoutGrid)
+	return MoveDown((m_scrollStyle == ScrollFree) ? MoveColumn : MoveItem);
+
+    return false;
+}
+
+bool MythUIButtonList::doLeft(const QString &action)
+{
+    if (m_layout == LayoutHorizontal)
+	return MoveUp(MoveItem);
+
+    if (m_layout == LayoutGrid)
+	return MoveUp((m_scrollStyle == ScrollFree) ? MoveColumn : MoveItem);
+
+    return false;
+}
+
+bool MythUIButtonList::doPgUp(const QString &action)
+{
+    MoveUp(MovePage);
+    return true;
+}
+
+bool MythUIButtonList::doPgDown(const QString &action)
+{
+    MoveDown(MovePage);
+    return true;
+}
+
+bool MythUIButtonList::doPgTop(const QString &action)
+{
+    MoveUp(MoveMax);
+    return true;
+}
+
+bool MythUIButtonList::doPgMid(const QString &action)
+{
+    MoveUp(MoveMid);
+    return true;
+}
+
+bool MythUIButtonList::doPgBot(const QString &action)
+{
+    MoveDown(MoveMax);
+    return true;
+}
+
+bool MythUIButtonList::doSelect(const QString &action)
+{
+    MythUIButtonListItem *item = GetItemCurrent();
+
+    if (item)
+	emit itemClicked(item);
+
+    return true;
+}
+
+bool MythUIButtonList::doSearch(const QString &action)
+{
+    ShowSearchDialog();
+    return true;
+}
+
+
 /**
  *  \copydoc MythUIType::keyPressEvent()
  */
@@ -2335,87 +2443,8 @@ bool MythUIButtonList::keyPressEvent(QKeyEvent *e)
     }
 
     // handle actions for this container
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP")
-        {
-            if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
-                handled = MoveUp(MoveRow);
-            else
-                handled = false;
-        }
-        else if (action == "DOWN")
-        {
-            if ((m_layout == LayoutVertical) || (m_layout == LayoutGrid))
-                handled = MoveDown(MoveRow);
-            else
-                handled = false;
-        }
-        else if (action == "RIGHT")
-        {
-            if (m_layout == LayoutHorizontal)
-                handled = MoveDown(MoveItem);
-            else if (m_layout == LayoutGrid)
-            {
-                if (m_scrollStyle == ScrollFree)
-                    handled = MoveDown(MoveColumn);
-                else
-                    handled = MoveDown(MoveItem);
-            }
-            else
-                handled = false;
-        }
-        else if (action == "LEFT")
-        {
-            if (m_layout == LayoutHorizontal)
-                handled = MoveUp(MoveItem);
-            else if (m_layout == LayoutGrid)
-            {
-                if (m_scrollStyle == ScrollFree)
-                    handled = MoveUp(MoveColumn);
-                else
-                    handled = MoveUp(MoveItem);
-            }
-            else
-                handled = false;
-        }
-        else if (action == "PAGEUP")
-        {
-            MoveUp(MovePage);
-        }
-        else if (action == "PAGEDOWN")
-        {
-            MoveDown(MovePage);
-        }
-        else if (action == "PAGETOP")
-        {
-            MoveUp(MoveMax);
-        }
-        else if (action == "PAGEMIDDLE")
-        {
-            MoveUp(MoveMid);
-        }
-        else if (action == "PAGEBOTTOM")
-        {
-            MoveDown(MoveMax);
-        }
-        else if (action == "SELECT")
-        {
-            MythUIButtonListItem *item = GetItemCurrent();
-
-            if (item)
-                emit itemClicked(item);
-        }
-        else if (action == "SEARCH")
-        {
-            ShowSearchDialog();
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     return handled;
 }
@@ -3493,9 +3522,19 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
 //---------------------------------------------------------
 // SearchButtonListDialog
 //---------------------------------------------------------
-SearchButtonListDialog::SearchButtonListDialog(MythScreenStack *parent, const char *name,
-                                               MythUIButtonList *parentList, QString searchText)
-    : MythScreenType(parent, name, false)
+static struct ActionDefStruct<SearchButtonListDialog> sbldActions[] = {
+    { "0", &SearchButtonListDialog::doZero }
+};
+static int sbldActionCount = NELEMS(sbldActions);
+
+
+SearchButtonListDialog::SearchButtonListDialog(MythScreenStack *parent,
+                                               const char *name,
+                                               MythUIButtonList *parentList,
+                                               QString searchText) :
+    MythScreenType(parent, name, false),
+    m_actions(new MythActions<SearchButtonListDialog>(this, sbldActions,
+                                                      sbldActionCount))
 {
     m_parentList = parentList;
     m_searchText = searchText;
@@ -3504,6 +3543,8 @@ SearchButtonListDialog::SearchButtonListDialog(MythScreenStack *parent, const ch
 
 SearchButtonListDialog::~SearchButtonListDialog(void)
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool SearchButtonListDialog::Create(void)
@@ -3534,27 +3575,24 @@ bool SearchButtonListDialog::Create(void)
     return true;
 }
 
+bool SearchButtonListDialog::doZero(const QString &action)
+{
+    m_startsWith = !m_startsWith;
+    searchChanged();
+    return true;
+}
+
 bool SearchButtonListDialog::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
         return true;
 
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions, false);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("Global", event,
+                                                          actions, false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "0")
-        {
-            m_startsWith = !m_startsWith;
-            searchChanged();
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

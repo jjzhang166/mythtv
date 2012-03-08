@@ -10,9 +10,20 @@
 
 // Mythui Headers
 #include "mythmainwindow.h"
+#include "mythactions.h"
 
-MythUIButtonTree::MythUIButtonTree(MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+static struct ActionDefStruct<MythUIButtonTree> mubtActions[] = {
+    { "SELECT", &MythUIButtonTree::doSelect },
+    { "ESCAPE", &MythUIButtonTree::doEscape },
+    { "LEFT",   &MythUIButtonTree::doLeft },
+    { "RIGHT",  &MythUIButtonTree::doRight }
+};
+static int mubtActionCount = NELEMS(mubtActions);
+
+MythUIButtonTree::MythUIButtonTree(MythUIType *parent, const QString &name) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythUIButtonTree>(this, mubtActions,
+                                                mubtActionCount))
 {
     m_initialized = false;
 
@@ -35,6 +46,8 @@ MythUIButtonTree::MythUIButtonTree(MythUIType *parent, const QString &name)
 
 MythUIButtonTree::~MythUIButtonTree()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 /*!
@@ -585,6 +598,57 @@ void MythUIButtonTree::handleVisible(MythUIButtonListItem *item)
     emit itemVisible(item);
 }
 
+bool MythUIButtonTree::doSelect(const QString &action)
+{
+    if (m_activeList && m_activeList->m_layout == MythUIButtonList::LayoutGrid
+        && m_currentNode->visibleChildCount() > 0)
+    {
+        SwitchList(true);
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUIButtonTree::doEscape(const QString &action)
+{
+    if (m_activeList && m_activeList->m_layout == MythUIButtonList::LayoutGrid
+        && m_currentDepth > 0)
+    {
+        SwitchList(false);
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUIButtonTree::doRight(const QString &action)
+{
+    if ((!m_activeList ||
+         m_activeList->m_layout != MythUIButtonList::LayoutGrid) &&
+        m_currentNode->visibleChildCount() > 0)
+    {
+        SwitchList(true);
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUIButtonTree::doLeft(const QString &action)
+{
+    if ((!m_activeList ||
+         m_activeList->m_layout != MythUIButtonList::LayoutGrid) &&
+        !(m_currentDepth == 0 && m_activeListID == 0))
+    {
+        SwitchList(false);
+        return true;
+    }
+
+    return false;
+}
+
+
 /*!
  * \copydoc MythUIType::keyPressEvent()
  */
@@ -594,38 +658,8 @@ bool MythUIButtonTree::keyPressEvent(QKeyEvent *event)
     bool handled = false;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (m_activeList && m_activeList->m_layout == MythUIButtonList::LayoutGrid)
-        {
-            if (action == "SELECT" && m_currentNode->visibleChildCount() > 0)
-            {
-                SwitchList(true);
-            }
-            else if (action == "ESCAPE" && m_currentDepth > 0)
-            {
-                SwitchList(false);
-            }
-            else
-                handled = false;
-        }
-        else
-        {
-            if (action == "RIGHT" && m_currentNode->visibleChildCount() > 0)
-            {
-                SwitchList(true);
-            }
-            else if (action == "LEFT" && !(m_currentDepth == 0 && m_activeListID == 0))
-            {
-                SwitchList(false);
-            }
-            else
-                handled = false;
-        }
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && m_activeList)
         handled = m_activeList->keyPressEvent(event);

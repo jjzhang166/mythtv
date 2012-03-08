@@ -4,6 +4,7 @@
 #include "mythuitype.h"
 #include "mythuitext.h"
 #include "mythuiutils.h"
+#include "mythactions.h"
 
 #include <QHash>
 
@@ -79,6 +80,15 @@ class MUI_PUBLIC MythScreenType : public MythUIType
 
     virtual MythPainter *GetPainter(void);
 
+    bool doEscape(const QString &action);
+    bool doPrev(const QString &action);
+    bool doNext(const QString &action);
+    bool doMenu(const QString &action);
+    bool doSysEvent(const QString &action);
+    bool doScreenShot(const QString &action);
+    bool doTVPowerOn(const QString &action);
+    bool doTVPowerOff(const QString &action);
+
   public slots:
     virtual void Close();
 
@@ -124,6 +134,9 @@ class MUI_PUBLIC MythScreenType : public MythUIType
     QRegion m_SavedMask;
 
     friend class XMLParseBase;
+
+  private:
+    MythActions<MythScreenType> *m_actions;
 };
 
 #endif

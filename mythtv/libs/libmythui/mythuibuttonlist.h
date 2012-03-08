@@ -11,6 +11,7 @@
 #include "mythuitext.h"
 #include "mythuigroup.h"
 #include "mythscreentype.h"
+#include "mythactions.h"
 
 class MythUIButtonList;
 class MythUIScrollBar;
@@ -184,6 +185,18 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
     bool FindNext(void);
     bool FindPrev(void);
 
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doRight(const QString &action);
+    bool doLeft(const QString &action);
+    bool doPgUp(const QString &action);
+    bool doPgDown(const QString &action);
+    bool doPgTop(const QString &action);
+    bool doPgMid(const QString &action);
+    bool doPgBot(const QString &action);
+    bool doSelect(const QString &action);
+    bool doSearch(const QString &action);
+
   public slots:
     void Select();
     void Deselect();
@@ -310,6 +323,9 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
 
     friend class MythUIButtonListItem;
     friend class MythUIButtonTree;
+
+  private:
+    MythActions<MythUIButtonList> *m_actions;
 };
 
 class MUI_PUBLIC SearchButtonListDialog : public MythScreenType
@@ -322,6 +338,8 @@ class MUI_PUBLIC SearchButtonListDialog : public MythScreenType
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
+
+    bool doZero(const QString &action);
 
   protected slots:
     void searchChanged(void);
@@ -338,6 +356,9 @@ class MUI_PUBLIC SearchButtonListDialog : public MythScreenType
     MythUIButton      *m_prevButton;
     MythUIButton      *m_nextButton;
     MythUIStateType   *m_searchState;
+
+  private:
+    MythActions<SearchButtonListDialog> *m_actions;
 };
 
 Q_DECLARE_METATYPE(MythUIButtonListItem *)

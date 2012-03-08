@@ -8,6 +8,7 @@
 #include "mythuitext.h"
 
 #include "mythgesture.h"
+#include "mythactions.h"
 
 /** \class MythUIButton
  *
@@ -38,6 +39,8 @@ class MUI_PUBLIC MythUIButton : public MythUIType
 
     void SetLockable(bool lockable) { m_Lockable = lockable; };
     void SetLocked(bool locked);
+
+    bool doSelect(const QString &action);
 
   protected slots:
     void Select();
@@ -70,6 +73,9 @@ class MUI_PUBLIC MythUIButton : public MythUIType
     bool m_Pushed;
     bool m_Lockable;
     class QTimer *m_clickTimer;
+
+  private:
+    MythActions<MythUIButton> *m_actions;
 };
 
 #endif

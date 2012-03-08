@@ -18,6 +18,7 @@
 #include "mythuibutton.h"
 #include "mythuitextedit.h"
 #include "mythcorecontext.h"
+#include "mythactions.h"
 
 
 #define LOC      QString("MythUIVirtualKeyboard: ")
@@ -75,8 +76,20 @@ static const QString comps[numcomps][3] = {
         {"y", "\"", (QChar)0xff}
 };
 
-MythUIVirtualKeyboard::MythUIVirtualKeyboard(MythScreenStack *parentStack, MythUITextEdit *parentEdit)
-          : MythScreenType(parentStack, "MythUIVirtualKeyboard")
+static struct ActionDefStruct<MythUIVirtualKeyboard> muvkActions[] = {
+    { "UP",    &MythUIVirtualKeyboard::doUp },
+    { "DOWN",  &MythUIVirtualKeyboard::doDown },
+    { "LEFT",  &MythUIVirtualKeyboard::doLeft },
+    { "RIGHT", &MythUIVirtualKeyboard::doRight }
+};
+static int muvkActionCount = NELEMS(muvkActions);
+
+
+MythUIVirtualKeyboard::MythUIVirtualKeyboard(MythScreenStack *parentStack,
+                                             MythUITextEdit *parentEdit) :
+    MythScreenType(parentStack, "MythUIVirtualKeyboard"),
+    m_actions(new MythActions<MythUIVirtualKeyboard>(this, muvkActions,
+                                                     muvkActionCount))
 {
     m_parentEdit = parentEdit;
 
@@ -100,6 +113,8 @@ MythUIVirtualKeyboard::MythUIVirtualKeyboard(MythScreenStack *parentStack, MythU
 
 MythUIVirtualKeyboard::~MythUIVirtualKeyboard(void)
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythUIVirtualKeyboard::Create()
@@ -352,6 +367,35 @@ void MythUIVirtualKeyboard::updateKeys(bool connectSignals)
     }
 }
 
+bool MythUIVirtualKeyboard::doUp(const QString &action)
+{
+    if (m_actionKeyFound)
+	SetFocusWidget(GetChild(m_actionKey.up));
+    return true;
+}
+
+bool MythUIVirtualKeyboard::doDown(const QString &action)
+{
+    if (m_actionKeyFound)
+	SetFocusWidget(GetChild(m_actionKey.down));
+    return true;
+}
+
+bool MythUIVirtualKeyboard::doLeft(const QString &action)
+{
+    if (m_actionKeyFound)
+	SetFocusWidget(GetChild(m_actionKey.left));
+    return true;
+}
+
+bool MythUIVirtualKeyboard::doRight(const QString &action)
+{
+    if (m_actionKeyFound)
+	SetFocusWidget(GetChild(m_actionKey.right));
+    return true;
+}
+
+
 bool MythUIVirtualKeyboard::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
@@ -361,45 +405,15 @@ bool MythUIVirtualKeyboard::keyPressEvent(QKeyEvent *e)
     if (handled)
         return true;
 
-    bool keyFound = false;
-    KeyDefinition key;
-    if (GetFocusWidget())
+    m_actionKeyFound = false;
+    if (GetFocusWidget() && m_keyMap.contains(GetFocusWidget()->objectName()))
     {
-        if (m_keyMap.contains(GetFocusWidget()->objectName()))
-        {
-            key = m_keyMap.value(GetFocusWidget()->objectName());
-            keyFound = true;
-        }
+        m_actionKey = m_keyMap.value(GetFocusWidget()->objectName());
+        m_actionKeyFound = true;
     }
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP")
-        {
-            if (keyFound)
-                SetFocusWidget(GetChild(key.up));
-        }
-        else if (action == "DOWN")
-        {
-            if (keyFound)
-                SetFocusWidget(GetChild(key.down));
-        }
-        else if (action == "LEFT")
-        {
-            if (keyFound)
-                SetFocusWidget(GetChild(key.left));
-        }
-        else if (action == "RIGHT")
-        {
-            if (keyFound)
-                SetFocusWidget(GetChild(key.right));
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(e))
         handled = true;

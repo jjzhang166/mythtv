@@ -15,6 +15,7 @@
 #include "mythprogressdialog.h"
 #include "mythuigroup.h"
 #include "mythlogging.h"
+#include "mythactions.h"
 
 QEvent::Type ScreenLoadCompletionEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
@@ -34,9 +35,27 @@ class ScreenLoadTask : public QRunnable
     MythScreenType *m_parent;
 };
 
+
+static struct ActionDefStruct<MythScreenType> mstActions[] = {
+    { "ESCAPE",          &MythScreenType::doEscape },
+    { "UP",              &MythScreenType::doPrev },
+    { "LEFT",            &MythScreenType::doPrev },
+    { "PREVIOUS",        &MythScreenType::doPrev },
+    { "DOWN",            &MythScreenType::doNext },
+    { "RIGHT",           &MythScreenType::doNext },
+    { "NEXT",            &MythScreenType::doNext },
+    { "MENU",            &MythScreenType::doMenu },
+    { "^SYSEVENT*",      &MythScreenType::doSysEvent },
+    { ACTION_SCREENSHOT, &MythScreenType::doScreenShot },
+    { ACTION_TVPOWERON,  &MythScreenType::doTVPowerOn },
+    { ACTION_TVPOWEROFF, &MythScreenType::doTVPowerOff }
+};
+static int mstActionCount = NELEMS(mstActions);
+
 MythScreenType::MythScreenType(MythScreenStack *parent, const QString &name,
-                               bool fullscreen)
-              : MythUIType(parent, name)
+                               bool fullscreen) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythScreenType>(this, mstActions, mstActionCount))
 {
     m_FullScreen = fullscreen;
     m_CurrentFocusWidget = NULL;
@@ -56,8 +75,9 @@ MythScreenType::MythScreenType(MythScreenStack *parent, const QString &name,
 }
 
 MythScreenType::MythScreenType(MythUIType *parent, const QString &name,
-                               bool fullscreen)
-              : MythUIType(parent, name)
+                               bool fullscreen) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythScreenType>(this, mstActions, mstActionCount))
 {
     m_FullScreen = fullscreen;
     m_CurrentFocusWidget = NULL;
@@ -79,6 +99,9 @@ MythScreenType::~MythScreenType()
 {
 //    gCoreContext->SendSystemEvent(
 //        QString("SCREEN_TYPE DESTROYED %1").arg(objectName()));
+
+    if (m_actions)
+        delete m_actions;
 
     m_CurrentFocusWidget = NULL;
     emit Exiting();
@@ -450,6 +473,55 @@ void MythScreenType::ResetMap(QHash<QString, QString> &infoMap)
     DoResetMap(this, infoMap);
 }
 
+bool MythScreenType::doEscape(const QString &action)
+{
+    Close();
+    return true;
+}
+
+bool MythScreenType::doPrev(const QString &action)
+{
+    NextPrevWidgetFocus(false);
+    return true;
+}
+
+bool MythScreenType::doNext(const QString &action)
+{
+    NextPrevWidgetFocus(true);
+    return true;
+}
+
+bool MythScreenType::doMenu(const QString &action)
+{
+    return true;
+}
+
+bool MythScreenType::doSysEvent(const QString &action)
+{
+    // Strip off the SYSEVENT and send it as a system Key event
+    gCoreContext->SendSystemEvent(QString("KEY_%1").arg(action.mid(8)));
+    return true;
+}
+
+bool MythScreenType::doScreenShot(const QString &action)
+{
+    GetMythMainWindow()->ScreenShot();
+    return true;
+}
+
+bool MythScreenType::doTVPowerOn(const QString &action)
+{
+    GetMythMainWindow()->HandleTVPower(true);
+    return true;
+}
+
+bool MythScreenType::doTVPowerOff(const QString &action)
+{
+    GetMythMainWindow()->HandleTVPower(false);
+    return true;
+}
+
+
 bool MythScreenType::keyPressEvent(QKeyEvent *event)
 {
     if (m_CurrentFocusWidget && m_CurrentFocusWidget->keyPressEvent(event))
@@ -459,30 +531,8 @@ bool MythScreenType::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "LEFT" || action == "UP" || action == "PREVIOUS")
-            NextPrevWidgetFocus(false);
-        else if (action == "RIGHT" || action == "DOWN" || action == "NEXT")
-            NextPrevWidgetFocus(true);
-        else if (action == "ESCAPE")
-            Close();
-        else if (action == "MENU")
-            ShowMenu();
-        else if (action.startsWith("SYSEVENT"))
-            gCoreContext->SendSystemEvent(QString("KEY_%1").arg(action.mid(8)));
-        else if (action == ACTION_SCREENSHOT)
-            GetMythMainWindow()->ScreenShot();
-        else if (action == ACTION_TVPOWERON)
-            GetMythMainWindow()->HandleTVPower(true);
-        else if (action == ACTION_TVPOWEROFF)
-            GetMythMainWindow()->HandleTVPower(false);
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     return handled;
 }

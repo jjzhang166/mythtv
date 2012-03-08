@@ -6,6 +6,7 @@
 
 #include "mythscreentype.h"
 #include "mythuitextedit.h"
+#include "mythactions.h"
 
 class QString;
 class QStringList;
@@ -138,6 +139,13 @@ class MUI_PUBLIC MythDialogBox : public MythScreenType
     virtual bool keyPressEvent(QKeyEvent *event);
     virtual bool gestureEvent(MythGestureEvent *event);
 
+    bool doEscape(const QString &action);
+    bool doMenu(const QString &action);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+
   public slots:
     void Select(MythUIButtonListItem* item);
 
@@ -168,6 +176,9 @@ class MUI_PUBLIC MythDialogBox : public MythScreenType
 
     MythMenu *m_menu;
     MythMenu *m_currentMenu;
+
+  private:
+    MythActions<MythDialogBox> *m_actions;
 };
 
 
@@ -186,6 +197,7 @@ class MUI_PUBLIC MythConfirmationDialog : public MythScreenType
   public:
     MythConfirmationDialog(MythScreenStack *parent, const QString &message,
                            bool showCancel = true);
+    ~MythConfirmationDialog();
 
     bool Create(void);
     void SetReturnEvent(QObject *retobject, const QString &resultid);
@@ -194,7 +206,9 @@ class MUI_PUBLIC MythConfirmationDialog : public MythScreenType
 
     bool keyPressEvent(QKeyEvent *event);
 
- signals:
+    bool doEscape(const QString &action);
+
+  signals:
      void haveResult(bool);
 
   private:
@@ -205,6 +219,8 @@ class MUI_PUBLIC MythConfirmationDialog : public MythScreenType
     QObject *m_retObject;
     QString m_id;
     QVariant m_resultData;
+
+    MythActions<MythConfirmationDialog> *m_actions;
 
   private slots:
     void Confirm(void);

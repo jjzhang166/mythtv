@@ -315,14 +315,25 @@ QString MythWebPage::userAgentForUrl(const QUrl &url) const
     return QWebPage::userAgentForUrl(url).replace("Safari", "MythBrowser");
 }
 
+
+
+static struct ActionDefStruct<MythWebView> mwvActions[] = {
+    { "NEXTLINK",     &MythWebView::doNextLink },
+    { "PREVIOUSLINK", &MythWebView::doPrevLink },
+    { "FOLLOWLINK",   &MythWebView::doFollowLink },
+};
+static int mwvActionCount = NELEMS(mwvActions);
+
+
 /**
  * @class MythWebView
  * @brief Subclass of QWebView
  * \note allows us to intercept keypresses
  */
-MythWebView::MythWebView(QWidget *parent, MythUIWebBrowser *parentBrowser)
-            : QWebView(parent),
-      m_webpage(new MythWebPage(this))
+MythWebView::MythWebView(QWidget *parent, MythUIWebBrowser *parentBrowser) :
+    QWebView(parent),
+    m_webpage(new MythWebPage(this)),
+    m_actions(new MythActions<MythWebView>(this, mwvActions, mwvActionCount))
 {
     setPage(m_webpage);
 
@@ -347,7 +358,45 @@ MythWebView::MythWebView(QWidget *parent, MythUIWebBrowser *parentBrowser)
 MythWebView::~MythWebView(void)
 {
     delete m_api;
+
+    if (m_actions)
+        delete m_actions;
 }
+
+
+bool MythWebView::doNextLink(const QString &action)
+{
+    QKeyEvent tabKey(m_actionKeyEvent->type(), Qt::Key_Tab,
+                     m_actionKeyEvent->modifiers(), QString(),
+                     m_actionKeyEvent->isAutoRepeat(),
+                     m_actionKeyEvent->count());
+    *m_actionKeyEvent = tabKey;
+    QWebView::keyPressEvent(m_actionKeyEvent);
+    return true;
+}
+
+bool MythWebView::doPrevLink(const QString &action)
+{
+    QKeyEvent shiftTabKey(m_actionKeyEvent->type(), Qt::Key_Tab,
+                          m_actionKeyEvent->modifiers() | Qt::ShiftModifier,
+                          QString(), m_actionKeyEvent->isAutoRepeat(),
+                          m_actionKeyEvent->count());
+    *m_actionKeyEvent = shiftTabKey;
+    QWebView::keyPressEvent(m_actionKeyEvent);
+    return true;
+}
+
+bool MythWebView::doFollowLink(const QString &action)
+{
+    QKeyEvent returnKey(m_actionKeyEvent->type(), Qt::Key_Return,
+                        m_actionKeyEvent->modifiers(),
+                        QString(), m_actionKeyEvent->isAutoRepeat(),
+                        m_actionKeyEvent->count());
+    *m_actionKeyEvent = returnKey;
+    QWebView::keyPressEvent(m_actionKeyEvent);
+    return true;
+}
+
 
 /**
  *  \copydoc MythUIType::keyPressEvent()
@@ -386,39 +435,12 @@ void MythWebView::keyPressEvent(QKeyEvent *event)
         handled = GetMythMainWindow()->TranslateKeyPress("Browser", event,
                                                          actions);
 
-        for (int i = 0; i < actions.size() && !handled; i++)
+        if (!handled)
         {
-            QString action = actions[i];
-            handled = true;
-
-            if (action == "NEXTLINK")
-            {
-                QKeyEvent tabKey(event->type(), Qt::Key_Tab,
-                                 event->modifiers(), QString(),
-                                 event->isAutoRepeat(), event->count());
-                *event = tabKey;
-                QWebView::keyPressEvent(event);
+            m_actionKeyEvent = event;
+            handled = m_actions->handleActions(actions);
+            if (handled)
                 return;
-            }
-            else if (action == "PREVIOUSLINK")
-            {
-                QKeyEvent shiftTabKey(event->type(), Qt::Key_Tab,
-                                      event->modifiers() | Qt::ShiftModifier,
-                                      QString(),
-                                      event->isAutoRepeat(), event->count());
-                *event = shiftTabKey;
-                QWebView::keyPressEvent(event);
-                return;
-            }
-            else if (action == "FOLLOWLINK")
-            {
-                QKeyEvent returnKey(event->type(), Qt::Key_Return,
-                                    event->modifiers(), QString(),
-                                    event->isAutoRepeat(), event->count());
-                *event = returnKey;
-                QWebView::keyPressEvent(event);
-                return;
-            }
         }
 
         // pass the keyPress event to our main window handler so they get
@@ -798,25 +820,51 @@ QWebView *MythWebView::createWindow(QWebPage::WebWindowType type)
  * focus to another widget before showing the popup.
 */
 
-
+static struct ActionDefStruct<MythUIWebBrowser> muwbActions[] = {
+    { "TOGGLEINPUT",     &MythUIWebBrowser::doToggleInput },
+    { "UP",              &MythUIWebBrowser::doUp },
+    { "DOWN",            &MythUIWebBrowser::doDown },
+    { "LEFT",            &MythUIWebBrowser::doLeft },
+    { "RIGHT",           &MythUIWebBrowser::doRight },
+    { "PAGEUP",          &MythUIWebBrowser::doPgUp },
+    { "PAGEDOWN",        &MythUIWebBrowser::doPgDown },
+    { "PAGELEFT",        &MythUIWebBrowser::doPgLeft },
+    { "PAGERIGHT",       &MythUIWebBrowser::doPgRight },
+    { "ZOOMIN",          &MythUIWebBrowser::doZoomIn },
+    { "ZOOMOUT",         &MythUIWebBrowser::doZoomOut },
+    { "MOUSEUP",         &MythUIWebBrowser::HandleMouseAction },
+    { "MOUSEDOWN",       &MythUIWebBrowser::HandleMouseAction },
+    { "MOUSELEFT",       &MythUIWebBrowser::HandleMouseAction },
+    { "MOUSERIGHT",      &MythUIWebBrowser::HandleMouseAction },
+    { "MOUSELEFTBUTTON", &MythUIWebBrowser::HandleMouseAction },
+    { "NEXTLINK",        &MythUIWebBrowser::doPropagateKey },
+    { "PREVIOUSLINK",    &MythUIWebBrowser::doPropagateKey },
+    { "FOLLOWLINK",      &MythUIWebBrowser::doPropagateKey },
+    { "HISTORYBACK",     &MythUIWebBrowser::doHistoryBack },
+    { "HISTORYFORWARD",  &MythUIWebBrowser::doHistoryForward }
+};
+static int muwbActionCount = NELEMS(muwbActions);
 
 /** \fn MythUIWebBrowser::MythUIWebBrowser(MythUIType*, const QString&)
  *  \brief the classes constructor
  *  \param parent the parent of this widget
  *  \param name the name of this widget
  */
-MythUIWebBrowser::MythUIWebBrowser(MythUIType *parent, const QString &name)
-                 : MythUIType(parent, name),
-      m_browser(NULL),       m_image(NULL),
-      m_active(false),       m_wasActive(false),
-      m_initialized(false),  m_lastUpdateTime(QTime()),
-      m_updateInterval(0),   m_zoom(1.0),
-      m_bgColor("White"),    m_widgetUrl(QUrl()), m_userCssFile(""),
-      m_defaultSaveDir(GetConfDir() + "/MythBrowser/"),
-      m_defaultSaveFilename(""),
-      m_inputToggled(false), m_lastMouseAction(""),
-      m_mouseKeyCount(0),    m_lastMouseActionTime(),
-      m_horizontalScrollbar(NULL), m_verticalScrollbar(NULL)
+MythUIWebBrowser::MythUIWebBrowser(MythUIType *parent, const QString &name) :
+    MythUIType(parent, name),
+    m_browser(NULL),       m_image(NULL),
+    m_active(false),       m_wasActive(false),
+    m_initialized(false),  m_lastUpdateTime(QTime()),
+    m_updateInterval(0),   m_zoom(1.0),
+    m_bgColor("White"),    m_widgetUrl(QUrl()), m_userCssFile(""),
+    m_defaultSaveDir(GetConfDir() + "/MythBrowser/"),
+    m_defaultSaveFilename(""),
+    m_inputToggled(false), m_lastMouseAction(""),
+    m_mouseKeyCount(0),    m_lastMouseActionTime(),
+    m_horizontalScrollbar(NULL), m_verticalScrollbar(NULL),
+    m_actionsBypassed(new MythActions<MythUIWebBrowser>(this, muwbActions, 1)),
+    m_actions(new MythActions<MythUIWebBrowser>(this, muwbActions,
+                                                muwbActionCount))
 {
     SetCanTakeFocus(true);
     m_scrollAnimation.setDuration(0);
@@ -995,6 +1043,12 @@ MythUIWebBrowser::~MythUIWebBrowser()
         m_image->DownRef();
         m_image = NULL;
     }
+
+    if (m_actionsBypassed)
+        delete m_actionsBypassed;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 /** \fn MythUIWebBrowser::LoadPage(QUrl)
@@ -1430,6 +1484,121 @@ void MythUIWebBrowser::DrawSelf(MythPainter *p, int xoffset, int yoffset,
     p->DrawImage(area.x(), area.y(), m_image, alphaMod);
 }
 
+bool MythUIWebBrowser::doToggleInput(const QString &action)
+{
+    m_inputToggled = !m_inputToggled;
+    return true;
+}
+
+bool MythUIWebBrowser::doUp(const QString &action)
+{
+    int pos = m_actionFrame->scrollPosition().y();
+
+    if (pos > 0)
+    {
+        Scroll(0, -m_browserArea.height() / 10);
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUIWebBrowser::doDown(const QString &action)
+{
+    int pos = m_actionFrame->scrollPosition().y();
+    QSize maximum = m_actionFrame->contentsSize() - m_browserArea.size();
+
+    if (pos != maximum.height())
+    {
+        Scroll(0, m_browserArea.height() / 10);
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUIWebBrowser::doLeft(const QString &action)
+{
+    int pos = m_actionFrame->scrollPosition().x();
+
+    if (pos > 0)
+    {
+	Scroll(-m_browserArea.width() / 10, 0);
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUIWebBrowser::doRight(const QString &action)
+{
+    int pos = m_actionFrame->scrollPosition().x();
+    QSize maximum = m_actionFrame->contentsSize() - m_browserArea.size();
+
+    if (pos != maximum.width())
+    {
+        Scroll(m_browserArea.width() / 10, 0);
+        return true;
+    }
+
+    return false;
+}
+
+bool MythUIWebBrowser::doPgUp(const QString &action)
+{
+    Scroll(0, -m_browserArea.height());
+    return true;
+}
+
+bool MythUIWebBrowser::doPgDown(const QString &action)
+{
+    Scroll(0, m_browserArea.height());
+    return true;
+}
+
+bool MythUIWebBrowser::doPgLeft(const QString &action)
+{
+    Scroll(-m_browserArea.width(), 0);
+    return true;
+}
+
+bool MythUIWebBrowser::doPgRight(const QString &action)
+{
+    Scroll(m_browserArea.width(), 0);
+    return true;
+}
+
+bool MythUIWebBrowser::doZoomIn(const QString &action)
+{
+    ZoomIn();
+    return true;
+}
+
+bool MythUIWebBrowser::doZoomOut(const QString &action)
+{
+    ZoomOut();
+    return true;
+}
+
+bool MythUIWebBrowser::doPropagateKey(const QString &action)
+{
+    m_browser->keyPressEvent(m_actionKeyEvent);
+    return true;
+}
+
+bool MythUIWebBrowser::doHistoryBack(const QString &action)
+{
+    Back();
+    return true;
+}
+
+bool MythUIWebBrowser::doHistoryForward(const QString &action)
+{
+    Forward();
+    return true;
+}
+
+
 /**
  *  \copydoc MythUIType::keyPressEvent()
  */
@@ -1439,129 +1608,26 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
     bool handled = false;
     handled = GetMythMainWindow()->TranslateKeyPress("Browser", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "TOGGLEINPUT")
-        {
-            m_inputToggled = !m_inputToggled;
-            return true;
-        }
-
         // if input is toggled all input goes to the web page
         if (m_inputToggled)
         {
-            m_browser->keyPressEvent(event);
+            handled = m_actionsBypassed->handleActions(actions);
+            if (!handled)
+                m_browser->keyPressEvent(event);
             return true;
         }
 
-        QWebFrame *frame = m_browser->page()->currentFrame();
-        if (action == "UP")
-        {
-            int pos = frame->scrollPosition().y();
-
-            if (pos > 0)
-            {
-                Scroll(0, -m_browserArea.height() / 10);
-            }
-            else
-                handled = false;
-        }
-        else if (action == "DOWN")
-        {
-            int pos = frame->scrollPosition().y();
-            QSize maximum = frame->contentsSize() - m_browserArea.size();
-
-            if (pos != maximum.height())
-            {
-                Scroll(0, m_browserArea.height() / 10);
-            }
-            else
-                handled = false;
-        }
-        else if (action == "LEFT")
-        {
-            int pos = frame->scrollPosition().x();
-
-            if (pos > 0)
-            {
-                Scroll(-m_browserArea.width() / 10, 0);
-            }
-            else
-                handled = false;
-        }
-        else if (action == "RIGHT")
-        {
-            int pos = frame->scrollPosition().x();
-            QSize maximum = frame->contentsSize() - m_browserArea.size();
-
-            if (pos != maximum.width())
-            {
-                Scroll(m_browserArea.width() / 10, 0);
-            }
-            else
-                handled = false;
-        }
-        else if (action == "PAGEUP")
-        {
-            Scroll(0, -m_browserArea.height());
-        }
-        else if (action == "PAGEDOWN")
-        {
-            Scroll(0, m_browserArea.height());
-        }
-        else if (action == "ZOOMIN")
-        {
-            ZoomIn();
-        }
-        else if (action == "ZOOMOUT")
-        {
-            ZoomOut();
-        }
-        else if (action == "MOUSEUP" || action == "MOUSEDOWN" ||
-                 action == "MOUSELEFT" || action == "MOUSERIGHT" ||
-                 action == "MOUSELEFTBUTTON")
-        {
-            HandleMouseAction(action);
-        }
-        else if (action == "PAGELEFT")
-        {
-            Scroll(-m_browserArea.width(), 0);
-        }
-        else if (action == "PAGERIGHT")
-        {
-            Scroll(m_browserArea.width(), 0);
-        }
-        else if (action == "NEXTLINK")
-        {
-            m_browser->keyPressEvent(event);
-        }
-        else if (action == "PREVIOUSLINK")
-        {
-            m_browser->keyPressEvent(event);
-        }
-        else if (action == "FOLLOWLINK")
-        {
-            m_browser->keyPressEvent(event);
-        }
-        else if (action == "HISTORYBACK")
-        {
-            Back();
-        }
-        else if (action == "HISTORYFORWARD")
-        {
-            Forward();
-        }
-        else
-            handled = false;
+        m_actionFrame = m_browser->page()->currentFrame();
+        m_actionKeyEvent = event;
+        handled = m_actions->handleActions(actions);
     }
-
+        
     return handled;
 }
 
-void MythUIWebBrowser::HandleMouseAction(const QString &action)
+bool MythUIWebBrowser::HandleMouseAction(const QString &action)
 {
     int step = 5;
 
@@ -1621,6 +1687,7 @@ void MythUIWebBrowser::HandleMouseAction(const QString &action)
             QCoreApplication::postEvent(widget, me);
         }
     }
+    return true;
 }
 
 void MythUIWebBrowser::ResetScrollBars()

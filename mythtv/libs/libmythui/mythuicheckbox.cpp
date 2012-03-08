@@ -8,9 +8,18 @@
 // MythUI headers
 #include "mythmainwindow.h"
 #include "mythgesture.h"
+#include "mythactions.h"
 
-MythUICheckBox::MythUICheckBox(MythUIType *parent, const QString &name)
-    : MythUIType(parent, name)
+
+static struct ActionDefStruct<MythUICheckBox> mucbActions[] = {
+    { "SELECT", &MythUICheckBox::doSelect }
+};
+static int mucbActionCount = NELEMS(mucbActions);
+
+MythUICheckBox::MythUICheckBox(MythUIType *parent, const QString &name) :
+    MythUIType(parent, name),
+    m_actions(new MythActions<MythUICheckBox>(this, mucbActions,
+                                              mucbActionCount))
 {
     m_currentCheckState = MythUIStateType::Off;
     m_state = "active";
@@ -27,6 +36,8 @@ MythUICheckBox::MythUICheckBox(MythUIType *parent, const QString &name)
 
 MythUICheckBox::~MythUICheckBox()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 void MythUICheckBox::SetInitialStates()
@@ -162,6 +173,12 @@ bool MythUICheckBox::gestureEvent(MythGestureEvent *event)
     return false;
 }
 
+bool MythUICheckBox::doSelect(const QString &action)
+{
+    toggleCheckState();
+    return true;
+}
+
 /** \brief Key event handler
  *
  *  \param event Keypress event
@@ -172,16 +189,8 @@ bool MythUICheckBox::keyPressEvent(QKeyEvent *event)
     bool handled = false;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "SELECT")
-            toggleCheckState();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     return handled;
 }

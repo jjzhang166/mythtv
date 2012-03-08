@@ -2,6 +2,7 @@
 #define MYTHUIVIRTUALKEYBOARD_H_
 
 #include "mythscreentype.h"
+#include "mythactions.h"
 
 class QKeyEvent;
 
@@ -38,10 +39,16 @@ class MUI_PUBLIC MythUIVirtualKeyboard : public MythScreenType
   Q_OBJECT
 
   public:
-    MythUIVirtualKeyboard(MythScreenStack *parentStack,  MythUITextEdit *m_parentEdit);
+    MythUIVirtualKeyboard(MythScreenStack *parentStack,
+                          MythUITextEdit *m_parentEdit);
     ~MythUIVirtualKeyboard();
     bool Create(void);
     bool keyPressEvent(QKeyEvent *e);
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
 
   signals:
     void keyPressed(QString key);
@@ -82,6 +89,10 @@ class MUI_PUBLIC MythUIVirtualKeyboard : public MythScreenType
 
     bool          m_composing;
     QString       m_composeStr;
+
+    MythActions<MythUIVirtualKeyboard> *m_actions;
+    KeyDefinition m_actionKey;
+    bool m_actionKeyFound;
 };
 
 #endif

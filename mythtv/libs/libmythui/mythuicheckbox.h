@@ -4,6 +4,7 @@
 // MythUI headers
 #include "mythuitype.h"
 #include "mythuistatetype.h"
+#include "mythactions.h"
 
 /** \class MythUICheckBox
  *
@@ -34,6 +35,8 @@ class MUI_PUBLIC MythUICheckBox : public MythUIType
     MythUIStateType::StateType GetCheckState() const;
     bool GetBooleanCheckState(void) const;
 
+    bool doSelect(const QString &action);
+
   protected slots:
     void Select();
     void Deselect();
@@ -56,6 +59,9 @@ class MUI_PUBLIC MythUICheckBox : public MythUIType
 
     MythUIStateType::StateType m_currentCheckState;
     QString m_state;
+
+  private:
+    MythActions<MythUICheckBox> *m_actions;
 };
 
 #endif

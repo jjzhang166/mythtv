@@ -24,20 +24,33 @@
 #include "interactivescreen.h"
 #include "bdoverlayscreen.h"
 #include "osd.h"
+#include "mythactions.h"
 
 #define LOC     QString("OSD: ")
 
 QEvent::Type OSDHideEvent::kEventType =
     (QEvent::Type) QEvent::registerEventType();
 
-ChannelEditor::ChannelEditor(QObject *retobject, const char *name)
-  : MythScreenType((MythScreenType*)NULL, name)
+static struct ActionDefStruct<ChannelEditor> ceActions[] = {
+    { "ESCAPE", &ChannelEditor::doEscape }
+};
+static int ceActionCount = NELEMS(ceActions);
+
+ChannelEditor::ChannelEditor(QObject *retobject, const char *name) :
+    MythScreenType((MythScreenType*)NULL, name),
+    m_actions(new MythActions<ChannelEditor>(this, ceActions, ceActionCount))
 {
     m_retObject    = retobject;
     m_callsignEdit = NULL;
     m_channumEdit  = NULL;
     m_channameEdit = NULL;
     m_xmltvidEdit  = NULL;
+}
+
+ChannelEditor::~ChannelEditor()
+{
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ChannelEditor::Create(void)
@@ -100,6 +113,12 @@ void ChannelEditor::GetText(QHash<QString,QString>&map)
     map["XMLTV"]    = m_xmltvidEdit->GetText();
 }
 
+bool ChannelEditor::doEscape(const QString &action)
+{
+    sendResult(3);
+    return true;
+}
+
 bool ChannelEditor::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -109,15 +128,8 @@ bool ChannelEditor::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        if (action == "ESCAPE" )
-        {
-            sendResult(3);
-            handled = true;
-        }
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

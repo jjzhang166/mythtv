@@ -13,6 +13,7 @@
 #include <QNetworkReply>
 
 #include "mythuitype.h"
+#include "mythactions.h"
 
 class MythUIScrollBar;
 class MythUIWebBrowser;
@@ -83,6 +84,10 @@ class MythWebView : public QWebView
     virtual void wheelEvent(QWheelEvent *event);
     virtual void customEvent(QEvent *e);
 
+    bool doNextLink(const QString &action);
+    bool doPrevLink(const QString &action);
+    bool doFollowLink(const QString &action);
+
   protected slots:
     void  handleUnsupportedContent(QNetworkReply *reply);
     void  handleDownloadRequested(const QNetworkRequest &request);
@@ -108,6 +113,9 @@ class MythWebView : public QWebView
     QNetworkReply    *m_downloadReply;
     MythUIBusyDialog *m_busyPopup;
     bool              m_downloadAndPlay;
+
+    MythActions<MythWebView> *m_actions;
+    QKeyEvent *m_actionKeyEvent;
 };
 
 /**
@@ -160,6 +168,22 @@ class MUI_PUBLIC MythUIWebBrowser : public MythUIType
     void SetDefaultSaveFilename(const QString &filename);
     QString GetDefaultSaveFilename(void) { return m_defaultSaveFilename; }
 
+    bool doToggleInput(const QString &action);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doPgUp(const QString &action);
+    bool doPgDown(const QString &action);
+    bool doPgLeft(const QString &action);
+    bool doPgRight(const QString &action);
+    bool doZoomIn(const QString &action);
+    bool doZoomOut(const QString &action);
+    bool doPropagateKey(const QString &action);
+    bool doHistoryBack(const QString &action);
+    bool doHistoryForward(const QString &action);
+    bool HandleMouseAction(const QString &action);
+
   public slots:
     void Back(void);
     void Forward(void);
@@ -188,7 +212,6 @@ class MUI_PUBLIC MythUIWebBrowser : public MythUIType
   protected:
     void Finalize(void);
     void UpdateBuffer(void);
-    void HandleMouseAction(const QString &action);
     void SetBackgroundColor(QColor color);
     void ResetScrollBars(void);
     void UpdateScrollBars(void);
@@ -230,6 +253,12 @@ class MUI_PUBLIC MythUIWebBrowser : public MythUIType
     MythUIScrollBar *m_verticalScrollbar;
     MythUIAnimation  m_scrollAnimation;
     QPoint           m_destinationScrollPos;
+
+  private:
+    MythActions<MythUIWebBrowser> *m_actionsBypassed;
+    MythActions<MythUIWebBrowser> *m_actions;
+    QWebFrame *m_actionFrame;
+    QKeyEvent *m_actionKeyEvent;
 };
 
 #endif
