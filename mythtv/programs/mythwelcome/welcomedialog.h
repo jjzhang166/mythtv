@@ -15,6 +15,7 @@
 #include "mythuibutton.h"
 #include "mythuitext.h"
 #include "mythdialogbox.h"
+#include "mythactions.h"
 
 class WelcomeDialog : public MythScreenType
 {
@@ -29,6 +30,15 @@ class WelcomeDialog : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
     void customEvent(QEvent *e);
+
+    bool doEscape(const QString &action);
+    bool doMenu(const QString &action);
+    bool doInfo(const QString &action);
+    bool doShowSettings(const QString &action);
+    bool doNextView(const QString &action);
+    bool doZero(const QString &action);
+    bool doStartXTerm(const QString &action);
+    bool doStartSetup(const QString &action);
 
   protected slots:
     void startFrontendClick(void);
@@ -98,6 +108,7 @@ class WelcomeDialog : public MythScreenType
     bool pendingSchedUpdate() const           { return m_pendingSchedUpdate; }
     void setPendingSchedUpdate(bool newState) { m_pendingSchedUpdate = newState; }
 
+    MythActions<WelcomeDialog> *m_actions;
 };
 
 #endif

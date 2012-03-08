@@ -21,6 +21,7 @@
 #include "cardutil.h"
 #include "settings.h"
 #include "mythdb.h"
+#include "mythactions.h"
 
 ChannelWizard::ChannelWizard(int id, int default_sourceid)
     : ConfigurationWizard()
@@ -56,15 +57,30 @@ ChannelWizard::ChannelWizard(int id, int default_sourceid)
 
 /////////////////////////////////////////////////////////
 
-ChannelEditor::ChannelEditor(MythScreenStack *parent)
-              : MythScreenType(parent, "channeleditor"),
+static struct ActionDefStruct<ChannelEditor> ceActions[] = {
+    { "EDIT",   &ChannelEditor::doEdit },
+    { "MENU",   &ChannelEditor::doMenu },
+    { "DELETE", &ChannelEditor::doDelete }
+};
+static int ceActionCount = NELEMS(ceActions);
+
+
+ChannelEditor::ChannelEditor(MythScreenStack *parent) :
+    MythScreenType(parent, "channeleditor"),
     m_sourceFilter(FILTER_ALL),
     m_currentSortMode(QObject::tr("Channel Name")),
     m_currentHideMode(false),
     m_channelList(NULL), m_sourceList(NULL), m_preview(NULL),
     m_channame(NULL), m_channum(NULL), m_callsign(NULL),
-    m_chanid(NULL), m_sourcename(NULL), m_compoundname(NULL)
+    m_chanid(NULL), m_sourcename(NULL), m_compoundname(NULL),
+    m_actions(new MythActions<ChannelEditor>(this, ceActions, ceActionCount))
 {
+}
+
+ChannelEditor::~ChannelEditor()
+{
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ChannelEditor::Create()
@@ -169,6 +185,24 @@ bool ChannelEditor::Create()
     return true;
 }
 
+bool ChannelEditor::doEdit(const QString &action)
+{
+    edit();
+    return true;
+}
+
+bool ChannelEditor::doMenu(const QString &action)
+{
+    menu();
+    return true;
+}
+
+bool ChannelEditor::doDelete(const QString &action)
+{
+    del();
+    return true;
+}
+
 bool ChannelEditor::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -178,20 +212,8 @@ bool ChannelEditor::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-            menu();
-        else if (action == "DELETE")
-            del();
-        else if (action == "EDIT")
-            edit();
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

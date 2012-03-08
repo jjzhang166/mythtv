@@ -22,22 +22,37 @@
 
 #include "welcomedialog.h"
 #include "welcomesettings.h"
+#include "mythactions.h"
 
 #define UPDATE_STATUS_INTERVAL   30000
 #define UPDATE_SCREEN_INTERVAL   15000
 
+static struct ActionDefStruct<WelcomeDialog> wdActions[] = {
+    { "ESCAPE",       &WelcomeDialog::doEscape },
+    { "MENU",         &WelcomeDialog::doMenu },
+    { "INFO",         &WelcomeDialog::doInfo },
+    { "SHOWSETTINGS", &WelcomeDialog::doShowSettings },
+    { "NEXTVIEW",     &WelcomeDialog::doNextView },
+    { "0",            &WelcomeDialog::doZero },
+    { "STARTXTERM",   &WelcomeDialog::doStartXTerm },
+    { "STARTSETUP",   &WelcomeDialog::doStartSetup }
+};
+static int wdActionCount = NELEMS(wdActions);
 
-WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name)
-              :MythScreenType(parent, name),
+
+WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name) :
+    MythScreenType(parent, name),
     m_status_text(NULL),        m_recording_text(NULL), m_scheduled_text(NULL),
     m_warning_text(NULL),       m_startfrontend_button(NULL),
     m_menuPopup(NULL),          m_updateStatusTimer(new QTimer(this)),
     m_updateScreenTimer(new QTimer(this)),              m_isRecording(false),
     m_hasConflicts(false),      m_bWillShutdown(false),
-    m_secondsToShutdown(-1),    m_preRollSeconds(0),    m_idleWaitForRecordingTime(0),
+    m_secondsToShutdown(-1),    m_preRollSeconds(0),    
+    m_idleWaitForRecordingTime(0),
     m_idleTimeoutSecs(0),       m_screenTunerNo(0),     m_screenScheduledNo(0),
     m_statusListNo(0),          m_frontendIsRunning(false),
-    m_pendingRecListUpdate(false), m_pendingSchedUpdate(false)
+    m_pendingRecListUpdate(false), m_pendingSchedUpdate(false),
+    m_actions(new MythActions<WelcomeDialog>(this, wdActions, wdActionCount))
 {
     gCoreContext->addListener(this);
 
@@ -219,6 +234,88 @@ void WelcomeDialog::customEvent(QEvent *e)
     }
 }
 
+bool WelcomeDialog::doEscape(const QString &action)
+{
+    // eat escape key
+    return true;
+}
+
+bool WelcomeDialog::doMenu(const QString &action)
+{
+    showMenu();
+    return true;
+}
+
+bool WelcomeDialog::doInfo(const QString &action)
+{
+    MythWelcomeSettings settings;
+    if (kDialogCodeAccepted == settings.exec())
+    {
+	gCoreContext->SendMessage("CLEAR_SETTINGS_CACHE");
+	updateStatus();
+	updateScreen();
+
+	m_dateFormat = gCoreContext->GetSetting("MythWelcomeDateFormat",
+                                                "dddd\\ndd MMM yyyy");
+	m_dateFormat.replace("\\n", "\n");
+    }
+    return true;
+}
+
+bool WelcomeDialog::doShowSettings(const QString &action)
+{
+    MythShutdownSettings settings;
+    if (kDialogCodeAccepted == settings.exec())
+        gCoreContext->SendMessage("CLEAR_SETTINGS_CACHE");
+    return true;
+}
+
+bool WelcomeDialog::doNextView(const QString &action)
+{
+    Close();
+    return true;
+}
+
+bool WelcomeDialog::doZero(const QString &action)
+{
+    QString mythshutdown_status = m_installDir + "/bin/mythshutdown --status 0";
+    QString mythshutdown_unlock = m_installDir + "/bin/mythshutdown --unlock";
+    QString mythshutdown_lock = m_installDir + "/bin/mythshutdown --lock";
+
+    uint statusCode;
+    statusCode = myth_system(mythshutdown_status + logPropagateArgs);
+
+    // is shutdown locked by a user
+    if (!(statusCode & 0xFF00) && statusCode & 16)
+    {
+        myth_system(mythshutdown_unlock + logPropagateArgs);
+    }
+    else
+    {
+        myth_system(mythshutdown_lock + logPropagateArgs);
+    }
+
+    updateStatusMessage();
+    updateScreen();
+    return true;
+}
+
+bool WelcomeDialog::doStartXTerm(const QString &action)
+{
+    QString cmd = gCoreContext->GetSetting("MythShutdownXTermCmd", "");
+    if (!cmd.isEmpty())
+        myth_system(cmd);
+    return true;
+}
+
+bool WelcomeDialog::doStartSetup(const QString &action)
+{
+    QString mythtv_setup = m_installDir + "/bin/mythtv-setup";
+    myth_system(mythtv_setup + logPropagateArgs);
+    return true;
+}
+
+
 bool WelcomeDialog::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -228,81 +325,8 @@ bool WelcomeDialog::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Welcome", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
-    {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE")
-        {
-            return true; // eat escape key
-        }
-        else if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "NEXTVIEW")
-        {
-            Close();
-        }
-        else if (action == "INFO")
-        {
-            MythWelcomeSettings settings;
-            if (kDialogCodeAccepted == settings.exec())
-            {
-                gCoreContext->SendMessage("CLEAR_SETTINGS_CACHE");
-                updateStatus();
-                updateScreen();
-
-                m_dateFormat = gCoreContext->GetSetting("MythWelcomeDateFormat", "dddd\\ndd MMM yyyy");
-                m_dateFormat.replace("\\n", "\n");
-            }
-        }
-        else if (action == "SHOWSETTINGS")
-        {
-            MythShutdownSettings settings;
-            if (kDialogCodeAccepted == settings.exec())
-                gCoreContext->SendMessage("CLEAR_SETTINGS_CACHE");
-        }
-        else if (action == "0")
-        {
-            QString mythshutdown_status =
-                m_installDir + "/bin/mythshutdown --status 0";
-            QString mythshutdown_unlock =
-                m_installDir + "/bin/mythshutdown --unlock";
-            QString mythshutdown_lock =
-                m_installDir + "/bin/mythshutdown --lock";
-
-            uint statusCode;
-            statusCode = myth_system(mythshutdown_status + logPropagateArgs);
-
-            // is shutdown locked by a user
-            if (!(statusCode & 0xFF00) && statusCode & 16)
-            {
-                myth_system(mythshutdown_unlock + logPropagateArgs);
-            }
-            else
-            {
-                myth_system(mythshutdown_lock + logPropagateArgs);
-            }
-
-            updateStatusMessage();
-            updateScreen();
-        }
-        else if (action == "STARTXTERM")
-        {
-            QString cmd = gCoreContext->GetSetting("MythShutdownXTermCmd", "");
-            if (!cmd.isEmpty())
-                myth_system(cmd);
-        }
-        else if (action == "STARTSETUP")
-        {
-            QString mythtv_setup = m_installDir + "/bin/mythtv-setup";
-            myth_system(mythtv_setup + logPropagateArgs);
-        }
-        else
-            handled = false;
-    }
+    if (!handled)
+        handled = m_actions->handleActions(actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;
@@ -324,6 +348,9 @@ WelcomeDialog::~WelcomeDialog()
 
     if (m_updateScreenTimer)
         m_updateScreenTimer->disconnect();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void WelcomeDialog::updateStatus(void)

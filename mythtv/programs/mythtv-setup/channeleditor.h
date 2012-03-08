@@ -4,6 +4,7 @@
 #include "mythscreentype.h"
 
 #include "mythconfigdialogs.h"
+#include "mythactions.h"
 
 class MythUIButton;
 class MythUIButtonList;
@@ -15,10 +16,15 @@ class ChannelEditor : public MythScreenType
     Q_OBJECT
   public:
     ChannelEditor(MythScreenStack *parent);
+   ~ChannelEditor();
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
     void customEvent(QEvent *event);
+
+    bool doEdit(const QString &action);
+    bool doMenu(const QString &action);
+    bool doDelete(const QString &action);
 
   protected slots:
     void menu(void);
@@ -57,6 +63,8 @@ class ChannelEditor : public MythScreenType
     MythUIText       *m_chanid;
     MythUIText       *m_sourcename;
     MythUIText       *m_compoundname;
+
+    MythActions<ChannelEditor> *m_actions;
 };
 
 class ChannelID;
