@@ -53,7 +53,7 @@ mingw {
 
 # Install headers to same location as libmyth to make things easier
 inc.path = $${PREFIX}/include/mythtv/
-inc.files  = mythdbcon.h mythdbparams.h mythbaseexp.h mythdb.h
+inc.files  = mythdbcon.h mythdbparams.h mythbaseexp.h mythdb.h mythactions.h
 inc.files += compat.h mythversion.h mythconfig.h mythconfig.mak version.h
 inc.files += mythobservable.h mythevent.h httpcomms.h mcodecs.h verbosedefs.h
 inc.files += mythtimer.h lcddevice.h exitcodes.h mythdirs.h mythstorage.h
