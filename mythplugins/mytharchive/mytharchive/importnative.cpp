@@ -23,6 +23,7 @@
 #include "importnative.h"
 #include "archiveutil.h"
 #include "logviewer.h"
+#include "mythactions.h"
 
 
 ////////////////////////////////////////////////////////////////
@@ -317,12 +318,14 @@ ImportNative::ImportNative(
     m_finishButton(NULL),
     m_prevButton(NULL),
     m_cancelButton(NULL),
-    m_isValidXMLSelected(false)
+    m_isValidXMLSelected(false), m_actions(NULL)
 {
 }
 
 ImportNative::~ImportNative()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ImportNative::Create(void)
@@ -395,6 +398,17 @@ bool ImportNative::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<ImportNative> inActions[] = {
+    { "MENU",               &ImportNative::doMenu }
+};
+static int inActionCount = NELEMS(inActions);
+
+bool ImportNative::doMenu(const QString &action)
+{
+    (void)action;
+    return true;
+}
+
 bool ImportNative::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -404,16 +418,12 @@ bool ImportNative::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ImportNative>(this, inActions,
+                                                      inActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

@@ -16,6 +16,7 @@
 
 // mytharchive
 #include "archiveutil.h"
+#include "mythactions.h"
 
 class ProgramInfo;
 class MythUIText;
@@ -46,6 +47,12 @@ class VideoSelector : public MythScreenType
 
     bool Create();
     bool keyPressEvent(QKeyEvent *e);
+
+    bool doMenu(const QString &action);
+    bool doOne(const QString &action);
+    bool doTwo(const QString &action);
+    bool doThree(const QString &action);
+    bool doFour(const QString &action);
 
   signals:
     void haveResult(bool ok);
@@ -90,6 +97,8 @@ class VideoSelector : public MythScreenType
     MythUIText       *m_filesizeText;
     MythUIText       *m_plotText;
     MythUIImage      *m_coverImage;
+
+    MythActions<VideoSelector> *m_actions;
 };
 
 Q_DECLARE_METATYPE(VideoInfo*)

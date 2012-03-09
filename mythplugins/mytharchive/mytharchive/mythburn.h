@@ -6,6 +6,7 @@
 
 // mytharchive
 #include "archiveutil.h"
+#include "mythactions.h"
 
 class MythUIText;
 class MythUIButton;
@@ -61,6 +62,14 @@ class MythBurn : public MythScreenType
     bool keyPressEvent(QKeyEvent *);
 
     void createConfigFile(const QString &filename);
+
+    bool doSelect(const QString &action);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doMenu(const QString &action);
+    bool doDelete(const QString &action);
+    bool doInfo(const QString &action);
+    bool doToggleCut(const QString &action);
 
   protected slots:
     void handleNextPage(void);
@@ -125,6 +134,8 @@ class MythBurn : public MythScreenType
     MythUIText        *m_minsizeText;
     MythUIText        *m_currentsizeErrorText;
     MythUIText        *m_currentsizeText;
+
+    MythActions<MythBurn> *m_actions;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

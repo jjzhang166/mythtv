@@ -14,18 +14,19 @@
 #include "webpage.h"
 #include "bookmarkeditor.h"
 #include "mythbrowser.h"
+#include "mythactions.h"
 
 
 using namespace std;
 
 MythBrowser::MythBrowser(MythScreenStack *parent,
-                         QStringList &urlList, float zoom)
-    : MythScreenType (parent, "mythbrowser"),
-      m_urlList(urlList),  m_pageList(NULL),
-      m_progressBar(NULL), m_titleText(NULL),
-      m_statusText(NULL),  m_currentBrowser(-1),
-      m_zoom(zoom),        m_menuPopup(NULL),
-      m_defaultFavIcon(NULL)
+                         QStringList &urlList, float zoom) :
+    MythScreenType (parent, "mythbrowser"),
+    m_urlList(urlList),  m_pageList(NULL),
+    m_progressBar(NULL), m_titleText(NULL),
+    m_statusText(NULL),  m_currentBrowser(-1),
+    m_zoom(zoom),        m_menuPopup(NULL),
+    m_defaultFavIcon(NULL), m_actions(NULL)
 {
 }
 
@@ -33,6 +34,9 @@ MythBrowser::~MythBrowser()
 {
     while (!m_browserList.isEmpty())
         delete m_browserList.takeFirst();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythBrowser::Create(void)
@@ -291,6 +295,93 @@ void MythBrowser::slotTabLosingFocus(void)
     SetFocusWidget(activeBrowser());
 }
 
+static struct ActionDefStruct<MythBrowser> mbActions[] = {
+    { "MENU",    &MythBrowser::doMenu },
+    { "INFO",    &MythBrowser::doInfo },
+    { "ESCAPE",  &MythBrowser::doEscape },
+    { "DELETE",  &MythBrowser::doDelete },
+    { "PREVTAB", &MythBrowser::doPrevTab },
+    { "NEXTTAB", &MythBrowser::doNextTab }
+};
+static int mbActionCount = NELEMS(mbActions);
+
+bool MythBrowser::doMenu(const QString &action)
+{
+    (void)action;
+    slotStatusBarMessage("");
+
+    QString label = tr("Actions");
+
+    MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
+
+    m_menuPopup = new MythDialogBox(label, popupStack, "actionmenu");
+
+    if (m_menuPopup->Create())
+	popupStack->AddScreen(m_menuPopup);
+
+    m_menuPopup->SetReturnEvent(this, "action");
+
+    m_menuPopup->AddButton(tr("Enter URL"), SLOT(slotEnterURL()));
+
+    if (activeBrowser()->CanGoBack())
+	m_menuPopup->AddButton(tr("Back"), SLOT(slotBack()));
+
+    if (activeBrowser()->CanGoForward())
+	m_menuPopup->AddButton(tr("Forward"), SLOT(slotForward()));
+
+    m_menuPopup->AddButton(tr("Zoom In"), SLOT(slotZoomIn()));
+    m_menuPopup->AddButton(tr("Zoom Out"), SLOT(slotZoomOut()));
+    m_menuPopup->AddButton(tr("New Tab"), SLOT(slotAddTab()));
+
+    if (m_browserList.size() > 1)
+	m_menuPopup->AddButton(tr("Delete Tab"), SLOT(slotDeleteTab()));
+
+    m_menuPopup->AddButton(tr("Add Bookmark"), SLOT(slotAddBookmark()));
+    return true;
+}
+
+bool MythBrowser::doInfo(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_pageList)
+	SetFocusWidget(activeBrowser());
+    else
+	SetFocusWidget(m_pageList);
+    return true;
+}
+
+bool MythBrowser::doEscape(const QString &action)
+{
+    (void)action;
+    GetScreenStack()->PopScreen(true, true);
+    return true;
+}
+
+bool MythBrowser::doDelete(const QString &action)
+{
+    (void)action;
+    slotDeleteTab();
+    return true;
+}
+
+bool MythBrowser::doPrevTab(const QString &action)
+{
+    (void)action;
+    int pos = m_pageList->GetCurrentPos();
+    if (pos > 0)
+       m_pageList->SetItemCurrent(--pos);
+    return true;
+}
+
+bool MythBrowser::doNextTab(const QString &action)
+{
+    (void)action;
+    int pos = m_pageList->GetCurrentPos();
+    if (pos < m_pageList->GetCount() - 1)
+       m_pageList->SetItemCurrent(++pos);
+    return true;
+}
+
 bool MythBrowser::keyPressEvent(QKeyEvent *event)
 {
     // Always send keypress events to the currently focused widget first
@@ -301,73 +392,12 @@ bool MythBrowser::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Browser", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            slotStatusBarMessage("");
-
-            QString label = tr("Actions");
-
-            MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
-
-            m_menuPopup = new MythDialogBox(label, popupStack, "actionmenu");
-
-            if (m_menuPopup->Create())
-                popupStack->AddScreen(m_menuPopup);
-
-            m_menuPopup->SetReturnEvent(this, "action");
-
-            m_menuPopup->AddButton(tr("Enter URL"), SLOT(slotEnterURL()));
-
-            if (activeBrowser()->CanGoBack())
-                m_menuPopup->AddButton(tr("Back"), SLOT(slotBack()));
-
-            if (activeBrowser()->CanGoForward())
-                m_menuPopup->AddButton(tr("Forward"), SLOT(slotForward()));
-
-            m_menuPopup->AddButton(tr("Zoom In"), SLOT(slotZoomIn()));
-            m_menuPopup->AddButton(tr("Zoom Out"), SLOT(slotZoomOut()));
-            m_menuPopup->AddButton(tr("New Tab"), SLOT(slotAddTab()));
-
-            if (m_browserList.size() > 1)
-                m_menuPopup->AddButton(tr("Delete Tab"), SLOT(slotDeleteTab()));
-
-            m_menuPopup->AddButton(tr("Add Bookmark"), SLOT(slotAddBookmark()));
-        }
-        else if (action == "INFO")
-        {
-            if (GetFocusWidget() == m_pageList)
-                SetFocusWidget(activeBrowser());
-            else
-                SetFocusWidget(m_pageList);
-        }
-        else if (action == "ESCAPE")
-        {
-            GetScreenStack()->PopScreen(true, true);
-        }
-        else if (action == "PREVTAB")
-        {
-            int pos = m_pageList->GetCurrentPos();
-            if (pos > 0)
-               m_pageList->SetItemCurrent(--pos);
-        }
-        else if (action == "NEXTTAB")
-        {
-            int pos = m_pageList->GetCurrentPos();
-            if (pos < m_pageList->GetCount() - 1)
-               m_pageList->SetItemCurrent(++pos);
-        }
-        else if (action == "DELETE")
-        {
-            slotDeleteTab();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<MythBrowser>(this, mbActions,
+                                                     mbActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

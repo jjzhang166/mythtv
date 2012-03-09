@@ -21,11 +21,13 @@
 // mytharchive
 #include "videoselector.h"
 #include "archiveutil.h"
+#include "mythactions.h"
 
 using namespace std;
 
-VideoSelector::VideoSelector(MythScreenStack *parent, QList<ArchiveItem *> *archiveList)
-              :MythScreenType(parent, "VideoSelector")
+VideoSelector::VideoSelector(MythScreenStack *parent,
+                             QList<ArchiveItem *> *archiveList) :
+    MythScreenType(parent, "VideoSelector"), m_actions(NULL)
 {
     m_archiveList = archiveList;
     m_currentParentalLevel = ParentalLevel::plNone;
@@ -46,6 +48,9 @@ VideoSelector::~VideoSelector(void)
     m_selectedList.clear();
 
     delete m_parentalLevelChecker;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool VideoSelector::Create(void)
@@ -100,6 +105,51 @@ bool VideoSelector::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<VideoSelector> vsActions[] = {
+    { "MENU", &VideoSelector::doMenu },
+    { "1",    &VideoSelector::doOne },
+    { "2",    &VideoSelector::doTwo },
+    { "3",    &VideoSelector::doThree },
+    { "4",    &VideoSelector::doFour }
+};
+static int vsActionCount = NELEMS(vsActions);
+
+bool VideoSelector::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+bool VideoSelector::doOne(const QString &action)
+{
+    (void)action;
+    setParentalLevel(ParentalLevel::plLowest);
+    return true;
+}
+
+bool VideoSelector::doTwo(const QString &action)
+{
+    (void)action;
+    setParentalLevel(ParentalLevel::plLow);
+    return true;
+}
+
+bool VideoSelector::doThree(const QString &action)
+{
+    (void)action;
+    setParentalLevel(ParentalLevel::plMedium);
+    return true;
+}
+
+bool VideoSelector::doFour(const QString &action)
+{
+    (void)action;
+    setParentalLevel(ParentalLevel::plHigh);
+    return true;
+}
+
+
 bool VideoSelector::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -109,33 +159,12 @@ bool VideoSelector::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "1")
-        {
-            setParentalLevel(ParentalLevel::plLowest);
-        }
-        else if (action == "2")
-        {
-            setParentalLevel(ParentalLevel::plLow);
-        }
-        else if (action == "3")
-        {
-            setParentalLevel(ParentalLevel::plMedium);
-        }
-        else if (action == "4")
-        {
-            setParentalLevel(ParentalLevel::plHigh);
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<VideoSelector>(this, vsActions,
+                                                       vsActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

@@ -38,7 +38,7 @@ FileSelector::FileSelector(
     m_okButton(NULL),
     m_cancelButton(NULL),
     m_backButton(NULL),
-    m_homeButton(NULL)
+    m_homeButton(NULL), m_actions(NULL)
 {
 }
 
@@ -46,6 +46,9 @@ FileSelector::~FileSelector()
 {
     while (!m_fileData.isEmpty())
         delete m_fileData.takeFirst();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool FileSelector::Create(void)
@@ -112,6 +115,17 @@ bool FileSelector::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<FileSelector> fsActions[] = {
+    { "MENU",               &FileSelector::doMenu }
+};
+static int fsActionCount = NELEMS(fsActions);
+
+bool FileSelector::doMenu(const QString &action)
+{
+    (void)action;
+    return true;
+}
+
 bool FileSelector::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -121,17 +135,12 @@ bool FileSelector::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<FileSelector>(this, fsActions,
+                                                      fsActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

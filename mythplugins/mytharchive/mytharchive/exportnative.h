@@ -9,6 +9,7 @@
 
 // mythtv
 #include <mythscreentype.h>
+#include "mythactions.h"
 
 // mytharchive
 #include "archiveutil.h"
@@ -41,6 +42,9 @@ class ExportNative : public MythScreenType
     bool keyPressEvent(QKeyEvent *);
 
     void createConfigFile(const QString &filename);
+
+    bool doMenu(const QString &action);
+    bool doDelete(const QString &action);
 
   public slots:
 
@@ -93,6 +97,8 @@ class ExportNative : public MythScreenType
     MythUIText        *m_currsizeText;
     MythUIText        *m_currsizeErrText;
     MythUIProgressBar *m_sizeBar;
+
+    MythActions<ExportNative> *m_actions;
 };
 
 #endif

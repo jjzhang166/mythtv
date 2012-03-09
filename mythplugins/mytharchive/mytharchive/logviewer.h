@@ -6,6 +6,7 @@
 
 // myth
 #include <mythscreentype.h>
+#include "mythactions.h"
 
 class MythUIButton;
 class MythUIButtonList;
@@ -26,6 +27,8 @@ class LogViewer : public MythScreenType
     bool keyPressEvent(QKeyEvent *e);
 
     void setFilenames(const QString &progressLog, const QString &fullLog);
+
+    bool doMenu(const QString &action);
 
   protected slots:
     void cancelClicked(void);
@@ -56,6 +59,8 @@ class LogViewer : public MythScreenType
     MythUIButton       *m_exitButton;
     MythUIButton       *m_cancelButton;
     MythUIButton       *m_updateButton;
+
+    MythActions<LogViewer> *m_actions;
 };
 
 #endif

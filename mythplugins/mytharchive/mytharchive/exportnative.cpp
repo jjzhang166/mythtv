@@ -32,6 +32,7 @@
 #include "recordingselector.h"
 #include "videoselector.h"
 #include "logviewer.h"
+#include "mythactions.h"
 
 ExportNative::ExportNative(
     MythScreenStack *parent, MythScreenType *previousScreen,
@@ -60,7 +61,7 @@ ExportNative::ExportNative(
     m_minsizeText(NULL),
     m_currsizeText(NULL),
     m_currsizeErrText(NULL),
-    m_sizeBar(NULL)
+    m_sizeBar(NULL), m_actions(NULL)
 {
 }
 
@@ -71,6 +72,9 @@ ExportNative::~ExportNative(void)
     while (!m_archiveList.isEmpty())
          delete m_archiveList.takeFirst();
     m_archiveList.clear();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ExportNative::Create(void)
@@ -130,6 +134,27 @@ bool ExportNative::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<ExportNative> enActions[] = {
+    { "MENU",               &ExportNative::doMenu },
+    { "DELETE",             &ExportNative::doDelete }
+};
+static int enActionCount = NELEMS(enActions);
+
+bool ExportNative::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+bool ExportNative::doDelete(const QString &action)
+{
+    (void)action;
+    removeItem();
+    return true;
+}
+
+
 bool ExportNative::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -139,22 +164,12 @@ bool ExportNative::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Archive", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "DELETE")
-        {
-            removeItem();
-        }
-
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ExportNative>(this, enActions,
+                                                      enActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

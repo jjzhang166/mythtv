@@ -12,6 +12,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 #include "programtypes.h"
+#include "mythactions.h"
 
 // mytharchive
 #include "archiveutil.h"
@@ -39,13 +40,21 @@ class ThumbFinder : public MythScreenType
 
   public:
 
-      ThumbFinder(MythScreenStack *parent, ArchiveItem *archiveItem,
-                  const QString &menuTheme);
-    ~ThumbFinder();
+    ThumbFinder(MythScreenStack *parent, ArchiveItem *archiveItem,
+                const QString &menuTheme);
+   ~ThumbFinder();
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
 
+    bool doMenu(const QString &action);
+    bool doEscape(const QString &action);
+    bool doDigit(const QString &action);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doSelect(const QString &action);
 
   private slots:
     void gridItemChanged(MythUIButtonListItem *item);
@@ -112,6 +121,8 @@ class ThumbFinder : public MythScreenType
     MythUIButtonList   *m_imageGrid;
     MythUIText         *m_seekAmountText;
     MythUIText         *m_currentPosText;
+
+    MythActions<ThumbFinder> *m_actions;
 };
 
 #endif

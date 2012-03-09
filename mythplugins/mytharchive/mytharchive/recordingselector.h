@@ -19,6 +19,7 @@
 
 // mytharchive
 #include "archiveutil.h"
+#include "mythactions.h"
 
 class ProgramInfo;
 class MythUIText;
@@ -38,6 +39,8 @@ class RecordingSelector : public MythScreenType
 
     bool Create();
     bool keyPressEvent(QKeyEvent *e);
+
+    bool doMenu(const QString &action);
 
   signals:
     void haveResult(bool ok);
@@ -78,6 +81,8 @@ class RecordingSelector : public MythScreenType
     MythUIImage        *m_cutlistImage;
 
     friend class GetRecordingListThread;
+
+    MythActions<RecordingSelector> *m_actions;
 };
 
 #endif

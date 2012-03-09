@@ -13,6 +13,7 @@
 
 // mytharchive
 #include "archiveutil.h"
+#include "mythactions.h"
 
 typedef struct
 {
@@ -49,6 +50,8 @@ class FileSelector : public MythScreenType
 
     QString getSelected(void);
 
+    bool doMenu(const QString &action);
+
   signals:
     void haveResult(bool ok);            // used in FSTYPE_FILELIST mode
     void haveResult(QString filename);   // used in FSTYPE_FILE or FSTYPE_DIRECTORY mode
@@ -84,6 +87,9 @@ class FileSelector : public MythScreenType
     MythUIButton     *m_cancelButton;
     MythUIButton     *m_backButton;
     MythUIButton     *m_homeButton;
+
+  private:
+    MythActions<FileSelector> *m_actions;
 };
 
 Q_DECLARE_METATYPE(FileData *)

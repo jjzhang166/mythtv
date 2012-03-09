@@ -16,6 +16,7 @@
 
 // mytharchive
 #include "fileselector.h"
+#include "mythactions.h"
 
 typedef struct
 {
@@ -75,12 +76,14 @@ class ImportNative : public MythScreenType
     Q_OBJECT
 
   public:
-      ImportNative(MythScreenStack *parent, MythScreenType *m_previousScreen,
-                   const QString &xmlFile, FileDetails details);
-      ~ImportNative();
+    ImportNative(MythScreenStack *parent, MythScreenType *m_previousScreen,
+                 const QString &xmlFile, FileDetails details);
+   ~ImportNative();
 
-      bool Create(void);
-      bool keyPressEvent(QKeyEvent *e);
+    bool Create(void);
+    bool keyPressEvent(QKeyEvent *e);
+
+    bool doMenu(const QString &action);
 
   private slots:
     void finishedPressed();
@@ -131,6 +134,8 @@ class ImportNative : public MythScreenType
     MythUIButton *m_cancelButton;
 
     bool          m_isValidXMLSelected;
+
+    MythActions<ImportNative> *m_actions;
 };
 
 #endif

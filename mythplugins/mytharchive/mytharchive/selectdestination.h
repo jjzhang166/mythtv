@@ -9,6 +9,7 @@
 
 // mytharchive
 #include "archiveutil.h"
+#include "mythactions.h"
 
 class MythUIText;
 class MythUIButton;
@@ -28,6 +29,8 @@ class SelectDestination : public MythScreenType
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
+
+    bool doMenu(const QString &action);
 
   public slots:
 
@@ -67,6 +70,8 @@ class SelectDestination : public MythScreenType
     MythUIText        *m_createISOText;
     MythUIText        *m_doBurnText;
     MythUIText        *m_eraseDvdRwText;
+
+    MythActions<SelectDestination> *m_actions;
 };
 
 #endif

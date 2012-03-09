@@ -38,6 +38,7 @@
 #include "recordingselector.h"
 #include "videoselector.h"
 #include "logviewer.h"
+#include "mythactions.h"
 
 using namespace std;
 
@@ -67,7 +68,7 @@ MythBurn::MythBurn(MythScreenStack   *parent,
     m_maxsizeText(NULL),
     m_minsizeText(NULL),
     m_currentsizeErrorText(NULL),
-    m_currentsizeText(NULL)
+    m_currentsizeText(NULL), m_actions(NULL)
 {
     // remove any old thumb images
     QString thumbDir = getTempDirectory() + "/config/thumbs";
@@ -87,6 +88,9 @@ MythBurn::~MythBurn(void)
     while (!m_archiveList.isEmpty())
          delete m_archiveList.takeFirst();
     m_archiveList.clear();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythBurn::Create(void)
@@ -145,6 +149,95 @@ bool MythBurn::Create(void)
     return true;
 }
 
+
+static struct ActionDefStruct<MythBurn> mbActions[] = {
+    { "SELECT",    &MythBurn::doSelect },
+    { "ESCAPE",    &MythBurn::doSelect },
+    { "UP",        &MythBurn::doUp },
+    { "DOWN",      &MythBurn::doDown },
+    { "MENU",      &MythBurn::doMenu },
+    { "DELETE",    &MythBurn::doDelete },
+    { "INFO",      &MythBurn::doInfo },
+    { "TOGGLECUT", &MythBurn::doToggleCut }
+};
+static int mbActionCount = NELEMS(mbActions);
+
+bool MythBurn::doSelect(const QString &action)
+{
+    (void)action;
+    if (m_moveMode)
+    {
+        MythUIButtonListItem *item = m_archiveButtonList->GetItemCurrent();
+        if (!item)
+            return false;
+
+        m_moveMode = false;
+        item->DisplayState("off", "movestate");
+    }
+    return true;
+}
+
+bool MythBurn::doUp(const QString &action)
+{
+    (void)action;
+    if (m_moveMode)
+    {
+        MythUIButtonListItem *item = m_archiveButtonList->GetItemCurrent();
+        if (!item)
+            return false;
+
+        item->MoveUpDown(true);
+    }
+    return true;
+}
+
+bool MythBurn::doDown(const QString &action)
+{
+    (void)action;
+    if (m_moveMode)
+    {
+        MythUIButtonListItem *item = m_archiveButtonList->GetItemCurrent();
+        if (!item)
+            return false;
+
+        item->MoveUpDown(false);
+    }
+    return true;
+}
+
+bool MythBurn::doMenu(const QString &action)
+{
+    (void)action;
+    if (!m_moveMode)
+        showMenu();
+    return true;
+}
+
+bool MythBurn::doDelete(const QString &action)
+{
+    (void)action;
+    if (!m_moveMode)
+        removeItem();
+    return true;
+}
+
+bool MythBurn::doInfo(const QString &action)
+{
+    (void)action;
+    if (!m_moveMode)
+        editThumbnails();
+    return true;
+}
+
+bool MythBurn::doToggleCut(const QString &action)
+{
+    (void)action;
+    if (!m_moveMode)
+        toggleUseCutlist();
+    return true;
+}
+
+
 bool MythBurn::keyPressEvent(QKeyEvent *event)
 {
     if (!m_moveMode && GetFocusWidget()->keyPressEvent(event))
@@ -154,54 +247,12 @@ bool MythBurn::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Archive", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        // if we are currently moving an item,
-        // we only accept UP/DOWN/SELECT/ESCAPE
-        if (m_moveMode)
-        {
-            MythUIButtonListItem *item = m_archiveButtonList->GetItemCurrent();
-            if (!item)
-                return false;
-
-            if (action == "SELECT" || action == "ESCAPE")
-            {
-                m_moveMode = false;
-                item->DisplayState("off", "movestate");
-            }
-            else if (action == "UP")
-            {
-                item->MoveUpDown(true);
-            }
-            else if (action == "DOWN")
-            {
-                item->MoveUpDown(false);
-            }
-
-            return true;
-        }
-
-        if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "DELETE")
-        {
-            removeItem();
-        }
-        else if (action == "INFO")
-        {
-            editThumbnails();
-        }
-        else if (action == "TOGGLECUT")
-        {
-            toggleUseCutlist();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<MythBurn>(this, mbActions,
+                                                  mbActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

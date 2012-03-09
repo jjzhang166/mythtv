@@ -10,6 +10,7 @@
 #include <mythuiprogressbar.h>
 
 #include "bookmarkmanager.h"
+#include "mythactions.h"
 
 class WebPage;
 
@@ -28,6 +29,13 @@ class MythBrowser : public MythScreenType
     void setDefaultSaveDirectory(const QString saveDir) { m_defaultSaveDir = saveDir; }
     void setDefaultSaveFilename(const QString saveFile) { m_defaultSaveFilename = saveFile; }
     MythImage* getDefaultFavIcon(void) { return m_defaultFavIcon; }
+
+    bool doMenu(const QString &action);
+    bool doInfo(const QString &action);
+    bool doEscape(const QString &action);
+    bool doDelete(const QString &action);
+    bool doPrevTab(const QString &action);
+    bool doNextTab(const QString &action);
 
   public slots:
     void slotOpenURL(const QString &url);
@@ -80,6 +88,8 @@ class MythBrowser : public MythScreenType
     MythImage     *m_defaultFavIcon;
 
     friend class WebPage;
+
+    MythActions<MythBrowser> *m_actions;
 };
 
 #endif

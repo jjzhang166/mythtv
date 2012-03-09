@@ -25,6 +25,7 @@
 #include "archiveutil.h"
 #include "exportnative.h"
 #include "themeselector.h"
+#include "mythactions.h"
 
 SelectDestination::SelectDestination(
     MythScreenStack *parent, bool nativeMode, QString name) :
@@ -44,7 +45,7 @@ SelectDestination::SelectDestination(
     m_eraseDvdRwCheck(NULL),
     m_createISOText(NULL),
     m_doBurnText(NULL),
-    m_eraseDvdRwText(NULL)
+    m_eraseDvdRwText(NULL), m_actions(NULL)
 {
     m_archiveDestination.type = AD_FILE;
     m_archiveDestination.name = NULL;
@@ -55,6 +56,9 @@ SelectDestination::SelectDestination(
 SelectDestination::~SelectDestination(void)
 {
     saveConfiguration();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 
@@ -116,6 +120,19 @@ bool SelectDestination::Create(void)
     return true;
 }
 
+
+static struct ActionDefStruct<SelectDestination> sdActions[] = {
+    { "MENU",      &SelectDestination::doMenu }
+};
+static int sdActionCount = NELEMS(sdActions);
+
+bool SelectDestination::doMenu(const QString &action)
+{
+    (void)action;
+    return true;
+}
+
+
 bool SelectDestination::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -125,16 +142,12 @@ bool SelectDestination::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<SelectDestination>(this, sdActions,
+                                                           sdActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

@@ -3,6 +3,7 @@
 
 // libmythui
 #include <mythscreentype.h>
+#include "mythactions.h"
 
 class MythBrowser;
 class MythDialogBox;
@@ -68,6 +69,11 @@ class BookmarkManager : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
 
+    bool doMenu(const QString &action);
+    bool doInfo(const QString &action);
+    bool doDelete(const QString &action);
+    bool doEdit(const QString &action);
+
   private slots:
     void slotGroupSelected(MythUIButtonListItem *item);
     void slotBookmarkClicked(MythUIButtonListItem *item);
@@ -100,6 +106,8 @@ class BookmarkManager : public MythScreenType
     MythUIText       *m_messageText;
 
     MythDialogBox    *m_menuPopup;
+
+    MythActions<BookmarkManager> *m_actions;
 };
 
 Q_DECLARE_METATYPE(Bookmark *)

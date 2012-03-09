@@ -15,13 +15,14 @@
 // mythbrowser
 #include "webpage.h"
 #include "mythflashplayer.h"
+#include "mythactions.h"
 
 using namespace std;
 
 MythFlashPlayer::MythFlashPlayer(MythScreenStack *parent,
-                         QStringList &urlList)
-    : MythScreenType (parent, "mythflashplayer"),
-      m_browser(NULL), m_url(urlList[0])
+                                 QStringList &urlList) :
+    MythScreenType (parent, "mythflashplayer"),
+    m_browser(NULL), m_url(urlList[0]), m_actions(NULL)
 {
     m_fftime       = PlayGroup::GetSetting("Default", "skipahead", 30);
     m_rewtime      = PlayGroup::GetSetting("Default", "skipback", 5);
@@ -40,6 +41,9 @@ MythFlashPlayer::~MythFlashPlayer()
         DeleteChild(m_browser);
         m_browser = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythFlashPlayer::Create(void)
@@ -66,40 +70,91 @@ QVariant MythFlashPlayer::evaluateJavaScript(const QString& source)
     return m_browser->evaluateJavaScript(source);
 }
 
+static struct ActionDefStruct<MythFlashPlayer> mfpActions[] = {
+    { "PAUSE",       &MythFlashPlayer::doPause },
+    { "INFO",        &MythFlashPlayer::doInfo },
+    { "SEEKFFWD",    &MythFlashPlayer::doSeekFfwd },
+    { "SEEKRWND",    &MythFlashPlayer::doSeekRwnd },
+    { "CHANNELUP",   &MythFlashPlayer::doChanUp },
+    { "CHANNELDOWN", &MythFlashPlayer::doChanDown },
+    { "VOLUMEUP",    &MythFlashPlayer::doVolumeUp },
+    { "VOLUMEDOWN",  &MythFlashPlayer::doVolumeDown }
+};
+static int mfpActionCount = NELEMS(mfpActions);
+
+bool MythFlashPlayer::doPause(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript("play();");
+    return true;
+}
+
+bool MythFlashPlayer::doInfo(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript("info();");
+    return true;
+}
+
+bool MythFlashPlayer::doSeekFfwd(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript(QString("seek(%1);").arg(m_fftime));
+    return true;
+}
+
+bool MythFlashPlayer::doSeekRwnd(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript(QString("seek(-%1);").arg(m_rewtime));
+    return true;
+}
+
+bool MythFlashPlayer::doChanUp(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript(QString("seek(%1);").arg(m_jumptime * 60));
+    return true;
+}
+
+bool MythFlashPlayer::doChanDown(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript(QString("seek(-%1);").arg(m_jumptime * 60));
+    return true;
+}
+
+bool MythFlashPlayer::doVolumeUp(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript("adjustVolume(2);");
+    return true;
+}
+
+bool MythFlashPlayer::doVolumeDown(const QString &action)
+{
+    (void)action;
+    evaluateJavaScript("adjustVolume(-2);");
+    return true;
+}
+
+
 bool MythFlashPlayer::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event, actions);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event,
+                                                          actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "PAUSE")
-            evaluateJavaScript("play();");
-        else if (action == "INFO")
-            evaluateJavaScript("info();");
-        else if (action == "SEEKFFWD")
-            evaluateJavaScript(QString("seek(%1);").arg(m_fftime));
-        else if (action == "SEEKRWND")
-            evaluateJavaScript(QString("seek(-%1);").arg(m_rewtime));
-        else if (action == "CHANNELUP")
-            evaluateJavaScript(QString("seek(%1);").arg(m_jumptime * 60));
-        else if (action == "CHANNELDOWN")
-            evaluateJavaScript(QString("seek(-%1);").arg(m_jumptime * 60));
-        else if (action == "VOLUMEUP")
-            evaluateJavaScript("adjustVolume(2);");
-        else if (action == "VOLUMEDOWN")
-            evaluateJavaScript("adjustVolume(-2);");
-        else
-            handled = false;
-
-        if (handled)
-            return true;
+        if (!m_actions)
+            m_actions = new MythActions<MythFlashPlayer>(this, mfpActions,
+                                                         mfpActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
-    handled = m_browser->keyPressEvent(event);
+    if (!handled)
+        handled = m_browser->keyPressEvent(event);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

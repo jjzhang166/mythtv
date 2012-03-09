@@ -31,6 +31,7 @@
 // mytharchive
 #include "recordingselector.h"
 #include "archiveutil.h"
+#include "mythactions.h"
 
 class GetRecordingListThread : public MThread
 {
@@ -65,7 +66,7 @@ RecordingSelector::RecordingSelector(
     m_filesizeText(NULL),
     m_descriptionText(NULL),
     m_previewImage(NULL),
-    m_cutlistImage(NULL)
+    m_cutlistImage(NULL), m_actions(NULL)
 {
 }
 
@@ -76,6 +77,9 @@ RecordingSelector::~RecordingSelector(void)
 
     while (!m_selectedList.isEmpty())
         delete m_selectedList.takeFirst();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool RecordingSelector::Create(void)
@@ -172,6 +176,19 @@ void RecordingSelector::Init(void)
         busyPopup->Close();
 }
 
+static struct ActionDefStruct<RecordingSelector> rsActions[] = {
+    { "MENU",      &RecordingSelector::doMenu },
+};
+static int rsActionCount = NELEMS(rsActions);
+
+bool RecordingSelector::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+
 bool RecordingSelector::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -181,17 +198,12 @@ bool RecordingSelector::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showMenu();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<RecordingSelector>(this, rsActions,
+                                                           rsActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

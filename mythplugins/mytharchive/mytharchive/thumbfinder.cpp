@@ -58,6 +58,7 @@
 extern "C" {
 #include <swscale.h>
 }
+#include "mythactions.h"
 
 #ifndef INT64_C    // Used in FFmpeg headers to define some constants
 #define INT64_C(v)   (v ## LL)
@@ -85,8 +86,8 @@ struct SeekAmount SeekAmounts[] =
 int SeekAmountsCount = sizeof(SeekAmounts) / sizeof(SeekAmounts[0]);
 
 ThumbFinder::ThumbFinder(MythScreenStack *parent, ArchiveItem *archiveItem,
-                         const QString &menuTheme)
-            :MythScreenType(parent, "ThumbFinder")
+                         const QString &menuTheme) :
+    MythScreenType(parent, "ThumbFinder"), m_actions(NULL)
 {
     m_archiveItem = archiveItem;
 
@@ -130,6 +131,9 @@ ThumbFinder::~ThumbFinder()
         m_image->DownRef();
         m_image = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ThumbFinder::Create(void)
@@ -173,6 +177,98 @@ bool ThumbFinder::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<ThumbFinder> tfActions[] = {
+    { "MENU",           &ThumbFinder::doMenu },
+    { "ESCAPE",         &ThumbFinder::doEscape },
+    { "^[0123456789]$", &ThumbFinder::doDigit },
+    { "UP",             &ThumbFinder::doUp },
+    { "DOWN",           &ThumbFinder::doDown },
+    { "LEFT",           &ThumbFinder::doLeft },
+    { "RIGHT",          &ThumbFinder::doRight },
+    { "SELECT",         &ThumbFinder::doSelect }
+};
+static int tfActionCount = NELEMS(tfActions);
+
+bool ThumbFinder::doMenu(const QString &action)
+{
+    (void)action;
+    NextPrevWidgetFocus(true);
+    return true;
+}
+
+bool ThumbFinder::doEscape(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+bool ThumbFinder::doUp(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_frameButton)
+    {
+        changeSeekAmount(true);
+        return true;
+    }
+    return false;
+}
+
+bool ThumbFinder::doDown(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_frameButton)
+    {
+        changeSeekAmount(false);
+        return true;
+    }
+    return false;
+}
+
+bool ThumbFinder::doLeft(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_frameButton)
+    {
+        seekBackward();
+        return true;
+    }
+    return false;
+}
+
+bool ThumbFinder::doRight(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_frameButton)
+    {
+        seekForward();
+        return true;
+    }
+    return false;
+}
+
+bool ThumbFinder::doSelect(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_frameButton)
+    {
+        updateThumb();
+        return true;
+    }
+    return false;
+}
+
+bool ThumbFinder::doDigit(const QString &action)
+{
+    m_imageGrid->SetItemCurrent(action.toInt());
+    int itemNo = m_imageGrid->GetCurrentPos();
+    ThumbImage *thumb = m_thumbList.at(itemNo);
+    if (thumb)
+        seekToFrame(thumb->frame);
+    return true;
+}
+
+
 bool ThumbFinder::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -182,62 +278,12 @@ bool ThumbFinder::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Archive", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            NextPrevWidgetFocus(true);
-            return true;
-        }
-
-        if (action == "ESCAPE")
-        {
-            showMenu();
-            return true;
-        }
-
-        if (action == "0" || action == "1" || action == "2" || action == "3" ||
-            action == "4" || action == "5" || action == "6" || action == "7" ||
-            action == "8" || action == "9")
-        {
-            m_imageGrid->SetItemCurrent(action.toInt());
-            int itemNo = m_imageGrid->GetCurrentPos();
-            ThumbImage *thumb = m_thumbList.at(itemNo);
-            if (thumb)
-                seekToFrame(thumb->frame);
-            return true;
-        }
-
-        if (GetFocusWidget() == m_frameButton)
-        {
-            if (action == "UP")
-            {
-                changeSeekAmount(true);
-            }
-            else if (action == "DOWN")
-            {
-                changeSeekAmount(false);
-            }
-            else if (action == "LEFT")
-            {
-                seekBackward();
-            }
-            else if (action == "RIGHT")
-            {
-                seekForward();
-            }
-            else if (action == "SELECT")
-            {
-                updateThumb();
-            }
-            else
-                handled = false;
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ThumbFinder>(this, tfActions,
+                                                     tfActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

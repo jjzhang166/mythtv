@@ -20,6 +20,7 @@ using namespace std;
 #include "browserdbutil.h"
 #include "mythbrowser.h"
 #include "mythflashplayer.h"
+#include "mythactions.h"
 
 // ---------------------------------------------------
 
@@ -149,8 +150,8 @@ void BrowserConfig::slotFocusChanged(void)
 
 // ---------------------------------------------------
 
-BookmarkManager::BookmarkManager(MythScreenStack *parent, const char *name)
-               : MythScreenType(parent, name)
+BookmarkManager::BookmarkManager(MythScreenStack *parent, const char *name) :
+    MythScreenType(parent, name), m_actions(NULL)
 {
     m_bookmarkList = NULL;
     m_groupList = NULL;
@@ -204,6 +205,9 @@ BookmarkManager::~BookmarkManager()
 {
     while (!m_siteList.isEmpty())
         delete m_siteList.takeFirst();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void BookmarkManager::UpdateGroupList(void)
@@ -266,6 +270,92 @@ uint BookmarkManager::GetMarkedCount(void)
     return count;
 }
 
+static struct ActionDefStruct<BookmarkManager> bmActions[] = {
+    { "MENU",   &BookmarkManager::doMenu },
+    { "INFO",   &BookmarkManager::doInfo },
+    { "DELETE", &BookmarkManager::doDelete },
+    { "EDIT",   &BookmarkManager::doEdit }
+};
+static int bmActionCount = NELEMS(bmActions);
+
+bool BookmarkManager::doMenu(const QString &action)
+{
+    (void)action;
+    QString label = tr("Actions");
+
+    MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
+
+    m_menuPopup = new MythDialogBox(label, popupStack, "actionmenu");
+
+    if (!m_menuPopup->Create())
+    {
+	delete m_menuPopup;
+	m_menuPopup = NULL;
+	return true;
+    }
+
+    m_menuPopup->SetReturnEvent(this, "action");
+
+    m_menuPopup->AddButton(tr("Add Bookmark"), SLOT(slotAddBookmark()));
+
+    if (m_bookmarkList->GetItemCurrent())
+    {
+	m_menuPopup->AddButton(tr("Edit Bookmark"), SLOT(slotEditBookmark()));
+	m_menuPopup->AddButton(tr("Delete Bookmark"), SLOT(slotDeleteCurrent()));
+	m_menuPopup->AddButton(tr("Show Bookmark"), SLOT(slotShowCurrent()));
+    }
+
+    if (GetMarkedCount() > 0)
+    {
+	m_menuPopup->AddButton(tr("Delete Marked"), SLOT(slotDeleteMarked()));
+	m_menuPopup->AddButton(tr("Show Marked"), SLOT(slotShowMarked()));
+	m_menuPopup->AddButton(tr("Clear Marked"), SLOT(slotClearMarked()));
+    }
+
+    popupStack->AddScreen(m_menuPopup);
+    return true;
+}
+
+bool BookmarkManager::doInfo(const QString &action)
+{
+    (void)action;
+    MythUIButtonListItem *item = m_bookmarkList->GetItemCurrent();
+
+    if (item)
+    {
+	Bookmark *site = qVariantValue<Bookmark*>(item->GetData());
+
+	if (item->state() == MythUIButtonListItem::NotChecked)
+	{
+	    item->setChecked(MythUIButtonListItem::FullChecked);
+	    if (site)
+		site->selected = true;
+	}
+	else
+	{
+	    item->setChecked(MythUIButtonListItem::NotChecked);
+	    if (site)
+		site->selected = false;
+	}
+    }
+    return true;
+}
+
+bool BookmarkManager::doDelete(const QString &action)
+{
+    (void)action;
+    slotDeleteCurrent();
+    return true;
+}
+
+bool BookmarkManager::doEdit(const QString &action)
+{
+    (void)action;
+    slotEditBookmark();
+    return true;
+}
+
+
 bool BookmarkManager::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -275,75 +365,12 @@ bool BookmarkManager::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("qt", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            QString label = tr("Actions");
-
-            MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
-
-            m_menuPopup = new MythDialogBox(label, popupStack, "actionmenu");
-
-            if (!m_menuPopup->Create())
-            {
-                delete m_menuPopup;
-                m_menuPopup = NULL;
-                return true;
-            }
-
-            m_menuPopup->SetReturnEvent(this, "action");
-
-            m_menuPopup->AddButton(tr("Add Bookmark"), SLOT(slotAddBookmark()));
-
-            if (m_bookmarkList->GetItemCurrent())
-            {
-                m_menuPopup->AddButton(tr("Edit Bookmark"), SLOT(slotEditBookmark()));
-                m_menuPopup->AddButton(tr("Delete Bookmark"), SLOT(slotDeleteCurrent()));
-                m_menuPopup->AddButton(tr("Show Bookmark"), SLOT(slotShowCurrent()));
-            }
-
-            if (GetMarkedCount() > 0)
-            {
-                m_menuPopup->AddButton(tr("Delete Marked"), SLOT(slotDeleteMarked()));
-                m_menuPopup->AddButton(tr("Show Marked"), SLOT(slotShowMarked()));
-                m_menuPopup->AddButton(tr("Clear Marked"), SLOT(slotClearMarked()));
-            }
-
-            popupStack->AddScreen(m_menuPopup);
-        }
-        else if (action == "INFO")
-        {
-            MythUIButtonListItem *item = m_bookmarkList->GetItemCurrent();
-
-            if (item)
-            {
-                Bookmark *site = qVariantValue<Bookmark*>(item->GetData());
-
-                if (item->state() == MythUIButtonListItem::NotChecked)
-                {
-                    item->setChecked(MythUIButtonListItem::FullChecked);
-                    if (site)
-                        site->selected = true;
-                }
-                else
-                {
-                    item->setChecked(MythUIButtonListItem::NotChecked);
-                    if (site)
-                        site->selected = false;
-                }
-            }
-        }
-        else if (action == "DELETE")
-            slotDeleteCurrent();
-        else if (action == "EDIT")
-            slotEditBookmark();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<BookmarkManager>(this, bmActions,
+                                                         bmActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

@@ -51,7 +51,7 @@ LogViewer::LogViewer(MythScreenStack *parent) :
     m_logText(NULL),
     m_exitButton(NULL),
     m_cancelButton(NULL),
-    m_updateButton(NULL)
+    m_updateButton(NULL), m_actions(NULL)
 {
     m_updateTime = gCoreContext->GetNumSetting(
         "LogViewerUpdateTime", DEFAULT_UPDATE_TIME);
@@ -65,6 +65,9 @@ LogViewer::~LogViewer(void)
 
     if (m_updateTimer)
         delete m_updateTimer;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool LogViewer::Create(void)
@@ -115,6 +118,19 @@ void LogViewer::Init(void)
         m_logList->SetItemCurrent(m_logList->GetCount() - 1);
 }
 
+static struct ActionDefStruct<LogViewer> lvActions[] = {
+    { "MENU",               &LogViewer::doMenu }
+};
+static int lvActionCount = NELEMS(lvActions);
+
+bool LogViewer::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+
 bool LogViewer::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -124,15 +140,12 @@ bool LogViewer::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-            showMenu();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<LogViewer>(this, lvActions,
+                                                   lvActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

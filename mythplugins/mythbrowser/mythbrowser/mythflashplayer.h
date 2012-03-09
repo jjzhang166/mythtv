@@ -2,6 +2,7 @@
 #define MYTHFLASHPLAYER_H
 
 #include <mythscreentype.h>
+#include "mythactions.h"
 
 class MythUIWebBrowser;
 
@@ -16,6 +17,15 @@ class MythFlashPlayer : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
 
+    bool doPause(const QString &action);
+    bool doInfo(const QString &action);
+    bool doSeekFfwd(const QString &action);
+    bool doSeekRwnd(const QString &action);
+    bool doChanUp(const QString &action);
+    bool doChanDown(const QString &action);
+    bool doVolumeUp(const QString &action);
+    bool doVolumeDown(const QString &action);
+
   private:
     QVariant evaluateJavaScript(const QString&);
     MythUIWebBrowser*         m_browser;
@@ -23,6 +33,8 @@ class MythFlashPlayer : public MythScreenType
     int                       m_fftime;
     int                       m_rewtime;
     int                       m_jumptime;
+
+    MythActions<MythFlashPlayer> *m_actions;
 };
 
 #endif
