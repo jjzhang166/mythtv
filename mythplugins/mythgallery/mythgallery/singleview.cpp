@@ -41,6 +41,7 @@ using namespace std;
 // MythGallery headers
 #include "singleview.h"
 #include "galleryutil.h"
+#include "mythactions.h"
 
 #define LOC QString("QtView: ")
 
@@ -329,11 +330,242 @@ void SingleView::paintEvent(QPaintEvent *)
         RunEffect(m_effect_method);
 }
 
+static struct ActionDefStruct<SingleView> svActions[] = {
+    { "UP",          &SingleView::doUp },
+    { "LEFT",        &SingleView::doUp },
+    { "DOWN",        &SingleView::doDown },
+    { "RIGHT",       &SingleView::doDown },
+    { "ZOOMOUT",     &SingleView::doZoomOut },
+    { "ZOOMIN",      &SingleView::doZoomIn },
+    { "FULLSIZE",    &SingleView::doFullSize },
+    { "SCROLLLEFT",  &SingleView::doScrollLeft },
+    { "SCROLLRIGHT", &SingleView::doScrollRight },
+    { "SCROLLDOWN",  &SingleView::doScrollDown },
+    { "SCROLLUP",    &SingleView::doScrollUp },
+    { "RECENTER",    &SingleView::doReCenter },
+    { "UPLEFT",      &SingleView::doUpLeft },
+    { "LOWRIGHT",    &SingleView::doLowRight },
+    { "ROTRIGHT",    &SingleView::doRotRight },
+    { "ROTLEFT",     &SingleView::doRotLeft },
+    { "DELETE",      &SingleView::doDelete },
+    { "PLAY",        &SingleView::doRandomShow },
+    { "RANDOMSHOW",  &SingleView::doRandomShow },
+    { "SLIDESHOW",   &SingleView::doRandomShow },
+    { "INFO",        &SingleView::doInfo },
+    { "FULLSCREEN",  &SingleView::doFullScreen }
+};
+static int svActionCount = NELEMS(svActions);
+
+bool SingleView::doUp(const QString &action)
+{
+    (void)action;
+    m_info_show = m_actionWasInfo;
+    m_slideshow_running = m_actionWasRunning;
+    DisplayPrev(true, true);
+    return true;
+}
+
+bool SingleView::doDown(const QString &action)
+{
+    (void)action;
+    m_info_show = m_actionWasInfo;
+    m_slideshow_running = m_actionWasRunning;
+    DisplayNext(true, true);
+    return true;
+}
+
+bool SingleView::doZoomOut(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 0.5f)
+    {
+	SetZoom(m_zoom - 0.5f);
+	if (m_zoom > 1.0f)
+	{
+	    m_source_loc.setY(m_source_loc.y() - (screenheight / 4));
+	    m_source_loc.setX(m_source_loc.x() - (screenwidth / 4));
+	    CheckPosition();
+	}
+	else
+	{
+	    m_source_loc = QPoint(0, 0);
+	}
+    }
+    return true;
+}
+
+bool SingleView::doZoomIn(const QString &action)
+{
+    (void)action;
+    if (m_zoom < 4.0f)
+    {
+	SetZoom(m_zoom + 0.5f);
+	if (m_zoom > 1.0f)
+	{
+	    m_source_loc.setY(m_source_loc.y() + (screenheight / 4));
+	    m_source_loc.setX(m_source_loc.x() + (screenwidth / 4));
+	    CheckPosition();
+	}
+	else
+	{
+	    m_source_loc = QPoint(0, 0);
+	}
+    }
+    return true;
+}
+
+bool SingleView::doFullSize(const QString &action)
+{
+    (void)action;
+    m_source_loc = QPoint(0, 0);
+    if (m_zoom != 1.0f)
+	SetZoom(1.0f);
+    return true;
+}
+
+bool SingleView::doScrollLeft(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f)
+    {
+	m_source_loc.setX(m_source_loc.x() - m_actionScrollX);
+	m_source_loc.setX((m_source_loc.x() < 0) ? 0 : m_source_loc.x());
+    }
+    return true;
+}
+
+bool SingleView::doScrollRight(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_pixmap)
+    {
+	m_source_loc.setX(m_source_loc.x() + m_actionScrollX);
+	m_source_loc.setX(min(m_source_loc.x(),
+                          m_pixmap->width() - screenwidth));
+    }
+    return true;
+}
+
+bool SingleView::doScrollDown(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_pixmap)
+    {
+	m_source_loc.setY(m_source_loc.y() + m_actionScrollY);
+	m_source_loc.setY(min(m_source_loc.y(),
+			  m_pixmap->height() - screenheight));
+    }
+    return true;
+}
+
+bool SingleView::doScrollUp(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f)
+    {
+	m_source_loc.setY(m_source_loc.y() - m_actionScrollY);
+	m_source_loc.setY((m_source_loc.y() < 0) ? 0 : m_source_loc.y());
+    }
+    return true;
+}
+
+bool SingleView::doReCenter(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_pixmap)
+    {
+	m_source_loc = QPoint((m_pixmap->width()  - screenwidth)  >> 1,
+	                      (m_pixmap->height() - screenheight) >> 1);
+    }
+    return true;
+}
+
+bool SingleView::doUpLeft(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f)
+    {
+	m_source_loc = QPoint(0,0);
+    }
+    return true;
+}
+
+bool SingleView::doLowRight(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_pixmap)
+    {
+	m_source_loc = QPoint(m_pixmap->width() - m_actionScrollX - screenwidth,
+	                   m_pixmap->height() - m_actionScrollY - screenheight);
+    }
+    return true;
+}
+
+bool SingleView::doRotRight(const QString &action)
+{
+    (void)action;
+    m_source_loc = QPoint(0, 0);
+    Rotate(90);
+    return true;
+}
+
+bool SingleView::doRotLeft(const QString &action)
+{
+    (void)action;
+    m_source_loc = QPoint(0, 0);
+    Rotate(-90);
+    return true;
+}
+
+bool SingleView::doDelete(const QString &action)
+{
+    (void)action;
+    ThumbItem *item = m_itemList.at(m_pos);
+    if (item && GalleryUtil::Delete(item->GetPath()))
+    {
+	item->SetPixmap(NULL);
+	DisplayNext(true, true);
+    }
+    m_info_show = m_actionWasInfo;
+    m_slideshow_running = m_actionWasRunning;
+    return true;
+}
+
+bool SingleView::doRandomShow(const QString &action)
+{
+    (void)action;
+    m_source_loc = QPoint(0, 0);
+    m_zoom = 1.0f;
+    m_angle = 0;
+    m_info_show = m_actionWasInfo;
+    m_info_show_short = true;
+    m_slideshow_running = !m_actionWasRunning;
+    return true;
+}
+
+bool SingleView::doInfo(const QString &action)
+{
+    (void)action;
+    m_info_show = !m_actionWasInfo && !m_actionWasInfoShort;
+    m_slideshow_running = m_actionWasRunning;
+    return true;
+}
+
+bool SingleView::doFullScreen(const QString &action)
+{
+    (void)action;
+    m_scaleMax = (ScaleMax) ((m_scaleMax + 1) % kScaleMaxCount);
+    m_source_loc = QPoint(0, 0);
+    SetZoom(1.0f);
+    return true;
+}
+
+
 void SingleView::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
 
-    bool wasRunning = m_slideshow_running;
+    m_actionWasRunning = m_slideshow_running;
     m_slideshow_timer->stop();
     m_caption_timer->stop();
     m_slideshow_running = false;
@@ -343,177 +575,23 @@ void SingleView::keyPressEvent(QKeyEvent *e)
     if (m_effect_painter && m_effect_painter->isActive())
         m_effect_painter->end();
 
-    bool wasInfo = m_info_show;
+    m_actionWasInfo = m_info_show;
     m_info_show = false;
-    bool wasInfoShort = m_info_show_short;
+    m_actionWasInfoShort = m_info_show_short;
     m_info_show_short = false;
 
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Gallery", e, actions);
 
-    int scrollX = screenwidth / 10;
-    int scrollY = screenheight / 10;
+    m_actionScrollX = screenwidth / 10;
+    m_actionScrollY = screenheight / 10;
 
-    for (unsigned int i = 0; i < (unsigned int) actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "LEFT" || action == "UP")
-        {
-            m_info_show = wasInfo;
-            m_slideshow_running = wasRunning;
-            DisplayPrev(true, true);
-        }
-        else if (action == "RIGHT" || action == "DOWN")
-        {
-            m_info_show = wasInfo;
-            m_slideshow_running = wasRunning;
-            DisplayNext(true, true);
-        }
-        else if (action == "ZOOMOUT")
-        {
-            if (m_zoom > 0.5f)
-            {
-                SetZoom(m_zoom - 0.5f);
-                if (m_zoom > 1.0)
-                {
-                    m_source_loc.setY(m_source_loc.y() - (screenheight / 4));
-                    m_source_loc.setX(m_source_loc.x() - (screenwidth / 4));
-                    CheckPosition();
-                }
-                else
-                    m_source_loc = QPoint(0, 0);
-            }
-        }
-        else if (action == "ZOOMIN")
-        {
-            if (m_zoom < 4.0f)
-            {
-                SetZoom(m_zoom + 0.5f);
-                if (m_zoom > 1.0)
-                {
-                    m_source_loc.setY(m_source_loc.y() + (screenheight / 4));
-                    m_source_loc.setX(m_source_loc.x() + (screenwidth / 4));
-                    CheckPosition();
-                }
-                else
-                    m_source_loc = QPoint(0, 0);
-            }
-        }
-        else if (action == "FULLSIZE")
-        {
-            m_source_loc = QPoint(0, 0);
-            if (m_zoom != 1.0f)
-                SetZoom(1.0f);
-        }
-        else if (action == "SCROLLLEFT")
-        {
-            if (m_zoom > 1.0f)
-            {
-                m_source_loc.setX(m_source_loc.x() - scrollX);
-                m_source_loc.setX(
-                    (m_source_loc.x() < 0) ? 0 : m_source_loc.x());
-            }
-        }
-        else if (action == "SCROLLRIGHT")
-        {
-            if (m_zoom > 1.0f && m_pixmap)
-            {
-                m_source_loc.setX(m_source_loc.x() + scrollX);
-                m_source_loc.setX(min(m_source_loc.x(),
-                                  m_pixmap->width() - screenwidth));
-            }
-        }
-        else if (action == "SCROLLDOWN")
-        {
-            if (m_zoom > 1.0f && m_pixmap)
-            {
-                m_source_loc.setY(m_source_loc.y() + scrollY);
-                m_source_loc.setY(min(m_source_loc.y(),
-                                  m_pixmap->height() - screenheight));
-            }
-        }
-        else if (action == "SCROLLUP")
-        {
-            if (m_zoom > 1.0f)
-            {
-                m_source_loc.setY(m_source_loc.y() - scrollY);
-                m_source_loc.setY(
-                    (m_source_loc.y() < 0) ? 0 : m_source_loc.y());
-            }
-        }
-        else if (action == "RECENTER")
-        {
-            if (m_zoom > 1.0f && m_pixmap)
-            {
-                m_source_loc = QPoint(
-                    (m_pixmap->width()  - screenwidth)  >> 1,
-                    (m_pixmap->height() - screenheight) >> 1);
-            }
-        }
-        else if (action == "UPLEFT")
-        {
-            if (m_zoom > 1.0f)
-            {
-                m_source_loc = QPoint(0,0);
-            }
-        }
-        else if (action == "LOWRIGHT")
-        {
-            if (m_zoom > 1.0f && m_pixmap)
-            {
-                m_source_loc = QPoint(
-                    m_pixmap->width()  - scrollX - screenwidth,
-                    m_pixmap->height() - scrollY - screenheight);
-            }
-        }
-        else if (action == "ROTRIGHT")
-        {
-            m_source_loc = QPoint(0, 0);
-            Rotate(90);
-        }
-        else if (action == "ROTLEFT")
-        {
-            m_source_loc = QPoint(0, 0);
-            Rotate(-90);
-        }
-        else if (action == "DELETE")
-        {
-            ThumbItem *item = m_itemList.at(m_pos);
-            if (item && GalleryUtil::Delete(item->GetPath()))
-            {
-                item->SetPixmap(NULL);
-                DisplayNext(true, true);
-            }
-            m_info_show = wasInfo;
-            m_slideshow_running = wasRunning;
-        }
-        else if (action == "PLAY" || action == "SLIDESHOW" ||
-                 action == "RANDOMSHOW")
-        {
-            m_source_loc = QPoint(0, 0);
-            m_zoom = 1.0f;
-            m_angle = 0;
-            m_info_show = wasInfo;
-            m_info_show_short = true;
-            m_slideshow_running = !wasRunning;
-        }
-        else if (action == "INFO")
-        {
-            m_info_show = !wasInfo && !wasInfoShort;
-            m_slideshow_running = wasRunning;
-        }
-        else if (action == "FULLSCREEN")
-        {
-            m_scaleMax = (ScaleMax) ((m_scaleMax + 1) % kScaleMaxCount);
-            m_source_loc = QPoint(0, 0);
-            SetZoom(1.0f);
-        }
-        else
-        {
-            handled = false;
-        }
+        if (!m_actions)
+            m_actions = new MythActions<SingleView>(this, svActions,
+                                                    svActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (m_slideshow_running || m_info_show_short)

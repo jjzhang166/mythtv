@@ -39,6 +39,7 @@
 #include "galleryfilter.h"
 #include "galleryfilterdlg.h"
 #include "thumbview.h"
+#include "mythactions.h"
 
 using namespace std;
 
@@ -63,6 +64,15 @@ class IconView : public MythScreenType
     void HandleRandomShow(void);
 
     QString GetError(void) { return m_errorStr; }
+
+    bool doMenu(const QString &action);
+    bool doRotRight(const QString &action);
+    bool doRotLeft(const QString &action);
+    bool doDelete(const QString &action);
+    bool doMark(const QString &action);
+    bool doRandomShow(const QString &action);
+    bool doSlideShow(const QString &action);
+    bool doEscape(const QString &action);
 
   private:
     void SetupMediaMonitor(void);
@@ -156,6 +166,9 @@ class IconView : public MythScreenType
     void UpdateImage(MythUIButtonListItem *);
 
     friend class FileCopyThread;
+
+  private:
+    MythActions<IconView> *m_actions;
 };
 
 typedef struct 

@@ -40,6 +40,7 @@ using namespace std;
 #include "imageview.h"
 #include "iconview.h"
 #include "sequence.h"
+#include "mythactions.h"
 
 class QTimer;
 
@@ -60,6 +61,25 @@ class SingleView : public MythDialog, public ImageView
 
     static const int kIncomingEdgesFixed  = 0;
     static const int kIncomingEdgesMoving = 1;
+
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doZoomOut(const QString &action);
+    bool doZoomIn(const QString &action);
+    bool doFullSize(const QString &action);
+    bool doScrollLeft(const QString &action);
+    bool doScrollRight(const QString &action);
+    bool doScrollDown(const QString &action);
+    bool doScrollUp(const QString &action);
+    bool doReCenter(const QString &action);
+    bool doUpLeft(const QString &action);
+    bool doLowRight(const QString &action);
+    bool doRotRight(const QString &action);
+    bool doRotLeft(const QString &action);
+    bool doDelete(const QString &action);
+    bool doRandomShow(const QString &action);
+    bool doInfo(const QString &action);
+    bool doFullScreen(const QString &action);
 
   protected:
     // Commands
@@ -143,6 +163,13 @@ class SingleView : public MythDialog, public ImageView
     float         m_effect_multi_circle_out_delta_alpha;
     QPolygon      m_effect_milti_circle_out_points;
     QPolygon      m_effect_circle_out_points;
+
+    MythActions<SingleView> *m_actions;
+    bool m_actionWasRunning;
+    bool m_actionWasInfo;
+    bool m_actionWasInfoShort;
+    int m_actionScrollX;
+    int m_actionScrollY;
 };
 
 #endif /* SINGLEVIEW_H */

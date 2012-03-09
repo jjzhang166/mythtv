@@ -10,6 +10,7 @@
 #include <metadata/metadatadownload.h>
 #include <metadata/metadataimagedownload.h>
 #include <mythprogressdialog.h>
+#include "mythactions.h"
 
 class MythUIButtonTree;
 class MythGenericTree;
@@ -32,6 +33,13 @@ class GameUI : public MythScreenType
     bool Create();
     void Load();
     bool keyPressEvent(QKeyEvent *event);
+
+    bool doMenu(const QString &action);
+    bool doEdit(const QString &action);
+    bool doInfo(const QString &action);
+    bool doToggleFav(const QString &action);
+    bool doIncSearch(const QString &action);
+    bool doDownloadData(const QString &action);
 
   public slots:
     void nodeChanged(MythGenericTree* node);
@@ -93,6 +101,8 @@ class GameUI : public MythScreenType
     MetadataImageDownload *m_imageDownload;
 
     GameScanner      *m_scanner;
+
+    MythActions<GameUI> *m_actions;
 };
 
 #endif

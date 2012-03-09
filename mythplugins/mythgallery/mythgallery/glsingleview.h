@@ -36,6 +36,7 @@
 
 // QT headers
 #include <QGLWidget>
+#include "mythactions.h"
 
 class QImage;
 class QTimer;
@@ -70,6 +71,26 @@ class GLSingleView : public QGLWidget, public ImageView
     void Ready(){m_effect_kenBurns_image_ready = true;}
     void LoadImage(QImage image, QSize origSize);
 
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doZoomOut(const QString &action);
+    bool doZoomIn(const QString &action);
+    bool doFullSize(const QString &action);
+    bool doScrollLeft(const QString &action);
+    bool doScrollRight(const QString &action);
+    bool doScrollDown(const QString &action);
+    bool doScrollUp(const QString &action);
+    bool doReCenter(const QString &action);
+    bool doUpLeft(const QString &action);
+    bool doLowRight(const QString &action);
+    bool doRotRight(const QString &action);
+    bool doRotLeft(const QString &action);
+    bool doDelete(const QString &action);
+    bool doPlay(const QString &action);
+    bool doSelect(const QString &action);
+    bool doRandomShow(const QString &action);
+    bool doInfo(const QString &action);
+    bool doFullScreen(const QString &action);
 
   protected:
     void initializeGL(void);
@@ -156,6 +177,12 @@ class GLSingleView : public QGLWidget, public ImageView
     bool          m_effect_kenBurns_initialized;
     bool          m_effect_kenBurns_new_image_started;
 
+    MythActions<GLSingleView> *m_actions;
+    bool m_actionWasRunning;
+    bool m_actionWasInfo;
+    bool m_actionWasInfoShort;
+    float m_actionScrollX;
+    float m_actionScrollY;
 };
 
 class KenBurnsImageLoader : public MThread

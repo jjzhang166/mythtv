@@ -44,6 +44,7 @@ using namespace std;
 
 // MythGallery headers
 #include "galleryutil.h"
+#include "mythactions.h"
 
 #define LOC QString("GLView: ")
 
@@ -73,35 +74,32 @@ void GLSDialog::closeEvent(QCloseEvent *e)
 }
 
 GLSingleView::GLSingleView(ThumbList itemList, int *pos, int slideShow,
-                           int sortorder, QWidget *parent)
-    : QGLWidget(parent),
-      ImageView(itemList, pos, slideShow, sortorder),
-      // General
-      m_source_x(0.0f),
-      m_source_y(0.0f),
-      m_scaleMax(kScaleToFit),
-
-      // Texture variables (for display and effects)
-      m_texMaxDim(512),
-      m_texSize(512,512),
-      m_texCur(0),
-      m_tex1First(true),
-
-      // Info variables
-      m_texInfo(0),
-
-      // Common effect state variables
-      m_effect_rotate_direction(0),
-      m_effect_transition_timeout(2000),
-      m_effect_transition_timeout_inv(1.0f / m_effect_transition_timeout),
-
-      // Unshared effect state variables
-      m_effect_cube_xrot(0.0f),
-      m_effect_cube_yrot(0.0f),
-      m_effect_cube_zrot(0.0f),
-      m_effect_kenBurns_image_ready(true),
-      m_effect_kenBurns_initialized(false),
-      m_effect_kenBurns_new_image_started(true)
+                           int sortorder, QWidget *parent) :
+    QGLWidget(parent),
+    ImageView(itemList, pos, slideShow, sortorder),
+    // General
+    m_source_x(0.0f),
+    m_source_y(0.0f),
+    m_scaleMax(kScaleToFit),
+    // Texture variables (for display and effects)
+    m_texMaxDim(512),
+    m_texSize(512,512),
+    m_texCur(0),
+    m_tex1First(true),
+    // Info variables
+    m_texInfo(0),
+    // Common effect state variables
+    m_effect_rotate_direction(0),
+    m_effect_transition_timeout(2000),
+    m_effect_transition_timeout_inv(1.0f / m_effect_transition_timeout),
+    // Unshared effect state variables
+    m_effect_cube_xrot(0.0f),
+    m_effect_cube_yrot(0.0f),
+    m_effect_cube_zrot(0.0f),
+    m_effect_kenBurns_image_ready(true),
+    m_effect_kenBurns_initialized(false),
+    m_effect_kenBurns_new_image_started(true),
+    m_actions(NULL)
 {
     m_scaleMax = (ScaleMax) gCoreContext->GetNumSetting("GalleryScaleMax", 0);
 
@@ -148,6 +146,9 @@ GLSingleView::~GLSingleView()
     // save the current m_scaleMax setting so we can restore it later
     gCoreContext->SaveSetting("GalleryScaleMax", m_scaleMax);
     CleanUp();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void GLSingleView::CleanUp(void)
@@ -266,202 +267,298 @@ void GLSingleView::paintGL(void)
         LOG(VB_GENERAL, LOG_ERR, LOC + "OpenGL error detected");
 }
 
+static struct ActionDefStruct<GLSingleView> glsvActions[] = {
+    { "UP",          &GLSingleView::doUp },
+    { "LEFT",        &GLSingleView::doUp },
+    { "DOWN",        &GLSingleView::doDown },
+    { "RIGHT",       &GLSingleView::doDown },
+    { "ZOOMOUT",     &GLSingleView::doZoomOut },
+    { "ZOOMIN",      &GLSingleView::doZoomIn },
+    { "FULLSIZE",    &GLSingleView::doFullSize },
+    { "SCROLLLEFT",  &GLSingleView::doScrollLeft },
+    { "SCROLLRIGHT", &GLSingleView::doScrollRight },
+    { "SCROLLDOWN",  &GLSingleView::doScrollDown },
+    { "SCROLLUP",    &GLSingleView::doScrollUp },
+    { "RECENTER",    &GLSingleView::doReCenter },
+    { "UPLEFT",      &GLSingleView::doUpLeft },
+    { "LOWRIGHT",    &GLSingleView::doLowRight },
+    { "ROTRIGHT",    &GLSingleView::doRotRight },
+    { "ROTLEFT",     &GLSingleView::doRotLeft },
+    { "DELETE",      &GLSingleView::doDelete },
+    { "PLAY",        &GLSingleView::doPlay },
+    { "SELECT",      &GLSingleView::doSelect },
+    { "RANDOMSHOW",  &GLSingleView::doRandomShow },
+    { "SLIDESHOW",   &GLSingleView::doRandomShow },
+    { "INFO",        &GLSingleView::doInfo },
+    { "FULLSCREEN",  &GLSingleView::doFullScreen }
+};
+static int glsvActionCount = NELEMS(glsvActions);
+
+bool GLSingleView::doUp(const QString &action)
+{
+    (void)action;
+    m_info_show = m_actionWasInfo;
+    m_slideshow_running = m_actionWasRunning;
+    DisplayPrev(true, true);
+    return true;
+}
+
+bool GLSingleView::doDown(const QString &action)
+{
+    (void)action;
+    m_info_show = m_actionWasInfo;
+    m_slideshow_running = m_actionWasRunning;
+    DisplayNext(true, true);
+    return true;
+}
+
+bool GLSingleView::doZoomOut(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 0.5f)
+    {
+	SetZoom(m_zoom - 0.5f);
+	if (m_zoom > 1.0f)
+	{
+	    m_source_x   -= m_source_x / ((m_zoom + 0.5) * 2.0f);
+	    m_source_y   -= m_source_y / ((m_zoom + 0.5) * 2.0f);
+
+	    checkPosition();
+	}
+	else
+	{
+	    m_source_x = 0;
+	    m_source_y = 0;
+	}
+    }
+    return true;
+}
+
+bool GLSingleView::doZoomIn(const QString &action)
+{
+    (void)action;
+    if (m_zoom < 4.0f)
+    {
+	SetZoom(m_zoom + 0.5f);
+	if (m_zoom > 1.0f)
+	{
+	    m_source_x   += m_source_x / (m_zoom * 2.0f);
+	    m_source_y   += m_source_y / (m_zoom * 2.0f);
+
+	    checkPosition();
+	}
+	else
+	{
+	    m_source_x = 0;
+	    m_source_y = 0;
+	}
+    }
+    return true;
+}
+
+bool GLSingleView::doFullSize(const QString &action)
+{
+    (void)action;
+    m_source_x = 0;
+    m_source_y = 0;
+    if (m_zoom != 1)
+	SetZoom(1.0f);
+    return true;
+}
+
+bool GLSingleView::doScrollLeft(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_source_x < m_zoom - 1.0f)
+    {
+	m_source_x += m_actionScrollX;
+	m_source_x  = min(m_source_x, m_zoom - 1.0f);
+    }
+    return true;
+}
+
+bool GLSingleView::doScrollRight(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_source_x > -m_zoom + 1.0f)
+    {
+	m_source_x -= m_actionScrollX;
+	m_source_x  = max(m_source_x, -m_zoom + 1.0f);
+    }
+    return true;
+}
+
+bool GLSingleView::doScrollDown(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_source_y <  m_zoom - 1.0f)
+    {
+	m_source_y += m_actionScrollY;
+	m_source_y  = min(m_source_y,  m_zoom - 1.0f);
+    }
+    return true;
+}
+
+bool GLSingleView::doScrollUp(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f && m_source_y > -m_zoom + 1.0f)
+    {
+	m_source_y -= m_actionScrollY;
+	m_source_y  = max(m_source_y, -m_zoom + 1.0f);
+    }
+    return true;
+}
+
+bool GLSingleView::doReCenter(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f)
+    {
+	m_source_x = 0.0f;
+	m_source_y = 0.0f;
+    }
+    return true;
+}
+
+bool GLSingleView::doUpLeft(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f)
+    {
+	m_source_x  =  1.0f;
+	m_source_y  = -1.0f;
+    }
+    return true;
+}
+
+bool GLSingleView::doLowRight(const QString &action)
+{
+    (void)action;
+    if (m_zoom > 1.0f)
+    {
+	m_source_x = -1.0f;
+	m_source_y =  1.0f;
+    }
+    return true;
+}
+
+bool GLSingleView::doRotRight(const QString &action)
+{
+    (void)action;
+    m_source_x = 0;
+    m_source_y = 0;
+    Rotate(90);
+    return true;
+}
+
+bool GLSingleView::doRotLeft(const QString &action)
+{
+    (void)action;
+    m_source_x = 0;
+    m_source_y = 0;
+    Rotate(-90);
+    return true;
+}
+
+bool GLSingleView::doDelete(const QString &action)
+{
+    (void)action;
+    ThumbItem *item = m_itemList.at(m_pos);
+    if (item && GalleryUtil::Delete(item->GetPath()))
+    {
+	item->SetPixmap(NULL);
+	DisplayNext(true, true);
+    }
+    m_info_show = m_actionWasInfo;
+    m_slideshow_running = m_actionWasRunning;
+    return true;
+}
+
+bool GLSingleView::doPlay(const QString &action)
+{
+    (void)action;
+    if (m_movieState == 2)
+    {
+        m_movieState = 1;
+        return true;
+    }
+
+    return doRandomShow(action);
+}
+
+bool GLSingleView::doSelect(const QString &action)
+{
+    (void)action;
+    if (m_movieState == 2)
+    {
+        m_movieState = 1;
+        return true;
+    }
+    return false;
+}
+
+bool GLSingleView::doRandomShow(const QString &action)
+{
+    (void)action;
+    m_source_x   = 0;
+    m_source_y   = 0;
+    SetZoom(1.0f);
+    m_info_show = m_actionWasInfo;
+    m_info_show_short = true;
+    m_slideshow_running = !m_actionWasRunning;
+    return true;
+}
+
+bool GLSingleView::doInfo(const QString &action)
+{
+    (void)action;
+    m_info_show = !m_actionWasInfo && !m_actionWasInfoShort;
+    m_slideshow_running = m_actionWasRunning;
+    return true;
+}
+
+bool GLSingleView::doFullScreen(const QString &action)
+{
+    (void)action;
+    m_scaleMax = (ScaleMax) ((m_scaleMax + 1) % kScaleMaxCount);
+    m_source_x = 0;
+    m_source_y = 0;
+    SetZoom(1.0f);
+
+    int a = m_tex1First ? 0 : 1;
+    m_texItem[a].ScaleTo(m_screenSize, m_scaleMax);
+    return true;
+}
+
 void GLSingleView::keyPressEvent(QKeyEvent *e)
 {
     bool handled    = false;
 
-    bool wasRunning = m_slideshow_running;
+    m_actionWasRunning = m_slideshow_running;
     m_slideshow_timer->stop();
     m_slideshow_running = false;
     GetMythUI()->RestoreScreensaver();
     m_effect_running = false;
     m_slideshow_frame_delay_state = m_slideshow_frame_delay * 1000;
 
-    bool wasInfo = m_info_show;
+    m_actionWasInfo = m_info_show;
     m_info_show = false;
-    bool wasInfoShort = m_info_show_short;
+    m_actionWasInfoShort = m_info_show_short;
     m_info_show_short = false;
 
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Gallery", e, actions);
 
-    float scrollX = 0.2f;
-    float scrollY = 0.2f;
+    m_actionScrollX = 0.2f;
+    m_actionScrollY = 0.2f;
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "LEFT" || action == "UP")
-        {
-            m_info_show = wasInfo;
-            m_slideshow_running = wasRunning;
-            DisplayPrev(true, true);
-        }
-        else if (action == "RIGHT" || action == "DOWN")
-        {
-            m_info_show = wasInfo;
-            m_slideshow_running = wasRunning;
-            DisplayNext(true, true);
-        }
-        else if (action == "ZOOMOUT")
-        {
-            if (m_zoom > 0.5f)
-            {
-                SetZoom(m_zoom - 0.5f);
-                if (m_zoom > 1.0f)
-                {
-                    m_source_x   -= m_source_x / ((m_zoom + 0.5) * 2.0f);
-                    m_source_y   -= m_source_y / ((m_zoom + 0.5) * 2.0f);
-
-                    checkPosition();
-                }
-                else
-                {
-                    m_source_x = 0;
-                    m_source_y = 0;
-                }
-            }
-        }
-        else if (action == "ZOOMIN")
-        {
-            if (m_zoom < 4.0f)
-            {
-                SetZoom(m_zoom + 0.5f);
-                if (m_zoom > 1.0f)
-                {
-                    m_source_x   += m_source_x / (m_zoom * 2.0f);
-                    m_source_y   += m_source_y / (m_zoom * 2.0f);
-
-                    checkPosition();
-                }
-                else
-                {
-                    m_source_x = 0;
-                    m_source_y = 0;
-                }
-            }
-        }
-        else if (action == "FULLSIZE")
-        {
-            m_source_x = 0;
-            m_source_y = 0;
-            if (m_zoom != 1)
-                SetZoom(1.0f);
-        }
-        else if (action == "SCROLLLEFT")
-        {
-            if (m_zoom > 1.0f && m_source_x < m_zoom - 1.0f)
-            {
-                m_source_x += scrollX;
-                m_source_x  = min(m_source_x, m_zoom - 1.0f);
-            }
-        }
-        else if (action == "SCROLLRIGHT")
-        {
-            if (m_zoom > 1.0f && m_source_x > -m_zoom + 1.0f)
-            {
-                m_source_x -= scrollX;
-                m_source_x  = max(m_source_x, -m_zoom + 1.0f);
-            }
-        }
-        else if (action == "SCROLLDOWN")
-        {
-            if (m_zoom > 1.0f && m_source_y <  m_zoom - 1.0f)
-            {
-                m_source_y += scrollY;
-                m_source_y  = min(m_source_y,  m_zoom - 1.0f);
-            }
-        }
-        else if (action == "SCROLLUP")
-        {
-            if (m_zoom > 1.0f && m_source_y > -m_zoom + 1.0f)
-            {
-                m_source_y -= scrollY;
-                m_source_y  = max(m_source_y, -m_zoom + 1.0f);
-            }
-        }
-        else if (action == "RECENTER")
-        {
-            if (m_zoom > 1.0f)
-            {
-                m_source_x = 0.0f;
-                m_source_y = 0.0f;
-            }
-        }
-        else if (action == "UPLEFT")
-        {
-            if (m_zoom > 1.0f)
-            {
-                m_source_x  =  1.0f;
-                m_source_y  = -1.0f;
-            }
-        }
-        else if (action == "LOWRIGHT")
-        {
-            if (m_zoom > 1.0f)
-            {
-                m_source_x = -1.0f;
-                m_source_y =  1.0f;
-            }
-        }
-        else if (action == "ROTRIGHT")
-        {
-            m_source_x = 0;
-            m_source_y = 0;
-            Rotate(90);
-        }
-        else if (action == "ROTLEFT")
-        {
-            m_source_x = 0;
-            m_source_y = 0;
-            Rotate(-90);
-        }
-        else if (action == "DELETE")
-        {
-            ThumbItem *item = m_itemList.at(m_pos);
-            if (item && GalleryUtil::Delete(item->GetPath()))
-            {
-                item->SetPixmap(NULL);
-                DisplayNext(true, true);
-            }
-            m_info_show = wasInfo;
-            m_slideshow_running = wasRunning;
-        }
-        else if ((action == "PLAY" || action == "SELECT") && m_movieState == 2)
-        {
-            m_movieState = 1;
-        }
-        else if (action == "PLAY" || action == "SLIDESHOW" ||
-                 action == "RANDOMSHOW")
-        {
-            m_source_x   = 0;
-            m_source_y   = 0;
-            SetZoom(1.0f);
-            m_info_show = wasInfo;
-            m_info_show_short = true;
-            m_slideshow_running = !wasRunning;
-        }
-        else if (action == "INFO")
-        {
-            m_info_show = !wasInfo && !wasInfoShort;
-            m_slideshow_running = wasRunning;
-        }
-        else if (action == "FULLSCREEN")
-        {
-            m_scaleMax = (ScaleMax) ((m_scaleMax + 1) % kScaleMaxCount);
-            m_source_x = 0;
-            m_source_y = 0;
-            SetZoom(1.0f);
-
-            int a = m_tex1First ? 0 : 1;
-            m_texItem[a].ScaleTo(m_screenSize, m_scaleMax);
-        }
-        else
-        {
-            handled = false;
-        }
+        if (!m_actions)
+            m_actions = new MythActions<GLSingleView>(this, glsvActions,
+                                                      glsvActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (m_slideshow_running || m_info_show_short)

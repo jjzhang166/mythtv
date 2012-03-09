@@ -20,6 +20,7 @@
 #include "romedit.h"
 #include "gamescan.h"
 #include "gameui.h"
+#include "mythactions.h"
 
 class GameTreeInfo
 {
@@ -41,17 +42,17 @@ class GameTreeInfo
 
 Q_DECLARE_METATYPE(GameTreeInfo *)
 
-GameUI::GameUI(MythScreenStack *parent)
-       : MythScreenType(parent, "GameUI"),
-            m_showHashed(false), m_gameShowFileName(0),
-            m_gameTree(NULL), m_favouriteNode(NULL),
-            m_busyPopup(0),
-            m_gameUITree(NULL), m_gameTitleText(NULL),
-            m_gameSystemText(NULL), m_gameYearText(NULL),
-            m_gameGenreText(NULL), m_gamePlotText(NULL),
-            m_gameFavouriteState(NULL), m_gameImage(NULL),
-            m_fanartImage(NULL), m_boxImage(NULL),
-            m_scanner(NULL)
+GameUI::GameUI(MythScreenStack *parent) :
+    MythScreenType(parent, "GameUI"),
+    m_showHashed(false), m_gameShowFileName(0),
+    m_gameTree(NULL), m_favouriteNode(NULL),
+    m_busyPopup(0),
+    m_gameUITree(NULL), m_gameTitleText(NULL),
+    m_gameSystemText(NULL), m_gameYearText(NULL),
+    m_gameGenreText(NULL), m_gamePlotText(NULL),
+    m_gameFavouriteState(NULL), m_gameImage(NULL),
+    m_fanartImage(NULL), m_boxImage(NULL),
+    m_scanner(NULL), m_actions(NULL)
 {
     m_popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -61,6 +62,8 @@ GameUI::GameUI(MythScreenStack *parent)
 
 GameUI::~GameUI()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool GameUI::Create()
@@ -178,6 +181,60 @@ void GameUI::Load()
     m_gameUITree->AssignTree(m_gameTree);
 }
 
+static struct ActionDefStruct<GameUI> guiActions[] = {
+    { "MENU",          &GameUI::doMenu },
+    { "EDIT",          &GameUI::doEdit },
+    { "INFO",          &GameUI::doInfo },
+    { "TOGGLEFAV",     &GameUI::doToggleFav },
+    { "INCSEARCH",     &GameUI::doIncSearch },
+    { "INCSEARCHNEXT", &GameUI::doIncSearch },
+    { "DOWNLOADDATA",  &GameUI::doDownloadData }
+};
+static int guiActionCount = NELEMS(guiActions);
+
+bool GameUI::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+bool GameUI::doEdit(const QString &action)
+{
+    (void)action;
+    edit();
+    return true;
+}
+
+bool GameUI::doInfo(const QString &action)
+{
+    (void)action;
+    showInfo();
+    return true;
+}
+
+bool GameUI::doToggleFav(const QString &action)
+{
+    (void)action;
+    toggleFavorite();
+    return true;
+}
+
+bool GameUI::doIncSearch(const QString &action)
+{
+    (void)action;
+    searchStart();
+    return true;
+}
+
+bool GameUI::doDownloadData(const QString &action)
+{
+    (void)action;
+    gameSearch();
+    return true;
+}
+
+
 bool GameUI::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -187,27 +244,12 @@ bool GameUI::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Game", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-            showMenu();
-        else if (action == "EDIT")
-            edit();
-        else if (action == "INFO")
-            showInfo();
-        else if (action == "TOGGLEFAV")
-            toggleFavorite();
-        else if (action == "INCSEARCH")
-            searchStart();
-        else if (action == "INCSEARCHNEXT")
-            searchStart();
-        else if (action == "DOWNLOADDATA")
-            gameSearch();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<GameUI>(this, guiActions,
+                                                guiActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

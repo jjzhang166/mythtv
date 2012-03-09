@@ -52,6 +52,7 @@ using namespace std;
 #include "iconview.h"
 #include "singleview.h"
 #include "glsingleview.h"
+#include "mythactions.h"
 
 #define LOC QString("IconView: ")
 
@@ -104,8 +105,8 @@ void FileCopyThread::run()
 ///////////////////////////////////////////////////////////////////////////////
 
 IconView::IconView(MythScreenStack *parent, const char *name,
-                   const QString &galleryDir, MythMediaDevice *initialDevice)
-        : MythScreenType(parent, name)
+                   const QString &galleryDir, MythMediaDevice *initialDevice) :
+    MythScreenType(parent, name), m_actions(NULL)
 {
     m_galleryDir = galleryDir;
     m_galleryFilter = new GalleryFilter();
@@ -158,6 +159,9 @@ IconView::~IconView()
         delete m_childCountThread;
         m_childCountThread = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool IconView::Create(void)
@@ -428,6 +432,120 @@ void IconView::UpdateImage(MythUIButtonListItem *item)
     m_selectedImage->Load();
 }
 
+static struct ActionDefStruct<IconView> ivActions[] = {
+    { "MENU",        &IconView::doMenu },
+    { "ROTRIGHT",    &IconView::doRotRight },
+    { "ROTLEFT",     &IconView::doRotLeft },
+    { "DELETE",      &IconView::doDelete },
+    { "MARK",        &IconView::doMark },
+    { "RANDOMSHOW",  &IconView::doRandomShow },
+    { "SLIDESHOW",   &IconView::doSlideShow },
+    { "ESCAPE",      &IconView::doEscape }
+};
+static int ivActionCount = NELEMS(ivActions);
+
+bool IconView::doMenu(const QString &action)
+{
+    (void)action;
+    if (m_itemList.size() != 0)
+    {
+        HandleMainMenu();
+        return true;
+    }
+    return false;
+}
+
+bool IconView::doRotRight(const QString &action)
+{
+    (void)action;
+    if (m_itemList.size() != 0)
+    {
+        HandleRotateCW();
+        return true;
+    }
+    return false;
+}
+
+bool IconView::doRotLeft(const QString &action)
+{
+    (void)action;
+    if (m_itemList.size() != 0)
+    {
+        HandleRotateCCW();
+        return true;
+    }
+    return false;
+}
+
+bool IconView::doDelete(const QString &action)
+{
+    (void)action;
+    if (m_itemList.size() != 0)
+    {
+        HandleDelete();
+        return true;
+    }
+    return false;
+}
+
+bool IconView::doMark(const QString &action)
+{
+    (void)action;
+    if (m_itemList.size() != 0)
+    {
+        ThumbItem *thumbitem = GetCurrentThumb();
+        MythUIButtonListItem *item = m_imageList->GetItemCurrent();
+
+        if (thumbitem)
+        {
+            if (!m_itemMarked.contains(thumbitem->GetPath()))
+            {
+                m_itemMarked.append(thumbitem->GetPath());
+                item->setChecked(MythUIButtonListItem::FullChecked);
+            }
+            else
+            {
+                m_itemMarked.removeAll(thumbitem->GetPath());
+                item->setChecked(MythUIButtonListItem::NotChecked);
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+bool IconView::doRandomShow(const QString &action)
+{
+    (void)action;
+    if (m_itemList.size() != 0)
+    {
+        HandleRandomShow();
+        return true;
+    }
+    return false;
+}
+
+bool IconView::doSlideShow(const QString &action)
+{
+    (void)action;
+    if (m_itemList.size() != 0)
+    {
+        HandleSlideShow();
+        return true;
+    }
+    return false;
+}
+
+bool IconView::doEscape(const QString &action)
+{
+    (void)action;
+    if (GetMythMainWindow()->IsExitingToMain())
+    {
+        while ( m_currDir != m_galleryDir && HandleSubDirEscape(m_galleryDir) );
+    }
+    return HandleEscape();
+}
+
 
 bool IconView::keyPressEvent(QKeyEvent *event)
 {
@@ -438,59 +556,12 @@ bool IconView::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Gallery", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (m_itemList.size() != 0)
-        {
-            if (action == "MENU")
-            {
-                HandleMainMenu();
-            }
-            else if (action == "ROTRIGHT")
-                HandleRotateCW();
-            else if (action == "ROTLEFT")
-                HandleRotateCCW();
-            else if (action == "DELETE")
-                HandleDelete();
-            else if (action == "MARK")
-            {
-                ThumbItem *thumbitem = GetCurrentThumb();
-                MythUIButtonListItem *item = m_imageList->GetItemCurrent();
-
-                if (thumbitem)
-                {
-                    if (!m_itemMarked.contains(thumbitem->GetPath()))
-                    {
-                        m_itemMarked.append(thumbitem->GetPath());
-                        item->setChecked(MythUIButtonListItem::FullChecked);
-                    }
-                    else
-                    {
-                        m_itemMarked.removeAll(thumbitem->GetPath());
-                        item->setChecked(MythUIButtonListItem::NotChecked);
-                    }
-                }
-            }
-            else if (action == "SLIDESHOW")
-                HandleSlideShow();
-            else if (action == "RANDOMSHOW")
-                HandleRandomShow();
-            else
-                handled = false;
-        }
-
-        if (action == "ESCAPE")
-        {
-            if (GetMythMainWindow()->IsExitingToMain())
-            {
-                while ( m_currDir != m_galleryDir &&
-                        HandleSubDirEscape(m_galleryDir) );
-            }
-            handled = HandleEscape();
-        }
+        if (!m_actions)
+            m_actions = new MythActions<IconView>(this, ivActions,
+                                                  ivActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
