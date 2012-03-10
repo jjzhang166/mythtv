@@ -26,6 +26,7 @@
 
 // zm
 #include <zmdefines.h>
+#include "mythactions.h"
 
 class ZMEvents : public MythScreenType
 {
@@ -37,6 +38,13 @@ public:
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
+
+    bool doMenu(const QString &action);
+    bool doEscape(const QString &action);
+    bool doDelete(const QString &action);
+    bool doPause(const QString &action);
+    bool doInfo(const QString &action);
+    bool doDigits(const QString &action);
 
   private slots:
     void getEventList(void);
@@ -77,6 +85,8 @@ public:
     MythUIButtonList    *m_dateSelector;
 
     MythDialogBox       *m_menuPopup;
+
+    MythActions<ZMEvents> *m_actions;
 };
 
 #endif

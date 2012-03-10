@@ -28,6 +28,7 @@
 #include "zmevents.h"
 #include "zmplayer.h"
 #include "zmclient.h"
+#include "mythactions.h"
 
 ZMEvents::ZMEvents(MythScreenStack *parent) :
     MythScreenType(parent, "zmevents"),
@@ -43,18 +44,21 @@ ZMEvents::ZMEvents(MythScreenStack *parent) :
     m_deleteButton(NULL),
     m_cameraSelector(NULL),
     m_dateSelector(NULL),
-    m_menuPopup(NULL)
+    m_menuPopup(NULL), m_actions(NULL)
 {
 }
 
 ZMEvents::~ZMEvents()
 {
-    if (!m_eventList)
+    if (m_eventList)
         delete m_eventList;
 
     // remember how the user wants to display the event list
     gCoreContext->SaveSetting("ZoneMinderOldestFirst", (m_oldestFirst ? "1" : "0"));
     gCoreContext->SaveSetting("ZoneMinderGridLayout",  m_layout);
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ZMEvents::Create(void)
@@ -112,6 +116,65 @@ bool ZMEvents::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<ZMEvents> zmeActions[] = {
+    { "MENU",    &ZMEvents::doMenu },
+    { "ESCAPE",  &ZMEvents::doEscape },
+    { "DELETE",  &ZMEvents::doDelete },
+    { "PAUSE",   &ZMEvents::doPause },
+    { "INFO",    &ZMEvents::doInfo },
+    { "^[123]$", &ZMEvents::doDigits },
+};
+static int zmeActionCount = NELEMS(zmeActions);
+
+bool ZMEvents::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+bool ZMEvents::doEscape(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_eventGrid)
+    {
+        SetFocusWidget(m_cameraSelector);
+        return true;
+    }
+    return false;
+}
+
+bool ZMEvents::doDelete(const QString &action)
+{
+    (void)action;
+    if (m_deleteButton)
+        m_deleteButton->Push();
+    return true;
+}
+
+bool ZMEvents::doPause(const QString &action)
+{
+    (void)action;
+    if (m_playButton)
+        m_playButton->Push();
+    return true;
+}
+
+bool ZMEvents::doInfo(const QString &action)
+{
+    (void)action;
+    m_oldestFirst = !m_oldestFirst;
+    getEventList();
+    return true;
+}
+
+bool ZMEvents::doDigits(const QString &action)
+{
+    (void)action;
+    setGridLayout(action.toInt());
+    return true;
+}
+
 bool ZMEvents::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -119,48 +182,15 @@ bool ZMEvents::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "ESCAPE")
-        {
-            if (GetFocusWidget() == m_eventGrid)
-                SetFocusWidget(m_cameraSelector);
-            else
-                handled = false;
-        }
-
-        else if (action == "DELETE")
-        {
-            if (m_deleteButton)
-                m_deleteButton->Push();
-        }
-        else if (action == "PAUSE")
-        {
-            if (m_playButton)
-                m_playButton->Push();
-        }
-        else if (action == "INFO")
-        {
-            m_oldestFirst = !m_oldestFirst;
-            getEventList();
-        }
-        else if (action == "1")
-            setGridLayout(1);
-        else if (action == "2")
-            setGridLayout(2);
-        else if (action == "3")
-            setGridLayout(3);
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ZMEvents>(this, zmeActions,
+                                                  zmeActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

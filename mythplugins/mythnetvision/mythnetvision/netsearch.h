@@ -14,6 +14,7 @@
 #include <mythrssmanager.h>
 #include <mythdownloadmanager.h>
 #include <metadata/metadataimagedownload.h>
+#include "mythactions.h"
 
 class MythUIBusyDialog;
 
@@ -33,6 +34,8 @@ class NetSearch : public MythScreenType
     bool keyPressEvent(QKeyEvent *);
 
     void populateResultList(ResultItem::resultList list);
+
+    bool doMenu(const QString &action);
 
   public slots:
 
@@ -111,6 +114,9 @@ class NetSearch : public MythScreenType
     void DownloadVideo(QString url, QString dest);
 
     void customEvent(QEvent *levent);
+
+  private:
+    MythActions<NetSearch> *m_actions;
 };
 
 #endif

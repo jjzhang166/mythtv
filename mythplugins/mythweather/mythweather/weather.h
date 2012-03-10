@@ -11,6 +11,7 @@
 
 // MythWeather headers
 #include "weatherUtils.h"
+#include "mythactions.h"
 
 class SourceManager;
 class WeatherScreen;
@@ -22,7 +23,8 @@ class Weather : public MythScreenType
     Q_OBJECT
 
   public:
-    Weather(MythScreenStack *parent, const QString &name, SourceManager *srcMan);
+    Weather(MythScreenStack *parent, const QString &name,
+            SourceManager *srcMan);
     ~Weather();
 
     bool Create(void);
@@ -30,6 +32,13 @@ class Weather : public MythScreenType
 
     bool UpdateData();
     bool SetupScreens();
+
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doPause(const QString &action);
+    bool doMenu(const QString &action);
+    bool doUpdate(const QString &action);
+    bool doEscape(const QString &action);
 
   public slots:
     void setupScreens();
@@ -79,6 +88,8 @@ class Weather : public MythScreenType
     MythUIText *m_pauseText;
     MythUIText *m_headerText;
     MythUIText *m_updatedText;
+
+    MythActions<Weather> *m_actions;
 };
 
 #endif

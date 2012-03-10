@@ -28,22 +28,23 @@
 #include "netcommon.h"
 #include "rsseditor.h"
 #include "searcheditor.h"
+#include "mythactions.h"
 
 using namespace std;
 
 // ---------------------------------------------------
 
-NetSearch::NetSearch(MythScreenStack *parent, const char *name)
-    : MythScreenType(parent, name),
-      m_searchResultList(NULL),      m_siteList(NULL),
-      m_search(NULL),                m_thumbImage(NULL),
-      m_downloadable(NULL),          m_progress(NULL),
-      m_busyPopup(NULL),             m_okPopup(NULL),
-      m_popupStack(),                m_progressDialog(NULL),
-      m_netSearch(NULL),             m_reply(NULL),
-      m_currentSearch(QString()),    m_currentGrabber(0),
-      m_currentCmd(QString()),       m_downloadFile(QString()),
-      m_pagenum(0)
+NetSearch::NetSearch(MythScreenStack *parent, const char *name) :
+    MythScreenType(parent, name),
+    m_searchResultList(NULL),      m_siteList(NULL),
+    m_search(NULL),                m_thumbImage(NULL),
+    m_downloadable(NULL),          m_progress(NULL),
+    m_busyPopup(NULL),             m_okPopup(NULL),
+    m_popupStack(),                m_progressDialog(NULL),
+    m_netSearch(NULL),             m_reply(NULL),
+    m_currentSearch(QString()),    m_currentGrabber(0),
+    m_currentCmd(QString()),       m_downloadFile(QString()),
+    m_pagenum(0), m_actions(NULL)
 {
     m_mythXML = GetMythXMLURL();
     m_playing = false;
@@ -150,6 +151,9 @@ NetSearch::~NetSearch()
     }
 
     gCoreContext->removeListener(this);
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void NetSearch::loadData(void)
@@ -165,6 +169,19 @@ void NetSearch::loadData(void)
         runSearchEditor();
 }
 
+static struct ActionDefStruct<NetSearch> nsActions[] = {
+    { "MENU",   &NetSearch::doMenu }
+};
+static int nsActionCount = NELEMS(nsActions);
+
+bool NetSearch::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+
 bool NetSearch::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -172,19 +189,15 @@ bool NetSearch::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showMenu();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<NetSearch>(this, nsActions,
+                                                   nsActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

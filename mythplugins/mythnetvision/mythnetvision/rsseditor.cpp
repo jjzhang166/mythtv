@@ -20,10 +20,9 @@
 
 // RSS headers
 #include "rsseditor.h"
+#include "mythactions.h"
 
 #define LOC      QString("RSSEditor: ")
-#define LOC_WARN QString("RSSEditor, Warning: ")
-#define LOC_ERR  QString("RSSEditor, Error: ")
 
 namespace
 {
@@ -138,7 +137,8 @@ bool RSSEditPopup::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event,
+                                                     actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;
@@ -355,7 +355,8 @@ void RSSEditPopup::customEvent(QEvent *levent)
 RSSEditor::RSSEditor(MythScreenStack *parent, const QString &name) :
     MythScreenType(parent, name), m_lock(QMutex::Recursive),
     m_changed(false), m_sites(NULL), m_new(NULL), m_delete(NULL), m_edit(NULL),
-    m_image(NULL), m_title(NULL), m_url(NULL), m_desc(NULL), m_author(NULL)
+    m_image(NULL), m_title(NULL), m_url(NULL), m_desc(NULL), m_author(NULL),
+    m_actions(NULL)
 {
 }
 
@@ -365,6 +366,9 @@ RSSEditor::~RSSEditor()
 
     if (m_changed)
         emit itemsChanged();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool RSSEditor::Create(void)
@@ -439,6 +443,26 @@ void RSSEditor::loadData()
     }
 }
 
+static struct ActionDefStruct<RSSEditor> reActions[] = {
+    { "DELETE", &RSSEditor::doDelete },
+    { "EDIT",   &RSSEditor::doEdit }
+};
+static int reActionCount = NELEMS(reActions);
+
+bool RSSEditor::doDelete(const QString &action)
+{
+    (void)action;
+    slotDeleteSite();
+    return true;
+}
+
+bool RSSEditor::doEdit(const QString &action)
+{
+    (void)action;
+    slotEditSite();
+    return true;
+}
+
 bool RSSEditor::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -446,25 +470,16 @@ bool RSSEditor::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "DELETE" && GetFocusWidget() == m_sites)
-        {
-            slotDeleteSite();
-        }
-        if (action == "EDIT" && GetFocusWidget() == m_sites)
-        {
-            slotEditSite();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<RSSEditor>(this, reActions,
+                                                   reActionCount);
+        handled = m_actions->handleActions(actions);
     }
-
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

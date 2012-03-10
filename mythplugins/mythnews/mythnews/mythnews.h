@@ -7,6 +7,7 @@
 
 // MythNews headers
 #include "newssite.h"
+#include "mythactions.h"
 
 class QTimer;
 class HtppComms;
@@ -31,6 +32,13 @@ class MythNews : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
     void customEvent(QEvent*);
+
+    bool doRetrieveNews(const QString &action);
+    bool doCancel(const QString &action);
+    bool doMenu(const QString &action);
+    bool doEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doEscape(const QString &action);
 
   private:
     void updateInfoView(void);
@@ -87,6 +95,9 @@ class MythNews : public MythScreenType
     void slotSiteSelected(MythUIButtonListItem*);
 
     void slotProgressCancelled();
+
+  private:
+    MythActions<MythNews> *m_actions;
 };
 
 #endif /* MYTHNEWS_H */

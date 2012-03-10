@@ -29,6 +29,7 @@ using namespace std;
 
 // mythzoneminder
 #include "zmdefines.h"
+#include "mythactions.h"
 
 class Player
 {
@@ -74,6 +75,10 @@ class ZMLivePlayer : public MythScreenType
 
     void setMonitorLayout(int layout, bool restore = false);
 
+    bool doPause(const QString &action);
+    bool doInfo(const QString &action);
+    bool doDigits(const QString &action);
+
   private slots:
     void updateFrame(void);
     bool initMonitorLayout(void);
@@ -92,6 +97,8 @@ class ZMLivePlayer : public MythScreenType
 
     vector<Player *>     *m_players;
     vector<Monitor *>    *m_monitors;
+
+    MythActions<ZMLivePlayer> *m_actions;
 };
 
 #endif

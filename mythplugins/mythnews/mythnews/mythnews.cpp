@@ -31,10 +31,9 @@
 #include "mythnewseditor.h"
 #include "newsdbutil.h"
 #include "mythnewsconfig.h"
+#include "mythactions.h"
 
 #define LOC      QString("MythNews: ")
-#define LOC_WARN QString("MythNews, Warning: ")
-#define LOC_ERR  QString("MythNews, Error: ")
 
 /** \brief Creates a new MythNews Screen
  *  \param parent Pointer to the screen stack
@@ -42,7 +41,7 @@
  */
 MythNews::MythNews(MythScreenStack *parent, const QString &name) :
     MythScreenType(parent, name),
-    m_lock(QMutex::Recursive)
+    m_lock(QMutex::Recursive), m_actions(NULL)
 {
     // Setup cache directory
 
@@ -84,6 +83,8 @@ MythNews::MythNews(MythScreenStack *parent, const QString &name) :
 MythNews::~MythNews()
 {
     QMutexLocker locker(&m_lock);
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythNews::Create(void)
@@ -181,7 +182,7 @@ void MythNews::loadSites(void)
 
     if (!query.exec())
     {
-        MythDB::DBError(LOC_ERR + "Could not load sites from DB", query);
+        MythDB::DBError(LOC + "Error: Could not load sites from DB", query);
         return;
     }
 
@@ -501,6 +502,73 @@ QString MythNews::formatSize(long long bytes, int prec)
     return QString("%1 KB").arg(sizeKB);
 }
 
+static struct ActionDefStruct<MythNews> mnActions[] = {
+    { "RETRIEVENEWS", &MythNews::doRetrieveNews },
+    { "CANCEL",       &MythNews::doCancel },
+    { "MENU",         &MythNews::doMenu },
+    { "EDIT",         &MythNews::doEdit },
+    { "DELETE",       &MythNews::doDelete },
+    { "ESCAPE",       &MythNews::doEscape }
+};
+static int mnActionCount = NELEMS(mnActions);
+
+bool MythNews::doRetrieveNews(const QString &action)
+{
+    (void)action;
+    slotRetrieveNews();
+    return true;
+}
+
+bool MythNews::doCancel(const QString &action)
+{
+    (void)action;
+    cancelRetrieve();
+    return true;
+}
+
+bool MythNews::doMenu(const QString &action)
+{
+    (void)action;
+    ShowMenu();
+    return true;
+}
+
+bool MythNews::doEdit(const QString &action)
+{
+    (void)action;
+    ShowEditDialog(true);
+    return true;
+}
+
+bool MythNews::doDelete(const QString &action)
+{
+    (void)action;
+    deleteNewsSite();
+    return true;
+}
+
+bool MythNews::doEscape(const QString &action)
+{
+    (void)action;
+    {
+        QMutexLocker locker(&m_lock);
+
+        if (m_progressPopup)
+        {
+            m_progressPopup->Close();
+            m_progressPopup = NULL;
+        }
+
+        m_RetrieveTimer->stop();
+
+        if (m_httpGrabber)
+            m_abortHttp = true;
+    }
+
+    Close();
+    return true;
+}
+
 bool MythNews::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -510,42 +578,12 @@ bool MythNews::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("News", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "RETRIEVENEWS")
-            slotRetrieveNews();
-        else if (action == "CANCEL")
-            cancelRetrieve();
-        else if (action == "MENU")
-            ShowMenu();
-        else if (action == "EDIT")
-            ShowEditDialog(true);
-        else if (action == "DELETE")
-            deleteNewsSite();
-        else if (action == "ESCAPE")
-        {
-            {
-                QMutexLocker locker(&m_lock);
-
-                if (m_progressPopup)
-                {
-                    m_progressPopup->Close();
-                    m_progressPopup = NULL;
-                }
-
-                m_RetrieveTimer->stop();
-
-                if (m_httpGrabber)
-                    m_abortHttp = true;
-            }
-
-            Close();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<MythNews>(this, mnActions,
+                                                  mnActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

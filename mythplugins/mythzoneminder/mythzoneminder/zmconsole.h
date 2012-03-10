@@ -27,6 +27,7 @@
 
 // zm
 #include "zmdefines.h"
+#include "mythactions.h"
 
 class FunctionDialog : public MythScreenType
 {
@@ -61,6 +62,8 @@ class ZMConsole : public MythScreenType
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
+
+    bool doMenu(const QString &action);
 
   private slots:
     void updateTime();
@@ -97,6 +100,8 @@ class ZMConsole : public MythScreenType
     QString            m_diskStat;
 
     QTimer            *m_updateTimer;
+
+    MythActions<ZMConsole> *m_actions;
 };
 
 #endif

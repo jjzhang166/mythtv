@@ -13,6 +13,7 @@
 #include <mythscreentype.h>
 
 #include "mythrssmanager.h"
+#include "mythactions.h"
 
 class MythUITextEdit;
 class MythUIButton;
@@ -83,6 +84,9 @@ class RSSEditor : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent*);
 
+    bool doDelete(const QString &action);
+    bool doEdit(const QString &action);
+
   private:
     void fillRSSButtonList();
     mutable QMutex  m_lock;
@@ -112,6 +116,9 @@ class RSSEditor : public MythScreenType
     void slotEditSite(void);
     void slotNewSite(void);
     void listChanged(void);
+
+  private:
+    MythActions<RSSEditor> *m_actions;
 };
 
 #endif /* RSSEDITOR_H */

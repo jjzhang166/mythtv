@@ -27,6 +27,7 @@
 // zoneminder
 #include "zmconsole.h"
 #include "zmclient.h"
+#include "mythactions.h"
 
 const int STATUS_UPDATE_TIME = 1000 * 10; // update the status every 10 seconds
 const int TIME_UPDATE_TIME = 1000 * 1;    // update the time every 1 second
@@ -112,8 +113,8 @@ void FunctionDialog::setMonitorFunction(void)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ZMConsole::ZMConsole(MythScreenStack *parent)
-          :MythScreenType(parent, "zmconsole")
+ZMConsole::ZMConsole(MythScreenStack *parent) :
+    MythScreenType(parent, "zmconsole"), m_actions(NULL)
 {
     m_monitorListSize = 0;
     m_currentMonitor = 0;
@@ -140,6 +141,9 @@ ZMConsole::~ZMConsole()
 
     if (m_monitorList)
         delete m_monitorList;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ZMConsole::Create(void)
@@ -233,6 +237,18 @@ void ZMConsole::getMonitorStatus(void)
     }
 }
 
+static struct ActionDefStruct<ZMConsole> zmcActions[] = {
+    { "MENU", &ZMConsole::doMenu }
+};
+static int zmcActionCount = NELEMS(zmcActions);
+
+bool ZMConsole::doMenu(const QString &action)
+{
+    (void)action;
+    showEditFunctionPopup();
+    return true;
+}
+
 bool ZMConsole::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -242,17 +258,12 @@ bool ZMConsole::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showEditFunctionPopup();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ZMConsole>(this, zmcActions,
+                                                   zmcActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

@@ -164,6 +164,47 @@ ZMLivePlayer::~ZMLivePlayer()
     delete m_frameTimer;
 }
 
+static struct ActionDefStruct<ZMLivePlayer> zmlpActions[] = {
+    { "PAUSE",         &ZMLivePlayer::doPause },
+    { "INFO",          &ZMLivePlayer::doInfo },
+    { "^[123456789]$", &ZMLivePlayer::doDigits }
+};
+static int zmlpActionCount = NELEMS(zmlpActions);
+
+bool ZMLivePlayer::doPause(const QString &action)
+{
+    (void)action;
+    if (m_paused)
+    {
+        m_frameTimer->start(FRAME_UPDATE_TIME);
+        m_paused = false;
+    }
+    else
+    {
+        m_frameTimer->stop();
+        m_paused = true;
+    }
+    return true;
+}
+
+bool ZMLivePlayer::doInfo(const QString &action)
+{
+    (void)action;
+    m_monitorLayout++;
+    if (m_monitorLayout > 3)
+        m_monitorLayout = 1;
+    setMonitorLayout(m_monitorLayout);
+    return true;
+}
+
+bool ZMLivePlayer::doDigits(const QString &action)
+{
+    (void)action;
+    changePlayerMonitor(action.toInt());
+    return true;
+}
+
+
 bool ZMLivePlayer::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -171,39 +212,15 @@ bool ZMLivePlayer::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "PAUSE")
-        {
-            if (m_paused)
-            {
-                m_frameTimer->start(FRAME_UPDATE_TIME);
-                m_paused = false;
-            }
-            else
-            {
-                m_frameTimer->stop();
-                m_paused = true;
-            }
-        }
-        else if (action == "INFO")
-        {
-            m_monitorLayout++;
-            if (m_monitorLayout > 3)
-                m_monitorLayout = 1;
-            setMonitorLayout(m_monitorLayout);
-        }
-        else if (action == "1" || action == "2" || action == "3" ||
-                 action == "4" || action == "5" || action == "6" ||
-                 action == "7" || action == "8" || action == "9")
-            changePlayerMonitor(action.toInt());
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ZMLivePlayer>(this, zmlpActions,
+                                                      zmlpActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

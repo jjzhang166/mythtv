@@ -14,6 +14,7 @@
 #include <mythrssmanager.h>
 #include <mythdownloadmanager.h>
 #include <metadata/metadataimagedownload.h>
+#include "mythactions.h"
 
 enum DialogType { DLG_DEFAULT = 0, DLG_GALLERY = 0x1, DLG_TREE = 0x2,
                   DLG_BROWSER = 0x4, dtLast };
@@ -50,6 +51,9 @@ class NetTree : public MythScreenType
     bool keyPressEvent(QKeyEvent *);
 
     void populateResultList(ResultItem::resultList list);
+
+    bool doMenu(const QString &action);
+    bool doEscape(const QString &action);
 
   public slots:
 
@@ -159,6 +163,9 @@ class NetTree : public MythScreenType
     static const QString RSSNode;
     static const QString SearchNode;
     static const QString DownloadNode;
+
+  private:
+    MythActions<NetTree> *m_actions;
 };
 
 #endif

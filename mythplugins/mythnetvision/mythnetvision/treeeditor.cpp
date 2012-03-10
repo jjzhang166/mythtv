@@ -111,7 +111,8 @@ bool TreeEditor::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event,
+                                                     actions);
 
     if (!handled && MythScreenType::keyPressEvent(event))
         handled = true;

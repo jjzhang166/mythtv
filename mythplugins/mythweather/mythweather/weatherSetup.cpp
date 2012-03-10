@@ -13,6 +13,7 @@
 #include "weatherSource.h"
 #include "sourceManager.h"
 #include "weatherSetup.h"
+#include "mythactions.h"
 
 #define GLBL_SCREEN 0
 #define SCREEN_SETUP_SCREEN 1
@@ -87,12 +88,12 @@ void GlobalSetup::saveData()
 ///////////////////////////////////////////////////////////////////////
 
 ScreenSetup::ScreenSetup(MythScreenStack *parent, const QString &name,
-                         SourceManager *srcman)
-    : MythScreenType(parent, name),
-      m_sourceManager(srcman ? srcman : new SourceManager()),
-      m_createdSrcMan(srcman ? false : true),
-      m_helpText(NULL),     m_activeList(NULL),
-      m_inactiveList(NULL), m_finishButton(NULL)
+                         SourceManager *srcman) :
+    MythScreenType(parent, name),
+    m_sourceManager(srcman ? srcman : new SourceManager()),
+    m_createdSrcMan(srcman ? false : true),
+    m_helpText(NULL),     m_activeList(NULL),
+    m_inactiveList(NULL), m_finishButton(NULL), m_actions(NULL)
 {
     m_sourceManager->clearSources();
     m_sourceManager->findScripts();
@@ -127,6 +128,9 @@ ScreenSetup::~ScreenSetup()
         if (item->GetData().isValid())
             delete qVariantValue<ScreenListInfo *>(item->GetData());
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool ScreenSetup::Create()
@@ -181,6 +185,19 @@ bool ScreenSetup::Create()
     return true;
 }
 
+static struct ActionDefStruct<ScreenSetup> ssActions[] = {
+    { "DELETE", &ScreenSetup::doDelete }
+};
+static int ssActionCount = NELEMS(ssActions);
+
+bool ScreenSetup::doDelete(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_activeList)
+        deleteScreen();
+    return true;
+}
+
 bool ScreenSetup::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -190,18 +207,12 @@ bool ScreenSetup::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Weather", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "DELETE")
-        {
-            if (GetFocusWidget() == m_activeList)
-                deleteScreen();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ScreenSetup>(this, ssActions,
+                                                     ssActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

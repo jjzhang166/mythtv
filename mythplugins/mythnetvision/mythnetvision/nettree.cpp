@@ -23,6 +23,7 @@
 #include "nettree.h"
 #include "rsseditor.h"
 #include "netcommon.h"
+#include "mythactions.h"
 
 class ResultItem;
 class GrabberScript;
@@ -42,14 +43,14 @@ namespace
     }
 }
 
-NetTree::NetTree(DialogType type, MythScreenStack *parent, const char *name)
-    : MythScreenType(parent, name),
-      m_siteMap(NULL),               m_siteButtonList(NULL),
-      m_noSites(NULL),               m_thumbImage(NULL),
-      m_downloadable(NULL),          m_busyPopup(NULL),
-      m_menuPopup(NULL),             m_popupStack(),
-      m_progressDialog(NULL),        m_downloadFile(QString()),
-      m_type(type)
+NetTree::NetTree(DialogType type, MythScreenStack *parent, const char *name) :
+    MythScreenType(parent, name),
+    m_siteMap(NULL),               m_siteButtonList(NULL),
+    m_noSites(NULL),               m_thumbImage(NULL),
+    m_downloadable(NULL),          m_busyPopup(NULL),
+    m_menuPopup(NULL),             m_popupStack(),
+    m_progressDialog(NULL),        m_downloadFile(QString()),
+    m_type(type), m_actions(NULL)
 {
     m_imageDownload = new MetadataImageDownload(this);
     m_gdt = new GrabberDownloadThread(this);
@@ -189,6 +190,9 @@ NetTree::~NetTree()
     cleanCacheDir();
 
     gCoreContext->removeListener(this);
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void NetTree::cleanCacheDir()
@@ -408,6 +412,28 @@ bool NetTree::goBack()
     return handled;
 }
 
+static struct ActionDefStruct<NetTree> ntActions[] = {
+    { "MENU",   &NetTree::doMenu },
+    { "ESCAPE", &NetTree::doEscape }
+};
+static int ntActionCount = NELEMS(ntActions);
+
+bool NetTree::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+bool NetTree::doEscape(const QString &action)
+{
+    (void)action;
+    if (m_type != DLG_TREE && !GetMythMainWindow()->IsExitingToMain() &&
+        m_currentNode != m_siteGeneric)
+        return goBack();
+    return false;
+}
+
 bool NetTree::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -415,28 +441,15 @@ bool NetTree::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event, actions);
+    handled = GetMythMainWindow()->TranslateKeyPress("Internet Video", event,
+                                                     actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "ESCAPE")
-        {
-            if (m_type != DLG_TREE
-                    && !GetMythMainWindow()->IsExitingToMain()
-                    && m_currentNode != m_siteGeneric)
-                handled = goBack();
-            else
-                handled = false;
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<NetTree>(this, ntActions,
+                                                 ntActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

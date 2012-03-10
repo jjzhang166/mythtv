@@ -28,6 +28,7 @@
 
 // zm
 #include "zmdefines.h"
+#include "mythactions.h"
 
 class ZMPlayer : public MythScreenType
 {
@@ -40,6 +41,14 @@ class ZMPlayer : public MythScreenType
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
+
+    bool doPause(const QString &action);
+    bool doDelete(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doPgUp(const QString &action);
+    bool doPgDown(const QString &action);
+    bool doToggleAspect(const QString &action);
 
   private slots:
     void updateFrame(void);
@@ -79,6 +88,8 @@ class ZMPlayer : public MythScreenType
     bool              m_fullScreen;
 
     MythImage        *m_image;
+
+    MythActions<ZMPlayer> *m_actions;
 };
 
 #endif

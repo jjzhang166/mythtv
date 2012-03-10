@@ -33,10 +33,11 @@ using namespace std;
 // zoneminder
 #include "zmplayer.h"
 #include "zmclient.h"
+#include "mythactions.h"
 
 ZMPlayer::ZMPlayer(MythScreenStack *parent, const char *name,
-                   vector<Event *> *eventList, int *currentEvent)
-         :MythScreenType(parent, name)
+                   vector<Event *> *eventList, int *currentEvent) :
+    MythScreenType(parent, name), m_actions(NULL)
 {
     m_eventList = eventList;
     m_currentEvent = currentEvent;
@@ -58,8 +59,11 @@ ZMPlayer::~ZMPlayer()
 
     m_frameTimer->deleteLater();
 
-    if (!m_frameList)
+    if (m_frameList)
         delete m_frameList;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void ZMPlayer::stopPlayer(void)
@@ -188,6 +192,103 @@ void ZMPlayer::getEventInfo()
     }
 }
 
+static struct ActionDefStruct<ZMPlayer> zmpActions[] = {
+    { "PAUSE",        &ZMPlayer::doPause },
+    { "DELETE",       &ZMPlayer::doDelete },
+    { "LEFT",         &ZMPlayer::doLeft },
+    { "RIGHT",        &ZMPlayer::doRight },
+    { "PAGEUP",       &ZMPlayer::doPgUp },
+    { "PAGEDOWN",     &ZMPlayer::doPgDown },
+    { "TOGGLEASPECT", &ZMPlayer::doToggleAspect },
+    { "TOGGLEFILL",   &ZMPlayer::doToggleAspect }
+};
+static int zmpActionCount = NELEMS(zmpActions);
+
+bool ZMPlayer::doPause(const QString &action)
+{
+    (void)action;
+    if (m_playButton)
+        m_playButton->Push();
+    return true;
+}
+
+bool ZMPlayer::doDelete(const QString &action)
+{
+    (void)action;
+    if (m_deleteButton)
+        m_deleteButton->Push();
+    return true;
+}
+
+bool ZMPlayer::doLeft(const QString &action)
+{
+    (void)action;
+    if (m_paused)
+    {
+        if (m_curFrame > 1)
+            m_curFrame--;
+        getFrame();
+    }
+    return true;
+}
+
+bool ZMPlayer::doRight(const QString &action)
+{
+    (void)action;
+    if (m_paused)
+    {
+        if (m_curFrame < m_lastFrame)
+            m_curFrame++;
+        getFrame();
+    }
+    return true;
+}
+
+bool ZMPlayer::doPgUp(const QString &action)
+{
+    (void)action;
+    if (m_prevButton)
+        m_prevButton->Push();
+    return true;
+}
+
+bool ZMPlayer::doPgDown(const QString &action)
+{
+    (void)action;
+    if (m_nextButton)
+        m_nextButton->Push();
+    return true;
+}
+
+bool ZMPlayer::doToggleAspect(const QString &action)
+{
+    (void)action;
+    if (!m_eventList->empty())
+    {
+        stopPlayer();
+
+        if (m_fullScreen)
+        {
+            m_fullScreen = false;
+            m_frameImage->SetVisible(false);
+            m_frameImage = dynamic_cast<MythUIImage *> (GetChild("frameimage"));
+            m_frameImage->SetVisible(true);
+        }
+        else
+        {
+            m_fullScreen = true;
+            m_frameImage->SetVisible(false);
+            m_frameImage = dynamic_cast<MythUIImage *>
+                                                     (GetChild("framefsimage"));
+            m_frameImage->SetVisible(true);
+        }
+
+        if (!m_paused)
+            m_frameTimer->start(1000 / 100);
+    }
+    return true;
+}
+
 bool ZMPlayer::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget()->keyPressEvent(event))
@@ -195,79 +296,14 @@ bool ZMPlayer::keyPressEvent(QKeyEvent *event)
 
     bool handled = false;
     QStringList actions;
-    handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event, actions);
-
-    for (int i = 0; i < actions.size() && !handled; i++)
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", event,
+                                                     actions);
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "PAUSE")
-        {
-            if (m_playButton)
-                m_playButton->Push();
-        }
-        else if (action == "DELETE")
-        {
-            if (m_deleteButton)
-                m_deleteButton->Push();
-        }
-        else if (action == "LEFT")
-        {
-            if (m_paused)
-            {
-                if (m_curFrame > 1)
-                    m_curFrame--;
-                getFrame();
-            }
-        }
-        else if (action == "RIGHT")
-        {
-            if (m_paused)
-            {
-                if (m_curFrame < m_lastFrame)
-                    m_curFrame++;
-                getFrame();
-            }
-        }
-        else if (action == "PAGEUP")
-        {
-            if (m_prevButton)
-                m_prevButton->Push();
-        }
-        else if (action == "PAGEDOWN")
-        {
-            if (m_nextButton)
-                m_nextButton->Push();
-        }
-        else if (action == "TOGGLEASPECT" || action == "TOGGLEFILL")
-        {
-            if (!m_eventList->empty())
-            {
-                stopPlayer();
-
-                if (m_fullScreen)
-                {
-                    m_fullScreen = false;
-                    m_frameImage->SetVisible(false);
-                    m_frameImage = dynamic_cast<MythUIImage *> (GetChild("frameimage"));
-                    m_frameImage->SetVisible(true);
-                }
-                else
-                {
-                    m_fullScreen = true;
-                    m_frameImage->SetVisible(false);
-                    m_frameImage = dynamic_cast<MythUIImage *> (GetChild("framefsimage"));
-                    m_frameImage->SetVisible(true);
-                }
-
-                if (!m_paused)
-                    m_frameTimer->start(1000 / 100);
-
-            }
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ZMPlayer>(this, zmpActions,
+                                                  zmpActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

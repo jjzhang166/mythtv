@@ -18,6 +18,7 @@
 
 // MythWeather headers
 #include "weatherUtils.h"
+#include "mythactions.h"
 
 class SourceManager;
 
@@ -66,12 +67,15 @@ class ScreenSetup : public MythScreenType
     Q_OBJECT
 
   public:
-    ScreenSetup(MythScreenStack *parent, const QString &name, SourceManager *srcman);
+    ScreenSetup(MythScreenStack *parent, const QString &name,
+                SourceManager *srcman);
     ~ScreenSetup();
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
     void customEvent(QEvent*);
+
+    bool doDelete(const QString &action);
 
   protected slots:
     void updateHelpText(void);
@@ -93,6 +97,8 @@ class ScreenSetup : public MythScreenType
     MythUIButtonList *m_activeList;
     MythUIButtonList *m_inactiveList;
     MythUIButton *m_finishButton;
+
+    MythActions<ScreenSetup> *m_actions;
 };
 
 class SourceSetup : public MythScreenType

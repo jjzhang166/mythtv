@@ -19,9 +19,9 @@
 #include "weatherSetup.h"
 #include "weather.h"
 
-Weather::Weather(MythScreenStack *parent, const QString &name, SourceManager *srcMan)
-    : MythScreenType(parent, name),
-      m_cur_screen(0)
+Weather::Weather(MythScreenStack *parent, const QString &name,
+                 SourceManager *srcMan) :
+    MythScreenType(parent, name), m_cur_screen(0), m_actions(NULL)
 {
     m_weatherStack = new MythScreenStack(GetMythMainWindow(), "weather stack");
 
@@ -33,12 +33,6 @@ Weather::Weather(MythScreenStack *parent, const QString &name, SourceManager *sr
     if (!srcMan)
     {
         m_srcMan = new SourceManager();
-        // No point in doing this as the very first thing we are going to do
-        // is destroy the sources and reload them.
-#if 0
-        m_srcMan->startTimers();
-        m_srcMan->doUpdate();
-#endif
         m_createdSrcMan = true;
     }
     else
@@ -65,6 +59,9 @@ Weather::~Weather()
 
     if (m_weatherStack)
         GetMythMainWindow()->PopScreenStack();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool Weather::Create()
@@ -253,6 +250,60 @@ WeatherScreen *Weather::prevScreen(void)
     return m_screens[m_cur_screen];
 }
 
+static struct ActionDefStruct<Weather> wActions[] = {
+    { "LEFT",   &Weather::doLeft },
+    { "RIGHT",  &Weather::doRight },
+    { "PAUSE",  &Weather::doPause },
+    { "MENU",   &Weather::doMenu },
+    { "UPDATE", &Weather::doUpdate },
+    { "ESCAPE", &Weather::doEscape }
+};
+static int wActionCount = NELEMS(wActions);
+
+bool Weather::doLeft(const QString &action)
+{
+    (void)action;
+    cursorLeft();
+    return true;
+}
+
+bool Weather::doRight(const QString &action)
+{
+    (void)action;
+    cursorRight();
+    return true;
+}
+
+bool Weather::doPause(const QString &action)
+{
+    (void)action;
+    holdPage();
+    return true;
+}
+
+bool Weather::doMenu(const QString &action)
+{
+    (void)action;
+    setupPage();
+    return true;
+}
+
+bool Weather::doUpdate(const QString &action)
+{
+    (void)action;
+    m_srcMan->doUpdate();
+    return true;
+}
+
+bool Weather::doEscape(const QString &action)
+{
+    (void)action;
+    m_nextpage_Timer->stop();
+    hideScreen();
+    Close();
+    return true;
+}
+
 bool Weather::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -262,31 +313,11 @@ bool Weather::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Weather", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "LEFT")
-            cursorLeft();
-        else if (action == "RIGHT")
-            cursorRight();
-        else if (action == "PAUSE")
-            holdPage();
-        else if (action == "MENU")
-            setupPage();
-        else if (action == "UPDATE")
-        {
-            m_srcMan->doUpdate();
-        }
-        else if (action == "ESCAPE")
-        {
-            m_nextpage_Timer->stop();
-            hideScreen();
-            Close();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<Weather>(this, wActions, wActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
