@@ -26,6 +26,7 @@ using namespace std;
 #include "smartplaylist.h"
 #include "metadata.h"
 #include "musiccommon.h"
+#include "mythactions.h"
 
 struct SmartPLField
 {
@@ -369,16 +370,16 @@ QString SmartPLCriteriaRow::toString(void)
 ---------------------------------------------------------------------
 */
 
-SmartPlaylistEditor::SmartPlaylistEditor(MythScreenStack *parent)
-              : MythScreenType(parent, "smartplaylisteditor"),
-                m_tempCriteriaRow(NULL), m_matchesCount(0),
-                m_newPlaylist(false), m_playlistIsValid(false),
-                m_categorySelector(NULL), m_categoryButton(NULL),
-                m_titleEdit(NULL), m_matchSelector(NULL),
-                m_criteriaList(NULL), m_orderBySelector(NULL),
-                m_orderByButton(NULL), m_matchesText(NULL),
-                m_limitSpin(NULL), m_cancelButton(NULL),
-                m_saveButton(NULL), m_showResultsButton(NULL)
+SmartPlaylistEditor::SmartPlaylistEditor(MythScreenStack *parent) :
+    MythScreenType(parent, "smartplaylisteditor"),
+    m_tempCriteriaRow(NULL), m_matchesCount(0),
+    m_newPlaylist(false), m_playlistIsValid(false),
+    m_categorySelector(NULL), m_categoryButton(NULL),
+    m_titleEdit(NULL), m_matchSelector(NULL),
+    m_criteriaList(NULL), m_orderBySelector(NULL),
+    m_orderByButton(NULL), m_matchesText(NULL),
+    m_limitSpin(NULL), m_cancelButton(NULL),
+    m_saveButton(NULL), m_showResultsButton(NULL), m_actions(NULL)
 {
 }
 
@@ -392,6 +393,9 @@ SmartPlaylistEditor::~SmartPlaylistEditor(void)
 
     if (m_tempCriteriaRow)
         delete m_tempCriteriaRow;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 
@@ -450,6 +454,43 @@ bool SmartPlaylistEditor::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<SmartPlaylistEditor> speActions[] = {
+    { "MENU",   &SmartPlaylistEditor::doMenu },
+    { "DELETE", &SmartPlaylistEditor::doDelete },
+    { "EDIT",   &SmartPlaylistEditor::doEdit }
+};
+static int speActionCount = NELEMS(speActions);
+
+bool SmartPlaylistEditor::doMenu(const QString &action)
+{
+    (void)action;
+    showCriteriaMenu();
+    return true;
+}
+
+bool SmartPlaylistEditor::doDelete(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_criteriaList)
+    {
+        deleteCriteria();
+        return true;
+    }
+    return false;
+}
+
+bool SmartPlaylistEditor::doEdit(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_criteriaList)
+    {
+        editCriteria();
+        return true;
+    }
+    return false;
+}
+
+
 bool SmartPlaylistEditor::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -459,25 +500,12 @@ bool SmartPlaylistEditor::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "MENU")
-        {
-            showCriteriaMenu();
-        }
-        else if (action == "DELETE" && GetFocusWidget() == m_criteriaList)
-        {
-            deleteCriteria();
-        }
-        else if (action == "EDIT" && GetFocusWidget() == m_criteriaList)
-        {
-            editCriteria();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<SmartPlaylistEditor>(this, speActions,
+                                                             speActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

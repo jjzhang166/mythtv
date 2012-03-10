@@ -41,9 +41,10 @@ using namespace std;
 #include "playlisteditorview.h"
 #include "visualizerview.h"
 #include "searchview.h"
+#include "mythactions.h"
 
-MusicCommon::MusicCommon(MythScreenStack *parent, const QString &name)
-            : MythScreenType(parent, name)
+MusicCommon::MusicCommon(MythScreenStack *parent, const QString &name) :
+    MythScreenType(parent, name), m_actions(NULL)
 {
     m_mainvisual = NULL;
     m_visualModeTimer = NULL;
@@ -105,6 +106,9 @@ MusicCommon::~MusicCommon(void)
         lcd->switchToTime();
         lcd->setFunctionLEDs(FUNC_MUSIC, false);
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MusicCommon::CreateCommon(void)
@@ -469,6 +473,454 @@ bool MusicCommon::onMediaEvent(MythMediaDevice*)
 }
 #endif
 
+static struct ActionDefStruct<MusicCommon> mcActions[] = {
+    { "SELECT",      &MusicCommon::doSelect },
+    { "ESCAPE",      &MusicCommon::doEscape },
+    { "UP",          &MusicCommon::doUp },
+    { "DOWN",        &MusicCommon::doDown },
+    { "THMBUP",      &MusicCommon::doThmbUp },
+    { "THMBDOWN",    &MusicCommon::doThmbDown },
+    { "NEXTTRACK",   &MusicCommon::doNextTrack },
+    { "PREVTRACK",   &MusicCommon::doPrevTrack },
+    { "FFWD",        &MusicCommon::doFfwd },
+    { "RWND",        &MusicCommon::doRwnd },
+    { "PAUSE",       &MusicCommon::doPause },
+    { "PLAY",        &MusicCommon::doPlay },
+    { "STOP",        &MusicCommon::doStop },
+    { "CYCLEVIS",    &MusicCommon::doCycleVis },
+    { "BLANKSCR",    &MusicCommon::doBlankScr },
+    { "VOLUMEDOWN",  &MusicCommon::doVolumeDown },
+    { "VOLUMEUP",    &MusicCommon::doVolumeUp },
+    { "SPEEDDOWN",   &MusicCommon::doSpeedDown },
+    { "SPEEDUP",     &MusicCommon::doSpeedUp },
+    { "MUTE",        &MusicCommon::doMute },
+    { "TOGGLEUPMIX", &MusicCommon::doToggleUpmix },
+    { "INFO",        &MusicCommon::doInfo },
+    { "EDIT",        &MusicCommon::doEdit },
+    { "DELETE",      &MusicCommon::doDelete },
+    { "MENU",        &MusicCommon::doMenu },
+    { "REFRESH",     &MusicCommon::doRefresh },
+    { "MARK",        &MusicCommon::doMark }
+};
+static int mcActionCount = NELEMS(mcActions);
+
+bool MusicCommon::doSelect(const QString &action)
+{
+    (void)action;
+    // if we are currently moving an item,
+    // we only accept UP/DOWN/SELECT/ESCAPE
+    if (m_moveTrackMode && m_movingTrack)
+    {
+        MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
+        if (!item)
+            return false;
+
+        m_movingTrack = false;
+        item->DisplayState("off", "movestate");
+        return true;
+    }
+    return false;
+}
+
+bool MusicCommon::doEscape(const QString &action)
+{
+    (void)action;
+    // if we are currently moving an item,
+    // we only accept UP/DOWN/SELECT/ESCAPE
+    if (m_moveTrackMode && m_movingTrack)
+    {
+        MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
+        if (!item)
+            return false;
+
+        m_movingTrack = false;
+        item->DisplayState("off", "movestate");
+    }
+    else
+    {
+        QString exit_action = gCoreContext->GetSetting("MusicExitAction",
+                                                       "prompt");
+
+        if (!gPlayer->isPlaying() || GetMythMainWindow()->IsExitingToMain())
+        {
+            gPlayer->savePosition();
+            stopAll();
+            Close();
+        }
+        else if (exit_action == "stop")
+        {
+            gPlayer->savePosition();
+            stopAll();
+            Close();
+        }
+        else if (exit_action == "play")
+            Close();
+        else
+            showExitMenu();
+    }
+    return true;
+}
+
+bool MusicCommon::doUp(const QString &action)
+{
+    (void)action;
+    // if we are currently moving an item,
+    // we only accept UP/DOWN/SELECT/ESCAPE
+    if (m_moveTrackMode && m_movingTrack)
+    {
+        MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
+        if (!item)
+            return false;
+
+        gPlayer->moveTrackUpDown(true, m_currentPlaylist->GetCurrentPos());
+        item->MoveUpDown(true);
+        m_currentTrack = gPlayer->getCurrentTrackPos();
+        gPlayer->getPlaylist()->getStats(&m_playlistTrackCount,
+                                         &m_playlistMaxTime,
+                                         m_currentTrack,
+                                         &m_playlistPlayedTime);
+        updatePlaylistStats();
+        updateTrackInfo(gPlayer->getCurrentMetadata());
+        return true;
+    }
+    return false;
+}
+
+bool MusicCommon::doDown(const QString &action)
+{
+    (void)action;
+    // we only accept UP/DOWN/SELECT/ESCAPE
+    if (m_moveTrackMode && m_movingTrack)
+    {
+        MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
+        if (!item)
+            return false;
+
+        gPlayer->moveTrackUpDown(false, m_currentPlaylist->GetCurrentPos());
+        item->MoveUpDown(false);
+        m_currentTrack = gPlayer->getCurrentTrackPos();
+        gPlayer->getPlaylist()->getStats(&m_playlistTrackCount,
+                                         &m_playlistMaxTime,
+                                         m_currentTrack,
+                                         &m_playlistPlayedTime);
+        updatePlaylistStats();
+        updateTrackInfo(gPlayer->getCurrentMetadata());
+        return true;
+    }
+    return false;
+}
+
+bool MusicCommon::doThmbUp(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        changeRating(true);
+    return true;
+}
+
+bool MusicCommon::doThmbDown(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        changeRating(false);
+    return true;
+}
+
+bool MusicCommon::doNextTrack(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_nextButton)
+            m_nextButton->Push();
+        else
+            next();
+    }
+    return true;
+}
+
+bool MusicCommon::doPrevTrack(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_prevButton)
+            m_prevButton->Push();
+        else
+            previous();
+    }
+    return true;
+}
+
+bool MusicCommon::doFfwd(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_ffButton)
+            m_ffButton->Push();
+        else
+            seekforward();
+    }
+    return true;
+}
+
+bool MusicCommon::doRwnd(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_rewButton)
+            m_rewButton->Push();
+        else
+            seekback();
+    }
+    return true;
+}
+
+bool MusicCommon::doPause(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        // if we are playing or are paused PAUSE will toggle the pause state
+        if (gPlayer->isPlaying() ||
+            (gPlayer->getOutput() && gPlayer->getOutput()->IsPaused()))
+        {
+            if (m_pauseButton)
+                m_pauseButton->Push();
+            else
+                pause();
+        }
+        else
+        {
+            // not playing or paused so PAUSE acts the same as PLAY
+            if (m_playButton)
+                m_playButton->Push();
+            else
+                play();
+        }
+    }
+    return true;
+}
+
+bool MusicCommon::doPlay(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_playButton)
+            m_playButton->Push();
+        else
+            play();
+    }
+    return true;
+}
+
+bool MusicCommon::doStop(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_stopButton)
+            m_stopButton->Push();
+        else
+            stop();
+        m_currentTime = 0;
+    }
+    return true;
+}
+
+bool MusicCommon::doCycleVis(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        cycleVisualizer();
+    return true;
+}
+
+bool MusicCommon::doBlankScr(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        // change to the blank visualizer
+        if (m_mainvisual)
+            switchVisualizer("Blank");
+
+        // switch to the full screen visualiser view
+        if (m_currentView != MV_VISUALIZER)
+            switchView(MV_VISUALIZER);
+    }
+    return true;
+}
+
+bool MusicCommon::doVolumeDown(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        changeVolume(false);
+    return true;
+}
+
+bool MusicCommon::doVolumeUp(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        changeVolume(true);
+    return true;
+}
+
+bool MusicCommon::doSpeedDown(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        changeSpeed(false);
+    return true;
+}
+
+bool MusicCommon::doSpeedUp(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        changeSpeed(true);
+    return true;
+}
+
+bool MusicCommon::doMute(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        toggleMute();
+    return true;
+}
+
+bool MusicCommon::doToggleUpmix(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        toggleUpmix();
+    return true;
+}
+
+bool MusicCommon::doInfo(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_currentPlaylist && GetFocusWidget() == m_currentPlaylist)
+        {
+            if (m_currentPlaylist->GetItemCurrent())
+            {
+                Metadata *mdata = qVariantValue<Metadata*>
+                              (m_currentPlaylist->GetItemCurrent()->GetData());
+                if (mdata)
+                    showTrackInfo(mdata);
+            }
+        }
+        else
+            showTrackInfo(gPlayer->getCurrentMetadata());
+    }
+    return true;
+}
+
+bool MusicCommon::doEdit(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_currentPlaylist && GetFocusWidget() == m_currentPlaylist)
+        {
+            if (m_currentPlaylist->GetItemCurrent())
+            {
+                Metadata *mdata = qVariantValue<Metadata*>
+                             (m_currentPlaylist->GetItemCurrent()->GetData());
+                if (mdata)
+                    editTrackInfo(mdata);
+            }
+        }
+        else
+            editTrackInfo(gPlayer->getCurrentMetadata());
+    }
+    return true;
+}
+
+bool MusicCommon::doDelete(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_currentPlaylist && GetFocusWidget() == m_currentPlaylist)
+        {
+            MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
+            if (item)
+            {
+                Metadata *mdata = qVariantValue<Metadata*> (item->GetData());
+                if (mdata)
+                    gPlayer->removeTrack(mdata->ID());
+            }
+            return true;
+        }
+        return false;
+    }
+    return true;
+}
+
+bool MusicCommon::doMenu(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+        ShowMenu();
+    return true;
+}
+
+bool MusicCommon::doRefresh(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (m_currentPlaylist)
+            m_currentPlaylist->SetItemCurrent(m_currentTrack);
+    }
+    return true;
+}
+
+bool MusicCommon::doMark(const QString &action)
+{
+    (void)action;
+    if (!m_moveTrackMode || !m_movingTrack)
+    {
+        if (!m_moveTrackMode)
+        {
+            m_moveTrackMode = true;
+            m_movingTrack = false;
+
+            if (m_movingTracksState)
+                m_movingTracksState->DisplayState((m_moveTrackMode ? "on"
+                                                                   : "off"));
+        }
+        else
+        {
+            m_moveTrackMode = false;
+
+            if (m_currentPlaylist && m_movingTrack)
+            {
+                MythUIButtonListItem *item =
+                    m_currentPlaylist->GetItemCurrent();
+                if (item)
+                    item->DisplayState("off", "movestate");
+
+                m_movingTrack = false;
+            }
+
+            if (m_movingTracksState)
+                m_movingTracksState->DisplayState((m_moveTrackMode ? "on"
+                                                                   : "off"));
+        }
+    }
+    return true;
+}
+
 bool MusicCommon::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
@@ -478,232 +930,12 @@ bool MusicCommon::keyPressEvent(QKeyEvent *e)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", e, actions, true);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        // if we are currently moving an item,
-        // we only accept UP/DOWN/SELECT/ESCAPE
-        if (m_moveTrackMode && m_movingTrack)
-        {
-            MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
-            if (!item)
-                return false;
-
-            if (action == "SELECT" || action == "ESCAPE")
-            {
-                m_movingTrack = false;
-                item->DisplayState("off", "movestate");
-            }
-            else if (action == "UP")
-            {
-                gPlayer->moveTrackUpDown(true, m_currentPlaylist->GetCurrentPos());
-                item->MoveUpDown(true);
-                m_currentTrack = gPlayer->getCurrentTrackPos();
-                gPlayer->getPlaylist()->getStats(&m_playlistTrackCount, &m_playlistMaxTime,
-                                         m_currentTrack, &m_playlistPlayedTime);
-                updatePlaylistStats();
-                updateTrackInfo(gPlayer->getCurrentMetadata());
-            }
-            else if (action == "DOWN")
-            {
-                gPlayer->moveTrackUpDown(false, m_currentPlaylist->GetCurrentPos());
-                item->MoveUpDown(false);
-                m_currentTrack = gPlayer->getCurrentTrackPos();
-                gPlayer->getPlaylist()->getStats(&m_playlistTrackCount, &m_playlistMaxTime,
-                                         m_currentTrack, &m_playlistPlayedTime);
-                updatePlaylistStats();
-                updateTrackInfo(gPlayer->getCurrentMetadata());
-            }
-
-            return true;
-        }
-
-        if (action == "ESCAPE")
-        {
-            QString exit_action = gCoreContext->GetSetting("MusicExitAction", "prompt");
-
-            if (!gPlayer->isPlaying() || GetMythMainWindow()->IsExitingToMain())
-            {
-                gPlayer->savePosition();
-                stopAll();
-                Close();
-            }
-            else
-            {
-                if (exit_action == "stop")
-                {
-                    gPlayer->savePosition();
-                    stopAll();
-                    Close();
-                }
-                else if (exit_action == "play")
-                    Close();
-                else
-                    showExitMenu();
-            }
-        }
-        else if (action == "THMBUP")
-            changeRating(true);
-        else if (action == "THMBDOWN")
-            changeRating(false);
-        else if (action == "NEXTTRACK")
-        {
-            if (m_nextButton)
-                m_nextButton->Push();
-            else
-                next();
-        }
-        else if (action == "PREVTRACK")
-        {
-            if (m_prevButton)
-                m_prevButton->Push();
-            else
-                previous();
-        }
-        else if (action == "FFWD")
-        {
-            if (m_ffButton)
-                m_ffButton->Push();
-            else
-                seekforward();
-        }
-        else if (action == "RWND")
-        {
-            if (m_rewButton)
-                m_rewButton->Push();
-            else
-                seekback();
-        }
-        else if (action == "PAUSE")
-        {
-            // if we are playing or are paused PAUSE will toggle the pause state
-            if (gPlayer->isPlaying() || (gPlayer->getOutput() && gPlayer->getOutput()->IsPaused()))
-            {
-                if (m_pauseButton)
-                    m_pauseButton->Push();
-                else
-                    pause();
-            }
-            else
-            {
-                // not playing or paused so PAUSE acts the same as PLAY
-                if (m_playButton)
-                    m_playButton->Push();
-                else
-                    play();
-            }
-        }
-        else if (action == "PLAY")
-        {
-            if (m_playButton)
-                m_playButton->Push();
-            else
-                play();
-        }
-        else if (action == "STOP")
-        {
-            if (m_stopButton)
-                m_stopButton->Push();
-            else
-                stop();
-            m_currentTime = 0;
-        }
-        else if (action == "CYCLEVIS")
-            cycleVisualizer();
-        else if (action == "BLANKSCR")
-        {
-            // change to the blank visualizer
-            if (m_mainvisual)
-                switchVisualizer("Blank");
-
-            // switch to the full screen visualiser view
-            if (m_currentView != MV_VISUALIZER)
-                switchView(MV_VISUALIZER);
-        }
-        else if (action == "VOLUMEDOWN")
-            changeVolume(false);
-        else if (action == "VOLUMEUP")
-            changeVolume(true);
-        else if (action == "SPEEDDOWN")
-            changeSpeed(false);
-        else if (action == "SPEEDUP")
-            changeSpeed(true);
-        else if (action == "MUTE")
-            toggleMute();
-        else if (action == "TOGGLEUPMIX")
-            toggleUpmix();
-        else if (action == "INFO" || action == "EDIT")
-        {
-            if (m_currentPlaylist && GetFocusWidget() == m_currentPlaylist)
-            {
-                if (m_currentPlaylist->GetItemCurrent())
-                {
-                    Metadata *mdata = qVariantValue<Metadata*> (m_currentPlaylist->GetItemCurrent()->GetData());
-                    if (mdata)
-                    {
-                        if (action == "INFO")
-                            showTrackInfo(mdata);
-                        else
-                            editTrackInfo(mdata);
-                    }
-                }
-            }
-            else
-            {
-                if (action == "INFO")
-                    showTrackInfo(gPlayer->getCurrentMetadata());
-                else
-                    editTrackInfo(gPlayer->getCurrentMetadata());
-            }
-        }
-        else if (action == "DELETE" && m_currentPlaylist && GetFocusWidget() == m_currentPlaylist)
-        {
-            MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
-            if (item)
-            {
-                Metadata *mdata = qVariantValue<Metadata*> (item->GetData());
-                if (mdata)
-                    gPlayer->removeTrack(mdata->ID());
-            }
-        }
-        else if (action == "MENU")
-            ShowMenu();
-        else if (action == "REFRESH")
-        {
-            if (m_currentPlaylist)
-                m_currentPlaylist->SetItemCurrent(m_currentTrack);
-        }
-        else if (action == "MARK")
-        {
-            if (!m_moveTrackMode)
-            {
-                m_moveTrackMode = true;
-                m_movingTrack = false;
-
-                if (m_movingTracksState)
-                    m_movingTracksState->DisplayState((m_moveTrackMode ? "on" : "off"));
-            }
-            else
-            {
-                m_moveTrackMode = false;
-
-                if (m_currentPlaylist && m_movingTrack)
-                {
-                    MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
-                    if (item)
-                        item->DisplayState("off", "movestate");
-
-                    m_movingTrack = false;
-                }
-
-                if (m_movingTracksState)
-                    m_movingTracksState->DisplayState((m_moveTrackMode ? "on" : "off"));
-            }
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<MusicCommon>(this, mcActions,
+                                                     mcActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     return handled;
@@ -2429,8 +2661,9 @@ void MusicCommon::playFirstTrack()
 //---------------------------------------------------------
 #define MUSICVOLUMEPOPUPTIME 5 * 1000
 
-MythMusicVolumeDialog::MythMusicVolumeDialog(MythScreenStack *parent, const char *name)
-         : MythScreenType(parent, name, false)
+MythMusicVolumeDialog::MythMusicVolumeDialog(MythScreenStack *parent,
+                                             const char *name) :
+    MythScreenType(parent, name, false), m_actions(NULL)
 {
     m_displayTimer = NULL;
 }
@@ -2443,6 +2676,9 @@ MythMusicVolumeDialog::~MythMusicVolumeDialog(void)
         delete m_displayTimer;
         m_displayTimer = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool MythMusicVolumeDialog::Create(void)
@@ -2467,24 +2703,51 @@ bool MythMusicVolumeDialog::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<MythMusicVolumeDialog> mmvdActions[] = {
+    { "UP",          &MythMusicVolumeDialog::doVolumeUp },
+    { "VOLUMEUP",    &MythMusicVolumeDialog::doVolumeUp },
+    { "DOWN",        &MythMusicVolumeDialog::doVolumeDown },
+    { "VOLUMEDOWN",  &MythMusicVolumeDialog::doVolumeDown },
+    { "SELECT",      &MythMusicVolumeDialog::doMute },
+    { "MUTE",        &MythMusicVolumeDialog::doMute }
+};
+static int mmvdActionCount = NELEMS(mmvdActions);
+
+bool MythMusicVolumeDialog::doVolumeUp(const QString &action)
+{
+    (void)action;
+    increaseVolume();
+    return true;
+}
+
+bool MythMusicVolumeDialog::doVolumeDown(const QString &action)
+{
+    (void)action;
+    decreaseVolume();
+    return true;
+}
+
+bool MythMusicVolumeDialog::doMute(const QString &action)
+{
+    (void)action;
+    toggleMute();
+    return true;
+}
+
+
 bool MythMusicVolumeDialog::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions, false);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("Music", event,
+                                                          actions, false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "UP" || action == "VOLUMEUP")
-            increaseVolume();
-        else if (action == "DOWN" || action == "VOLUMEDOWN")
-            decreaseVolume();
-        else if (action == "MUTE" || action == "SELECT")
-            toggleMute();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions =
+                new MythActions<MythMusicVolumeDialog>(this, mmvdActions,
+                                                       mmvdActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -2568,20 +2831,30 @@ bool TrackInfoDialog::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<TrackInfoDialog> tidActions[] = {
+    { "INFO",        &TrackInfoDialog::doInfo }
+};
+static int tidActionCount = NELEMS(tidActions);
+
+bool TrackInfoDialog::doInfo(const QString &action)
+{
+    (void)action;
+    Close();
+    return true;
+}
+
 bool TrackInfoDialog::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions, false);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("Music", event,
+                                                          actions, false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO")
-            Close();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<TrackInfoDialog>(this, tidActions,
+                                                         tidActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

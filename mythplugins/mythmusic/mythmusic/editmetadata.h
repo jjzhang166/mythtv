@@ -6,6 +6,7 @@ using namespace std;
 
 #include <mythscreentype.h>
 #include "metadata.h"
+#include "mythactions.h"
 
 class MythUIStateType;
 class MythUIImage;
@@ -31,6 +32,8 @@ class EditMetadataCommon : public MythScreenType
 
     void setSaveMetadataOnly(void);
 
+    bool doEscape(const QString &action);
+
   signals:
     void metadataChanged(void);
 
@@ -51,6 +54,9 @@ class EditMetadataCommon : public MythScreenType
     static Metadata       *m_metadata, *m_sourceMetadata;
 
     MythUIButton   *m_doneButton;
+
+  private:
+    MythActions<EditMetadataCommon> *m_actions;
 };
 
 class EditMetadataDialog : public EditMetadataCommon

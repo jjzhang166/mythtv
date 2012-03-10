@@ -13,6 +13,7 @@
 #include "metadata.h"
 #include "playlist.h"
 #include "musicplayer.h"
+#include "mythactions.h"
 
 class Output;
 class Decoder;
@@ -46,6 +47,36 @@ Q_DECLARE_METATYPE(MusicView);
 class MPUBLIC MusicCommon : public MythScreenType
 {
     Q_OBJECT
+
+  public:
+
+    bool doSelect(const QString &action);
+    bool doEscape(const QString &action);
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doThmbUp(const QString &action);
+    bool doThmbDown(const QString &action);
+    bool doNextTrack(const QString &action);
+    bool doPrevTrack(const QString &action);
+    bool doFfwd(const QString &action);
+    bool doRwnd(const QString &action);
+    bool doPause(const QString &action);
+    bool doPlay(const QString &action);
+    bool doStop(const QString &action);
+    bool doCycleVis(const QString &action);
+    bool doBlankScr(const QString &action);
+    bool doVolumeDown(const QString &action);
+    bool doVolumeUp(const QString &action);
+    bool doSpeedDown(const QString &action);
+    bool doSpeedUp(const QString &action);
+    bool doMute(const QString &action);
+    bool doToggleUpmix(const QString &action);
+    bool doInfo(const QString &action);
+    bool doEdit(const QString &action);
+    bool doDelete(const QString &action);
+    bool doMenu(const QString &action);
+    bool doRefresh(const QString &action);
+    bool doMark(const QString &action);
 
   protected:
 
@@ -205,6 +236,9 @@ class MPUBLIC MusicCommon : public MythScreenType
     MythUIButtonList      *m_playedTracksList;
 
     MythUIVideo           *m_visualizerVideo;
+
+  private:
+    MythActions<MusicCommon> *m_actions;
 };
 
 class MPUBLIC MythMusicVolumeDialog : public MythScreenType
@@ -216,6 +250,10 @@ class MPUBLIC MythMusicVolumeDialog : public MythScreenType
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
+
+    bool doVolumeUp(const QString &action);
+    bool doVolumeDown(const QString &action);
+    bool doMute(const QString &action);
 
   protected:
     void increaseVolume(void);
@@ -229,11 +267,14 @@ class MPUBLIC MythMusicVolumeDialog : public MythScreenType
     MythUIText        *m_volText;
     MythUIStateType   *m_muteState;
     MythUIProgressBar *m_volProgress;
+
+  private:
+    MythActions<MythMusicVolumeDialog> *m_actions;
 };
 
 class MPUBLIC TrackInfoDialog : public MythScreenType
 {
-  Q_OBJECT
+    Q_OBJECT
   public:
     TrackInfoDialog(MythScreenStack *parent, Metadata *mdata, const char *name);
     ~TrackInfoDialog(void);
@@ -241,8 +282,13 @@ class MPUBLIC TrackInfoDialog : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *event);
 
+    bool doInfo(const QString &action);
+
   protected:
     Metadata *m_metadata;
+
+  private:
+    MythActions<TrackInfoDialog> *m_actions;
 };
 
 #endif

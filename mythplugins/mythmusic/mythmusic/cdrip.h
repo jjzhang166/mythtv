@@ -8,6 +8,7 @@
 
 #include <mythscreentype.h>
 #include <mthread.h>
+#include "mythactions.h"
 
 class MythUIText;
 class MythUITextEdit;
@@ -95,6 +96,8 @@ class Ripper : public MythScreenType
     void scanCD(void);
     void ejectCD(void);
 
+    bool doInfo(const QString &action);
+
   protected slots:
     void startRipper(void);
     void startScanCD(void);
@@ -159,6 +162,8 @@ class Ripper : public MythScreenType
 
     CDEjectorThread   *m_ejectThread;
     CDScannerThread   *m_scanThread;
+
+    MythActions<Ripper> *m_actions;
 };
 
 
@@ -198,6 +203,8 @@ class RipStatus : public MythScreenType
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
 
+    bool doEscape(const QString &action);
+
   signals:
     void Result(bool);
 
@@ -220,6 +227,8 @@ class RipStatus : public MythScreenType
     MythUIProgressBar   *m_trackProgress;
 
     CDRipperThread    *m_ripperThread;
+
+    MythActions<RipStatus> *m_actions;
 };
 
 #endif

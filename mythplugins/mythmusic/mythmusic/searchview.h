@@ -10,6 +10,7 @@
 
 // mythmusic
 #include <musiccommon.h>
+#include "mythactions.h"
 
 class MythUIButtonList;
 class MythUIText;
@@ -26,6 +27,10 @@ class SearchView : public MusicCommon
     bool keyPressEvent(QKeyEvent *);
 
     virtual void ShowMenu(void);
+
+    bool doEdit(const QString &action);
+    bool doInfo(const QString &action);
+    bool doPlay(const QString &action);
 
   protected:
     void customEvent(QEvent *event);
@@ -44,6 +49,8 @@ class SearchView : public MusicCommon
     MythUITextEdit      *m_criteriaEdit;
     MythUIText          *m_matchesText;
     MythUIButtonList    *m_tracksList;
+
+    MythActions<SearchView> *m_actions;
 };
 
 #endif

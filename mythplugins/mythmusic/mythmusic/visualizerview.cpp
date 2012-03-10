@@ -18,15 +18,18 @@
 // mythmusic
 #include "musiccommon.h"
 #include "visualizerview.h"
+#include "mythactions.h"
 
-VisualizerView::VisualizerView(MythScreenStack *parent)
-         :MusicCommon(parent, "visualizerview")
+VisualizerView::VisualizerView(MythScreenStack *parent) :
+    MusicCommon(parent, "visualizerview"), m_actions(NULL)
 {
     m_currentView = MV_VISUALIZER;
 }
 
 VisualizerView::~VisualizerView()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool VisualizerView::Create(void)
@@ -63,6 +66,18 @@ void VisualizerView::customEvent(QEvent *event)
     MusicCommon::customEvent(event);
 }
 
+static struct ActionDefStruct<VisualizerView> vvActions[] = {
+    { "INFO",   &VisualizerView::doInfo }
+};
+static int vvActionCount = NELEMS(vvActions);
+
+bool VisualizerView::doInfo(const QString &action)
+{
+    (void)action;
+    showTrackInfoPopup();
+    return true;
+}
+
 bool VisualizerView::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -72,17 +87,12 @@ bool VisualizerView::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO")
-        {
-            showTrackInfoPopup();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<VisualizerView>(this, vvActions,
+                                                        vvActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MusicCommon::keyPressEvent(event))
@@ -134,8 +144,8 @@ void VisualizerView::showTrackInfoPopup(void)
 //---------------------------------------------------------
 #define MUSICINFOPOPUPTIME 8 * 1000
 
-TrackInfoPopup::TrackInfoPopup(MythScreenStack *parent, Metadata *metadata)
-         : MythScreenType(parent, "trackinfopopup", false)
+TrackInfoPopup::TrackInfoPopup(MythScreenStack *parent, Metadata *metadata) :
+    MythScreenType(parent, "trackinfopopup", false), m_actions(NULL)
 {
     m_metadata = metadata;
     m_displayTimer = NULL;
@@ -149,6 +159,9 @@ TrackInfoPopup::~TrackInfoPopup(void)
         delete m_displayTimer;
         m_displayTimer = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool TrackInfoPopup::Create(void)
@@ -193,20 +206,30 @@ bool TrackInfoPopup::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<TrackInfoPopup> tipActions[] = {
+    { "INFO",   &TrackInfoPopup::doInfo }
+};
+static int tipActionCount = NELEMS(tipActions);
+
+bool TrackInfoPopup::doInfo(const QString &action)
+{
+    (void)action;
+    Close();
+    return true;
+}
+
 bool TrackInfoPopup::keyPressEvent(QKeyEvent *event)
 {
     QStringList actions;
-    bool handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions, false);
+    bool handled = GetMythMainWindow()->TranslateKeyPress("Music", event,
+                                                          actions, false);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO")
-            Close();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<TrackInfoPopup>(this, tipActions,
+                                                        tipActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

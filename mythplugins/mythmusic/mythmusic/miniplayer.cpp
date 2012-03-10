@@ -7,8 +7,8 @@
 #include "musicplayer.h"
 #include "decoder.h"
 
-MiniPlayer::MiniPlayer(MythScreenStack *parent)
-          : MusicCommon(parent, "music_miniplayer")
+MiniPlayer::MiniPlayer(MythScreenStack *parent) :
+    MusicCommon(parent, "music_miniplayer"), m_actions(NULL)
 {
     m_displayTimer = new QTimer(this);
     m_displayTimer->setSingleShot(true);
@@ -25,6 +25,9 @@ MiniPlayer::~MiniPlayer(void)
 
     if (LCD *lcd = LCD::Get())
         lcd->switchToTime ();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void MiniPlayer::timerTimeout(void)
@@ -58,6 +61,37 @@ bool MiniPlayer::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<MiniPlayer> mpActions[] = {
+    { "SELECT", &MiniPlayer::doSelect },
+    { "ESCAPE", &MiniPlayer::doEscape },
+    { "MENU",   &MiniPlayer::doMenu  }
+};
+static int mpActionCount = NELEMS(mpActions);
+
+bool MiniPlayer::doSelect(const QString &action)
+{
+    (void)action;
+    if (m_displayTimer)
+        m_displayTimer->stop();
+    return true;
+}
+
+bool MiniPlayer::doEscape(const QString &action)
+{
+    (void)action;
+    Close();
+    return true;
+}
+
+bool MiniPlayer::doMenu(const QString &action)
+{
+    (void)action;
+    gPlayer->autoShowPlayer(!gPlayer->getAutoShowPlayer());
+    //showAutoMode();
+    return true;
+}
+
+
 bool MiniPlayer::keyPressEvent(QKeyEvent *event)
 {
     // restart the display timer on any keypress if it is active
@@ -71,27 +105,12 @@ bool MiniPlayer::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "SELECT")
-        {
-            if (m_displayTimer)
-                m_displayTimer->stop();
-        }
-        else if (action == "ESCAPE")
-        {
-            Close();
-        }
-        else if (action == "MENU")
-        {
-            gPlayer->autoShowPlayer(!gPlayer->getAutoShowPlayer());
-            //showAutoMode();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<MiniPlayer>(this, mpActions,
+                                                    mpActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MusicCommon::keyPressEvent(event))

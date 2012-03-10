@@ -9,6 +9,7 @@ using namespace std;
 
 #include <mythscreentype.h>
 #include <mthread.h>
+#include "mythactions.h"
 
 class Metadata;
 class ImportMusicDialog;
@@ -53,6 +54,22 @@ class ImportMusicDialog : public MythScreenType
 
     bool somethingWasImported() { return m_somethingWasImported; }
     void doScan(void);
+
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doEdit(const QString &action);
+    bool doMenu(const QString &action);
+    bool doEscape(const QString &action);
+    bool doOne(const QString &action);
+    bool doTwo(const QString &action);
+    bool doThree(const QString &action);
+    bool doFour(const QString &action);
+    bool doFive(const QString &action);
+    bool doSix(const QString &action);
+    bool doSeven(const QString &action);
+    bool doEight(const QString &action);
+    bool doNine(const QString &action);
+    bool doZero(const QString &action);
 
   public slots:
     void addAllNewPressed(void);
@@ -136,6 +153,8 @@ class ImportMusicDialog : public MythScreenType
     int                  m_defaultYear;
     int                  m_defaultRating;
     bool                 m_haveDefaults;
+
+    MythActions<ImportMusicDialog> *m_actions;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,6 +172,9 @@ class ImportCoverArtDialog : public MythScreenType
 
     bool Create(void);
     bool keyPressEvent(QKeyEvent *);
+
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
 
   public slots:
     void copyPressed(void);
@@ -186,6 +208,8 @@ class ImportCoverArtDialog : public MythScreenType
     MythUIButton    *m_prevButton;
     MythUIButton    *m_copyButton;
     MythUIButton    *m_exitButton;
+
+    MythActions<ImportCoverArtDialog> *m_actions;
 };
 
 #endif

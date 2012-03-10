@@ -26,6 +26,7 @@
 #include "musicutils.h"
 
 #include "editmetadata.h"
+#include "mythactions.h"
 
 // these need to be static so both screens can pick them up
 bool EditMetadataCommon::metadataOnly = false;
@@ -46,12 +47,14 @@ EditMetadataCommon::EditMetadataCommon(MythScreenStack *parent,
 
 EditMetadataCommon::EditMetadataCommon(MythScreenStack *parent,
                                        const QString &name) :
-    MythScreenType(parent, name), m_doneButton(NULL)
+    MythScreenType(parent, name), m_doneButton(NULL), m_actions(NULL)
 {
 }
 
 EditMetadataCommon::~EditMetadataCommon()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool EditMetadataCommon::CreateCommon(void)
@@ -65,6 +68,18 @@ bool EditMetadataCommon::CreateCommon(void)
     return err;
 }
 
+static struct ActionDefStruct<EditMetadataCommon> emcActions[] = {
+    { "ESCAPE",          &EditMetadataCommon::doEscape },
+};
+static int emcActionCount = NELEMS(emcActions);
+
+bool EditMetadataCommon::doEscape(const QString &action)
+{
+    (void)action;
+    showSaveMenu();
+    return true;
+}
+
 bool EditMetadataCommon::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -74,15 +89,12 @@ bool EditMetadataCommon::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "ESCAPE")
-            showSaveMenu();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<EditMetadataCommon>(this, emcActions,
+                                                            emcActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

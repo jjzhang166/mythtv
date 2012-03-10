@@ -29,6 +29,7 @@
 #include <mythprogressdialog.h>
 #include <mythuifilebrowser.h>
 #include "mythlogging.h"
+#include "mythactions.h"
 
 static bool copyFile(const QString &src, const QString &dst)
 {
@@ -112,7 +113,7 @@ ImportMusicDialog::ImportMusicDialog(MythScreenStack *parent) :
     m_defaultCompilation(false),
     m_defaultYear(0),
     m_defaultRating(0),
-    m_haveDefaults(false)
+    m_haveDefaults(false), m_actions(NULL)
 {
 }
 
@@ -132,6 +133,9 @@ ImportMusicDialog::~ImportMusicDialog()
     // do we need to do a resync
     if (m_somethingWasImported)
         emit importFinished();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void ImportMusicDialog::fillWidgets()
@@ -181,6 +185,155 @@ void ImportMusicDialog::fillWidgets()
     }
 }
 
+static struct ActionDefStruct<ImportMusicDialog> imdActions[] = {
+    { "LEFT",     &ImportMusicDialog::doLeft },
+    { "RIGHT",    &ImportMusicDialog::doRight },
+    { "EDIT",     &ImportMusicDialog::doEdit },
+    { "MENU",     &ImportMusicDialog::doMenu },
+    { "ESCAPE",   &ImportMusicDialog::doEscape },
+    { "0",        &ImportMusicDialog::doZero },
+    { "1",        &ImportMusicDialog::doOne },
+    { "2",        &ImportMusicDialog::doTwo },
+    { "3",        &ImportMusicDialog::doThree },
+    { "4",        &ImportMusicDialog::doFour },
+    { "5",        &ImportMusicDialog::doFive },
+    { "6",        &ImportMusicDialog::doSix },
+    { "7",        &ImportMusicDialog::doSeven },
+    { "8",        &ImportMusicDialog::doEight },
+    { "9",        &ImportMusicDialog::doNine }
+};
+static int imdActionCount = NELEMS(imdActions);
+
+bool ImportMusicDialog::doLeft(const QString &action)
+{
+    (void)action;
+    m_prevButton->Push();
+    return true;
+}
+
+bool ImportMusicDialog::doRight(const QString &action)
+{
+    (void)action;
+    m_nextButton->Push();
+    return true;
+}
+
+bool ImportMusicDialog::doEdit(const QString &action)
+{
+    (void)action;
+    showEditMetadataDialog();
+    return true;
+}
+
+bool ImportMusicDialog::doMenu(const QString &action)
+{
+    (void)action;
+    showMenu();
+    return true;
+}
+
+bool ImportMusicDialog::doEscape(const QString &action)
+{
+    (void)action;
+    if (!GetMythMainWindow()->IsExitingToMain())
+    {
+        bool found = false;
+        if (!m_tracks->empty())
+        {
+            uint track = 0;
+            while (track < m_tracks->size())
+            {
+                if (m_tracks->at(track)->isNewTune)
+                {
+                    found = true;
+                    break;
+                }
+                track++;
+            }
+
+            if (found)
+            {
+                QString msg = tr("You might have unsaved changes.\n"
+                                 "Are you sure you want to exit this screen?");
+                ShowOkPopup(msg, this, SLOT(doExit(bool)), true);
+            }
+        }
+
+        return found;
+    }
+    return false;
+}
+
+bool ImportMusicDialog::doOne(const QString &action)
+{
+    (void)action;
+    setCompilation();
+    return true;
+}
+
+bool ImportMusicDialog::doTwo(const QString &action)
+{
+    (void)action;
+    setCompilationArtist();
+    return true;
+}
+
+bool ImportMusicDialog::doThree(const QString &action)
+{
+    (void)action;
+    setArtist();
+    return true;
+}
+
+bool ImportMusicDialog::doFour(const QString &action)
+{
+    (void)action;
+    setAlbum();
+    return true;
+}
+
+bool ImportMusicDialog::doFive(const QString &action)
+{
+    (void)action;
+    setGenre();
+    return true;
+}
+
+bool ImportMusicDialog::doSix(const QString &action)
+{
+    (void)action;
+    setYear();
+    return true;
+}
+
+bool ImportMusicDialog::doSeven(const QString &action)
+{
+    (void)action;
+    setRating();
+    return true;
+}
+
+bool ImportMusicDialog::doEight(const QString &action)
+{
+    (void)action;
+    setTitleWordCaps();
+    return true;
+}
+
+bool ImportMusicDialog::doNine(const QString &action)
+{
+    (void)action;
+    setTitleInitialCap();
+    return true;
+}
+
+bool ImportMusicDialog::doZero(const QString &action)
+{
+    (void)action;
+    setTrack();
+    return true;
+}
+
 bool ImportMusicDialog::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -190,94 +343,12 @@ bool ImportMusicDialog::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "LEFT")
-        {
-            m_prevButton->Push();
-        }
-        else if (action == "RIGHT")
-        {
-            m_nextButton->Push();
-        }
-        else if (action == "EDIT")
-        {
-            showEditMetadataDialog();
-        }
-        else if (action == "MENU")
-        {
-            showMenu();
-        }
-        else if (action == "ESCAPE" && !GetMythMainWindow()->IsExitingToMain())
-        {
-            bool found = false;
-            if (!m_tracks->empty())
-            {
-                uint track = 0;
-                while (track < m_tracks->size())
-                {
-                    if (m_tracks->at(track)->isNewTune)
-                    {
-                        found = true;
-                        break;
-                    }
-                    track++;
-                }
-
-                if (found)
-                {
-                    QString msg = tr("You might have unsaved changes.\nAre you sure you want to exit this screen?");
-                    ShowOkPopup(msg, this, SLOT(doExit(bool)), true);
-                }
-            }
-
-            handled = found;
-        }
-        else if (action == "1")
-        {
-            setCompilation();
-        }
-        else if (action == "2")
-        {
-            setCompilationArtist();
-        }
-        else if (action == "3")
-        {
-            setArtist();
-        }
-        else if (action == "4")
-        {
-            setAlbum();
-        }
-        else if (action == "5")
-        {
-            setGenre();
-        }
-        else if (action == "6")
-        {
-            setYear();
-        }
-        else if (action == "7")
-        {
-            setRating();
-        }
-        else if (action == "8")
-        {
-            setTitleWordCaps();
-        }
-        else if (action == "9")
-        {
-            setTitleInitialCap();
-        }
-        else if (action == "0")
-        {
-            setTrack();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ImportMusicDialog>(this, imdActions,
+                                                           imdActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -876,13 +947,34 @@ ImportCoverArtDialog::ImportCoverArtDialog(MythScreenStack *parent,
     m_nextButton(NULL),
     m_prevButton(NULL),
     m_copyButton(NULL),
-    m_exitButton(NULL)
+    m_exitButton(NULL), m_actions(NULL)
 {
 }
 
 ImportCoverArtDialog::~ImportCoverArtDialog()
 {
+    if (m_actions)
+        delete m_actions;
+}
 
+static struct ActionDefStruct<ImportCoverArtDialog> icadActions[] = {
+    { "LEFT",     &ImportCoverArtDialog::doLeft },
+    { "RIGHT",    &ImportCoverArtDialog::doRight }
+};
+static int icadActionCount = NELEMS(icadActions);
+
+bool ImportCoverArtDialog::doLeft(const QString &action)
+{
+    (void)action;
+    m_prevButton->Push();
+    return true;
+}
+
+bool ImportCoverArtDialog::doRight(const QString &action)
+{
+    (void)action;
+    m_nextButton->Push();
+    return true;
 }
 
 bool ImportCoverArtDialog::keyPressEvent(QKeyEvent *event)
@@ -894,21 +986,12 @@ bool ImportCoverArtDialog::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "LEFT")
-        {
-            m_prevButton->Push();
-        }
-        else if (action == "RIGHT")
-        {
-            m_nextButton->Push();
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<ImportCoverArtDialog>(this, icadActions,
+                                                              icadActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

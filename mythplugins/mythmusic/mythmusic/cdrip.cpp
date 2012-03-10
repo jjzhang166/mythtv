@@ -42,8 +42,8 @@ using namespace std;
 #include <mythsystem.h>
 
 // MythUI headers
-#include <mythtv/libmythui/mythscreenstack.h>
-#include <mythtv/libmythui/mythprogressdialog.h>
+#include <mythscreenstack.h>
+#include <mythprogressdialog.h>
 
 // MythMusic includes
 #include "cdrip.h"
@@ -58,6 +58,7 @@ using namespace std;
 #include "editmetadata.h"
 #include "mythlogging.h"
 #include "musicutils.h"
+#include "mythactions.h"
 
 #ifdef HAVE_CDIO
 // libparanoia compatibility
@@ -525,7 +526,7 @@ Ripper::Ripper(MythScreenStack *parent, QString device) :
 
     m_CDdevice(device),
 
-    m_ejectThread(NULL), m_scanThread(NULL)
+    m_ejectThread(NULL), m_scanThread(NULL), m_actions(NULL)
 {
 #ifndef _WIN32
     // if the MediaMonitor is running stop it
@@ -556,6 +557,9 @@ Ripper::~Ripper(void)
 
     if (m_somethingwasripped)
         emit ripFinished();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool Ripper::Create(void)
@@ -620,6 +624,19 @@ bool Ripper::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<Ripper> rActions[] = {
+    { "INFO",          &Ripper::doInfo },
+};
+static int rActionCount = NELEMS(rActions);
+
+bool Ripper::doInfo(const QString &action)
+{
+    (void)action;
+    showEditMetadataDialog(m_trackList->GetItemCurrent());
+    return true;
+}
+
+
 bool Ripper::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -629,17 +646,11 @@ bool Ripper::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO")
-        {
-            showEditMetadataDialog(m_trackList->GetItemCurrent());
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<Ripper>(this, rActions, rActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -1399,8 +1410,8 @@ void Ripper::customEvent(QEvent* event)
 ///////////////////////////////////////////////////////////////////////////////
 
 RipStatus::RipStatus(MythScreenStack *parent, const QString &device,
-                     QVector<RipTrack*> *tracks, int quality)
-    : MythScreenType(parent, "ripstatus")
+                     QVector<RipTrack*> *tracks, int quality) :
+    MythScreenType(parent, "ripstatus"), m_actions(NULL)
 {
     m_CDdevice = device;
     m_tracks = tracks;
@@ -1420,6 +1431,9 @@ RipStatus::~RipStatus(void)
 
     if (LCD *lcd = LCD::Get())
         lcd->switchToTime();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool RipStatus::Create(void)
@@ -1443,6 +1457,26 @@ bool RipStatus::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<RipStatus> rsActions[] = {
+    { "ESCAPE",          &Ripper::doEscape },
+};
+static int rsActionCount = NELEMS(rsActions);
+
+bool RipStatus::doEscape(const QString &action)
+{
+    (void)action;
+    if (m_ripperThread && m_ripperThread->isRunning())
+    {
+        MythConfirmationDialog *dialog =
+            ShowOkPopup(tr("Cancel ripping the CD?"), this, NULL, true);
+        if (dialog)
+            dialog->SetReturnEvent(this, "stop_ripping");
+        return true;
+    }
+    return false;
+}
+
+
 bool RipStatus::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -1452,22 +1486,12 @@ bool RipStatus::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Global", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-
-        if (action == "ESCAPE" &&
-            m_ripperThread && m_ripperThread->isRunning())
-        {
-            MythConfirmationDialog *dialog =
-                ShowOkPopup(tr("Cancel ripping the CD?"), this, NULL, true);
-            if (dialog)
-                dialog->SetReturnEvent(this, "stop_ripping");
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<RipStatus>(this, rsActions,
+                                                   rsActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))

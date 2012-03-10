@@ -12,6 +12,7 @@
 
 // mythmusic
 #include "musiccommon.h"
+#include "mythactions.h"
 
 class MythUIButtonTree;
 class MythUIText;
@@ -25,9 +26,11 @@ class MPUBLIC MusicButtonItem : public MythUIButtonListItem, public QObject
                          const QString& image = "", bool checkable = false,
                          CheckState state = CantCheck, bool showArrow = false,
                          int listPosition = -1):
-        MythUIButtonListItem(lbtype, text, image, checkable, state, showArrow, listPosition) {}
+        MythUIButtonListItem(lbtype, text, image, checkable, state, showArrow,
+                             listPosition) {}
 
-    MusicButtonItem(MythUIButtonList *lbtype, const QString& text, QVariant data, int listPosition = -1) :
+    MusicButtonItem(MythUIButtonList *lbtype, const QString& text,
+                    QVariant data, int listPosition = -1) :
         MythUIButtonListItem(lbtype, text, data, listPosition) {}
 };
 
@@ -63,7 +66,8 @@ class PlaylistEditorView : public MusicCommon
 {
     Q_OBJECT
   public:
-    PlaylistEditorView(MythScreenStack *parent, const QString &layout, bool restorePosition = false);
+    PlaylistEditorView(MythScreenStack *parent, const QString &layout,
+                       bool restorePosition = false);
     ~PlaylistEditorView(void);
 
     bool Create(void);
@@ -72,6 +76,11 @@ class PlaylistEditorView : public MusicCommon
     void saveTreePosition(void);
 
     virtual void ShowMenu(void);
+
+    bool doEdit(const QString &action);
+    bool doInfo(const QString &action);
+    bool doDelete(const QString &action);
+    bool doMark(const QString &action);
 
   protected:
     void customEvent(QEvent *event);
@@ -113,6 +122,8 @@ class PlaylistEditorView : public MusicCommon
     MythUIButtonTree *m_playlistTree;
     MythUIText       *m_breadcrumbsText;
     MythUIText       *m_positionText;
+
+    MythActions<PlaylistEditorView> *m_actions;
 };
 
 #endif

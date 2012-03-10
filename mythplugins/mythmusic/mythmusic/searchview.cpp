@@ -13,17 +13,20 @@
 // mythmusic
 #include "musiccommon.h"
 #include "searchview.h"
+#include "mythactions.h"
 
-SearchView::SearchView(MythScreenStack *parent)
-         :MusicCommon(parent, "searchview"),
-            m_playTrack(false), m_fieldList(NULL), m_criteriaEdit(NULL),
-            m_matchesText(NULL), m_tracksList(NULL)
+SearchView::SearchView(MythScreenStack *parent) :
+    MusicCommon(parent, "searchview"),
+    m_playTrack(false), m_fieldList(NULL), m_criteriaEdit(NULL),
+    m_matchesText(NULL), m_tracksList(NULL), m_actions(NULL)
 {
     m_currentView = MV_SEARCH;
 }
 
 SearchView::~SearchView()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool SearchView::Create(void)
@@ -206,55 +209,80 @@ void SearchView::customEvent(QEvent *event)
         MusicCommon::customEvent(event);
 }
 
+static struct ActionDefStruct<SearchView> svActions[] = {
+    { "EDIT",  &SearchView::doEdit },
+    { "INFO",  &SearchView::doInfo },
+    { "PLAY",  &SearchView::doPlay },
+    { "PAUSE", &SearchView::doPlay }
+};
+static int svActionCount = NELEMS(svActions);
+
+bool SearchView::doEdit(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_tracksList)
+    {
+        if (m_tracksList->GetItemCurrent())
+        {
+            Metadata *mdata = qVariantValue<Metadata*>
+                                  (m_tracksList->GetItemCurrent()->GetData());
+            if (mdata)
+                editTrackInfo(mdata);
+        }
+        return true;
+    }
+    return false;
+}
+
+bool SearchView::doInfo(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_tracksList)
+    {
+        if (m_tracksList->GetItemCurrent())
+        {
+            Metadata *mdata = qVariantValue<Metadata*>
+                                  (m_tracksList->GetItemCurrent()->GetData());
+            if (mdata)
+                showTrackInfo(mdata);
+        }
+        return true;
+    }
+    return false;
+}
+
+bool SearchView::doPlay(const QString &action)
+{
+    (void)action;
+    if (GetFocusWidget() == m_tracksList)
+    {
+        MythUIButtonListItem *item = m_tracksList->GetItemCurrent();
+        if (item)
+        {
+            m_playTrack = true;
+            trackClicked(item);
+        }
+        return true;
+    }
+    return false;
+}
+
 bool SearchView::keyPressEvent(QKeyEvent *event)
 {
-    if (!m_moveTrackMode && GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
+    if (!m_moveTrackMode && GetFocusWidget() &&
+        GetFocusWidget()->keyPressEvent(event))
         return true;
 
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO" || action == "EDIT")
-        {
-            if (GetFocusWidget() == m_tracksList)
-            {
-                if (m_tracksList->GetItemCurrent())
-                {
-                    Metadata *mdata = qVariantValue<Metadata*> (m_tracksList->GetItemCurrent()->GetData());
-                    if (mdata)
-                    {
-                        if (action == "INFO")
-                            showTrackInfo(mdata);
-                        else
-                            editTrackInfo(mdata);
-                    }
-                }
-            }
-            else
-                handled = false;
-        }
-        else if (action == "PLAY" || action == "PAUSE")
-        {
-            if (GetFocusWidget() == m_tracksList)
-            {
-                MythUIButtonListItem *item = m_tracksList->GetItemCurrent();
-                if (item)
-                {
-                    m_playTrack = true;
-                    trackClicked(item);
-                }
-            }
-            else
-                handled = false;
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<SearchView>(this, svActions,
+                                                    svActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MusicCommon::keyPressEvent(event))

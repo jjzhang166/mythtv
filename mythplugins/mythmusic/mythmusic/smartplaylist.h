@@ -13,6 +13,7 @@ class MythUIButton;using namespace std;
 
 // mythtv
 #include <mythscreentype.h>
+#include "mythactions.h"
 
 struct SmartPLOperator;
 struct SmartPLField;
@@ -87,6 +88,10 @@ class SmartPlaylistEditor : public MythScreenType
     static bool deleteCategory(QString category);
     static int  lookupCategoryID(QString category);
 
+    bool doMenu(const QString &action);
+    bool doDelete(const QString &action);
+    bool doEdit(const QString &action);
+
   signals:
     void smartPLChanged(const QString &category, const QString &name);
 
@@ -141,6 +146,8 @@ class SmartPlaylistEditor : public MythScreenType
     MythUIButton *m_cancelButton;
     MythUIButton *m_saveButton;
     MythUIButton *m_showResultsButton;
+
+    MythActions<SmartPlaylistEditor> *m_actions;
 };
 
 class CriteriaRowEditor : public MythScreenType

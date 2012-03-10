@@ -20,6 +20,7 @@
 #include "playlisteditorview.h"
 #include "smartplaylist.h"
 #include "musicutils.h"
+#include "mythactions.h"
 
 MusicGenericTree::MusicGenericTree(MusicGenericTree *parent,
                                    const QString &name, const QString &action,
@@ -84,14 +85,14 @@ MythUIButtonListItem *MusicGenericTree::CreateListButton(MythUIButtonList *list)
 ///////////////////////////////////////////////////////////////////////////////
 
 #define LOC      QString("PlaylistEditorView: ")
-#define LOC_WARN QString("PlaylistEditorView, Warning: ")
-#define LOC_ERR  QString("PlaylistEditorView, Error: ")
 
-PlaylistEditorView::PlaylistEditorView(MythScreenStack *parent, const QString &layout, bool restorePosition)
-         :MusicCommon(parent, "playlisteditorview"),
-            m_layout(layout), m_restorePosition(restorePosition),
-            m_rootNode(NULL), m_playlistTree(NULL), m_breadcrumbsText(NULL),
-            m_positionText(NULL)
+PlaylistEditorView::PlaylistEditorView(MythScreenStack *parent,
+                                       const QString &layout,
+                                       bool restorePosition) :
+    MusicCommon(parent, "playlisteditorview"),
+    m_layout(layout), m_restorePosition(restorePosition),
+    m_rootNode(NULL), m_playlistTree(NULL), m_breadcrumbsText(NULL),
+    m_positionText(NULL), m_actions(NULL)
 {
     gCoreContext->SaveSetting("MusicPlaylistEditorView", layout);
 }
@@ -106,6 +107,9 @@ PlaylistEditorView::~PlaylistEditorView()
 
     if (m_rootNode)
         delete m_rootNode;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 bool PlaylistEditorView::Create(void)
@@ -330,130 +334,175 @@ void PlaylistEditorView::customEvent(QEvent *event)
     MusicCommon::customEvent(event);
 }
 
+static struct ActionDefStruct<PlaylistEditorView> pevActions[] = {
+    { "EDIT",   &PlaylistEditorView::doEdit },
+    { "INFO",   &PlaylistEditorView::doInfo },
+    { "DELETE", &PlaylistEditorView::doDelete },
+    { "MARK",   &PlaylistEditorView::doMark }
+};
+static int pevActionCount = NELEMS(pevActions);
+
+bool PlaylistEditorView::doEdit(const QString &action)
+{
+    (void)action;
+    bool handled = false;
+
+    if (GetFocusWidget() != m_playlistTree)
+        return false;
+
+    MythGenericTree *node = m_playlistTree->GetCurrentNode();
+    if (!node)
+        return false;
+
+    MusicGenericTree *mnode = dynamic_cast<MusicGenericTree*>(node);
+    if (!mnode)
+        return false;
+
+    if (mnode->getAction() == "smartplaylist")
+    {
+        QString category = mnode->getParent()->getString();
+        QString name = mnode->getString();
+
+        MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
+        SmartPlaylistEditor* editor = new SmartPlaylistEditor(mainStack);
+
+        if (!editor->Create())
+        {
+            delete editor;
+            return true;
+        }
+
+        editor->editSmartPlaylist(category, name);
+        connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
+                this, SLOT(smartPLChanged(QString, QString)));
+
+        mainStack->AddScreen(editor);
+
+        handled = true;
+    }
+    else if (mnode->getAction() == "smartplaylistcategory")
+    {
+        QString category = mnode->getString();
+
+        MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
+        SmartPlaylistEditor* editor = new SmartPlaylistEditor(mainStack);
+
+        if (!editor->Create())
+        {
+            delete editor;
+            return true;
+        }
+
+        editor->newSmartPlaylist(category);
+
+        connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
+                this, SLOT(smartPLChanged(QString, QString)));
+
+        mainStack->AddScreen(editor);
+
+        handled = true;
+    }
+    else if (mnode->getAction() == "trackid")
+    {
+        Metadata *mdata = gMusicData->all_music->getMetadata(mnode->getInt());
+        if (mdata)
+            editTrackInfo(mdata);
+
+        handled = true;
+    }
+    return handled;
+}
+
+bool PlaylistEditorView::doInfo(const QString &action)
+{
+    (void)action;
+    bool handled = false;
+
+    if (GetFocusWidget() != m_playlistTree)
+        return false;
+
+    MythGenericTree *node = m_playlistTree->GetCurrentNode();
+    if (!node)
+        return false;
+
+    MusicGenericTree *mnode = dynamic_cast<MusicGenericTree*>(node);
+    if (!mnode)
+        return false;
+
+    if (mnode->getAction() == "trackid")
+    {
+        Metadata *mdata = gMusicData->all_music->getMetadata(mnode->getInt());
+        if (mdata)
+            showTrackInfo(mdata);
+
+        handled = true;
+    }
+    return handled;
+}
+
+bool PlaylistEditorView::doDelete(const QString &action)
+{
+    (void)action;
+    bool handled = false;
+    if (GetFocusWidget() != m_playlistTree)
+        return false;
+
+    MythGenericTree *node = m_playlistTree->GetCurrentNode();
+    if (!node)
+        return false;
+
+    MusicGenericTree *mnode = dynamic_cast<MusicGenericTree*>(node);
+    if (!mnode)
+        return false;
+
+    if (mnode->getAction() == "smartplaylist")
+    {
+        QString category = mnode->getParent()->getString();
+        QString name = mnode->getString();
+
+        ShowOkPopup(QString("Are you sure you want to delete this Smart "
+                            "Playlist?\nCategory: %1 - Name: %2")
+                        .arg(category).arg(name),
+                    this, SLOT(deleteSmartPlaylist(bool)), true);
+        handled = true;
+    }
+    else if (mnode->getAction() == "playlist")
+    {
+        QString name = mnode->getString();
+
+        ShowOkPopup(QString("Are you sure you want to delete this Playlist?\n"
+                            "Name: %1").arg(name),
+                    this, SLOT(deletePlaylist(bool)), true);
+        handled = true;
+    }
+    return handled;
+}
+
+bool PlaylistEditorView::doMark(const QString &action)
+{
+    (void)action;
+    MythUIButtonListItem *item = m_playlistTree->GetItemCurrent();
+    if (item)
+        treeItemClicked(item);
+    return true;
+}
+
 bool PlaylistEditorView::keyPressEvent(QKeyEvent *event)
 {
-    if (!m_moveTrackMode && GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
+    if (!m_moveTrackMode && GetFocusWidget() &&
+        GetFocusWidget()->keyPressEvent(event))
         return true;
 
     bool handled = false;
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if ((action == "EDIT" || action == "INFO") && GetFocusWidget() == m_playlistTree)
-        {
-            handled = false;
-
-            MythGenericTree *node = m_playlistTree->GetCurrentNode();
-            if (node)
-            {
-                MusicGenericTree *mnode = dynamic_cast<MusicGenericTree*>(node);
-                if (mnode)
-                {
-                    if (mnode->getAction() == "smartplaylist" && action == "EDIT")
-                    {
-                        QString category = mnode->getParent()->getString();
-                        QString name = mnode->getString();
-
-                        MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
-                        SmartPlaylistEditor* editor = new SmartPlaylistEditor(mainStack);
-
-                        if (!editor->Create())
-                        {
-                            delete editor;
-                            return true;
-                        }
-
-                        editor->editSmartPlaylist(category, name);
-                        connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
-                                this, SLOT(smartPLChanged(QString, QString)));
-
-                        mainStack->AddScreen(editor);
-
-                        handled = true;
-                    }
-                    else if (mnode->getAction() == "smartplaylistcategory" && action == "EDIT")
-                    {
-                        QString category = mnode->getString();
-
-                        MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
-                        SmartPlaylistEditor* editor = new SmartPlaylistEditor(mainStack);
-
-                        if (!editor->Create())
-                        {
-                            delete editor;
-                            return true;
-                        }
-
-                        editor->newSmartPlaylist(category);
-
-                        connect(editor, SIGNAL(smartPLChanged(const QString&, const QString&)),
-                                this, SLOT(smartPLChanged(QString, QString)));
-
-                        mainStack->AddScreen(editor);
-
-                        handled = true;
-                    }
-                    else if (mnode->getAction() == "trackid")
-                    {
-                        Metadata *mdata = gMusicData->all_music->getMetadata(mnode->getInt());
-                        if (mdata)
-                        {
-                            if (action == "INFO")
-                                showTrackInfo(mdata);
-                            else
-                                editTrackInfo(mdata);
-                        }
-
-                        handled = true;
-                    }
-                }
-            }
-        }
-        else if (action == "DELETE" && GetFocusWidget() == m_playlistTree)
-        {
-            handled = false;
-
-            MythGenericTree *node = m_playlistTree->GetCurrentNode();
-            if (node)
-            {
-                MusicGenericTree *mnode = dynamic_cast<MusicGenericTree*>(node);
-                if (mnode)
-                {
-                    if (mnode->getAction() == "smartplaylist")
-                    {
-                        QString category = mnode->getParent()->getString();
-                        QString name = mnode->getString();
-
-                        ShowOkPopup(QString("Are you sure you want to delete this Smart Playlist?\n"
-                                            "Category: %1 - Name: %2").arg(category).arg(name),
-                                    this, SLOT(deleteSmartPlaylist(bool)), true);
-                        handled = true;
-                    }
-                    else if (mnode->getAction() == "playlist")
-                    {
-                        QString name = mnode->getString();
-
-                        ShowOkPopup(QString("Are you sure you want to delete this Playlist?\n"
-                                            "Name: %1").arg(name),
-                                    this, SLOT(deletePlaylist(bool)), true);
-                        handled = true;
-                    }
-                }
-            }
-        }
-        else if (action == "MARK")
-        {
-            MythUIButtonListItem *item = m_playlistTree->GetItemCurrent();
-            if (item)
-                treeItemClicked(item);
-        }
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<PlaylistEditorView>(this, pevActions,
+                                                            pevActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MusicCommon::keyPressEvent(event))
