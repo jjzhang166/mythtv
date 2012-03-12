@@ -1956,7 +1956,12 @@ bool MythMainWindow::eventFilter(QObject *, QEvent *e)
                 MythScreenType *top = (*it)->GetTopScreen();
                 if (top)
                 {
-                    if (top->keyPressEvent(ke))
+                    LOG(VB_KEYPRESS, LOG_INFO, "keyPress Start");
+                    bool result = top->keyPressEvent(ke);
+                    LOG(VB_KEYPRESS, LOG_INFO,
+                        QString("keyPress Finish - Result %1") .arg(result));
+
+                    if (result)
                         return true;
 
                     // Note:  The following break prevents keypresses being
