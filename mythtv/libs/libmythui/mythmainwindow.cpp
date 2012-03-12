@@ -1495,6 +1495,7 @@ bool MythMainWindow::TranslateKeyPress(const QString &context,
                                        QKeyEvent *e, QStringList &actions,
                                        bool allowJumps)
 {
+    LOG(VB_KEYPRESS, LOG_INFO, QString("Translate %1").arg(context));
     actions.clear();
 
     // Special case for custom QKeyEvent where the action is embedded directly
@@ -1507,6 +1508,7 @@ bool MythMainWindow::TranslateKeyPress(const QString &context,
         if (!d->destinationMap.contains(action))
         {
             actions.append(action);
+            LOG(VB_KEYPRESS, LOG_INFO, "Translate done, embedded action");
             return false;
         }
 
@@ -1518,9 +1520,11 @@ bool MythMainWindow::TranslateKeyPress(const QString &context,
             // GetCurrentLocation with the jumppoint but matching is utterly
             // inconsistent e.g. mainmenu<->Main Menu, Playback<->Live TV
             JumpTo(action);
+            LOG(VB_KEYPRESS, LOG_INFO, "Translate done, embedded action");
             return true;
         }
 
+        LOG(VB_KEYPRESS, LOG_INFO, "Translate done, embedded action");
         return false;
     }
 
@@ -1541,6 +1545,7 @@ bool MythMainWindow::TranslateKeyPress(const QString &context,
     {
         void (*callback)(void) = d->jumpMap[keynum]->callback;
         callback();
+        LOG(VB_KEYPRESS, LOG_INFO, "Translate done, callback");
         return true;
     }
 
@@ -1551,6 +1556,7 @@ bool MythMainWindow::TranslateKeyPress(const QString &context,
         d->exitmenucallback = d->jumpMap[keynum]->callback;
         QCoreApplication::postEvent(
             this, new QEvent(MythEvent::kExitToMainMenuEventType));
+        LOG(VB_KEYPRESS, LOG_INFO, "Translate done, posted event");
         return true;
     }
 
@@ -1560,6 +1566,7 @@ bool MythMainWindow::TranslateKeyPress(const QString &context,
     if (context != "Global")
         d->keyContexts.value("Global")->GetMapping(keynum, actions);
 
+    LOG(VB_KEYPRESS, LOG_INFO, "Translate done, mapped");
     return false;
 }
 
