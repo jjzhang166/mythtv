@@ -3493,7 +3493,12 @@ bool TV::event(QEvent *e)
         bool handled = false;
         PlayerContext *actx = GetPlayerReadLock(-1, __FILE__, __LINE__);
         if (actx->HasPlayer())
+        {
+            LOG(VB_KEYPRESS, LOG_INFO, "keyPress Start");
             handled = ProcessKeypress(actx, (QKeyEvent *)e);
+            LOG(VB_KEYPRESS, LOG_INFO, QString("keyPress Finish - Result %1")
+                .arg(handled));
+        }
         ReturnPlayerLock(actx);
         if (handled)
             return true;
