@@ -7,6 +7,7 @@
 #include <QList>
 #include <QRegExp>
 #include "mythbaseexp.h"  //  MBASE_PUBLIC , etc.
+#include "mythlogging.h"
 
 template <class T>
 struct ActionDefStruct
@@ -40,6 +41,7 @@ class MBASE_PUBLIC MythActions : public ActionMap<T>
     MythActions(T *parent, struct ActionDefStruct<T> *defs, int count) :
         m_parent(parent), m_regex(false)
     {
+        LOG(VB_KEYPRESS, LOG_DEBUG, "Creating map");
         static QRegExp special("[^$*]");
 
         m_actions = new struct ActionStruct<T>[count];
@@ -58,6 +60,7 @@ class MBASE_PUBLIC MythActions : public ActionMap<T>
             }
             insert(name, &m_actions[i]);
         }
+        LOG(VB_KEYPRESS, LOG_DEBUG, "Finished creating map");
     }
 
     ~MythActions()
@@ -94,6 +97,7 @@ class MBASE_PUBLIC MythActions : public ActionMap<T>
 
         if (!def && m_regex)
         {
+            LOG(VB_KEYPRESS, LOG_INFO, "Checking Regex");
             typename QList<struct ActionStruct<T> *>::iterator it;
             for (it = m_regexList.begin(); it != m_regexList.end(); ++it)
             {
@@ -112,6 +116,7 @@ class MBASE_PUBLIC MythActions : public ActionMap<T>
 
         touched = true;
 
+        LOG(VB_KEYPRESS, LOG_INFO, "Dispatching");
         return CALL_CLASS_MEMBER(m_parent, def->def.handler)(action);
     }
 
