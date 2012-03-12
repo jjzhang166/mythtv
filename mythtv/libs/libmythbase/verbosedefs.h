@@ -162,6 +162,8 @@ VERBOSE_MAP(VB_GPUVIDEO,  0x10000000000ULL, true,
             "GPU Video Processing messages")
 VERBOSE_MAP(VB_REFCOUNT,  0x20000000000ULL, true,
             "Reference Count messages")
+VERBOSE_MAP(VB_KEYPRESS,  0x40000000000ULL, true,
+            "KeyPress instrumentation")
 VERBOSE_MAP(VB_NONE,      0x00000000, false,
             "NO debug output")
 VERBOSE_POSTAMBLE
