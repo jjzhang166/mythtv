@@ -222,6 +222,8 @@ class SmartPLResultViewer : public MythScreenType
     bool keyPressEvent(QKeyEvent *event);
     void setSQL(QString sql);
 
+    bool doInfo(const QString &action);
+
   private slots:
     void trackVisible(MythUIButtonListItem *item);
     void trackSelected(MythUIButtonListItem *item);
@@ -231,6 +233,8 @@ class SmartPLResultViewer : public MythScreenType
 
     MythUIButtonList *m_trackList;
     MythUIText *m_positionText;
+
+    MythActions<SmartPLResultViewer> *m_actions;
 };
 
 

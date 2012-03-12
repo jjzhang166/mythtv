@@ -1718,14 +1718,16 @@ void CriteriaRowEditor::setDate(QString date)
 */
 
 
-SmartPLResultViewer::SmartPLResultViewer(MythScreenStack *parent)
-                   : MythScreenType(parent, "SmartPLResultViewer"),
-                   m_trackList(NULL), m_positionText(NULL)
+SmartPLResultViewer::SmartPLResultViewer(MythScreenStack *parent) :
+    MythScreenType(parent, "SmartPLResultViewer"),
+    m_trackList(NULL), m_positionText(NULL), m_actions(NULL)
 {
 }
 
 SmartPLResultViewer::~SmartPLResultViewer()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
 bool SmartPLResultViewer::Create(void)
@@ -1754,6 +1756,18 @@ bool SmartPLResultViewer::Create(void)
     return true;
 }
 
+static struct ActionDefStruct<SmartPLResultViewer> sprvActions[] = {
+    { "INFO",   &SmartPLResultViewer::doInfo }
+};
+static int sprvActionCount = NELEMS(sprvActions);
+
+bool SmartPLResultViewer::doInfo(const QString &action)
+{
+    (void)action;
+    showTrackInfo();
+    return true;
+}
+
 bool SmartPLResultViewer::keyPressEvent(QKeyEvent *event)
 {
     if (GetFocusWidget() && GetFocusWidget()->keyPressEvent(event))
@@ -1763,15 +1777,12 @@ bool SmartPLResultViewer::keyPressEvent(QKeyEvent *event)
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", event, actions);
 
-    for (int i = 0; i < actions.size() && !handled; i++)
+    if (!handled)
     {
-        QString action = actions[i];
-        handled = true;
-
-        if (action == "INFO")
-            showTrackInfo();
-        else
-            handled = false;
+        if (!m_actions)
+            m_actions = new MythActions<SmartPLResultViewer>(this, sprvActions,
+                                                             sprvActionCount);
+        handled = m_actions->handleActions(actions);
     }
 
     if (!handled && MythScreenType::keyPressEvent(event))
@@ -2198,6 +2209,9 @@ SmartPlaylistDialog::~SmartPlaylistDialog(void)
         delete vbox;
         vbox = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void SmartPlaylistDialog::keyPressEvent(QKeyEvent *e)
