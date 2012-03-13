@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <sys/fcntl.h>
-#include <unistd.h> // for close definition
 
 #include <IOKit/storage/IOCDMediaBSDClient.h>
 #include <IOKit/storage/IODVDMediaBSDClient.h>
