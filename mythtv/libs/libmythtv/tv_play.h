@@ -186,9 +186,89 @@ class MTV_PUBLIC TV : public QObject
 
     bool doNoIgnore(const QString &action);
     bool doNoIgnoreEsc(const QString &action);
+
     bool doEditEscape(const QString &action);
     bool doEditMenu(const QString &action);
     bool doEditSelect(const QString &action);
+
+    bool doBrowseUp(const QString &action);
+    bool doBrowseDown(const QString &action);
+    bool doBrowseLeft(const QString &action);
+    bool doBrowseRight(const QString &action);
+    bool doBrowseNextFav(const QString &action);
+    bool doBrowseSelect(const QString &action);
+    bool doBrowseEscape(const QString &action);
+    bool doBrowseToggleRecord(const QString &action);
+    bool doBrowseDigit(const QString &action);
+
+    bool doManualZoomUp(const QString &action);
+    bool doManualZoomDown(const QString &action);
+    bool doManualZoomLeft(const QString &action);
+    bool doManualZoomRight(const QString &action);
+    bool doManualZoomAspectUp(const QString &action);
+    bool doManualZoomAspectDown(const QString &action);
+    bool doManualZoomEscape(const QString &action);
+    bool doManualZoomSelect(const QString &action);
+    bool doManualZoomIn(const QString &action);
+    bool doManualZoomOut(const QString &action);
+
+    bool doPicAttrLeft(const QString &action);
+    bool doPicAttrRight(const QString &action);
+
+    bool doTimeStretchLeft(const QString &action);
+    bool doTimeStretchRight(const QString &action);
+    bool doTimeStretchDown(const QString &action);
+    bool doTimeStretchUp(const QString &action);
+    bool doTimeStretchAdjStretch(const QString &action);
+
+    bool doAudioSyncLeft(const QString &action);
+    bool doAudioSyncRight(const QString &action);
+    bool doAudioSyncUp(const QString &action);
+    bool doAudioSyncDown(const QString &action);
+    bool doAudioSyncToggle(const QString &action);
+
+    bool do3dSideBySide(const QString &action);
+    bool do3dSideBySideDiscard(const QString &action);
+    bool do3dTopAndBottom(const QString &action);
+    bool do3dTopAndBottomDiscard(const QString &action);
+
+    bool doActiveSkipCommercial(const QString &action);
+    bool doActiveSkipCommBack(const QString &action);
+    bool doActiveQueueTranscode(const QString &action);
+    bool doActiveQueueTranscodeAuto(const QString &action);
+    bool doActiveQueueTranscodeHigh(const QString &action);
+    bool doActiveQueueTranscodeMed(const QString &action);
+    bool doActiveQueueTranscodeLow(const QString &action);
+    bool doActivePlay(const QString &action);
+    bool doActivePause(const QString &action);
+    bool doActiveSpeedInc(const QString &action);
+    bool doActiveSpeedDec(const QString &action);
+    bool doActiveAdjStretch(const QString &action);
+    bool doActiveCycleCommSkipMode(const QString &action);
+    bool doActiveNextScan(const QString &action);
+    bool doActiveSeekArb(const QString &action);
+    bool doActiveJumpRwnd(const QString &action);
+    bool doActiveJumpFfwd(const QString &action);
+    bool doActiveJumpBkmrk(const QString &action);
+    bool doActiveJumpStart(const QString &action);
+    bool doActiveClearOsd(const QString &action);
+    bool doActiveViewScheduled(const QString &action);
+    bool doActiveSignalMon(const QString &action);
+    bool doActiveScreenshot(const QString &action);
+    bool doActiveStop(const QString &action);
+    bool doActiveExitNoPrompt(const QString &action);
+    bool doActiveEscape(const QString &action);
+    bool doActiveEnableUpmix(const QString &action);
+    bool doActiveDisableUpmix(const QString &action);
+    bool doActiveVolDown(const QString &action);
+    bool doActiveVolUp(const QString &action);
+    bool doActiveCycleAudioChan(const QString &action);
+    bool doActiveMuteAudio(const QString &action);
+    bool doActiveStretchInc(const QString &action);
+    bool doActiveStretchDec(const QString &action);
+    bool doActiveMenu(const QString &action);
+    bool doActiveInfo(const QString &action);
+    bool doActiveToggleOsdDebug(const QString &action);
 
   public slots:
     void HandleOSDClosed(int osdType);
@@ -227,23 +307,17 @@ class MTV_PUBLIC TV : public QObject
     bool ProcessKeypress(PlayerContext*, QKeyEvent *e);
     void ProcessNetworkControlCommand(PlayerContext *, const QString &command);
 
-    bool HandleTrackAction(PlayerContext*, const QString &action);
-    bool ActiveHandleAction(PlayerContext*,
-                            const QStringList &actions,
-                            bool isDVD, bool isDVDStillFrame);
+    bool HandleTrackAction(PlayerContext*, const QStringList &actions);
+    bool ActiveHandleAction(PlayerContext*, const QStringList &actions);
     bool BrowseHandleAction(PlayerContext*, const QStringList &actions);
     void OSDDialogEvent(int result, QString text, QString action);
     bool PxPHandleAction(PlayerContext*,const QStringList &actions);
-    bool ToggleHandleAction(PlayerContext*,
-                            const QStringList &actions, bool isDVD);
+    bool ToggleHandleAction(PlayerContext*, const QStringList &actions);
     bool FFRewHandleAction(PlayerContext*, const QStringList &actions);
     bool ActivePostQHandleAction(PlayerContext*, const QStringList &actions);
-    bool HandleJumpToProgramAction(PlayerContext *ctx,
-                                   const QStringList   &actions);
-    bool SeekHandleAction(PlayerContext *actx, const QStringList &actions,
-                          const bool isDVD);
-    bool TimeStretchHandleAction(PlayerContext*,
-                                 const QStringList &actions);
+    bool HandleJumpToProgramAction(PlayerContext*, const QStringList &actions);
+    bool SeekHandleAction(PlayerContext *actx, const QStringList &actions);
+    bool TimeStretchHandleAction(PlayerContext*, const QStringList &actions);
     bool DiscMenuHandleAction(PlayerContext*, const QStringList &actions);
     bool Handle3D(PlayerContext *ctx, const QString &action);
 
@@ -862,7 +936,19 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_actions;
     MythActions<TV> *m_ignoreActions;
     MythActions<TV> *m_editActions;
+    MythActions<TV> *m_browseActions;
+    MythActions<TV> *m_browsePassActions;
+    MythActions<TV> *m_manualZoomActions;
+    MythActions<TV> *m_manualZoomPassActions;
+    MythActions<TV> *m_picAttrActions;
+    MythActions<TV> *m_timeStretchActions;
+    MythActions<TV> *m_audioSyncActions;
+    MythActions<TV> *m_3dActions;
+    MythActions<TV> *m_activeActions;
+
     PlayerContext   *m_actionContext;
+    bool m_actionEndManualZoom;
+    StereoscopicMode m_action3dMode;
 };
 
 #endif
