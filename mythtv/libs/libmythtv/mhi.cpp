@@ -13,6 +13,7 @@
 #include "mythdirs.h"
 #include "myth_imgconvert.h"
 #include "mythlogging.h"
+#include "mythactions.h"
 
 static bool       ft_loaded = false;
 static FT_Library ft_library;
@@ -49,18 +50,19 @@ class MHIImageData
 // Special value for the NetworkBootInfo version.  Real values are a byte.
 #define NBI_VERSION_UNSET       257
 
-MHIContext::MHIContext(InteractiveTV *parent)
-    : m_parent(parent),     m_dsmcc(NULL),
-      m_keyProfile(0),
-      m_engine(NULL),       m_stop(false),
-      m_updated(false),
-      m_displayWidth(StdDisplayWidth), m_displayHeight(StdDisplayHeight),
-      m_face_loaded(false), m_engineThread(NULL), m_currentChannel(-1),
-      m_currentStream(-1),  m_isLive(false),      m_currentSource(-1),
-      m_audioTag(-1),       m_videoTag(-1),
-      m_lastNbiVersion(NBI_VERSION_UNSET),
-      m_videoRect(0, 0, StdDisplayWidth, StdDisplayHeight),
-      m_displayRect(0, 0, StdDisplayWidth, StdDisplayHeight)
+MHIContext::MHIContext(InteractiveTV *parent) :
+    m_parent(parent),     m_dsmcc(NULL),
+    m_keyProfile(0),
+    m_engine(NULL),       m_stop(false),
+    m_updated(false),
+    m_displayWidth(StdDisplayWidth), m_displayHeight(StdDisplayHeight),
+    m_face_loaded(false), m_engineThread(NULL), m_currentChannel(-1),
+    m_currentStream(-1),  m_isLive(false),      m_currentSource(-1),
+    m_audioTag(-1),       m_videoTag(-1),
+    m_lastNbiVersion(NBI_VERSION_UNSET),
+    m_videoRect(0, 0, StdDisplayWidth, StdDisplayHeight),
+    m_displayRect(0, 0, StdDisplayWidth, StdDisplayHeight),
+    m_actions(NULL)
 {
     m_xScale = (float)m_displayWidth / (float)MHIContext::StdDisplayWidth;
     m_yScale = (float)m_displayHeight / (float)MHIContext::StdDisplayHeight;
@@ -116,10 +118,14 @@ MHIContext::~MHIContext()
     StopEngine();
     delete(m_engine);
     delete(m_dsmcc);
-    if (m_face_loaded) FT_Done_Face(m_face);
+    if (m_face_loaded)
+        FT_Done_Face(m_face);
 
     ClearDisplay();
     ClearQueue();
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void MHIContext::ClearDisplay(void)
@@ -401,76 +407,152 @@ bool MHIContext::GetCarouselData(QString objectPath, QByteArray &result)
     return false; // Stop has been set.  Say the object isn't present.
 }
 
+
+static struct ActionDefStruct<MHIContext> mhicActions[] = {
+    { ACTION_UP,         &MHIContext::doUp },
+    { ACTION_DOWN,       &MHIContext::doDown },
+    { ACTION_LEFT,       &MHIContext::doLeft },
+    { ACTION_RIGHT,      &MHIContext::doRight },
+    { "^[0123456789]$",  &MHIContext::doDigit },
+    { ACTION_SELECT,     &MHIContext::doSelect },
+    { ACTION_TEXTEXIT,   &MHIContext::doTextExit },
+    { ACTION_MENURED,    &MHIContext::doMenuRed },
+    { ACTION_MENUGREEN,  &MHIContext::doMenuGreen },
+    { ACTION_MENUYELLOW, &MHIContext::doMenuYellow },
+    { ACTION_MENUBLUE,   &MHIContext::doMenuBlue },
+    { ACTION_MENUTEXT,   &MHIContext::doMenuText },
+    { ACTION_MENUEPG,    &MHIContext::doMenuEpg }
+};
+static int mhicActionCount = NELEMS(mhicActions);
+
+bool MHIContext::doUp(const QString &action)
+{
+    if (m_keyProfile == 4 || m_keyProfile == 5 ||
+        m_keyProfile == 14 || m_keyProfile == 15)
+    {
+        m_actionNum = 1;
+        return true;
+    }
+    return false;
+}
+
+bool MHIContext::doDown(const QString &action)
+{
+    if (m_keyProfile == 4 || m_keyProfile == 5 ||
+        m_keyProfile == 14 || m_keyProfile == 15)
+    {
+        m_actionNum = 2;
+        return true;
+    }
+    return false;
+}
+
+bool MHIContext::doLeft(const QString &action)
+{
+    if (m_keyProfile == 4 || m_keyProfile == 5 ||
+        m_keyProfile == 14 || m_keyProfile == 15)
+    {
+        m_actionNum = 3;
+        return true;
+    }
+    return false;
+}
+
+bool MHIContext::doRight(const QString &action)
+{
+    if (m_keyProfile == 4 || m_keyProfile == 5 ||
+        m_keyProfile == 14 || m_keyProfile == 15)
+    {
+        m_actionNum = 4;
+        return true;
+    }
+    return false;
+}
+
+bool MHIContext::doDigit(const QString &action)
+{
+    if (m_keyProfile == 4 || m_keyProfile == 14)
+    {
+        m_actionNum = action.toInt() + 5;
+        return true;
+    }
+    return false;
+}
+
+bool MHIContext::doSelect(const QString &action)
+{
+    if (m_keyProfile == 4 || m_keyProfile == 5 ||
+        m_keyProfile == 14 || m_keyProfile == 15)
+    {
+        m_actionNum = 15;
+        return true;
+    }
+    return false;
+}
+
+bool MHIContext::doTextExit(const QString &action)
+{
+    m_actionNum = 16;
+    return true;
+}
+
+bool MHIContext::doMenuRed(const QString &action)
+{
+    m_actionNum = 100;
+    return true;
+}
+
+bool MHIContext::doMenuGreen(const QString &action)
+{
+    m_actionNum = 101;
+    return true;
+}
+
+bool MHIContext::doMenuYellow(const QString &action)
+{
+    m_actionNum = 102;
+    return true;
+}
+
+bool MHIContext::doMenuBlue(const QString &action)
+{
+    m_actionNum = 103;
+    return true;
+}
+
+bool MHIContext::doMenuText(const QString &action)
+{
+    m_actionNum = m_keyProfile > 12 ? 105 : 104;
+    return true;
+}
+
+bool MHIContext::doMenuEpg(const QString &action)
+{
+    m_actionNum = m_keyProfile > 12 ? 300 : 0;
+    return true;
+}
+
 // Called from tv_play when a key is pressed.
 // If it is one in the current profile we queue it for the engine
 // and return true otherwise we return false.
-bool MHIContext::OfferKey(QString key)
+bool MHIContext::OfferKey(const QStringList &actions)
 {
-    int action = 0;
     QMutexLocker locker(&m_keyLock);
 
     // This supports the UK and NZ key profile registers.
     // The UK uses 3, 4 and 5 and NZ 13, 14 and 15.  These are
     // similar but the NZ profile also provides an EPG key.
+    bool handled;
 
-    if (key == ACTION_UP)
-    {
-        if (m_keyProfile == 4 || m_keyProfile == 5 ||
-            m_keyProfile == 14 || m_keyProfile == 15)
-            action = 1;
-    }
-    else if (key == ACTION_DOWN)
-    {
-        if (m_keyProfile == 4 || m_keyProfile == 5 ||
-            m_keyProfile == 14 || m_keyProfile == 15)
-            action = 2;
-    }
-    else if (key == ACTION_LEFT)
-    {
-        if (m_keyProfile == 4 || m_keyProfile == 5 ||
-            m_keyProfile == 14 || m_keyProfile == 15)
-            action = 3;
-    }
-    else if (key == ACTION_RIGHT)
-    {
-        if (m_keyProfile == 4 || m_keyProfile == 5 ||
-            m_keyProfile == 14 || m_keyProfile == 15)
-            action = 4;
-    }
-    else if (key == ACTION_0 || key == ACTION_1 || key == ACTION_2 ||
-             key == ACTION_3 || key == ACTION_4 || key == ACTION_5 ||
-             key == ACTION_6 || key == ACTION_7 || key == ACTION_8 ||
-             key == ACTION_9)
-    {
-        if (m_keyProfile == 4 || m_keyProfile == 14)
-            action = key.toInt() + 5;
-    }
-    else if (key == ACTION_SELECT)
-    {
-        if (m_keyProfile == 4 || m_keyProfile == 5 ||
-            m_keyProfile == 14 || m_keyProfile == 15)
-            action = 15;
-    }
-    else if (key == ACTION_TEXTEXIT)
-        action = 16;
-    else if (key == ACTION_MENURED)
-        action = 100;
-    else if (key == ACTION_MENUGREEN)
-        action = 101;
-    else if (key == ACTION_MENUYELLOW)
-        action = 102;
-    else if (key == ACTION_MENUBLUE)
-        action = 103;
-    else if (key == ACTION_MENUTEXT)
-        action = m_keyProfile > 12 ? 105 : 104;
-    else if (key == ACTION_MENUEPG)
-        action = m_keyProfile > 12 ? 300 : 0;
+    if (!m_actions)
+        m_actions = new MythActions<MHIContext>(this, mhicActions,
+                                                mhicActionCount);
+    m_actionNum  = 0;
+    handled = m_actions->handleActions(actions);
 
-    if (action != 0)
+    if (handled && m_actionNum != 0)
     {
-        m_keyQueue.enqueue(action);
-        LOG(VB_GENERAL, LOG_INFO, QString("Adding MHEG key %1:%2:%3").arg(key)
-                .arg(action).arg(m_keyQueue.size()));
+        m_keyQueue.enqueue(m_actionNum);
         locker.unlock();
         QMutexLocker locker2(&m_runLock);
         m_engine_wait.wakeAll();

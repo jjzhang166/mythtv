@@ -65,9 +65,9 @@ void InteractiveTV::Reinit(const QRect &display)
     m_context->Reinit(display);
 }
 
-bool InteractiveTV::OfferKey(QString key)
+bool InteractiveTV::OfferKey(const QStringList &actions)
 {
-    return m_context->OfferKey(key);
+    return m_context->OfferKey(actions);
 }
 
 void InteractiveTV::GetInitialStreams(int &audioTag, int &videoTag)

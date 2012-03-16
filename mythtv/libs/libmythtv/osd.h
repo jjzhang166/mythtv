@@ -182,7 +182,7 @@ class OSD
 
     TeletextScreen* InitTeletext(void);
     void EnableTeletext(bool enable, int page);
-    bool TeletextAction(const QString &action);
+    bool TeletextActions(const QStringList &actions);
     void TeletextReset(void);
     void TeletextClear(void);
 

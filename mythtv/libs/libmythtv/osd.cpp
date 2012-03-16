@@ -165,8 +165,8 @@ void ChannelEditor::sendResult(int result)
     QCoreApplication::postEvent(m_retObject, dce);
 }
 
-OSD::OSD(MythPlayer *player, QObject *parent, MythPainter *painter)
-  : m_parent(player), m_ParentObject(parent), m_CurrentPainter(painter),
+OSD::OSD(MythPlayer *player, QObject *parent, MythPainter *painter) :
+    m_parent(player), m_ParentObject(parent), m_CurrentPainter(painter),
     m_Rect(QRect()), m_Effects(true), m_FadeTime(kOSDFadeTime), m_Dialog(NULL),
     m_PulsedDialogText(QString()), m_NextPulseUpdate(QDateTime()),
     m_Refresh(false),   m_UIScaleOverride(false),
@@ -1130,14 +1130,14 @@ void OSD::EnableTeletext(bool enable, int page)
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Disabled teletext");
 }
 
-bool OSD::TeletextAction(const QString &action)
+bool OSD::TeletextActions(const QStringList &actions)
 {
     if (!HasWindow(OSD_WIN_TELETEXT))
         return false;
 
     TeletextScreen* tt = (TeletextScreen*)m_Children.value(OSD_WIN_TELETEXT);
     if (tt)
-        return tt->KeyPress(action);
+        return tt->KeyPress(actions);
     return false;
 }
 

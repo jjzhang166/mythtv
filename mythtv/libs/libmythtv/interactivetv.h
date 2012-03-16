@@ -35,7 +35,7 @@ class InteractiveTV
 
     // Offer a key press.  Returns true if it accepts it.
     // This will depend on the current profile.
-    bool OfferKey(QString key);
+    bool OfferKey(const QStringList &actions);
 
     // Get the initial component tags.
     void GetInitialStreams(int &audioTag, int &videoTag);

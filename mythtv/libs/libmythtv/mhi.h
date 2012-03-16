@@ -25,6 +25,7 @@ using namespace std;
 #include "mythdbcon.h"
 #include "mythdeque.h"
 #include "mthread.h"
+#include "mythactions.h"
 
 extern "C" {
 #include "libavcodec/avcodec.h" // to decode single MPEG I-frames
@@ -53,7 +54,7 @@ class MHIContext : public MHContext, public QRunnable
     void Restart(int chanid, int sourceid, bool isLive);
     // Offer a key press.  Returns true if it accepts it.
     // This will depend on the current profile.
-    bool OfferKey(QString key);
+    bool OfferKey(const QStringList &actions);
     /// Update the display
     void UpdateOSD(InteractiveScreen *osdWindow, MythPainter *osdPainter);
     /// The display area has changed.
@@ -137,6 +138,20 @@ class MHIContext : public MHContext, public QRunnable
     int GetWidth(void) { return m_displayWidth; }
     int GetHeight(void) { return m_displayHeight; }
 
+    bool doUp(const QString &action);
+    bool doDown(const QString &action);
+    bool doLeft(const QString &action);
+    bool doRight(const QString &action);
+    bool doDigit(const QString &action);
+    bool doSelect(const QString &action);
+    bool doTextExit(const QString &action);
+    bool doMenuRed(const QString &action);
+    bool doMenuGreen(const QString &action);
+    bool doMenuYellow(const QString &action);
+    bool doMenuBlue(const QString &action);
+    bool doMenuText(const QString &action);
+    bool doMenuEpg(const QString &action);
+
   protected:
     void run(void); // QRunnable
     void ProcessDSMCCQueue(void);
@@ -187,6 +202,10 @@ class MHIContext : public MHContext, public QRunnable
 
     QRect            m_videoRect;
     QRect            m_displayRect;
+
+  private:
+    MythActions<MHIContext> *m_actions;
+    int m_actionNum;
 };
 
 // Object for drawing text.

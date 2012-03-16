@@ -25,6 +25,7 @@ using namespace std;
 #include <QTime>
 #include <QMap>
 #include <QSet>
+#include <QString>
 
 // MythTV
 #include "mythdeque.h"
@@ -37,6 +38,7 @@ using namespace std;
 #include "inputinfo.h"
 #include "channelgroup.h"
 #include "osd.h"
+#include "mythactions.h"
 
 class QDateTime;
 class OSD;
@@ -181,6 +183,12 @@ class MTV_PUBLIC TV : public QObject
         QString   dispString;
         unsigned long seconds;
     };
+
+    bool doNoIgnore(const QString &action);
+    bool doNoIgnoreEsc(const QString &action);
+    bool doEditEscape(const QString &action);
+    bool doEditMenu(const QString &action);
+    bool doEditSelect(const QString &action);
 
   public slots:
     void HandleOSDClosed(int osdType);
@@ -849,6 +857,12 @@ class MTV_PUBLIC TV : public QObject
     static const uint kErrorRecoveryCheckFrequency;
     static const uint kEndOfRecPromptCheckFrequency;
     static const uint kEndOfPlaybackFirstCheckTimer;
+
+  private:
+    MythActions<TV> *m_actions;
+    MythActions<TV> *m_ignoreActions;
+    MythActions<TV> *m_editActions;
+    PlayerContext   *m_actionContext;
 };
 
 #endif

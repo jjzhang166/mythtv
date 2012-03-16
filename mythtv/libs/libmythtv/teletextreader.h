@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 #include <map>
+#include "mythactions.h"
 
 #include <QString>
 #include <QMutex>
@@ -76,7 +77,7 @@ class TeletextReader
 
     // OSD/Player methods
     void Reset(void);
-    bool KeyPress(const QString &key);
+    bool KeyPress(const QStringList &actions);
     QString GetPage(void);
     void SetPage(int page, int subpage);
     void SetSubPage(int subpage)        { m_cursubpage = subpage;      }
@@ -98,6 +99,19 @@ class TeletextReader
                        int vbimode, int lang, int flags);
     void AddTeletextData(int magazine, int row,
                          const uint8_t* buf, int vbimode);
+
+    bool doDigit(const QString &action);
+    bool doNextPage(const QString &action);
+    bool doPrevPage(const QString &action);
+    bool doNextSubPage(const QString &action);
+    bool doPrevSubPage(const QString &action);
+    bool doToggleBackground(const QString &action);
+    bool doReveal(const QString &action);
+    bool doMenuRed(const QString &action);
+    bool doMenuGreen(const QString &action);
+    bool doMenuYellow(const QString &action);
+    bool doMenuBlue(const QString &action);
+    bool doMenuWhite(const QString &action);
 
   protected:
     void NewsFlash(void) {};
@@ -137,6 +151,14 @@ class TeletextReader
     unsigned char    m_bitswap[256];
     int              m_fetchpage;
     int              m_fetchsubpage;
+
+  private:
+    MythActions<TeletextReader> *m_actions;
+    int m_actionNewPage;
+    int m_actionNewSubPage;
+    bool m_actionNumeric;
+    TeletextSubPage *m_actionCurpage;
+    TeletextPage *m_actionPage;
 };
 
 #endif // TELETEXTREADER_H

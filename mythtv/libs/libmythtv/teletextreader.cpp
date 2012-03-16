@@ -1,5 +1,6 @@
 #include "teletextreader.h"
 #include "mythlogging.h"
+#include "mythactions.h"
 
 #include <string.h>
 #include "vbilut.h"
@@ -7,12 +8,12 @@
 
 #define MAGAZINE(page) (page / 256)
 
-TeletextReader::TeletextReader()
-  : m_curpage(0x100),           m_cursubpage(-1),
+TeletextReader::TeletextReader():
+    m_curpage(0x100),           m_cursubpage(-1),
     m_curpage_showheader(true), m_curpage_issubtitle(false),
     m_transparent(false),       m_revealHidden(false),
     m_header_changed(false),    m_page_changed(false),
-    m_fetchpage(0),             m_fetchsubpage(0)
+    m_fetchpage(0),             m_fetchsubpage(0), m_actions(NULL)
 {
     memset(m_pageinput, 0, sizeof(m_pageinput));
     memset(m_header,    0, sizeof(m_header));
@@ -28,164 +29,200 @@ TeletextReader::TeletextReader()
 
 TeletextReader::~TeletextReader()
 {
+    if (m_actions)
+        delete m_actions;
 }
 
-bool TeletextReader::KeyPress(const QString &key)
+
+static struct ActionDefStruct<TeletextReader> trActions[] = {
+    { "^[0123456789]$",        &TeletextReader::doDigit },
+    { ACTION_NEXTPAGE,         &TeletextReader::doNextPage },
+    { ACTION_PREVPAGE,         &TeletextReader::doPrevPage },
+    { ACTION_NEXTSUBPAGE,      &TeletextReader::doNextSubPage },
+    { ACTION_PREVSUBPAGE,      &TeletextReader::doPrevSubPage },
+    { ACTION_TOGGLEBACKGROUND, &TeletextReader::doToggleBackground },
+    { ACTION_REVEAL,           &TeletextReader::doReveal },
+    { ACTION_MENURED,          &TeletextReader::doMenuRed },
+    { ACTION_MENUGREEN,        &TeletextReader::doMenuGreen },
+    { ACTION_MENUYELLOW,       &TeletextReader::doMenuYellow },
+    { ACTION_MENUBLUE,         &TeletextReader::doMenuBlue },
+    { ACTION_MENUWHITE,        &TeletextReader::doMenuWhite }
+};
+static int trActionCount = NELEMS(trActions);
+
+bool TeletextReader::doDigit(const QString &action)
 {
-    int newPage        = m_curpage;
-    int newSubPage     = m_cursubpage;
-    bool numeric_input = false;
-
-    TeletextSubPage *curpage = FindSubPage(m_curpage, m_cursubpage);
-    TeletextPage *page;
-
-    if (key == ACTION_0 || key == ACTION_1 || key == ACTION_2 ||
-        key == ACTION_3 || key == ACTION_4 || key == ACTION_5 ||
-        key == ACTION_6 || key == ACTION_7 || key == ACTION_8 ||
-        key == ACTION_9)
+    m_actionNumeric = true;
+    m_curpage_showheader = true;
+    if (m_pageinput[0] == ' ')
+        m_pageinput[0] = '0' + action.toInt();
+    else if (m_pageinput[1] == ' ')
+        m_pageinput[1] = '0' + action.toInt();
+    else if (m_pageinput[2] == ' ')
     {
-        numeric_input = true;
-        m_curpage_showheader = true;
-        if (m_pageinput[0] == ' ')
-            m_pageinput[0] = '0' + key.toInt();
-        else if (m_pageinput[1] == ' ')
-            m_pageinput[1] = '0' + key.toInt();
-        else if (m_pageinput[2] == ' ')
-        {
-            m_pageinput[2] = '0' + key.toInt();
-            newPage = ((m_pageinput[0] - '0') * 256) +
-                      ((m_pageinput[1] - '0') * 16) +
-                      (m_pageinput[2] - '0');
-            newSubPage = -1;
-        }
-        else
-        {
-            m_pageinput[0] = '0' + key.toInt();
-            m_pageinput[1] = ' ';
-            m_pageinput[2] = ' ';
-        }
-
-        PageUpdated(m_curpage, m_cursubpage);
-    }
-    else if (key == ACTION_NEXTPAGE)
-    {
-        TeletextPage *ttpage = FindPage(m_curpage, 1);
-        if (ttpage)
-            newPage = ttpage->pagenum;
-        newSubPage = -1;
-        m_curpage_showheader = true;
-    }
-    else if (key == ACTION_PREVPAGE)
-    {
-        TeletextPage *ttpage = FindPage(m_curpage, -1);
-        if (ttpage)
-            newPage = ttpage->pagenum;
-        newSubPage = -1;
-        m_curpage_showheader = true;
-    }
-    else if (key == ACTION_NEXTSUBPAGE)
-    {
-        TeletextSubPage *ttpage = FindSubPage(m_curpage, m_cursubpage, 1);
-        if (ttpage)
-            newSubPage = ttpage->subpagenum;
-        m_curpage_showheader = true;
-    }
-    else if (key == ACTION_PREVSUBPAGE)
-    {
-        TeletextSubPage *ttpage = FindSubPage(m_curpage, m_cursubpage, -1);
-        if (ttpage)
-            newSubPage = ttpage->subpagenum;
-        m_curpage_showheader = true;
-    }
-    else if (key == ACTION_TOGGLEBACKGROUND)
-    {
-        m_transparent = !m_transparent;
-        PageUpdated(m_curpage, m_cursubpage);
-    }
-    else if (key == ACTION_REVEAL)
-    {
-        m_revealHidden = !m_revealHidden;
-        PageUpdated(m_curpage, m_cursubpage);
-    }
-    else if (key == ACTION_MENURED)
-    {
-        if (!curpage)
-            return true;
-
-        if ((page = FindPage(curpage->floflink[0])) != NULL)
-        {
-            newPage = page->pagenum;
-            newSubPage = -1;
-            m_curpage_showheader = true;
-        }
-    }
-    else if (key == ACTION_MENUGREEN)
-    {
-        if (!curpage)
-            return true;
-
-        if ((page = FindPage(curpage->floflink[1])) != NULL)
-        {
-            newPage = page->pagenum;
-            newSubPage = -1;
-            m_curpage_showheader = true;
-        }
-    }
-    else if (key == ACTION_MENUYELLOW)
-    {
-        if (!curpage)
-            return true;
-
-        if ((page = FindPage(curpage->floflink[2])) != NULL)
-        {
-            newPage = page->pagenum;
-            newSubPage = -1;
-            m_curpage_showheader = true;
-        }
-    }
-    else if (key == ACTION_MENUBLUE)
-    {
-        if (!curpage)
-            return true;
-
-        if ((page = FindPage(curpage->floflink[3])) != NULL)
-        {
-            newPage = page->pagenum;
-            newSubPage = -1;
-            m_curpage_showheader = true;
-        }
-    }
-    else if (key == ACTION_MENUWHITE)
-    {
-        if (!curpage)
-            return true;
-
-        if ((page = FindPage(curpage->floflink[4])) != NULL)
-        {
-            newPage = page->pagenum;
-            newSubPage = -1;
-            m_curpage_showheader = true;
-        }
+        m_pageinput[2] = '0' + action.toInt();
+        m_actionNewPage = ((m_pageinput[0] - '0') * 256) +
+                          ((m_pageinput[1] - '0') * 16) +
+                          (m_pageinput[2] - '0');
+        m_actionNewSubPage = -1;
     }
     else
-        return false;
-
-    if (newPage < 0x100)
-        newPage = 0x100;
-    if (newPage > 0x899)
-        newPage = 0x899;
-
-    if (!numeric_input)
     {
-        m_pageinput[0] = (newPage / 256) + '0';
-        m_pageinput[1] = ((newPage % 256) / 16) + '0';
-        m_pageinput[2] = (newPage % 16) + '0';
+        m_pageinput[0] = '0' + action.toInt();
+        m_pageinput[1] = ' ';
+        m_pageinput[2] = ' ';
     }
 
-    if (newPage != m_curpage || newSubPage != m_cursubpage)
+    PageUpdated(m_curpage, m_cursubpage);
+    return true;
+}
+
+bool TeletextReader::doNextPage(const QString &action)
+{
+    TeletextPage *ttpage = FindPage(m_curpage, 1);
+    if (ttpage)
+        m_actionNewPage = ttpage->pagenum;
+    m_actionNewSubPage = -1;
+    m_curpage_showheader = true;
+    return true;
+}
+
+bool TeletextReader::doPrevPage(const QString &action)
+{
+    TeletextPage *ttpage = FindPage(m_curpage, -1);
+    if (ttpage)
+        m_actionNewPage = ttpage->pagenum;
+    m_actionNewSubPage = -1;
+    m_curpage_showheader = true;
+    return true;
+}
+
+bool TeletextReader::doNextSubPage(const QString &action)
+{
+    TeletextSubPage *ttpage = FindSubPage(m_curpage, m_cursubpage, 1);
+    if (ttpage)
+        m_actionNewSubPage = ttpage->subpagenum;
+    m_curpage_showheader = true;
+    return true;
+}
+
+bool TeletextReader::doPrevSubPage(const QString &action)
+{
+    TeletextSubPage *ttpage = FindSubPage(m_curpage, m_cursubpage, -1);
+    if (ttpage)
+        m_actionNewSubPage = ttpage->subpagenum;
+    m_curpage_showheader = true;
+    return true;
+}
+
+bool TeletextReader::doToggleBackground(const QString &action)
+{
+    m_transparent = !m_transparent;
+    PageUpdated(m_curpage, m_cursubpage);
+    return true;
+}
+
+bool TeletextReader::doReveal(const QString &action)
+{
+    m_revealHidden = !m_revealHidden;
+    PageUpdated(m_curpage, m_cursubpage);
+    return true;
+}
+
+bool TeletextReader::doMenuRed(const QString &action)
+{
+    if (m_actionCurpage &&
+        (m_actionPage = FindPage(m_actionCurpage->floflink[0])) != NULL)
     {
-        m_curpage = newPage;
-        m_cursubpage = newSubPage;
+        m_actionNewPage = m_actionPage->pagenum;
+        m_actionNewSubPage = -1;
+        m_curpage_showheader = true;
+    }
+    return true;
+}
+
+bool TeletextReader::doMenuGreen(const QString &action)
+{
+    if (m_actionCurpage &&
+        (m_actionPage = FindPage(m_actionCurpage->floflink[1])) != NULL)
+    {
+        m_actionNewPage = m_actionPage->pagenum;
+        m_actionNewSubPage = -1;
+        m_curpage_showheader = true;
+    }
+    return true;
+}
+
+bool TeletextReader::doMenuYellow(const QString &action)
+{
+    if (m_actionCurpage &&
+        (m_actionPage = FindPage(m_actionCurpage->floflink[2])) != NULL)
+    {
+        m_actionNewPage = m_actionPage->pagenum;
+        m_actionNewSubPage = -1;
+        m_curpage_showheader = true;
+    }
+    return true;
+}
+
+bool TeletextReader::doMenuBlue(const QString &action)
+{
+    if (m_actionCurpage &&
+        (m_actionPage = FindPage(m_actionCurpage->floflink[3])) != NULL)
+    {
+        m_actionNewPage = m_actionPage->pagenum;
+        m_actionNewSubPage = -1;
+        m_curpage_showheader = true;
+    }
+    return true;
+}
+
+bool TeletextReader::doMenuWhite(const QString &action)
+{
+    if (m_actionCurpage &&
+        (m_actionPage = FindPage(m_actionCurpage->floflink[4])) != NULL)
+    {
+        m_actionNewPage = m_actionPage->pagenum;
+        m_actionNewSubPage = -1;
+        m_curpage_showheader = true;
+    }
+    return true;
+}
+
+
+bool TeletextReader::KeyPress(const QStringList &actions)
+{
+    m_actionNewPage        = m_curpage;
+    m_actionNewSubPage     = m_cursubpage;
+    m_actionNumeric        = false;
+
+    m_actionCurpage = FindSubPage(m_curpage, m_cursubpage);
+
+    bool handled = false;
+    if (!m_actions)
+	m_actions = new MythActions<TeletextReader>(this, trActions,
+					            trActionCount);
+    handled = m_actions->handleActions(actions);
+
+    if (!handled)
+        return false;
+
+    if (m_actionNewPage < 0x100)
+        m_actionNewPage = 0x100;
+    if (m_actionNewPage > 0x899)
+        m_actionNewPage = 0x899;
+
+    if (!m_actionNumeric)
+    {
+        m_pageinput[0] = (m_actionNewPage / 256) + '0';
+        m_pageinput[1] = ((m_actionNewPage % 256) / 16) + '0';
+        m_pageinput[2] = (m_actionNewPage % 16) + '0';
+    }
+
+    if (m_actionNewPage != m_curpage || m_actionNewSubPage != m_cursubpage)
+    {
+        m_curpage = m_actionNewPage;
+        m_cursubpage = m_actionNewSubPage;
         m_revealHidden = false;
         PageUpdated(m_curpage, m_cursubpage);
     }

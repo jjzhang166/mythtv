@@ -58,6 +58,7 @@ using namespace std;
 #include "mythimage.h"
 #include "mythuiimage.h"
 #include "mythlogging.h"
+#include "mythactions.h"
 
 extern "C" {
 #include "vbitext/vbi.h"
@@ -209,7 +210,8 @@ MythPlayer::MythPlayer(PlayerFlags flags)
       // LiveTVChain stuff
       m_tv(NULL),                   isDummy(false),
       // Debugging variables
-      output_jmeter(new Jitterometer(LOC))
+      output_jmeter(new Jitterometer(LOC)),
+      m_teletextActions(NULL)
 {
     memset(&tc_lastval, 0, sizeof(tc_lastval));
     memset(&tc_wrap,    0, sizeof(tc_wrap));
@@ -302,6 +304,9 @@ MythPlayer::~MythPlayer(void)
         delete detect_letter_box;
         detect_letter_box = NULL;
     }
+
+    if (m_teletextActions)
+        delete m_teletextActions;
 }
 
 void MythPlayer::SetWatchingRecording(bool mode)
@@ -1276,7 +1281,20 @@ void MythPlayer::SetTeletextPage(uint page)
     osdLock.unlock();
 }
 
-bool MythPlayer::HandleTeletextAction(const QString &action)
+static struct ActionDefStruct<MythPlayer> mpttActions[] = {
+    { "ESCAPE",        &MythPlayer::doTeletextEscape },
+    { "MENU",          &MythPlayer::doTeletextEscape },
+    { ACTION_TOGGLETT, &MythPlayer::doTeletextEscape }
+};
+static int mpttActionCount = NELEMS(mpttActions);
+
+bool MythPlayer::doTeletextEscape(const QString &action)
+{
+    DisableTeletext();
+    return true;
+}
+
+bool MythPlayer::HandleTeletextActions(const QStringList &actions)
 {
     if (!(textDisplayMode & kDisplayTeletextMenu) || !osd)
         return false;
@@ -1284,10 +1302,18 @@ bool MythPlayer::HandleTeletextAction(const QString &action)
     bool handled = true;
 
     osdLock.lock();
-    if (action == "MENU" || action == ACTION_TOGGLETT || action == "ESCAPE")
-        DisableTeletext();
-    else if (osd)
-        handled = osd->TeletextAction(action);
+
+    if (!handled)
+    {
+        if (!m_teletextActions)
+            m_teletextActions = new MythActions<MythPlayer>(this, mpttActions,
+                                                            mpttActionCount);
+        handled = m_teletextActions->handleActions(actions);
+    }
+
+    if (!handled && osd)
+        handled = osd->TeletextActions(actions);
+
     osdLock.unlock();
 
     return handled;
@@ -4777,7 +4803,7 @@ InteractiveTV *MythPlayer::GetInteractiveTV(void)
     return interactiveTV;
 }
 
-bool MythPlayer::ITVHandleAction(const QString &action)
+bool MythPlayer::ITVHandleActions(const QStringList &actions)
 {
     bool result = false;
 
@@ -4786,7 +4812,7 @@ bool MythPlayer::ITVHandleAction(const QString &action)
         return result;
 
     QMutexLocker locker(&itvLock);
-    result = interactiveTV->OfferKey(action);
+    result = interactiveTV->OfferKey(actions);
 #endif // USING_MHEG
 
     return result;

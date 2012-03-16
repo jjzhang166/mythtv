@@ -58,6 +58,7 @@ using namespace std;
 #include "tvbrowsehelper.h"
 #include "mythlogging.h"
 #include "mythuistatetracker.h"
+#include "mythactions.h"
 
 #if ! HAVE_ROUND
 #define round(x) ((int) ((x) + 0.5))
@@ -979,7 +980,9 @@ TV::TV(void)
       endOfPlaybackTimerId(0),      embedCheckTimerId(0),
       endOfRecPromptTimerId(0),     videoExitDialogTimerId(0),
       pseudoChangeChanTimerId(0),   speedChangeTimerId(0),
-      errorRecoveryTimerId(0),      exitPlayerTimerId(0)
+      errorRecoveryTimerId(0),      exitPlayerTimerId(0),
+      m_actions(NULL),  m_ignoreActions(NULL), m_editActions(NULL),
+      m_actionContext(NULL)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "Creating TV object");
     ctorTime.start();
@@ -1328,6 +1331,15 @@ TV::~TV(void)
         delete browsehelper;
         browsehelper = NULL;
     }
+
+    if (m_actions)
+        delete m_actions;
+
+    if (m_ignoreActions)
+        delete m_ignoreActions;
+
+    if (m_editActions)
+        delete m_editActions;
 
     LOG(VB_PLAYBACK, LOG_INFO, "TV::~TV() -- end");
 }
@@ -3634,6 +3646,66 @@ static bool has_action(QString action, const QStringList &actions)
     return false;
 }
 
+static struct ActionDefStruct<TV> tiActions[] = {
+    { "ESCAPE",     &TV::doNoIgnoreEsc },
+    { "BACK",       &TV::doNoIgnoreEsc },
+    { ACTION_PLAY,  &TV::doNoIgnore },
+    { ACTION_PAUSE, &TV::doNoIgnore }
+};
+static int tiActionCount = NELEMS(tiActions);
+
+static struct ActionDefStruct<TV> teActions[] = {
+    { "ESCAPE",  &TV::doEditEscape },
+    { "MENU",    &TV::doEditMenu },
+    { "SELECT",  &TV::doEditSelect }
+};
+static int teActionCount = NELEMS(teActions);
+
+
+bool TV::doNoIgnore(const QString &action)
+{
+    return true;
+}
+
+bool TV::doNoIgnoreEsc(const QString &action)
+{
+    return !browsehelper->IsBrowsing();
+}
+
+bool TV::doEditEscape(const QString &action)
+{
+    if (!m_actionContext->player->IsCutListSaved())
+        ShowOSDCutpoint(m_actionContext, "EXIT_EDIT_MODE");
+    else
+    {
+        m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
+        if (m_actionContext->player)
+            m_actionContext->player->DisableEdit(0);
+        m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
+    }
+    return true;
+}
+
+bool TV::doEditMenu(const QString &action)
+{
+    ShowOSDCutpoint(m_actionContext, "EDIT_CUT_POINTS");
+    return true;
+}
+
+bool TV::doEditSelect(const QString &action)
+{
+    m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
+    int64_t current_frame = m_actionContext->player->GetFramesPlayed();
+    m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
+    if ((m_actionContext->player->IsInDelete(current_frame)) &&
+        (!(m_actionContext->player->HasTemporaryMark())))
+    {
+        ShowOSDCutpoint(m_actionContext, "EDIT_CUT_REGION");
+        return true;
+    }
+    return false;
+}
+
 bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
 {
     bool ignoreKeys = actx->IsPlayerChangingBuffers();
@@ -3641,6 +3713,9 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
     LOG(VB_GENERAL, LOG_DEBUG, LOC + QString("ProcessKeypress() ignoreKeys: %1")
             .arg(ignoreKeys));
 #endif // DEBUG_ACTIONS
+
+    m_actionContext = actx;
+    MythPlayer *player = actx->player;
 
     if (idleTimerId)
     {
@@ -3653,18 +3728,21 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
 
     if (ignoreKeys)
     {
-        handled = GetMythMainWindow()->TranslateKeyPress(
-                  "TV Playback", e, actions);
+        handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", e,
+                                                         actions);
 
         if (handled || actions.isEmpty())
             return true;
 
-        bool esc   = has_action("ESCAPE", actions) ||
-                     has_action("BACK", actions);
-        bool pause = has_action(ACTION_PAUSE, actions);
-        bool play  = has_action(ACTION_PLAY,  actions);
+        if (!handled)
+        {
+            if (!m_ignoreActions)
+                m_ignoreActions = new MythActions<TV>(this, tiActions,
+                                                      tiActionCount);
+            handled = m_ignoreActions->handleActions(actions);
+        }
 
-        if ((!esc || browsehelper->IsBrowsing()) && !pause && !play)
+        if (!handled)
             return false;
     }
 
@@ -3676,50 +3754,33 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
     }
     ReturnOSDLock(actx, osd);
 
-    if (editmode && !handled)
+    if (handled)
+        return true;
+
+    if (editmode)
     {
-        handled |= GetMythMainWindow()->TranslateKeyPress(
-                   "TV Editing", e, actions);
+        handled |= GetMythMainWindow()->TranslateKeyPress("TV Editing", e,
+                                                          actions);
 
         if (!handled)
         {
-            if (has_action("MENU", actions))
-            {
-                ShowOSDCutpoint(actx, "EDIT_CUT_POINTS");
-                handled = true;
-            }
-            if (has_action("ESCAPE", actions))
-            {
-                if (!actx->player->IsCutListSaved())
-                    ShowOSDCutpoint(actx, "EXIT_EDIT_MODE");
-                else
-                {
-                    actx->LockDeletePlayer(__FILE__, __LINE__);
-                    if (actx->player)
-                        actx->player->DisableEdit(0);
-                    actx->UnlockDeletePlayer(__FILE__, __LINE__);
-                }
-                handled = true;
-            }
-            else
-            {
-                actx->LockDeletePlayer(__FILE__, __LINE__);
-                int64_t current_frame = actx->player->GetFramesPlayed();
-                actx->UnlockDeletePlayer(__FILE__, __LINE__);
-                if ((has_action(ACTION_SELECT, actions)) &&
-                    (actx->player->IsInDelete(current_frame)) &&
-                    (!(actx->player->HasTemporaryMark())))
-                {
-                    ShowOSDCutpoint(actx, "EDIT_CUT_REGION");
-                    handled = true;
-                }
-                else
-                    handled |= actx->player->HandleProgramEditorActions(
-                                                      actions, current_frame);
-            }
+            if (!m_editActions)
+                m_editActions = new MythActions<TV>(this, teActions,
+                                                    teActionCount);
+            handled = m_editActions->handleActions(actions);
         }
+
+        if (!handled)
+        {
+            actx->LockDeletePlayer(__FILE__, __LINE__);
+            int64_t current_frame = player->GetFramesPlayed();
+            actx->UnlockDeletePlayer(__FILE__, __LINE__);
+            handled |= player->HandleProgramEditorActions(actions,
+                                                          current_frame);
+        }
+
         if (handled)
-            editmode = actx->player->GetEditMode();
+            editmode = player->GetEditMode();
     }
 
     if (handled)
@@ -3741,53 +3802,43 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
 
     // Teletext menu
     actx->LockDeletePlayer(__FILE__, __LINE__);
-    if (actx->player && (actx->player->GetCaptionMode() == kDisplayTeletextMenu))
+    if (player && player->GetCaptionMode() == kDisplayTeletextMenu)
     {
         QStringList tt_actions;
-        handled = GetMythMainWindow()->TranslateKeyPress(
-                  "Teletext Menu", e, tt_actions);
+        handled = GetMythMainWindow()->TranslateKeyPress("Teletext Menu", e,
+                                                         tt_actions);
 
         if (!handled && !tt_actions.isEmpty())
+            handled = player->HandleTeletextActions(tt_actions);
+
+        if (handled)
         {
-            for (int i = 0; i < tt_actions.size(); i++)
-            {
-                if (actx->player->HandleTeletextAction(tt_actions[i]))
-                {
-                    actx->UnlockDeletePlayer(__FILE__, __LINE__);
-                    return true;
-                }
-            }
+            actx->UnlockDeletePlayer(__FILE__, __LINE__);
+            return true;
         }
     }
 
     // Interactive television
-    if (actx->player && actx->player->GetInteractiveTV())
+    if (player && player->GetInteractiveTV())
     {
         QStringList itv_actions;
-        handled = GetMythMainWindow()->TranslateKeyPress(
-                  "TV Playback", e, itv_actions);
+        handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", e,
+                                                         itv_actions);
 
         if (!handled && !itv_actions.isEmpty())
         {
-            for (int i = 0; i < itv_actions.size(); i++)
-            {
-                if (actx->player->ITVHandleAction(itv_actions[i]))
-                {
-                    actx->UnlockDeletePlayer(__FILE__, __LINE__);
-                    return true;
-                }
-            }
+            handled = player->ITVHandleActions(itv_actions);
         }
     }
     actx->UnlockDeletePlayer(__FILE__, __LINE__);
 
-    handled = GetMythMainWindow()->TranslateKeyPress(
-              "TV Playback", e, actions);
+    if (handled)
+        return true;
+
+    handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", e, actions);
 
     if (handled || actions.isEmpty())
         return true;
-
-    handled = false;
 
     bool isDVD = actx->buffer && actx->buffer->IsDVD();
     bool isMenuOrStill = actx->buffer->IsInDiscMenuOrStillFrame();

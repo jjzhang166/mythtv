@@ -30,6 +30,7 @@
 #include "audioplayer.h"
 
 #include "mythtvexp.h"
+#include "mythactions.h"
 
 extern "C" {
 #include "filter.h"
@@ -342,6 +343,8 @@ class MTV_PUBLIC MythPlayer
 
     void SaveTotalFrames(void);
 
+    bool doTeletextEscape(const QString &actions);
+
   protected:
     // Initialization
     void OpenDummy(void);
@@ -436,7 +439,7 @@ class MTV_PUBLIC MythPlayer
     virtual void InitialSeek(void);
 
     // Protected MHEG/MHI stuff
-    bool ITVHandleAction(const QString &action);
+    bool ITVHandleActions(const QStringList &actions);
     void ITVRestart(uint chanid, uint cardid, bool isLiveTV);
 
     // Edit mode stuff
@@ -486,7 +489,7 @@ class MTV_PUBLIC MythPlayer
     void EnableTeletext(int page = 0x100);
     void DisableTeletext(void);
     void ResetTeletext(void);
-    bool HandleTeletextAction(const QString &action);
+    bool HandleTeletextActions(const QStringList &actions);
 
     // Teletext NUV Captions
     void SetTeletextPage(uint page);
@@ -776,6 +779,9 @@ class MTV_PUBLIC MythPlayer
 
     // Debugging variables
     Jitterometer *output_jmeter;
+
+  private:
+    MythActions<MythPlayer> *m_teletextActions;
 };
 
 #endif
