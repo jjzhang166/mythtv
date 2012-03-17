@@ -988,8 +988,9 @@ TV::TV(void)
       m_audioSyncActions(NULL), m_3dActions(NULL), m_activeActions(NULL),
       m_jumpProgramActions(NULL), m_seekActions(NULL), m_trackActions(NULL),
       m_ffrwndActions(NULL), m_toggleActions(NULL), m_pipActions(NULL),
-      m_activePostQActions(NULL), m_osdActions(NULL), m_osdLiveTVActions(NULL),
-      m_osdPlayingActions(NULL), m_osdDialogActions(NULL),
+      m_activePostQActions(NULL), m_osdActions(NULL), m_osdExitActions(NULL),
+      m_osdLiveTVActions(NULL), m_osdPlayingActions(NULL),
+      m_osdDialogActions(NULL),
       m_actionContext(NULL)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "Creating TV object");
@@ -1395,6 +1396,9 @@ TV::~TV(void)
         delete m_activePostQActions;
 
     if (m_osdActions)
+        delete m_osdActions;
+
+    if (m_osdExitActions)
         delete m_osdActions;
 
     if (m_osdLiveTVActions)
@@ -11452,8 +11456,15 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         QString("OSDDialogEvent: result %1 text %2 action %3")
             .arg(result).arg(text).arg(action));
 
+    bool touched;
+
     if (result < 0)     // exit dialog
+    {
+        if (!m_osdExitActions)
+            m_osdExitActions = new MythActions<TV>(this, toActions, 1);
+        m_osdExitActions->handleAction(action, touched);
         return;
+    }
 
     m_actionOSDHide = true;
     m_actionOSDContext = actx;
@@ -11461,7 +11472,6 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
 
     if (!m_osdActions)
         m_osdActions = new MythActions<TV>(this, toActions, toActionCount);
-    bool touched;
     bool handled = m_osdActions->handleAction(action, touched);
 
     QStringList actions(action);

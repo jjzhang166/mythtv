@@ -1093,6 +1093,7 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_activePostQActions;
 
     MythActions<TV> *m_osdActions;
+    MythActions<TV> *m_osdExitActions;
     MythActions<TV> *m_osdLiveTVActions;
     MythActions<TV> *m_osdPlayingActions;
     MythActions<TV> *m_osdDialogActions;
