@@ -345,6 +345,70 @@ class MTV_PUBLIC TV : public QObject
     bool doPostQPopupMenu(const QString &action);
     bool doPostQFinder(const QString &action);
 
+    bool doOSDDialog(const QString &action);
+    bool doOSDPause(const QString &action);
+    bool doOSDStop(const QString &action);
+    bool doOSDFfwd(const QString &action);
+    bool doOSDRwnd(const QString &action);
+    bool doOSDDeinterlace(const QString &action);
+    bool doOSDToggleDebug(const QString &action);
+    bool doOSDToggleManualZoom(const QString &action);
+    bool doOSDToggleStretch(const QString &action);
+    bool doOSDEnableUpmix(const QString &action);
+    bool doOSDDisableUpmix(const QString &action);
+    bool doOSDAdjustStretch(const QString &action);
+    bool doOSDSelectScan(const QString &action);
+    bool doOSDToggleAudioSync(const QString &action);
+    bool doOSDToggleVis(const QString &action);
+    bool doOSDEnableVis(const QString &action);
+    bool doOSDDisableVis(const QString &action);
+    bool doOSDToggleSleep(const QString &action);
+    bool doOSDTogglePicControls(const QString &action);
+    bool doOSDToggleStudioLevels(const QString &action);
+    bool doOSDToggleNightMode(const QString &action);
+    bool doOSDToggleAspect(const QString &action);
+    bool doOSDToggleFill(const QString &action);
+    bool doOSDAutodetectFill(const QString &action);
+    bool doOSDGuide(const QString &action);
+    bool doOSDChangroup(const QString &action);
+    bool doOSDFinder(const QString &action);
+    bool doOSDSchedule(const QString &action);
+    bool doOSDViewScheduled(const QString &action);
+    bool doOSDVisualiser(const QString &action);
+    bool doOSD3d(const QString &action);
+
+    bool doOSDDialogMenu(const QString &action);
+    bool doOSDDialogRecord(const QString &action);
+    bool doOSDDialogExit(const QString &action);
+    bool doOSDDialogSleep(const QString &action);
+    bool doOSDDialogIdle(const QString &action);
+    bool doOSDDialogInfo(const QString &action);
+    bool doOSDDialogEditing(const QString &action);
+    bool doOSDDialogAskAllow(const QString &action);
+    bool doOSDDialogEditor(const QString &action);
+    bool doOSDDialogCutpoint(const QString &action);
+    bool doOSDDialogDelete(const QString &action);
+    bool doOSDDialogPlay(const QString &action);
+    bool doOSDDialogConfirm(const QString &action);
+
+    bool doOSDLiveTVToggleBrowse(const QString &action);
+    bool doOSDLiveTVPrevChan(const QString &action);
+    bool doOSDLiveTVSwitchInput(const QString &action);
+    bool doOSDLiveTVEdit(const QString &action);
+
+    bool doOSDPlayingDVDMenu(const QString &action);
+    bool doOSDPlayingJumpChapter(const QString &action);
+    bool doOSDPlayingSwitchTitle(const QString &action);
+    bool doOSDPlayingSwitchAngle(const QString &action);
+    bool doOSDPlayingEdit(const QString &action);
+    bool doOSDPlayingToggleAutoexpire(const QString &action);
+    bool doOSDPlayingToggleCommSkip(const QString &action);
+    bool doOSDPlayingTranscode(const QString &action);
+    bool doOSDPlayingTranscodeAuto(const QString &action);
+    bool doOSDPlayingTranscodeHigh(const QString &action);
+    bool doOSDPlayingTranscodeMed(const QString &action);
+    bool doOSDPlayingTranscodeLow(const QString &action);
+
   public slots:
     void HandleOSDClosed(int osdType);
     void timerEvent(QTimerEvent*);
@@ -1009,7 +1073,6 @@ class MTV_PUBLIC TV : public QObject
     static const uint kEndOfPlaybackFirstCheckTimer;
 
   private:
-    MythActions<TV> *m_actions;
     MythActions<TV> *m_ignoreActions;
     MythActions<TV> *m_editActions;
     MythActions<TV> *m_browseActions;
@@ -1029,10 +1092,20 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_pipActions;
     MythActions<TV> *m_activePostQActions;
 
+    MythActions<TV> *m_osdActions;
+    MythActions<TV> *m_osdLiveTVActions;
+    MythActions<TV> *m_osdPlayingActions;
+    MythActions<TV> *m_osdDialogActions;
+
     PlayerContext   *m_actionContext;
     bool m_actionEndManualZoom;
     StereoscopicMode m_action3dMode;
     SeekFlags m_actionSeekFlags;
+
+    PlayerContext   *m_actionOSDContext;
+    QStringList m_actionOSDArgs;
+    bool m_actionOSDHide;
+    QString m_actionOSDText;
 };
 
 #endif
