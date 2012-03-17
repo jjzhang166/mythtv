@@ -110,6 +110,18 @@ typedef enum
     kNoTuners = 2,     ///< No capture cards configured
 } NoRecorderMsg;
 
+typedef enum
+{
+    kRewind = 4,
+    kForward = 8,
+    kSticky = 16,
+    kSlippery = 32,
+    kRelative = 64,
+    kAbsolute = 128,
+    kWhenceMask = 3,
+    kNoSeekFlags = 0
+} SeekFlags;
+
 enum {
     kStartTVNoFlags          = 0x00,
     kStartTVInGuide          = 0x01,
@@ -269,6 +281,69 @@ class MTV_PUBLIC TV : public QObject
     bool doActiveMenu(const QString &action);
     bool doActiveInfo(const QString &action);
     bool doActiveToggleOsdDebug(const QString &action);
+
+    bool doJumpProgPrevChan(const QString &action);
+    bool doJumpProgProgram(const QString &action);
+    bool doJumpProgRecord(const QString &action);
+
+    bool doSeekFfwd(const QString &action);
+    bool doSeekFfwdSticky(const QString &action);
+    bool doSeekRight(const QString &action);
+    bool doSeekRwnd(const QString &action);
+    bool doSeekRwndSticky(const QString &action);
+    bool doSeekLeft(const QString &action);
+
+    bool doTrackToggleExtText(const QString &action);
+    bool doTrackEnableExtText(const QString &action);
+    bool doTrackDisableExtText(const QString &action);
+    bool doTrackEnableForcedSubs(const QString &action);
+    bool doTrackDisableForcedSubs(const QString &action);
+    bool doTrackEnableSubs(const QString &action);
+    bool doTrackDisableSubs(const QString &action);
+    bool doTrackToggleSubs(const QString &action);
+    bool doTrackToggle(const QString &action);
+    bool doTrackSelect(const QString &action);
+    bool doTrackNextPrev(const QString &action);
+
+    bool doFFRwndDigit(const QString &action);
+
+    bool doToggleAspect(const QString &action);
+    bool doToggleFill(const QString &action);
+    bool doToggleAudioSync(const QString &action);
+    bool doToggleVisualisation(const QString &action);
+    bool doToggleEnableVis(const QString &action);
+    bool doToggleDisableVis(const QString &action);
+    bool doTogglePicControls(const QString &action);
+    bool doToggleStudioLevels(const QString &action);
+    bool doToggleNightMode(const QString &action);
+    bool doToggleStretch(const QString &action);
+    bool doToggleUpMix(const QString &action);
+    bool doToggleSleep(const QString &action);
+    bool doToggleRecord(const QString &action);
+    bool doToggleFav(const QString &action);
+    bool doToggleChanControls(const QString &action);
+    bool doToggleRecControls(const QString &action);
+    bool doToggleInputs(const QString &action);
+    bool doToggleBrowse(const QString &action);
+    bool doToggleEdit(const QString &action);
+
+    bool doPipEnqueueAction(const QString &action);
+    bool doPipNextPipWindow(const QString &action);
+
+    bool doPostQSelect(const QString &action);
+    bool doPostQNextFav(const QString &action);
+    bool doPostQNextSource(const QString &action);
+    bool doPostQPrevSource(const QString &action);
+    bool doPostQNextInput(const QString &action);
+    bool doPostQNextCard(const QString &action);
+    bool doPostQGuide(const QString &action);
+    bool doPostQPrevChan(const QString &action);
+    bool doPostQChanUp(const QString &action);
+    bool doPostQChanDown(const QString &action);
+    bool doPostQDelete(const QString &action);
+    bool doPostQDVDRootMenu(const QString &action);
+    bool doPostQPopupMenu(const QString &action);
+    bool doPostQFinder(const QString &action);
 
   public slots:
     void HandleOSDClosed(int osdType);
@@ -591,7 +666,8 @@ class MTV_PUBLIC TV : public QObject
 
     // Sundry on screen
     void ITVRestart(PlayerContext*, bool isLive);
-    void EnableVisualisation(const PlayerContext*, bool enable, bool toggle = false,
+    void EnableVisualisation(const PlayerContext*, bool enable,
+                             bool toggle = false,
                              const QString &action = QString(""));
 
     // Manual zoom mode
@@ -945,10 +1021,18 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_audioSyncActions;
     MythActions<TV> *m_3dActions;
     MythActions<TV> *m_activeActions;
+    MythActions<TV> *m_jumpProgramActions;
+    MythActions<TV> *m_seekActions;
+    MythActions<TV> *m_trackActions;
+    MythActions<TV> *m_ffrwndActions;
+    MythActions<TV> *m_toggleActions;
+    MythActions<TV> *m_pipActions;
+    MythActions<TV> *m_activePostQActions;
 
     PlayerContext   *m_actionContext;
     bool m_actionEndManualZoom;
     StereoscopicMode m_action3dMode;
+    SeekFlags m_actionSeekFlags;
 };
 
 #endif

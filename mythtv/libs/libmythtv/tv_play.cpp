@@ -986,6 +986,9 @@ TV::TV(void)
       m_manualZoomActions(NULL), m_manualZoomPassActions(NULL),
       m_picAttrActions(NULL), m_timeStretchActions(NULL),
       m_audioSyncActions(NULL), m_3dActions(NULL), m_activeActions(NULL),
+      m_jumpProgramActions(NULL), m_seekActions(NULL), m_trackActions(NULL),
+      m_ffrwndActions(NULL), m_toggleActions(NULL), m_pipActions(NULL),
+      m_activePostQActions(NULL),
       m_actionContext(NULL)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "Creating TV object");
@@ -1371,6 +1374,27 @@ TV::~TV(void)
 
     if (m_activeActions)
         delete m_activeActions;
+
+    if (m_jumpProgramActions)
+        delete m_jumpProgramActions;
+
+    if (m_seekActions)
+        delete m_seekActions;
+
+    if (m_trackActions)
+        delete m_trackActions;
+
+    if (m_ffrwndActions)
+        delete m_ffrwndActions;
+
+    if (m_toggleActions)
+        delete m_toggleActions;
+
+    if (m_pipActions)
+        delete m_pipActions;
+
+    if (m_activePostQActions)
+        delete m_activePostQActions;
 
     LOG(VB_PLAYBACK, LOG_INFO, "TV::~TV() -- end");
 }
@@ -3561,6 +3585,161 @@ bool TV::event(QEvent *e)
     return QObject::event(e);
 }
 
+static struct ActionDefStruct<TV> tthActions[] = {
+    { ACTION_TOGGLEEXTTEXT,     &TV::doTrackToggleExtText },
+    { ACTION_ENABLEEXTTEXT,     &TV::doTrackEnableExtText },
+    { ACTION_DISABLEEXTTEXT,    &TV::doTrackDisableExtText },
+    { ACTION_ENABLEFORCEDSUBS,  &TV::doTrackEnableForcedSubs },
+    { ACTION_DISABLEFORCEDSUBS, &TV::doTrackDisableForcedSubs },
+    { ACTION_ENABLESUBS,        &TV::doTrackEnableSubs },
+    { ACTION_DISABLESUBS,       &TV::doTrackDisableSubs },
+    { ACTION_TOGGLESUBS,        &TV::doTrackToggleSubs },
+    { "^TOGGLE",                &TV::doTrackToggle },
+    { "^SELECT",                &TV::doTrackSelect },
+    { "^NEXT",                  &TV::doTrackNextPrev },
+    { "^PREV",                  &TV::doTrackNextPrev }
+};
+static int tthActionCount = NELEMS(tthActions);
+
+bool TV::doTrackToggleExtText(const QString &action)
+{
+    m_actionContext->player->ToggleCaptions(kTrackTypeTextSubtitle);
+    return true;
+}
+
+bool TV::doTrackEnableExtText(const QString &action)
+{
+    m_actionContext->player->EnableCaptions(kDisplayTextSubtitle);
+    return true;
+}
+
+bool TV::doTrackDisableExtText(const QString &action)
+{
+    m_actionContext->player->DisableCaptions(kDisplayTextSubtitle);
+    return true;
+}
+
+bool TV::doTrackEnableForcedSubs(const QString &action)
+{
+    m_actionContext->player->SetAllowForcedSubtitles(true);
+    return true;
+}
+
+bool TV::doTrackDisableForcedSubs(const QString &action)
+{
+    m_actionContext->player->SetAllowForcedSubtitles(false);
+    return true;
+}
+
+bool TV::doTrackEnableSubs(const QString &action)
+{
+    m_actionContext->player->SetCaptionsEnabled(true, true);
+    return true;
+}
+
+bool TV::doTrackDisableSubs(const QString &action)
+{
+    m_actionContext->player->SetCaptionsEnabled(false, true);
+    return true;
+}
+
+bool TV::doTrackToggleSubs(const QString &action)
+{
+    if (browsehelper->IsBrowsing())
+        return false;
+
+    MythPlayer *player = m_actionContext->player;
+
+    if (ccInputMode)
+    {
+        bool valid = false;
+        int page = GetQueuedInputAsInt(&valid, 16);
+        if (vbimode == VBIMode::PAL_TT && valid)
+            player->SetTeletextPage(page);
+        else if (vbimode == VBIMode::NTSC_CC)
+            player->SetTrack(kTrackTypeCC608, max(min(page - 1, 1), 0));
+
+        ClearInputQueues(m_actionContext, true);
+
+        QMutexLocker locker(&timerIdLock);
+        ccInputMode = false;
+        if (ccInputTimerId)
+        {
+            KillTimer(ccInputTimerId);
+            ccInputTimerId = 0;
+        }
+    }
+    else if (player->GetCaptionMode() & kDisplayNUVTeletextCaptions)
+    {
+        ClearInputQueues(m_actionContext, false);
+        AddKeyToInputQueue(m_actionContext, 0);
+
+        QMutexLocker locker(&timerIdLock);
+        ccInputMode        = true;
+        asInputMode        = false;
+        ccInputTimerId = StartTimer(kInputModeTimeout, __LINE__);
+        if (asInputTimerId)
+        {
+            KillTimer(asInputTimerId);
+            asInputTimerId = 0;
+        }
+    }
+    else
+    {
+        player->ToggleCaptions();
+    }
+    return true;
+}
+
+bool TV::doTrackToggle(const QString &action)
+{
+    int type = to_track_type(action.mid(6));
+    if (type == kTrackTypeTeletextMenu)
+    {
+        m_actionContext->player->EnableTeletext();
+        return true;
+    }
+    
+    if (type >= kTrackTypeSubtitle)
+    {
+        m_actionContext->player->ToggleCaptions(type);
+        return true;
+    }
+
+    return false;
+}
+
+bool TV::doTrackSelect(const QString &action)
+{
+    int type = to_track_type(action.mid(6));
+    int num = action.section("_", -1).toInt();
+    if (type >= kTrackTypeAudio)
+    {
+        m_actionContext->player->SetTrack(type, num);
+        return true;
+    }
+    return false;
+}
+
+bool TV::doTrackNextPrev(const QString &action)
+{
+    int dir = (action.left(4) == "NEXT") ? +1 : -1;
+    int type = to_track_type(action.mid(4));
+    if (type >= kTrackTypeAudio)
+    {
+        m_actionContext->player->ChangeTrack(type, dir);
+        return true;
+    }
+
+    if (action.right(2) == "CC")
+    {
+        m_actionContext->player->ChangeCaptionTrack(dir);
+        return true;
+    }
+
+    return false;
+}
+
 bool TV::HandleTrackAction(PlayerContext *ctx, const QStringList &actions)
 {
     ctx->LockDeletePlayer(__FILE__, __LINE__);
@@ -3570,113 +3749,14 @@ bool TV::HandleTrackAction(PlayerContext *ctx, const QStringList &actions)
         return false;
     }
 
-    bool handled = true;
-
-    QString action = actions.first();
-
-    if (action == ACTION_TOGGLEEXTTEXT)
-        ctx->player->ToggleCaptions(kTrackTypeTextSubtitle);
-    else if (ACTION_ENABLEEXTTEXT == action)
-        ctx->player->EnableCaptions(kDisplayTextSubtitle);
-    else if (ACTION_DISABLEEXTTEXT == action)
-        ctx->player->DisableCaptions(kDisplayTextSubtitle);
-    else if (ACTION_ENABLEFORCEDSUBS == action)
-        ctx->player->SetAllowForcedSubtitles(true);
-    else if (ACTION_DISABLEFORCEDSUBS == action)
-        ctx->player->SetAllowForcedSubtitles(false);
-    else if (action == ACTION_ENABLESUBS)
-        ctx->player->SetCaptionsEnabled(true, true);
-    else if (action == ACTION_DISABLESUBS)
-        ctx->player->SetCaptionsEnabled(false, true);
-    else if (action == ACTION_TOGGLESUBS && !browsehelper->IsBrowsing())
-    {
-        if (ccInputMode)
-        {
-            bool valid = false;
-            int page = GetQueuedInputAsInt(&valid, 16);
-            if (vbimode == VBIMode::PAL_TT && valid)
-                ctx->player->SetTeletextPage(page);
-            else if (vbimode == VBIMode::NTSC_CC)
-                ctx->player->SetTrack(kTrackTypeCC608,
-                                   max(min(page - 1, 1), 0));
-
-            ClearInputQueues(ctx, true);
-
-            QMutexLocker locker(&timerIdLock);
-            ccInputMode = false;
-            if (ccInputTimerId)
-            {
-                KillTimer(ccInputTimerId);
-                ccInputTimerId = 0;
-            }
-        }
-        else if (ctx->player->GetCaptionMode() & kDisplayNUVTeletextCaptions)
-        {
-            ClearInputQueues(ctx, false);
-            AddKeyToInputQueue(ctx, 0);
-
-            QMutexLocker locker(&timerIdLock);
-            ccInputMode        = true;
-            asInputMode        = false;
-            ccInputTimerId = StartTimer(kInputModeTimeout, __LINE__);
-            if (asInputTimerId)
-            {
-                KillTimer(asInputTimerId);
-                asInputTimerId = 0;
-            }
-        }
-        else
-        {
-            ctx->player->ToggleCaptions();
-        }
-    }
-    else if (action.left(6) == "TOGGLE")
-    {
-        int type = to_track_type(action.mid(6));
-        if (type == kTrackTypeTeletextMenu)
-            ctx->player->EnableTeletext();
-        else if (type >= kTrackTypeSubtitle)
-            ctx->player->ToggleCaptions(type);
-        else
-            handled = false;
-    }
-    else if (action.left(6) == "SELECT")
-    {
-        int type = to_track_type(action.mid(6));
-        int num = action.section("_", -1).toInt();
-        if (type >= kTrackTypeAudio)
-            ctx->player->SetTrack(type, num);
-        else
-            handled = false;
-    }
-    else if (action.left(4) == "NEXT" || action.left(4) == "PREV")
-    {
-        int dir = (action.left(4) == "NEXT") ? +1 : -1;
-        int type = to_track_type(action.mid(4));
-        if (type >= kTrackTypeAudio)
-            ctx->player->ChangeTrack(type, dir);
-        else if (action.right(2) == "CC")
-            ctx->player->ChangeCaptionTrack(dir);
-        else
-            handled = false;
-    }
-    else
-        handled = false;
+    m_actionContext = ctx;
+    if (!m_trackActions)
+        m_trackActions = new MythActions<TV>(this, tthActions, tthActionCount);
+    bool handled = m_trackActions->handleActions(actions);
 
     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
 
     return handled;
-}
-
-static bool has_action(QString action, const QStringList &actions)
-{
-    QStringList::const_iterator it;
-    for (it = actions.begin(); it != actions.end(); ++it)
-    {
-        if (action == *it)
-            return true;
-    }
-    return false;
 }
 
 static struct ActionDefStruct<TV> tiActions[] = {
@@ -4353,9 +4433,7 @@ bool TV::Handle3D(PlayerContext *ctx, const QString &action)
     if (!m_3dActions)
         m_3dActions = new MythActions<TV>(this, t3dhActions, t3dhActionCount);
 
-    QStringList actions;
-    actions << action;
-    bool handled = m_3dActions->handleActions(actions);
+    bool handled = m_3dActions->handleActions(QStringList(action));
 
     if (!handled)
         m_action3dMode = kStereoscopicModeNone;
@@ -4860,24 +4938,35 @@ bool TV::ActiveHandleAction(PlayerContext *ctx, const QStringList &actions)
     return handled;
 }
 
+static struct ActionDefStruct<TV> tfrhActions[] = {
+    { "^[0123456789]$", &TV::doFFRwndDigit }
+};
+static int tfrhActionCount = NELEMS(tfrhActions);
+
+bool TV::doFFRwndDigit(const QString &action)
+{
+    int val = action.toInt();
+
+    if (val < (int)ff_rew_speeds.size())
+    {
+        SetFFRew(m_actionContext, val);
+        return true;
+    }
+    return false;
+}
+
+
 bool TV::FFRewHandleAction(PlayerContext *ctx, const QStringList &actions)
 {
     bool handled = false;
 
     if (ctx->ff_rew_state)
     {
-        for (int i = 0; i < actions.size() && !handled; i++)
-        {
-            QString action = actions[i];
-            bool ok = false;
-            int val = action.toInt(&ok);
-
-            if (ok && val < (int)ff_rew_speeds.size())
-            {
-                SetFFRew(ctx, val);
-                handled = true;
-            }
-        }
+        m_actionContext = ctx;
+        if (!m_ffrwndActions)
+            m_ffrwndActions = new MythActions<TV>(this, tfrhActions,
+                                                  tfrhActionCount);
+        handled = m_ffrwndActions->handleActions(actions);
 
         if (!handled)
         {
@@ -4897,67 +4986,189 @@ bool TV::FFRewHandleAction(PlayerContext *ctx, const QStringList &actions)
     return handled;
 }
 
+static struct ActionDefStruct<TV> ttoghActions[] = {
+    { "TOGGLEASPECT",              &TV::doToggleAspect },
+    { "TOGGLEFILL",                &TV::doToggleFill },
+    { ACTION_TOGGELAUDIOSYNC,      &TV::doToggleAudioSync },
+    { ACTION_TOGGLEVISUALISATION,  &TV::doToggleVisualisation },
+    { ACTION_ENABLEVISUALISATION,  &TV::doToggleEnableVis },
+    { ACTION_DISABLEVISUALISATION, &TV::doToggleDisableVis },
+    { "TOGGLEPICCONTROLS",         &TV::doTogglePicControls },
+    { ACTION_TOGGLESTUDIOLEVELS,   &TV::doToggleStudioLevels },
+    { ACTION_TOGGLENIGHTMODE,      &TV::doToggleNightMode },
+    { "TOGGLESTRETCH",             &TV::doToggleStretch },
+    { ACTION_TOGGLEUPMIX,          &TV::doToggleUpMix },
+    { ACTION_TOGGLESLEEP,          &TV::doToggleSleep },
+    { ACTION_TOGGLERECORD,         &TV::doToggleRecord },
+    { ACTION_TOGGLEFAV,            &TV::doToggleFav },
+    { ACTION_TOGGLECHANCONTROLS,   &TV::doToggleChanControls },
+    { ACTION_TOGGLERECCONTROLS,    &TV::doToggleRecControls },
+    { ACTION_TOGGLEINPUTS,         &TV::doToggleInputs },
+    { "TOGGLEBROWSE",              &TV::doToggleBrowse },
+    { "EDIT",                      &TV::doToggleEdit }
+};
+static int ttoghActionCount = NELEMS(ttoghActions);
+
+bool TV::doToggleAspect(const QString &action)
+{
+    ToggleAspectOverride(m_actionContext);
+    return true;
+}
+
+bool TV::doToggleFill(const QString &action)
+{
+    ToggleAdjustFill(m_actionContext);
+    return true;
+}
+
+bool TV::doToggleAudioSync(const QString &action)
+{
+    ChangeAudioSync(m_actionContext, 0);   // just display
+    return true;
+}
+
+bool TV::doToggleVisualisation(const QString &action)
+{
+    EnableVisualisation(m_actionContext, false, true /*toggle*/);
+    return true;
+}
+
+bool TV::doToggleEnableVis(const QString &action)
+{
+    EnableVisualisation(m_actionContext, true);
+    return true;
+}
+
+bool TV::doToggleDisableVis(const QString &action)
+{
+    EnableVisualisation(m_actionContext, false);
+    return true;
+}
+
+bool TV::doTogglePicControls(const QString &action)
+{
+    DoTogglePictureAttribute(m_actionContext, kAdjustingPicture_Playback);
+    return true;
+}
+
+bool TV::doToggleStudioLevels(const QString &action)
+{
+    DoToggleStudioLevels(m_actionContext);
+    return true;
+}
+
+bool TV::doToggleNightMode(const QString &action)
+{
+    DoToggleNightMode(m_actionContext);
+    return true;
+}
+
+bool TV::doToggleStretch(const QString &action)
+{
+    ToggleTimeStretch(m_actionContext);
+    return true;
+}
+
+bool TV::doToggleUpMix(const QString &action)
+{
+    EnableUpmix(m_actionContext, false, true);
+    return true;
+}
+
+bool TV::doToggleSleep(const QString &action)
+{
+    ToggleSleepTimer(m_actionContext);
+    return true;
+}
+
+bool TV::doToggleRecord(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        ToggleRecord(m_actionContext);
+    return islivetv;
+}
+
+bool TV::doToggleFav(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        ToggleChannelFavorite(m_actionContext);
+    return islivetv;
+}
+
+bool TV::doToggleChanControls(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        DoTogglePictureAttribute(m_actionContext, kAdjustingPicture_Channel);
+    return islivetv;
+}
+
+bool TV::doToggleRecControls(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        DoTogglePictureAttribute(m_actionContext, kAdjustingPicture_Recording);
+    return islivetv;
+}
+
+bool TV::doToggleInputs(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv && !m_actionContext->pseudoLiveTVState)
+    {
+        ToggleInputs(m_actionContext);
+        return true;
+    }
+    return false;
+}
+
+bool TV::doToggleBrowse(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+    {
+        browsehelper->BrowseStart(m_actionContext);
+        return true;
+    }
+
+    bool isDVD = m_actionContext->buffer && m_actionContext->buffer->IsDVD();
+    if (!isDVD)
+    {
+        ShowOSDMenu(m_actionContext);
+        return true;
+    }
+
+    return false;
+}
+
+bool TV::doToggleEdit(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+    {
+        StartChannelEditMode(m_actionContext);
+        return true;
+    }
+
+    bool isDVD = m_actionContext->buffer && m_actionContext->buffer->IsDVD();
+    if (!isDVD)
+    {
+        StartProgramEditMode(m_actionContext);
+        return true;
+    }
+
+    return false;
+}
+
 bool TV::ToggleHandleAction(PlayerContext *ctx, const QStringList &actions)
 {
-    bool isDVD = m_actionContext->buffer && m_actionContext->buffer->IsDVD();
-    bool handled = true;
-    bool islivetv = StateIsLiveTV(GetState(ctx));
-
-    if (has_action("TOGGLEASPECT", actions))
-        ToggleAspectOverride(ctx);
-    else if (has_action("TOGGLEFILL", actions))
-        ToggleAdjustFill(ctx);
-    else if (has_action(ACTION_TOGGELAUDIOSYNC, actions))
-        ChangeAudioSync(ctx, 0);   // just display
-    else if (has_action(ACTION_TOGGLEVISUALISATION, actions))
-        EnableVisualisation(ctx, false, true /*toggle*/);
-    else if (has_action(ACTION_ENABLEVISUALISATION, actions))
-        EnableVisualisation(ctx, true);
-    else if (has_action(ACTION_DISABLEVISUALISATION, actions))
-        EnableVisualisation(ctx, false);
-    else if (has_action("TOGGLEPICCONTROLS", actions))
-        DoTogglePictureAttribute(ctx, kAdjustingPicture_Playback);
-    else if (has_action(ACTION_TOGGLESTUDIOLEVELS, actions))
-        DoToggleStudioLevels(ctx);
-    else if (has_action(ACTION_TOGGLENIGHTMODE, actions))
-        DoToggleNightMode(ctx);
-    else if (has_action("TOGGLESTRETCH", actions))
-        ToggleTimeStretch(ctx);
-    else if (has_action(ACTION_TOGGLEUPMIX, actions))
-        EnableUpmix(ctx, false, true);
-    else if (has_action(ACTION_TOGGLESLEEP, actions))
-        ToggleSleepTimer(ctx);
-    else if (has_action(ACTION_TOGGLERECORD, actions) && islivetv)
-        ToggleRecord(ctx);
-    else if (has_action(ACTION_TOGGLEFAV, actions) && islivetv)
-        ToggleChannelFavorite(ctx);
-    else if (has_action(ACTION_TOGGLECHANCONTROLS, actions) && islivetv)
-        DoTogglePictureAttribute(ctx, kAdjustingPicture_Channel);
-    else if (has_action(ACTION_TOGGLERECCONTROLS, actions) && islivetv)
-        DoTogglePictureAttribute(ctx, kAdjustingPicture_Recording);
-    else if (has_action(ACTION_TOGGLEINPUTS, actions) &&
-             islivetv && !ctx->pseudoLiveTVState)
-    {
-        ToggleInputs(ctx);
-    }
-    else if (has_action("TOGGLEBROWSE", actions))
-    {
-        if (islivetv)
-            browsehelper->BrowseStart(ctx);
-        else if (!isDVD)
-            ShowOSDMenu(ctx);
-        else
-            handled = false;
-    }
-    else if (has_action("EDIT", actions))
-    {
-        if (islivetv)
-            StartChannelEditMode(ctx);
-        else if (!isDVD)
-            StartProgramEditMode(ctx);
-    }
-    else
-        handled = false;
+    m_actionContext = ctx;
+    if (!m_toggleActions)
+        m_toggleActions = new MythActions<TV>(this, ttoghActions,
+                                              ttoghActionCount);
+    bool handled = m_toggleActions->handleActions(actions);
 
     return handled;
 }
@@ -4982,39 +5193,44 @@ void TV::EnableVisualisation(const PlayerContext *ctx, bool enable,
     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
 }
 
+static struct ActionDefStruct<TV> tpiphActions[] = {
+    { "TOGGLEPIPMODE",  &TV::doPipEnqueueAction },
+    { "TOGGLEPBPMODE",  &TV::doPipEnqueueAction },
+    { "CREATEPIPVIEW",  &TV::doPipEnqueueAction },
+    { "CREATEPBPVIEW",  &TV::doPipEnqueueAction },
+    { "SWAPPIP",        &TV::doPipEnqueueAction },
+    { "TOGGLEPIPSTATE", &TV::doPipEnqueueAction },
+    { "NEXTPIPWINDOW",  &TV::doPipNextPipWindow }
+};
+static int tpiphActionCount = NELEMS(tpiphActions);
+
+bool TV::doPipEnqueueAction(const QString &action)
+{
+    changePxP.enqueue(action);
+    return true;
+}
+
+bool TV::doPipNextPipWindow(const QString &action)
+{
+    SetActive(m_actionContext, -1, true);
+    return true;
+}
+
 bool TV::PxPHandleAction(PlayerContext *ctx, const QStringList &actions)
 {
     if (!IsPIPSupported(ctx) && !IsPBPSupported(ctx))
         return false;
 
-    bool handled = true;
-    {
-        QMutexLocker locker(&timerIdLock);
+    QMutexLocker locker(&timerIdLock);
 
-        if (has_action("TOGGLEPIPMODE", actions))
-            changePxP.enqueue("TOGGLEPIPMODE");
-        else if (has_action("TOGGLEPBPMODE", actions))
-            changePxP.enqueue("TOGGLEPBPMODE");
-        else if (has_action("CREATEPIPVIEW", actions))
-            changePxP.enqueue("CREATEPIPVIEW");
-        else if (has_action("CREATEPBPVIEW", actions))
-            changePxP.enqueue("CREATEPBPVIEW");
-        else if (has_action("SWAPPIP", actions))
-            changePxP.enqueue("SWAPPIP");
-        else if (has_action("TOGGLEPIPSTATE", actions))
-            changePxP.enqueue("TOGGLEPIPSTATE");
-        else
-            handled = false;
+    m_actionContext = ctx;
+    if (!m_pipActions)
+        m_pipActions = new MythActions<TV>(this, tpiphActions,
+                                           tpiphActionCount);
+    bool handled = m_pipActions->handleActions(actions);
 
-        if (!changePxP.empty() && !pipChangeTimerId)
-            pipChangeTimerId = StartTimer(1, __LINE__);
-    }
-
-    if (has_action("NEXTPIPWINDOW", actions))
-    {
-        SetActive(ctx, -1, true);
-        handled = true;
-    }
+    if (!changePxP.empty() && !pipChangeTimerId)
+        pipChangeTimerId = StartTimer(1, __LINE__);
 
     return handled;
 }
@@ -5043,86 +5259,181 @@ void TV::SetBookmark(PlayerContext *ctx, bool clear)
     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
 }
 
+static struct ActionDefStruct<TV> tapqhActions[] = {
+    { ACTION_SELECT,            &TV::doPostQSelect },
+    { "NEXTFAV",                &TV::doPostQNextFav },
+    { "NEXTSOURCE",             &TV::doPostQNextSource },
+    { "PREVSOURCE",             &TV::doPostQPrevSource },
+    { "NEXTINPUT",              &TV::doPostQNextInput },
+    { "NEXTCARD",               &TV::doPostQNextCard },
+    { ACTION_GUIDE,             &TV::doPostQGuide },
+    { "PREVCHAN",               &TV::doPostQPrevChan },
+    { ACTION_CHANNELUP,         &TV::doPostQChanUp },
+    { ACTION_CHANNELDOWN,       &TV::doPostQChanDown },
+    { "DELETE",                 &TV::doPostQDelete },
+    { ACTION_JUMPTODVDROOTMENU, &TV::doPostQDVDRootMenu },
+    { ACTION_JUMPTOPOPUPMENU,   &TV::doPostQPopupMenu },
+    { ACTION_FINDER,            &TV::doPostQFinder }
+};
+static int tapqhActionCount = NELEMS(tapqhActions);
+
+bool TV::doPostQSelect(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+
+    if (!islivetv || !CommitQueuedInput(m_actionContext))
+    {
+        m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
+        SetBookmark(m_actionContext, (db_toggle_bookmark &&
+                                      m_actionContext->player->GetBookmark()));
+        m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
+    }
+    return true;
+}
+
+bool TV::doPostQNextFav(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+
+    if (islivetv)
+        ChangeChannel(m_actionContext, CHANNEL_DIRECTION_FAVORITE);
+    return islivetv;
+}
+
+bool TV::doPostQNextSource(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        SwitchSource(m_actionContext, kNextSource);
+    return islivetv;
+}
+
+bool TV::doPostQPrevSource(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        SwitchSource(m_actionContext, kPreviousSource);
+    return islivetv;
+}
+
+bool TV::doPostQNextInput(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        ToggleInputs(m_actionContext);
+    return islivetv;
+}
+
+bool TV::doPostQNextCard(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        SwitchCards(m_actionContext);
+    return islivetv;
+}
+
+bool TV::doPostQGuide(const QString &action)
+{
+    EditSchedule(m_actionContext, kScheduleProgramGuide);
+    return true;
+}
+
+bool TV::doPostQPrevChan(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+        PopPreviousChannel(m_actionContext, false);
+    return islivetv;
+}
+
+bool TV::doPostQChanUp(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+    {
+        if (db_browse_always)
+            browsehelper->BrowseDispInfo(m_actionContext, BROWSE_UP);
+        else
+            ChangeChannel(m_actionContext, CHANNEL_DIRECTION_UP);
+    }
+    else
+        DoJumpRWND(m_actionContext);
+    return true;
+}
+
+bool TV::doPostQChanDown(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (islivetv)
+    {
+        if (db_browse_always)
+            browsehelper->BrowseDispInfo(m_actionContext, BROWSE_DOWN);
+        else
+            ChangeChannel(m_actionContext, CHANNEL_DIRECTION_DOWN);
+    }
+    else
+        DoJumpFFWD(m_actionContext);
+    return true;
+}
+
+bool TV::doPostQDelete(const QString &action)
+{
+    bool islivetv = StateIsLiveTV(GetState(m_actionContext));
+    if (!islivetv)
+    {
+        NormalSpeed(m_actionContext);
+        StopFFRew(m_actionContext);
+        SetBookmark(m_actionContext);
+        ShowOSDPromptDeleteRecording(m_actionContext,
+                                     tr("Are you sure you want to delete:"));
+    }
+    return !islivetv;
+}
+
+bool TV::doPostQDVDRootMenu(const QString &action)
+{
+    TVState state = GetState(m_actionContext);
+    bool isdisc  = (state == kState_WatchingDVD) ||
+                   (state == kState_WatchingBD);
+    if (isdisc)
+    {
+        m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
+        if (m_actionContext->player)
+            m_actionContext->player->GoToMenu("root");
+        m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
+    }
+    return isdisc;
+}
+
+bool TV::doPostQPopupMenu(const QString &action)
+{
+    TVState state = GetState(m_actionContext);
+    bool isdisc  = (state == kState_WatchingDVD) ||
+                   (state == kState_WatchingBD);
+    if (isdisc)
+    {
+        m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
+        if (m_actionContext->player)
+            m_actionContext->player->GoToMenu("popup");
+        m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
+    }
+    return isdisc;
+}
+
+bool TV::doPostQFinder(const QString &action)
+{
+    EditSchedule(m_actionContext, kScheduleProgramFinder);
+    return true;
+}
+
+
 bool TV::ActivePostQHandleAction(PlayerContext *ctx, const QStringList &actions)
 {
-    bool handled = true;
-    TVState state = GetState(ctx);
-    bool islivetv = StateIsLiveTV(state);
-    bool isdvd  = state == kState_WatchingDVD;
-    bool isdisc = isdvd || state == kState_WatchingBD;
-
-    if (has_action(ACTION_SELECT, actions))
-    {
-        if (!islivetv || !CommitQueuedInput(ctx))
-        {
-            ctx->LockDeletePlayer(__FILE__, __LINE__);
-            SetBookmark(ctx, db_toggle_bookmark && ctx->player->GetBookmark());
-            ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-        }
-    }
-    else if (has_action("NEXTFAV", actions) && islivetv)
-        ChangeChannel(ctx, CHANNEL_DIRECTION_FAVORITE);
-    else if (has_action("NEXTSOURCE", actions) && islivetv)
-        SwitchSource(ctx, kNextSource);
-    else if (has_action("PREVSOURCE", actions) && islivetv)
-        SwitchSource(ctx, kPreviousSource);
-    else if (has_action("NEXTINPUT", actions) && islivetv)
-        ToggleInputs(ctx);
-    else if (has_action("NEXTCARD", actions) && islivetv)
-        SwitchCards(ctx);
-    else if (has_action(ACTION_GUIDE, actions))
-        EditSchedule(ctx, kScheduleProgramGuide);
-    else if (has_action("PREVCHAN", actions) && islivetv)
-        PopPreviousChannel(ctx, false);
-    else if (has_action(ACTION_CHANNELUP, actions))
-    {
-        if (islivetv)
-        {
-            if (db_browse_always)
-                browsehelper->BrowseDispInfo(ctx, BROWSE_UP);
-            else
-                ChangeChannel(ctx, CHANNEL_DIRECTION_UP);
-        }
-        else
-            DoJumpRWND(ctx);
-    }
-    else if (has_action(ACTION_CHANNELDOWN, actions))
-    {
-        if (islivetv)
-        {
-            if (db_browse_always)
-                browsehelper->BrowseDispInfo(ctx, BROWSE_DOWN);
-            else
-                ChangeChannel(ctx, CHANNEL_DIRECTION_DOWN);
-        }
-        else
-            DoJumpFFWD(ctx);
-    }
-    else if (has_action("DELETE", actions) && !islivetv)
-    {
-        NormalSpeed(ctx);
-        StopFFRew(ctx);
-        SetBookmark(ctx);
-        ShowOSDPromptDeleteRecording(ctx, tr("Are you sure you want to delete:"));
-    }
-    else if (has_action(ACTION_JUMPTODVDROOTMENU, actions) && isdisc)
-    {
-        ctx->LockDeletePlayer(__FILE__, __LINE__);
-        if (ctx->player)
-            ctx->player->GoToMenu("root");
-        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-    }
-    else if (has_action(ACTION_JUMPTOPOPUPMENU, actions) && isdisc)
-    {
-        ctx->LockDeletePlayer(__FILE__, __LINE__);
-        if (ctx->player)
-            ctx->player->GoToMenu("popup");
-        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-    }
-    else if (has_action(ACTION_FINDER, actions))
-        EditSchedule(ctx, kScheduleProgramFinder);
-    else
-        handled = false;
+    m_actionContext = ctx;
+    if (!m_activePostQActions)
+        m_activePostQActions = new MythActions<TV>(this, tapqhActions,
+                                                   tapqhActionCount);
+    bool handled = m_activePostQActions->handleActions(actions);
 
     return handled;
 }
@@ -6363,26 +6674,72 @@ bool TV::DoPlayerSeek(PlayerContext *ctx, float time)
     return res;
 }
 
+static struct ActionDefStruct<TV> tshActions[] = {
+    { ACTION_SEEKFFWD, &TV::doSeekFfwd },
+    { "FFWDSTICKY",    &TV::doSeekFfwdSticky },
+    { ACTION_RIGHT,    &TV::doSeekRight },
+    { ACTION_SEEKRWND, &TV::doSeekRwnd },
+    { "RWNDSTICKY",    &TV::doSeekRwndSticky },
+    { ACTION_LEFT,     &TV::doSeekLeft }
+};
+static int tshActionCount = NELEMS(tshActions);
+
+bool TV::doSeekFfwd(const QString &action)
+{
+    m_actionSeekFlags = (SeekFlags)(ARBSEEK_FORWARD | kForward | kSlippery |
+                                    kRelative);
+    return true;
+}
+
+bool TV::doSeekFfwdSticky(const QString &action)
+{
+    m_actionSeekFlags = (SeekFlags)(ARBSEEK_END     | kForward | kSticky   |
+                                    kAbsolute);
+    return true;
+}
+
+bool TV::doSeekRight(const QString &action)
+{
+    m_actionSeekFlags = (SeekFlags)(ARBSEEK_FORWARD | kForward | kSticky   |
+                                    kRelative);
+    return true;
+}
+
+bool TV::doSeekRwnd(const QString &action)
+{
+    m_actionSeekFlags = (SeekFlags)(ARBSEEK_REWIND  | kRewind  | kSlippery |
+                                    kRelative);
+    return true;
+}
+
+bool TV::doSeekRwndSticky(const QString &action)
+{
+    m_actionSeekFlags = (SeekFlags)(ARBSEEK_SET     | kRewind  | kSticky   |
+                                    kAbsolute);
+    return true;
+}
+
+bool TV::doSeekLeft(const QString &action)
+{
+    m_actionSeekFlags = (SeekFlags)(ARBSEEK_REWIND  | kRewind  | kSticky   |
+                                    kRelative);
+    return true;
+}
+
 bool TV::SeekHandleAction(PlayerContext *actx, const QStringList &actions)
 {
     bool isDVD = m_actionContext->buffer && m_actionContext->buffer->IsDVD();
-    const int kRewind = 4, kForward = 8, kSticky = 16, kSlippery = 32,
-              kRelative = 64, kAbsolute = 128, kWhenceMask = 3;
-    int flags = 0;
-    if (has_action(ACTION_SEEKFFWD, actions))
-        flags = ARBSEEK_FORWARD | kForward | kSlippery | kRelative;
-    else if (has_action("FFWDSTICKY", actions))
-        flags = ARBSEEK_END     | kForward | kSticky   | kAbsolute;
-    else if (has_action(ACTION_RIGHT, actions))
-        flags = ARBSEEK_FORWARD | kForward | kSticky   | kRelative;
-    else if (has_action(ACTION_SEEKRWND, actions))
-        flags = ARBSEEK_REWIND  | kRewind  | kSlippery | kRelative;
-    else if (has_action("RWNDSTICKY", actions))
-        flags = ARBSEEK_SET     | kRewind  | kSticky   | kAbsolute;
-    else if (has_action(ACTION_LEFT, actions))
-        flags = ARBSEEK_REWIND  | kRewind  | kSticky   | kRelative;
-    else
+    m_actionSeekFlags = kNoSeekFlags;
+    m_actionContext = actx;
+
+    if (!m_seekActions)
+        m_seekActions = new MythActions<TV>(this, tshActions, tshActionCount);
+    bool handled = m_seekActions->handleActions(actions);
+
+    if (!handled)
         return false;
+
+    SeekFlags flags = m_actionSeekFlags;
 
     int direction = (flags & kRewind) ? -1 : 1;
     if (HasQueuedInput())
@@ -7411,11 +7768,7 @@ bool TV::CommitQueuedInput(PlayerContext *ctx)
     {
         commited = true;
         if (HasQueuedInput())
-        {
-            QStringList actions;
-            actions << ACTION_TOGGLESUBS;
-            HandleTrackAction(ctx, actions);
-        }
+            HandleTrackAction(ctx, QStringList(ACTION_TOGGLESUBS));
     }
     else if (asInputMode)
     {
@@ -10576,12 +10929,10 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         }
     }
     else if (result < 0)
-        ; // exit dialog
+        ; //m_actionContextexit dialog
     else 
     {
-        QStringList actions;
-        actions << action;
-        if (HandleTrackAction(actx, actions))
+        if (HandleTrackAction(actx, QStringList(action)))
         ;
         else if (action == ACTION_PAUSE)
             DoTogglePause(actx, true);
@@ -12163,103 +12514,96 @@ void TV::SetManualZoom(const PlayerContext *ctx, bool zoomON, QString desc)
         UpdateOSDSeekMessage(ctx, desc, kOSDTimeout_Med);
 }
 
-bool TV::HandleJumpToProgramAction(PlayerContext *ctx,
-                                   const QStringList &actions)
+static struct ActionDefStruct<TV> tjpActions[] = {
+    { ACTION_JUMPPREV, &TV::doJumpProgPrevChan },
+    { "PREVCHAN",      &TV::doJumpProgPrevChan },
+    { "^JUMPPROG",     &TV::doJumpProgProgram },
+    { ACTION_JUMPREC,  &TV::doJumpProgRecord },
+    { "JUMPRECPIP",    &TV::doJumpProgRecord },
+    { "JUMPRECPBP",    &TV::doJumpProgRecord },
+};
+static int tjpActionCount = NELEMS(tjpActions);
+
+bool TV::doJumpProgPrevChan(const QString &action)
 {
-    const PlayerContext *mctx = GetPlayer(ctx, 0);
-    TVState s = ctx->GetState();
-    if (has_action(ACTION_JUMPPREV, actions) ||
-        (has_action("PREVCHAN", actions) && !StateIsLiveTV(s)))
+    const PlayerContext *mctx = GetPlayer(m_actionContext, 0);
+    TVState s = m_actionContext->GetState();
+    if (action != "PREVCHAN" || !StateIsLiveTV(s))
     {
-        if (mctx == ctx)
+        if (mctx == m_actionContext)
         {
-            PrepareToExitPlayer(ctx, __LINE__);
+            PrepareToExitPlayer(m_actionContext, __LINE__);
             jumpToProgram = true;
             SetExitPlayer(true, true);
         }
-        else
-        {
-            // TODO
-        }
         return true;
     }
+    return false;
+}
 
-    QStringList::const_iterator it = actions.begin();
-    for (; it != actions.end(); ++it)
+bool TV::doJumpProgProgram(const QString &action)
+{
+    bool ok;
+    QString progKey   = action.section(" ",1,-2);
+    uint    progIndex = action.section(" ",-1,-1).toUInt(&ok);
+    ProgramInfo *p = NULL;
+
+    if (ok)
     {
-        if ((*it).left(8) != "JUMPPROG")
-            continue;
-
-        const QString &action = *it;
-
-        bool ok;
-        QString progKey   = action.section(" ",1,-2);
-        uint    progIndex = action.section(" ",-1,-1).toUInt(&ok);
-        ProgramInfo *p = NULL;
-
-        if (ok)
+        QMutexLocker locker(&progListsLock);
+        QMap<QString,ProgramList>::const_iterator it = progLists.find(progKey);
+        if (it != progLists.end())
         {
-            QMutexLocker locker(&progListsLock);
-            QMap<QString,ProgramList>::const_iterator it =
-                progLists.find(progKey);
-            if (it != progLists.end())
-            {
-                const ProgramInfo *tmp = (*it)[progIndex];
-                if (tmp)
-                    p = new ProgramInfo(*tmp);
-            }
+            const ProgramInfo *tmp = (*it)[progIndex];
+            if (tmp)
+                p = new ProgramInfo(*tmp);
         }
+    }
 
-        if (!p)
-        {
-            LOG(VB_GENERAL, LOG_ERR, LOC +
-                QString("Failed to locate jump to program '%1' @ %2")
-                    .arg(progKey).arg(action.section(" ",-1,-1)));
-            return true;
-        }
-
-        PIPState state = kPIPOff;
-        {
-            QMutexLocker locker(&timerIdLock);
-            state = jumpToProgramPIPState;
-        }
-
-        if (kPIPOff == state)
-        {
-            if (mctx == ctx)
-            {
-                PrepToSwitchToRecordedProgram(ctx, *p);
-            }
-            else
-            {
-                // TODO
-            }
-        }
-        else
-        {
-            QString type = (kPIPonTV == jumpToProgramPIPState) ? "PIP" : "PBP";
-            LOG(VB_GENERAL, LOG_INFO, LOC +
-                QString("Creating %1 with program: %2")
-                    .arg(type).arg(p->toString(ProgramInfo::kTitleSubtitle)));
-
-            if (jumpToProgramPIPState == kPIPonTV)
-                CreatePIP(ctx, p);
-            else if (jumpToProgramPIPState == kPBPLeft)
-                CreatePBP(ctx, p);
-        }
-
-        delete p;
-
+    if (!p)
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Failed to locate jump to program '%1' @ %2")
+                .arg(progKey).arg(action.section(" ",-1,-1)));
         return true;
     }
 
-    bool wants_jump = has_action(ACTION_JUMPREC, actions);
-    bool wants_pip = !wants_jump && has_action("JUMPRECPIP", actions);
-    bool wants_pbp = !wants_jump && !wants_pip &&
-        has_action("JUMPRECPBP", actions);
+    PIPState state = kPIPOff;
+    {
+        QMutexLocker locker(&timerIdLock);
+        state = jumpToProgramPIPState;
+    }
 
-    if (!wants_jump && !wants_pip && !wants_pbp)
-        return false;
+    if (state == kPIPOff)
+    {
+        const PlayerContext *mctx = GetPlayer(m_actionContext, 0);
+        if (mctx == m_actionContext)
+        {
+            PrepToSwitchToRecordedProgram(m_actionContext, *p);
+        }
+    }
+    else
+    {
+        QString type = (jumpToProgramPIPState == kPIPonTV) ? "PIP" : "PBP";
+        LOG(VB_GENERAL, LOG_INFO, LOC +
+            QString("Creating %1 with program: %2")
+                .arg(type).arg(p->toString(ProgramInfo::kTitleSubtitle)));
+
+        if (jumpToProgramPIPState == kPIPonTV)
+            CreatePIP(m_actionContext, p);
+        else if (jumpToProgramPIPState == kPBPLeft)
+            CreatePBP(m_actionContext, p);
+    }
+
+    delete p;
+
+    return true;
+}
+
+bool TV::doJumpProgRecord(const QString &action)
+{
+    bool wants_pip =  (action == "JUMPRECPIP");
+    bool wants_pbp =  (action == "JUMPRECPBP");
 
     {
         QMutexLocker locker(&timerIdLock);
@@ -12267,6 +12611,7 @@ bool TV::HandleJumpToProgramAction(PlayerContext *ctx,
             (wants_pbp ? kPBPLeft : kPIPOff);
     }
 
+    TVState s = m_actionContext->GetState();
     if ((wants_pbp || wants_pip || db_jump_prefer_osd) &&
         (StateIsPlaying(s) || StateIsLiveTV(s)))
     {
@@ -12276,11 +12621,24 @@ bool TV::HandleJumpToProgramAction(PlayerContext *ctx,
         jumpMenuTimerId = StartTimer(1, __LINE__);
     }
     else if (RunPlaybackBoxPtr)
-        EditSchedule(ctx, kPlaybackBox);
+        EditSchedule(m_actionContext, kPlaybackBox);
     else
         LOG(VB_GENERAL, LOG_ERR, "Failed to open jump to program GUI");
 
     return true;
+}
+
+bool TV::HandleJumpToProgramAction(PlayerContext *ctx,
+                                   const QStringList &actions)
+{
+    m_actionContext = ctx;
+
+    if (!m_jumpProgramActions)
+        m_jumpProgramActions = new MythActions<TV>(this, tjpActions,
+                                                   tjpActionCount);
+    bool handled = m_jumpProgramActions->handleActions(actions);
+
+    return handled;
 }
 
 #define MINUTE 60*1000
