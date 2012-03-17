@@ -2766,7 +2766,9 @@ void TV::timerEvent(QTimerEvent *te)
     if (!netCmd.isEmpty())
     {
         PlayerContext *actx = GetPlayerReadLock(-1, __FILE__, __LINE__);
+        LOG(VB_KEYPRESS, LOG_INFO, "networkControl Start");
         ProcessNetworkControlCommand(actx, netCmd);
+        LOG(VB_KEYPRESS, LOG_INFO, "networkControl Finish");
         ReturnPlayerLock(actx);
         handled = true;
     }
@@ -8639,8 +8641,10 @@ void TV::customEvent(QEvent *e)
     {
         DialogCompletionEvent *dce =
             reinterpret_cast<DialogCompletionEvent*>(e);
+        LOG(VB_KEYPRESS, LOG_INFO, "OSDDialog Start");
         OSDDialogEvent(dce->GetResult(), dce->GetResultText(),
                        dce->GetData().toString());
+        LOG(VB_KEYPRESS, LOG_INFO, "OSDDialog Finish");
         return;
     }
 
