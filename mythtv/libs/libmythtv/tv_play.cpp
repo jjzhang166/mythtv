@@ -990,7 +990,8 @@ TV::TV(void)
       m_ffrwndActions(NULL), m_toggleActions(NULL), m_pipActions(NULL),
       m_activePostQActions(NULL), m_osdActions(NULL), m_osdExitActions(NULL),
       m_osdLiveTVActions(NULL), m_osdPlayingActions(NULL),
-      m_osdDialogActions(NULL),
+      m_osdDialogActions(NULL), m_osdAskAllowActions(NULL),
+      m_networkControlActions(NULL),
       m_actionContext(NULL)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "Creating TV object");
@@ -1410,6 +1411,12 @@ TV::~TV(void)
     if (m_osdDialogActions)
         delete m_osdDialogActions;
 
+    if (m_osdAskAllowActions)
+        delete m_osdAskAllowActions;
+
+    if (m_networkControlActions)
+        delete m_networkControlActions;
+
     LOG(VB_PLAYBACK, LOG_INFO, "TV::~TV() -- end");
 }
 
@@ -1463,8 +1470,7 @@ void TV::UpdateChannelList(int groupID)
     DBChanList list;
     if (groupID != -1)
     {
-        list = ChannelUtil::GetChannels(
-            0, true, "channum, callsign", groupID);
+        list = ChannelUtil::GetChannels(0, true, "channum, callsign", groupID);
         ChannelUtil::SortChannels(list, "channum", true);
     }
 
@@ -2043,6 +2049,46 @@ void TV::ShowOSDAskAllow(PlayerContext *ctx)
     }
 }
 
+static struct ActionDefStruct<TV> toaahActions[] = {
+    { "CANCELRECORDING",   &TV::doOSDAskAllowCancelRecord },
+    { "CANCELCONFLICTING", &TV::doOSDAskAllowCancelConflict },
+    { "WATCH",             &TV::doOSDAskAllowWatch },
+    { "EXIT",              &TV::doOSDAskAllowExit }
+};
+static int toaahActionCount = NELEMS(toaahActions);
+
+bool TV::doOSDAskAllowCancelRecord(const QString &action)
+{
+    if (m_actionOSDContext->recorder)
+        m_actionOSDContext->recorder->CancelNextRecording(true);
+    return true;
+}
+
+bool TV::doOSDAskAllowCancelConflict(const QString &action)
+{
+    QMap<QString,AskProgramInfo>::iterator it = askAllowPrograms.begin();
+    for (; it != askAllowPrograms.end(); ++it)
+    {
+        if ((*it).is_conflicting)
+            RemoteCancelNextRecording((*it).info->GetCardID(), true);
+    }
+    return true;
+}
+
+bool TV::doOSDAskAllowWatch(const QString &action)
+{
+    if (m_actionOSDContext->recorder)
+        m_actionOSDContext->recorder->CancelNextRecording(false);
+    return true;
+}
+
+bool TV::doOSDAskAllowExit(const QString &action)
+{
+    PrepareToExitPlayer(m_actionOSDContext, __LINE__);
+    SetExitPlayer(true, true);
+    return true;
+}
+
 void TV::HandleOSDAskAllow(PlayerContext *ctx, QString action)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_ASKALLOW))
@@ -2054,31 +2100,12 @@ void TV::HandleOSDAskAllow(PlayerContext *ctx, QString action)
         return;
     }
 
-    if (action == "CANCELRECORDING")
-    {
-        if (ctx->recorder)
-            ctx->recorder->CancelNextRecording(true);
-    }
-    else if (action == "CANCELCONFLICTING")
-    {
-        QMap<QString,AskProgramInfo>::iterator it =
-            askAllowPrograms.begin();
-        for (; it != askAllowPrograms.end(); ++it)
-        {
-            if ((*it).is_conflicting)
-                RemoteCancelNextRecording((*it).info->GetCardID(), true);
-        }
-    }
-    else if (action == "WATCH")
-    {
-        if (ctx->recorder)
-            ctx->recorder->CancelNextRecording(false);
-    }
-    else // if (action == "EXIT")
-    {
-        PrepareToExitPlayer(ctx, __LINE__);
-        SetExitPlayer(true, true);
-    }
+    m_actionOSDContext = ctx;
+    if (!m_osdAskAllowActions)
+        m_osdAskAllowActions = new MythActions<TV>(this, toaahActions,
+                                                   toaahActionCount);
+    bool touched;
+    m_osdAskAllowActions->handleAction(action, touched);
 
     askAllowLock.unlock();
 }
@@ -5452,6 +5479,360 @@ bool TV::ActivePostQHandleAction(PlayerContext *ctx, const QStringList &actions)
     return handled;
 }
 
+static struct ActionDefStruct<TV> tncActions[] = {
+    { "CHANID",  &TV::doNCChanId },
+    { "CHANNEL", &TV::doNCChannel },
+    { "SPEED",   &TV::doNCSpeed },
+    { "STOP",    &TV::doNCStop },
+    { "SEEK",    &TV::doNCSeek },
+    { "VOLUME",  &TV::doNCVolume },
+    { "QUERY",   &TV::doNCQuery }
+};
+static int tncActionCount = NELEMS(tncActions);
+
+bool TV::doNCChanId(const QString &action)
+{
+    if (m_actionNCArgs.size() != 3)
+        return false;
+
+    queuedChanID = m_actionNCArgs[2].toUInt();
+    queuedChanNum = QString::null;
+    CommitQueuedInput(m_actionNCContext);
+    return true;
+}
+
+bool TV::doNCChannel(const QString &action)
+{
+    if (m_actionNCArgs.size() != 3)
+        return false;
+
+    if (StateIsLiveTV(GetState(m_actionNCContext)))
+    {
+        QString dir(m_actionNCArgs[2]);
+        if (dir == "UP")
+            ChangeChannel(m_actionNCContext, CHANNEL_DIRECTION_UP);
+        else if (dir == "DOWN")
+            ChangeChannel(m_actionNCContext, CHANNEL_DIRECTION_DOWN);
+        else if (dir.contains(QRegExp("^[-\\.\\d_#]+$")))
+            ChangeChannel(m_actionNCContext, 0, dir);
+    }
+    return true;
+}
+
+bool TV::doNCSpeed(const QString &action)
+{
+    if (m_actionNCArgs.size() != 3)
+        return false;
+
+    bool paused = ContextIsPaused(m_actionNCContext, __FILE__, __LINE__);
+    QString speed = m_actionNCArgs[2];
+
+    if (speed == "0x")
+    {
+        NormalSpeed(m_actionNCContext);
+        StopFFRew(m_actionNCContext);
+        if (!paused)
+            DoTogglePause(m_actionNCContext, true);
+        return true;
+    }
+
+    float tmpSpeed = 1.0f;
+    bool ok = false;
+
+    if (speed.contains(QRegExp("^\\-*\\d+x$")))
+    {
+        speed.chop(1);
+        tmpSpeed = speed.toFloat(&ok);
+    }
+    else if (speed.contains(QRegExp("^\\-*\\d*\\.\\d+x$")))
+    {
+        speed.chop(1);
+        tmpSpeed = speed.toFloat(&ok);
+    }
+    else
+    {
+        QRegExp re = QRegExp("^(\\-*\\d+)\\/(\\d+)x$");
+        if (speed.contains(re))
+        {
+            QStringList matches = re.capturedTexts();
+
+            int numerator, denominator;
+            numerator = matches[1].toInt(&ok);
+            denominator = matches[2].toInt(&ok);
+
+            if (ok && denominator != 0)
+                tmpSpeed = ((float)numerator) / ((float)denominator);
+            else
+                ok = false;
+        }
+    }
+
+    if (!ok)
+    {
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("Found an unknown speed of %1").arg(speed));
+        return true;
+    }
+
+    float searchSpeed = fabs(tmpSpeed);
+    unsigned int index;
+
+    if (paused)
+        DoTogglePause(m_actionNCContext, true);
+
+    if (tmpSpeed == 0.0f)
+    {
+        NormalSpeed(m_actionNCContext);
+        StopFFRew(m_actionNCContext);
+
+        if (!paused)
+            DoTogglePause(m_actionNCContext, true);
+    }
+    else if (tmpSpeed == 1.0f)
+    {
+        StopFFRew(m_actionNCContext);
+        m_actionNCContext->ts_normal = 1.0f;
+        ChangeTimeStretch(m_actionNCContext, 0, false);
+
+        ReturnPlayerLock(m_actionNCContext);
+        return true;
+    }
+
+    NormalSpeed(m_actionNCContext);
+
+    int searchSpdInt = (int)searchSpeed;
+    for (index = 0; index < ff_rew_speeds.size(); index++)
+        if (ff_rew_speeds[index] == searchSpdInt)
+            break;
+
+    if (index < ff_rew_speeds.size() && ff_rew_speeds[index] == searchSpdInt)
+    {
+        if (tmpSpeed < 0)
+            m_actionNCContext->ff_rew_state = -1;
+        else if (tmpSpeed > 1)
+            m_actionNCContext->ff_rew_state = 1;
+        else
+            StopFFRew(m_actionNCContext);
+
+        if (m_actionNCContext->ff_rew_state)
+            SetFFRew(m_actionNCContext, index);
+    }
+    else if (0.48 <= tmpSpeed && tmpSpeed <= 2.0) {
+        StopFFRew(m_actionNCContext);
+
+        // alter speed before display
+        m_actionNCContext->ts_normal = tmpSpeed;
+        ChangeTimeStretch(m_actionNCContext, 0, false);
+    }
+    else
+    {
+        LOG(VB_GENERAL, LOG_WARNING,
+            QString("Couldn't find %1 speed. Setting Speed to 1x")
+                .arg(searchSpeed));
+
+        m_actionNCContext->ff_rew_state = 0;
+        SetFFRew(m_actionNCContext, kInitFFRWSpeed);
+    }
+    return true;
+}
+
+bool TV::doNCStop(const QString &action)
+{
+    if (m_actionNCArgs.size() != 2)
+        return false;
+
+    SetBookmark(m_actionNCContext);
+    m_actionNCContext->LockDeletePlayer(__FILE__, __LINE__);
+    if (m_actionNCContext->player && db_auto_set_watched)
+        m_actionNCContext->player->SetWatched();
+    m_actionNCContext->UnlockDeletePlayer(__FILE__, __LINE__);
+    SetExitPlayer(true, true);
+    return true;
+}
+
+bool TV::doNCSeek(const QString &action)
+{
+    if (m_actionNCArgs.size() < 3 || !m_actionNCContext->HasPlayer())
+        return false;
+
+    if (m_actionNCContext->buffer &&
+        m_actionNCContext->buffer->IsInDiscMenuOrStillFrame())
+        return true;
+
+    m_actionNCContext->LockDeletePlayer(__FILE__, __LINE__);
+    long long fplay = 0;
+    QString where(m_actionNCArgs[2]);
+    if (m_actionNCContext->player &&
+        (where == "BEGINNING" || where == "POSITION"))
+    {
+        fplay = m_actionNCContext->player->GetFramesPlayed();
+    }
+    m_actionNCContext->UnlockDeletePlayer(__FILE__, __LINE__);
+
+    if (where == "BEGINNING")
+        DoSeek(m_actionNCContext, -fplay, tr("Jump to Beginning"));
+    else if (where == "FORWARD")
+        DoSeek(m_actionNCContext, m_actionNCContext->fftime, tr("Skip Ahead"));
+    else if (where == "BACKWARD")
+        DoSeek(m_actionNCContext, -m_actionNCContext->rewtime, tr("Skip Back"));
+    else if ((where == "POSITION") && (m_actionNCArgs.size() == 4) &&
+             (m_actionNCArgs[3].contains(QRegExp("^\\d+$"))))
+    {
+        DoSeekAbsolute(m_actionNCContext, m_actionNCArgs[3].toInt());
+    }
+    return true;
+}
+
+bool TV::doNCVolume(const QString &action)
+{
+    if (m_actionNCArgs.size() < 3)
+        return false;
+
+    QRegExp re = QRegExp("(\\d+)%");
+    if (!m_actionNCArgs[2].contains(re))
+        return true;
+
+    QStringList matches = re.capturedTexts();
+
+    bool ok = false;
+    int vol = matches[1].toInt(&ok);
+    if (!ok || vol < 0 || vol > 100)
+        return true;
+
+    LOG(VB_GENERAL, LOG_INFO, QString("Set Volume to %1%") .arg(vol));
+
+    m_actionNCContext->LockDeletePlayer(__FILE__, __LINE__);
+    if (!m_actionNCContext->player)
+    {
+        m_actionNCContext->UnlockDeletePlayer(__FILE__, __LINE__);
+        return true;
+    }
+
+    vol -= m_actionNCContext->player->GetVolume();
+    vol = m_actionNCContext->player->AdjustVolume(vol);
+    m_actionNCContext->UnlockDeletePlayer(__FILE__, __LINE__);
+
+    if (!browsehelper->IsBrowsing() && !editmode)
+    {
+        UpdateOSDStatus(m_actionNCContext, tr("Adjust Volume"), tr("Volume"),
+                        QString::number(vol),
+                        kOSDFunctionalType_PictureAdjust, "%", vol * 10,
+                        kOSDTimeout_Med);
+        SetUpdateOSDPosition(false);
+    }
+    return true;
+}
+
+bool TV::doNCQuery(const QString &action)
+{
+    if (m_actionNCArgs.size() < 3)
+        return false;
+
+    QString param(m_actionNCArgs[2]);
+    if (param == "POSITION")
+    {
+        QString speedStr;
+        if (ContextIsPaused(m_actionNCContext, __FILE__, __LINE__))
+        {
+            speedStr = "pause";
+        }
+        else if (m_actionNCContext->ff_rew_state)
+        {
+            speedStr = QString("%1x").arg(m_actionNCContext->ff_rew_speed);
+        }
+        else
+        {
+            QRegExp re = QRegExp("Play (.*)x");
+            if (QString(m_actionNCContext->GetPlayMessage()).contains(re))
+            {
+                QStringList matches = re.capturedTexts();
+                speedStr = QString("%1x").arg(matches[1]);
+            }
+            else
+            {
+                speedStr = "1x";
+            }
+        }
+
+        osdInfo info;
+        m_actionNCContext->CalcPlayerSliderPosition(info, true);
+
+        QDateTime respDate = mythCurrentDateTime();
+        QString infoStr = "";
+
+        m_actionNCContext->LockDeletePlayer(__FILE__, __LINE__);
+        long long fplay = 0;
+        float     rate  = 30.0f;
+        if (m_actionNCContext->player)
+        {
+            fplay = m_actionNCContext->player->GetFramesPlayed();
+            rate  = m_actionNCContext->player->GetFrameRate();
+        }
+        m_actionNCContext->UnlockDeletePlayer(__FILE__, __LINE__);
+
+        m_actionNCContext->LockPlayingInfo(__FILE__, __LINE__);
+        if (m_actionNCContext->GetState() == kState_WatchingLiveTV)
+        {
+            infoStr = "LiveTV";
+            if (m_actionNCContext->playingInfo)
+                respDate =
+                    m_actionNCContext->playingInfo->GetScheduledStartTime();
+        }
+        else
+        {
+            if (m_actionNCContext->buffer->IsDVD())
+                infoStr = "DVD";
+            else if (m_actionNCContext->playingInfo->IsRecording())
+                infoStr = "Recorded";
+            else
+                infoStr = "Video";
+
+            if (m_actionNCContext->playingInfo)
+                respDate =
+                    m_actionNCContext->playingInfo->GetRecordingStartTime();
+        }
+
+        if ((infoStr == "Recorded") || (infoStr == "LiveTV"))
+        {
+            infoStr += QString(" %1 %2 %3 %4 %5 %6 %7")
+                .arg(info.text["description"])
+                .arg(speedStr)
+                .arg(m_actionNCContext->playingInfo ?
+                     m_actionNCContext->playingInfo->GetChanID() : 0)
+                .arg(respDate.toString(Qt::ISODate))
+                .arg(fplay)
+                .arg(m_actionNCContext->buffer->GetFilename())
+                .arg(rate);
+        }
+        else
+        {
+            QString position = info.text["description"].section(" ",0,0);
+            infoStr += QString(" %1 %2 %3 %4 %5")
+                .arg(position)
+                .arg(speedStr)
+                .arg(m_actionNCContext->buffer->GetFilename())
+                .arg(fplay)
+                .arg(rate);
+        }
+
+        m_actionNCContext->UnlockPlayingInfo(__FILE__, __LINE__);
+
+        QString message = QString("NETWORK_CONTROL ANSWER %1") .arg(infoStr);
+        MythEvent me(message);
+        gCoreContext->dispatch(me);
+    }
+    else if (param == "VOLUME")
+    {
+        QString infoStr = QString("%1%")
+                              .arg(m_actionNCContext->player->GetVolume());
+
+        QString message = QString("NETWORK_CONTROL ANSWER %1") .arg(infoStr);
+        MythEvent me(message);
+        gCoreContext->dispatch(me);
+    }
+    return true;
+}
+
 
 void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
                                       const QString &command)
@@ -5470,8 +5851,8 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
         return;
     }
 
-    QStringList tokens = command.split(" ", QString::SkipEmptyParts);
-    if (tokens.size() < 2)
+    QStringList m_actionNCArgs = command.split(" ", QString::SkipEmptyParts);
+    if (m_actionNCArgs.size() < 2)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Not enough tokens"
                 "in network control command" + "\n\t\t\t" +
@@ -5493,318 +5874,16 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
         return;
     }
 
-    if (tokens[1] != "QUERY")
+    if (!m_networkControlActions)
+        m_networkControlActions = new MythActions<TV>(this, tncActions,
+                                                      tncActionCount);
+
+    if (m_actionNCArgs[1] != "QUERY")
         ClearOSD(ctx);
 
-    if (tokens.size() == 3 && tokens[1] == "CHANID")
-    {
-        queuedChanID = tokens[2].toUInt();
-        queuedChanNum = QString::null;
-        CommitQueuedInput(ctx);
-    }
-    else if (tokens.size() == 3 && tokens[1] == "CHANNEL")
-    {
-        if (StateIsLiveTV(GetState(ctx)))
-        {
-            if (tokens[2] == "UP")
-                ChangeChannel(ctx, CHANNEL_DIRECTION_UP);
-            else if (tokens[2] == "DOWN")
-                ChangeChannel(ctx, CHANNEL_DIRECTION_DOWN);
-            else if (tokens[2].contains(QRegExp("^[-\\.\\d_#]+$")))
-                ChangeChannel(ctx, 0, tokens[2]);
-        }
-    }
-    else if (tokens.size() == 3 && tokens[1] == "SPEED")
-    {
-        bool paused = ContextIsPaused(ctx, __FILE__, __LINE__);
-
-        if (tokens[2] == "0x")
-        {
-            NormalSpeed(ctx);
-            StopFFRew(ctx);
-            if (!paused)
-                DoTogglePause(ctx, true);
-        }
-        else
-        {
-            float tmpSpeed = 1.0f;
-            bool ok = false;
-
-            if (tokens[2].contains(QRegExp("^\\-*\\d+x$")))
-            {
-                QString speed = tokens[2].left(tokens[2].length()-1);
-                tmpSpeed = speed.toFloat(&ok);
-            }
-            else if (tokens[2].contains(QRegExp("^\\-*\\d*\\.\\d+x$")))
-            {
-                QString speed = tokens[2].left(tokens[2].length() - 1);
-                tmpSpeed = speed.toFloat(&ok);
-            }
-            else
-            {
-                QRegExp re = QRegExp("^(\\-*\\d+)\\/(\\d+)x$");
-                if (tokens[2].contains(re))
-                {
-                    QStringList matches = re.capturedTexts();
-
-                    int numerator, denominator;
-                    numerator = matches[1].toInt(&ok);
-                    denominator = matches[2].toInt(&ok);
-
-                    if (ok && denominator != 0)
-                        tmpSpeed = static_cast<float>(numerator) /
-                                   static_cast<float>(denominator);
-                    else
-                        ok = false;
-                }
-            }
-
-            if (ok)
-            {
-                float searchSpeed = fabs(tmpSpeed);
-                unsigned int index;
-
-                if (paused)
-                    DoTogglePause(ctx, true);
-
-                if (tmpSpeed == 0.0f)
-                {
-                    NormalSpeed(ctx);
-                    StopFFRew(ctx);
-
-                    if (!paused)
-                        DoTogglePause(ctx, true);
-                }
-                else if (tmpSpeed == 1.0f)
-                {
-                    StopFFRew(ctx);
-                    ctx->ts_normal = 1.0f;
-                    ChangeTimeStretch(ctx, 0, false);
-
-                    ReturnPlayerLock(ctx);
-                    return;
-                }
-
-                NormalSpeed(ctx);
-
-                for (index = 0; index < ff_rew_speeds.size(); index++)
-                    if (float(ff_rew_speeds[index]) == searchSpeed)
-                        break;
-
-                if ((index < ff_rew_speeds.size()) &&
-                    (float(ff_rew_speeds[index]) == searchSpeed))
-                {
-                    if (tmpSpeed < 0)
-                        ctx->ff_rew_state = -1;
-                    else if (tmpSpeed > 1)
-                        ctx->ff_rew_state = 1;
-                    else
-                        StopFFRew(ctx);
-
-                    if (ctx->ff_rew_state)
-                        SetFFRew(ctx, index);
-                }
-                else if (0.48 <= tmpSpeed && tmpSpeed <= 2.0) {
-                    StopFFRew(ctx);
-
-                    ctx->ts_normal = tmpSpeed;   // alter speed before display
-                    ChangeTimeStretch(ctx, 0, false);
-                }
-                else
-                {
-                    LOG(VB_GENERAL, LOG_WARNING,
-                        QString("Couldn't find %1 speed. Setting Speed to 1x")
-                            .arg(searchSpeed));
-
-                    ctx->ff_rew_state = 0;
-                    SetFFRew(ctx, kInitFFRWSpeed);
-                }
-            }
-            else
-            {
-                LOG(VB_GENERAL, LOG_ERR,
-                    QString("Found an unknown speed of %1").arg(tokens[2]));
-            }
-        }
-    }
-    else if (tokens.size() == 2 && tokens[1] == "STOP")
-    {
-        SetBookmark(ctx);
-        ctx->LockDeletePlayer(__FILE__, __LINE__);
-        if (ctx->player && db_auto_set_watched)
-            ctx->player->SetWatched();
-        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-        SetExitPlayer(true, true);
-    }
-    else if (tokens.size() >= 3 && tokens[1] == "SEEK" && ctx->HasPlayer())
-    {
-        if (ctx->buffer && ctx->buffer->IsInDiscMenuOrStillFrame())
-            return;
-
-        ctx->LockDeletePlayer(__FILE__, __LINE__);
-        long long fplay = 0;
-        if (ctx->player && (tokens[2] == "BEGINNING" || tokens[2] == "POSITION"))
-        {
-            fplay = ctx->player->GetFramesPlayed();
-        }
-        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-        if (tokens[2] == "BEGINNING")
-            DoSeek(ctx, -fplay, tr("Jump to Beginning"));
-        else if (tokens[2] == "FORWARD")
-            DoSeek(ctx, ctx->fftime, tr("Skip Ahead"));
-        else if (tokens[2] == "BACKWARD")
-            DoSeek(ctx, -ctx->rewtime, tr("Skip Back"));
-        else if ((tokens[2] == "POSITION") && (tokens.size() == 4) &&
-                 (tokens[3].contains(QRegExp("^\\d+$"))))
-        {
-            DoSeekAbsolute(ctx, tokens[3].toInt());
-        }
-    }
-    else if (tokens.size() >= 3 && tokens[1] == "VOLUME")
-    {
-        QRegExp re = QRegExp("(\\d+)%");
-        if (tokens[2].contains(re))
-        {
-            QStringList matches = re.capturedTexts();
-
-            LOG(VB_GENERAL, LOG_INFO, QString("Set Volume to %1%")
-                    .arg(matches[1]));
-
-            bool ok = false;
-
-            int vol = matches[1].toInt(&ok);
-
-            if (!ok)
-                return;
-
-            if ( 0 <= vol && vol <= 100)
-            {
-                ctx->LockDeletePlayer(__FILE__, __LINE__);
-                if (!ctx->player)
-                {
-                    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-                    return;
-                }
-
-                vol -= ctx->player->GetVolume();
-                vol = ctx->player->AdjustVolume(vol);
-                ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-                if (!browsehelper->IsBrowsing() && !editmode)
-                {
-                    UpdateOSDStatus(ctx, tr("Adjust Volume"), tr("Volume"),
-                                    QString::number(vol),
-                                    kOSDFunctionalType_PictureAdjust, "%", vol * 10,
-                                    kOSDTimeout_Med);
-                    SetUpdateOSDPosition(false);
-                }
-            }
-        }
-    }
-    else if (tokens.size() >= 3 && tokens[1] == "QUERY")
-    {
-        if (tokens[2] == "POSITION")
-        {
-            QString speedStr;
-            if (ContextIsPaused(ctx, __FILE__, __LINE__))
-            {
-                speedStr = "pause";
-            }
-            else if (ctx->ff_rew_state)
-            {
-                speedStr = QString("%1x").arg(ctx->ff_rew_speed);
-            }
-            else
-            {
-                QRegExp re = QRegExp("Play (.*)x");
-                if (QString(ctx->GetPlayMessage()).contains(re))
-                {
-                    QStringList matches = re.capturedTexts();
-                    speedStr = QString("%1x").arg(matches[1]);
-                }
-                else
-                {
-                    speedStr = "1x";
-                }
-            }
-
-            osdInfo info;
-            ctx->CalcPlayerSliderPosition(info, true);
-
-            QDateTime respDate = mythCurrentDateTime();
-            QString infoStr = "";
-
-            ctx->LockDeletePlayer(__FILE__, __LINE__);
-            long long fplay = 0;
-            float     rate  = 30.0f;
-            if (ctx->player)
-            {
-                fplay = ctx->player->GetFramesPlayed();
-                rate  = ctx->player->GetFrameRate();
-            }
-            ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-            ctx->LockPlayingInfo(__FILE__, __LINE__);
-            if (ctx->GetState() == kState_WatchingLiveTV)
-            {
-                infoStr = "LiveTV";
-                if (ctx->playingInfo)
-                    respDate = ctx->playingInfo->GetScheduledStartTime();
-            }
-            else
-            {
-                if (ctx->buffer->IsDVD())
-                    infoStr = "DVD";
-                else if (ctx->playingInfo->IsRecording())
-                    infoStr = "Recorded";
-                else
-                    infoStr = "Video";
-
-                if (ctx->playingInfo)
-                    respDate = ctx->playingInfo->GetRecordingStartTime();
-            }
-
-            if ((infoStr == "Recorded") || (infoStr == "LiveTV"))
-            {
-                infoStr += QString(" %1 %2 %3 %4 %5 %6 %7")
-                    .arg(info.text["description"])
-                    .arg(speedStr)
-                    .arg(ctx->playingInfo != NULL ?
-                         ctx->playingInfo->GetChanID() : 0)
-                    .arg(respDate.toString(Qt::ISODate))
-                    .arg(fplay)
-                    .arg(ctx->buffer->GetFilename())
-                    .arg(rate);
-            }
-            else
-            {
-                QString position = info.text["description"].section(" ",0,0);
-                infoStr += QString(" %1 %2 %3 %4 %5")
-                    .arg(position)
-                    .arg(speedStr)
-                    .arg(ctx->buffer->GetFilename())
-                    .arg(fplay)
-                    .arg(rate);
-            }
-
-            ctx->UnlockPlayingInfo(__FILE__, __LINE__);
-
-            QString message = QString("NETWORK_CONTROL ANSWER %1")
-                                .arg(infoStr);
-            MythEvent me(message);
-            gCoreContext->dispatch(me);
-        }
-        else if (tokens[2] == "VOLUME")
-        {
-            QString infoStr = QString("%1%").arg(ctx->player->GetVolume());
-
-            QString message = QString("NETWORK_CONTROL ANSWER %1")
-                .arg(infoStr);
-            MythEvent me(message);
-            gCoreContext->dispatch(me);
-        }
-    }
+    bool touched;
+    m_actionNCContext = ctx;
+    m_networkControlActions->handleAction(m_actionNCArgs[1], touched);
 }
 
 /**

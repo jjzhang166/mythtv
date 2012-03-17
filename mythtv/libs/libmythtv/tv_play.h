@@ -409,6 +409,19 @@ class MTV_PUBLIC TV : public QObject
     bool doOSDPlayingTranscodeMed(const QString &action);
     bool doOSDPlayingTranscodeLow(const QString &action);
 
+    bool doOSDAskAllowCancelRecord(const QString &action);
+    bool doOSDAskAllowCancelConflict(const QString &action);
+    bool doOSDAskAllowWatch(const QString &action);
+    bool doOSDAskAllowExit(const QString &action);
+
+    bool doNCChanId(const QString &action);
+    bool doNCChannel(const QString &action);
+    bool doNCSpeed(const QString &action);
+    bool doNCStop(const QString &action);
+    bool doNCSeek(const QString &action);
+    bool doNCVolume(const QString &action);
+    bool doNCQuery(const QString &action);
+
   public slots:
     void HandleOSDClosed(int osdType);
     void timerEvent(QTimerEvent*);
@@ -1097,6 +1110,8 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_osdLiveTVActions;
     MythActions<TV> *m_osdPlayingActions;
     MythActions<TV> *m_osdDialogActions;
+    MythActions<TV> *m_osdAskAllowActions;
+    MythActions<TV> *m_networkControlActions;
 
     PlayerContext   *m_actionContext;
     bool m_actionEndManualZoom;
@@ -1107,6 +1122,9 @@ class MTV_PUBLIC TV : public QObject
     QStringList m_actionOSDArgs;
     bool m_actionOSDHide;
     QString m_actionOSDText;
+
+    PlayerContext   *m_actionNCContext;
+    QStringList m_actionNCArgs;
 };
 
 #endif
