@@ -497,7 +497,7 @@ class MTV_PUBLIC TV : public QObject
     bool HandleTrackAction(PlayerContext*, const QStringList &actions);
     bool ActiveHandleAction(PlayerContext*, const QStringList &actions);
     bool BrowseHandleAction(PlayerContext*, const QStringList &actions);
-    void OSDDialogEvent(int result, QString text, QString action);
+    void OSDDialogEvent(int result, const QString &text, const QString &action);
     bool PxPHandleAction(PlayerContext*,const QStringList &actions);
     bool ToggleHandleAction(PlayerContext*, const QStringList &actions);
     bool FFRewHandleAction(PlayerContext*, const QStringList &actions);
@@ -617,7 +617,7 @@ class MTV_PUBLIC TV : public QObject
 
     // Channels
     void ToggleChannelFavorite(PlayerContext *ctx);
-    void ToggleChannelFavorite(PlayerContext*, QString);
+    void ToggleChannelFavorite(PlayerContext*, const QString &);
     void ChangeChannel(PlayerContext*, int direction);
     void ChangeChannel(PlayerContext*, uint chanid, const QString &channum);
 
@@ -713,7 +713,7 @@ class MTV_PUBLIC TV : public QObject
                                CommSkipMode skipMode = kCommSkipOff);
 
     // Transcode
-    void DoQueueTranscode(PlayerContext*, QString profile);
+    void DoQueueTranscode(PlayerContext*, const QString &profile);
 
     // Bookmarks
     bool IsBookmarkAllowed(const PlayerContext*) const;
@@ -734,8 +734,7 @@ class MTV_PUBLIC TV : public QObject
 
     void UpdateOSDSeekMessage(const PlayerContext*,
                               const QString &mesg, enum OSDTimeout timeout);
-    void UpdateOSDInput(const PlayerContext*,
-                        QString inputname = QString::null);
+    void UpdateOSDInput(const PlayerContext*, QString inputname = QString(""));
     void UpdateOSDSignal(const PlayerContext*, const QStringList &strlist);
     void UpdateOSDTimeoutMessage(PlayerContext*);
     void UpdateOSDAskAllowDialog(PlayerContext*);
@@ -783,13 +782,13 @@ class MTV_PUBLIC TV : public QObject
                              const QString &action = QString(""));
 
     // Manual zoom mode
-    void SetManualZoom(const PlayerContext *, bool enabled, QString msg);
+    void SetManualZoom(const PlayerContext *, bool enabled, const QString &msg);
     bool ManualZoomHandleAction(PlayerContext *actx,
                                 const QStringList &actions);
 
     // Channel editing support
     void StartChannelEditMode(PlayerContext*);
-    bool HandleOSDChannelEdit(PlayerContext*, QString action);
+    bool HandleOSDChannelEdit(PlayerContext*, const QString &action);
     void ChannelEditAutoFill(const PlayerContext*, InfoMap&) const;
     void ChannelEditAutoFill(const PlayerContext*, InfoMap&,
                              const QMap<QString,bool>&) const;
@@ -802,40 +801,41 @@ class MTV_PUBLIC TV : public QObject
 
     // General dialog handling
     bool DialogIsVisible(PlayerContext *ctx, const QString &dialog);
-    void HandleOSDInfo(PlayerContext *ctx, QString action);
+    void HandleOSDInfo(PlayerContext *ctx, const QString &action);
     void ShowNoRecorderDialog(const PlayerContext*,
                               NoRecorderMsg msgType = kNoRecorders);
 
     // AskAllow dialog handling
     void ShowOSDAskAllow(PlayerContext *ctx);
-    void HandleOSDAskAllow(PlayerContext *ctx, QString action);
+    void HandleOSDAskAllow(PlayerContext *ctx, const QString &action);
     void AskAllowRecording(PlayerContext*, const QStringList&, int, bool, bool);
 
     // Program editing support
     void ShowOSDCutpoint(PlayerContext *ctx, const QString &type);
-    bool HandleOSDCutpoint(PlayerContext *ctx, QString action, long long frame);
+    bool HandleOSDCutpoint(PlayerContext *ctx, const QString &action,
+                           long long frame);
     void StartProgramEditMode(PlayerContext*);
 
     // Already editing dialog
     void ShowOSDAlreadyEditing(PlayerContext *ctx);
-    void HandleOSDAlreadyEditing(PlayerContext *ctx, QString action,
+    void HandleOSDAlreadyEditing(PlayerContext *ctx, const QString &action,
                                  bool was_paused);
 
     // Sleep dialog handling
     void ShowOSDSleep(void);
-    void HandleOSDSleep(PlayerContext *ctx, QString action);
+    void HandleOSDSleep(PlayerContext *ctx, const QString &action);
     void SleepDialogTimeout(void);
 
     // Idle dialog handling
     void ShowOSDIdle(void);
-    void HandleOSDIdle(PlayerContext *ctx, QString action);
+    void HandleOSDIdle(PlayerContext *ctx, const QString &action);
     void IdleDialogTimeout(void);
 
     // Exit/delete dialog handling
     void ShowOSDStopWatchingRecording(PlayerContext *ctx);
-    void ShowOSDPromptDeleteRecording(PlayerContext *ctx, QString title,
+    void ShowOSDPromptDeleteRecording(PlayerContext *ctx, const QString &title,
                                       bool force = false);
-    bool HandleOSDVideoExit(PlayerContext *ctx, QString action);
+    bool HandleOSDVideoExit(PlayerContext *ctx, const QString &action);
 
     // Menu dialog
     void ShowOSDMenu(const PlayerContext*, const QString category = "",

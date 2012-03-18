@@ -2099,7 +2099,7 @@ bool TV::doOSDAskAllowExit(const QString &action)
     return true;
 }
 
-void TV::HandleOSDAskAllow(PlayerContext *ctx, QString action)
+void TV::HandleOSDAskAllow(PlayerContext *ctx, const QString &action)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_ASKALLOW))
         return;
@@ -7115,7 +7115,7 @@ void TV::SetFFRew(PlayerContext *ctx, int index)
     SetSpeedChangeTimer(0, __LINE__);
 }
 
-void TV::DoQueueTranscode(PlayerContext *ctx, QString profile)
+void TV::DoQueueTranscode(PlayerContext *ctx, const QString &profile)
 {
     ctx->LockPlayingInfo(__FILE__, __LINE__);
 
@@ -7676,7 +7676,8 @@ void TV::ToggleChannelFavorite(PlayerContext *ctx)
         "TV::ToggleChannelFavorite() -- currently disabled");
 }
 
-void TV::ToggleChannelFavorite(PlayerContext *ctx, QString changroup_name)
+void TV::ToggleChannelFavorite(PlayerContext *ctx,
+                               const QString &changroup_name)
 {
     if (ctx->recorder)
         ctx->recorder->ToggleChannelFavorite(changroup_name);
@@ -9407,7 +9408,7 @@ void TV::ShowOSDSleep(void)
     sleepDialogTimerId = StartTimer(kSleepTimerDialogTimeout, __LINE__);
 }
 
-void TV::HandleOSDSleep(PlayerContext *ctx, QString action)
+void TV::HandleOSDSleep(PlayerContext *ctx, const QString &action)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_SLEEP))
         return;
@@ -9470,7 +9471,7 @@ void TV::ShowOSDIdle(void)
     idleDialogTimerId = StartTimer(kIdleTimerDialogTimeout, __LINE__);
 }
 
-void TV::HandleOSDIdle(PlayerContext *ctx, QString action)
+void TV::HandleOSDIdle(PlayerContext *ctx, const QString &action)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_IDLE))
         return;
@@ -10632,7 +10633,8 @@ void TV::ShowOSDCutpoint(PlayerContext *ctx, const QString &type)
     ReturnOSDLock(ctx, osd);
 }
 
-bool TV::HandleOSDCutpoint(PlayerContext *ctx, QString action, long long frame)
+bool TV::HandleOSDCutpoint(PlayerContext *ctx, const QString &action,
+                           long long frame)
 {
     bool res = true;
     if (!DialogIsVisible(ctx, OSD_DLG_CUTPOINT))
@@ -10704,7 +10706,7 @@ void TV::ShowOSDAlreadyEditing(PlayerContext *ctx)
     ReturnOSDLock(ctx, osd);
 }
 
-void TV::HandleOSDAlreadyEditing(PlayerContext *ctx, QString action,
+void TV::HandleOSDAlreadyEditing(PlayerContext *ctx, const QString &action,
                                  bool was_paused)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_EDITING))
@@ -10839,7 +10841,7 @@ bool TV::doOSDChanEditQuit(const QString &action)
 
 /** \brief Processes channel editing key.
  */
-bool TV::HandleOSDChannelEdit(PlayerContext *ctx, QString action)
+bool TV::HandleOSDChannelEdit(PlayerContext *ctx, const QString &action)
 {
     QMutexLocker locker(&chanEditMapLock);
     m_actionOSDHide = false;
@@ -11724,7 +11726,7 @@ bool TV::doOSDPlayingTranscodeLow(const QString &action)
 }
 
 
-void TV::OSDDialogEvent(int result, QString text, QString action)
+void TV::OSDDialogEvent(int result, const QString &text, const QString &action)
 {
     PlayerContext *actx = GetPlayerReadLock(-1, __FILE__, __LINE__);
 
@@ -11821,7 +11823,7 @@ bool TV::DialogIsVisible(PlayerContext *ctx, const QString &dialog)
     return visible;
 }
 
-void TV::HandleOSDInfo(PlayerContext *ctx, QString action)
+void TV::HandleOSDInfo(PlayerContext *ctx, const QString &action)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_INFO))
         return;
@@ -13101,7 +13103,8 @@ void TV::SetAutoCommercialSkip(const PlayerContext *ctx,
         UpdateOSDSeekMessage(ctx, desc, kOSDTimeout_Med);
 }
 
-void TV::SetManualZoom(const PlayerContext *ctx, bool zoomON, QString desc)
+void TV::SetManualZoom(const PlayerContext *ctx, bool zoomON,
+                       const QString &desc)
 {
     if (ctx->GetPIPState() != kPIPOff)
         return;
@@ -13648,7 +13651,7 @@ void TV::ShowOSDStopWatchingRecording(PlayerContext *ctx)
     videoExitDialogTimerId = StartTimer(kVideoExitDialogTimeout, __LINE__);
 }
 
-void TV::ShowOSDPromptDeleteRecording(PlayerContext *ctx, QString title,
+void TV::ShowOSDPromptDeleteRecording(PlayerContext *ctx, const QString &title,
                                       bool force)
 {
     ctx->LockPlayingInfo(__FILE__, __LINE__);
@@ -13835,7 +13838,7 @@ bool TV::doOSDVideoExitKeepWatching(const QString &action)
 }
 
 
-bool TV::HandleOSDVideoExit(PlayerContext *ctx, QString action)
+bool TV::HandleOSDVideoExit(PlayerContext *ctx, const QString &action)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_VIDEOEXIT))
         return false;
