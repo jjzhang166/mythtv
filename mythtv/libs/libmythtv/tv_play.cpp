@@ -8658,6 +8658,8 @@ void TV::customEvent(QEvent *e)
     if (e->type() != MythEvent::MythEventMessage)
         return;
 
+    LOG(VB_KEYPRESS, LOG_INFO, "MythEvent Start");
+
     uint cardnum   = 0;
     MythEvent *me = reinterpret_cast<MythEvent*>(e);
     QString message = me->Message();
@@ -9103,6 +9105,7 @@ void TV::customEvent(QEvent *e)
         }
         ReturnPlayerLock(mctx);
     }
+    LOG(VB_KEYPRESS, LOG_INFO, "MythEvent Finish");
 }
 
 void TV::ToggleRecord(PlayerContext *ctx)
