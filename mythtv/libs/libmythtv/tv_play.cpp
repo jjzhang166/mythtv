@@ -991,7 +991,7 @@ TV::TV(void)
       m_activePostQActions(NULL), m_osdActions(NULL), m_osdExitActions(NULL),
       m_osdLiveTVActions(NULL), m_osdPlayingActions(NULL),
       m_osdDialogActions(NULL), m_osdAskAllowActions(NULL),
-      m_networkControlActions(NULL),
+      m_networkControlActions(NULL), m_mythEventActions(NULL),
       m_actionContext(NULL)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "Creating TV object");
@@ -1416,6 +1416,9 @@ TV::~TV(void)
 
     if (m_networkControlActions)
         delete m_networkControlActions;
+
+    if (m_mythEventActions)
+        delete m_mythEventActions;
 
     LOG(VB_PLAYBACK, LOG_INFO, "TV::~TV() -- end");
 }
