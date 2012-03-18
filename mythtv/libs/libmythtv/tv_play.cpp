@@ -5862,7 +5862,7 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
         return;
     }
 
-    QStringList m_actionNCArgs = command.split(" ", QString::SkipEmptyParts);
+    m_actionNCArgs = command.split(" ", QString::SkipEmptyParts);
     if (m_actionNCArgs.size() < 2)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Not enough tokens"
