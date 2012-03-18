@@ -11733,70 +11733,70 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
             .arg(result).arg(text).arg(action));
 
     bool touched;
+    m_actionOSDHide = true;
+    m_actionOSDContext = actx;
+    m_actionOSDText = text;
 
     if (result < 0)     // exit dialog
     {
         if (!m_osdExitActions)
             m_osdExitActions = new MythActions<TV>(this, toActions, 1);
         m_osdExitActions->handleAction(action, touched);
-        return;
     }
-
-    m_actionOSDHide = true;
-    m_actionOSDContext = actx;
-    m_actionOSDText = text;
-
-    if (!m_osdActions)
-        m_osdActions = new MythActions<TV>(this, toActions, toActionCount);
-    bool handled = m_osdActions->handleAction(action, touched);
-
-    QStringList actions(action);
-
-    if (!handled)
-        handled = HandleTrackAction(actx, actions);
-
-    if (!handled)
-        handled = HandleJumpToProgramAction(actx, actions);
-
-    if (!handled)
+    else
     {
-        handled = PxPHandleAction(actx, actions);
-        if (handled)
-        {
-            for (uint i = 0; i < player.size(); i++)
-                ClearOSD(GetPlayer(actx,i));
-            // "NEXTPIPWINDOW" changes active context..
-            actx = GetPlayer(actx, -1);
-        }
-    }
+        if (!m_osdActions)
+            m_osdActions = new MythActions<TV>(this, toActions, toActionCount);
+        bool handled = m_osdActions->handleAction(action, touched);
 
-    if (!handled && StateIsLiveTV(GetState(actx)))
-    {
-        if (!m_osdLiveTVActions)
-            m_osdLiveTVActions = new MythActions<TV>(this, toltActions,
-                                                     toltActionCount);
-        handled = m_osdLiveTVActions->handleAction(action, touched);
-        
+        QStringList actions(action);
+
         if (!handled)
-        {
-            LOG(VB_GENERAL, LOG_ERR, LOC + "Unknown menu action selected: " +
-                                     action);
-            m_actionOSDHide = false;
-        }
-    }
+            handled = HandleTrackAction(actx, actions);
 
-    if (!handled && StateIsPlaying(actx->GetState()))
-    {
-        if (!m_osdPlayingActions)
-            m_osdPlayingActions = new MythActions<TV>(this, topActions,
-                                                     topActionCount);
-        handled = m_osdPlayingActions->handleAction(action, touched);
+        if (!handled)
+            handled = HandleJumpToProgramAction(actx, actions);
 
         if (!handled)
         {
-            LOG(VB_GENERAL, LOG_ERR, LOC + "Unknown menu action selected: " +
-                                     action);
-            m_actionOSDHide = false;
+            handled = PxPHandleAction(actx, actions);
+            if (handled)
+            {
+                for (uint i = 0; i < player.size(); i++)
+                    ClearOSD(GetPlayer(actx,i));
+                // "NEXTPIPWINDOW" changes active context..
+                actx = GetPlayer(actx, -1);
+            }
+        }
+
+        if (!handled && StateIsLiveTV(GetState(actx)))
+        {
+            if (!m_osdLiveTVActions)
+                m_osdLiveTVActions = new MythActions<TV>(this, toltActions,
+                                                         toltActionCount);
+            handled = m_osdLiveTVActions->handleAction(action, touched);
+            
+            if (!handled)
+            {
+                LOG(VB_GENERAL, LOG_ERR,
+                    LOC + "Unknown menu action selected: " + action);
+                m_actionOSDHide = false;
+            }
+        }
+
+        if (!handled && StateIsPlaying(actx->GetState()))
+        {
+            if (!m_osdPlayingActions)
+                m_osdPlayingActions = new MythActions<TV>(this, topActions,
+                                                         topActionCount);
+            handled = m_osdPlayingActions->handleAction(action, touched);
+
+            if (!handled)
+            {
+                LOG(VB_GENERAL, LOG_ERR,
+                    LOC + "Unknown menu action selected: " + action);
+                m_actionOSDHide = false;
+            }
         }
     }
 
