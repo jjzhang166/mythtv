@@ -13849,7 +13849,7 @@ bool TV::HandleOSDVideoExit(PlayerContext *ctx, QString action)
     bool touched;
     m_osdVideoExitActions->handleAction(action, touched);
 
-    return m_actionOSDContext;
+    return m_actionOSDHide;
 }
 
 void TV::SetLastProgram(const ProgramInfo *rcinfo)
