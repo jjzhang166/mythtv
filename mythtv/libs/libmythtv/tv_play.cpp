@@ -10195,6 +10195,7 @@ void TV::customEvent(QEvent *e)
     if (e->type() != MythEvent::MythEventMessage)
         return;
 
+    LOG(VB_KEYPRESS, LOG_INFO, "MythEvent Start");
     MythEvent *me = reinterpret_cast<MythEvent*>(e);
     QString message = me->Message();
     m_actionMythEventArgs = me->ExtraDataList();
@@ -10204,6 +10205,7 @@ void TV::customEvent(QEvent *e)
                                                  tmeActionCount);
     bool touched;
     m_mythEventActions->handleAction(message, touched);
+    LOG(VB_KEYPRESS, LOG_INFO, "MythEvent Finish");
 }
 
 void TV::ToggleRecord(PlayerContext *ctx)
