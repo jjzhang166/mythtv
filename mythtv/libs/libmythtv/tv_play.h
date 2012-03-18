@@ -422,6 +422,31 @@ class MTV_PUBLIC TV : public QObject
     bool doNCVolume(const QString &action);
     bool doNCQuery(const QString &action);
 
+    bool doMythEventSetVolume(const QString &action);
+    bool doMythEventSetAudioSync(const QString &action);
+    bool doMythEventSetBrightness(const QString &action);
+    bool doMythEventSetContrast(const QString &action);
+    bool doMythEventSetColor(const QString &action);
+    bool doMythEventSetHue(const QString &action);
+    bool doMythEventJumpChapter(const QString &action);
+    bool doMythEventSwitchTitle(const QString &action);
+    bool doMythEventSwitchAngle(const QString &action);
+    bool doMythEventSeekAbsolute(const QString &action);
+    bool doMythEventScreenshot(const QString &action);
+    bool doMythEventGetStatus(const QString &action);
+    bool doMythEventDoneRecording(const QString &action);
+    bool doMythEventAskRecording(const QString &action);
+    bool doMythEventQuitLiveTV(const QString &action);
+    bool doMythEventLiveTVWatch(const QString &action);
+    bool doMythEventLiveTVChain(const QString &action);
+    bool doMythEventExitToMenu(const QString &action);
+    bool doMythEventSignal(const QString &action);
+    bool doMythEventNetworkControl(const QString &action);
+    bool doMythEventStartEPG(const QString &action);
+    bool doMythEventExiting(const QString &action);
+    bool doMythEventCommflagStart(const QString &action);
+    bool doMythEventCommflagUpdate(const QString &action);
+
   public slots:
     void HandleOSDClosed(int osdType);
     void timerEvent(QTimerEvent*);
@@ -1111,7 +1136,9 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_osdPlayingActions;
     MythActions<TV> *m_osdDialogActions;
     MythActions<TV> *m_osdAskAllowActions;
+
     MythActions<TV> *m_networkControlActions;
+    MythActions<TV> *m_mythEventActions;
 
     PlayerContext   *m_actionContext;
     bool m_actionEndManualZoom;
@@ -1125,6 +1152,8 @@ class MTV_PUBLIC TV : public QObject
 
     PlayerContext   *m_actionNCContext;
     QStringList m_actionNCArgs;
+
+    QStringList m_actionMythEventArgs;
 };
 
 #endif

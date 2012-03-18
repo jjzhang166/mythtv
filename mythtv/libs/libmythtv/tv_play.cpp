@@ -3691,16 +3691,16 @@ bool TV::doTrackToggleSubs(const QString &action)
     if (browsehelper->IsBrowsing())
         return false;
 
-    MythPlayer *player = m_actionContext->player;
+    MythPlayer *play = m_actionContext->player;
 
     if (ccInputMode)
     {
         bool valid = false;
         int page = GetQueuedInputAsInt(&valid, 16);
         if (vbimode == VBIMode::PAL_TT && valid)
-            player->SetTeletextPage(page);
+            play->SetTeletextPage(page);
         else if (vbimode == VBIMode::NTSC_CC)
-            player->SetTrack(kTrackTypeCC608, max(min(page - 1, 1), 0));
+            play->SetTrack(kTrackTypeCC608, max(min(page - 1, 1), 0));
 
         ClearInputQueues(m_actionContext, true);
 
@@ -3712,7 +3712,7 @@ bool TV::doTrackToggleSubs(const QString &action)
             ccInputTimerId = 0;
         }
     }
-    else if (player->GetCaptionMode() & kDisplayNUVTeletextCaptions)
+    else if (play->GetCaptionMode() & kDisplayNUVTeletextCaptions)
     {
         ClearInputQueues(m_actionContext, false);
         AddKeyToInputQueue(m_actionContext, 0);
@@ -3729,7 +3729,7 @@ bool TV::doTrackToggleSubs(const QString &action)
     }
     else
     {
-        player->ToggleCaptions();
+        play->ToggleCaptions();
     }
     return true;
 }
@@ -3867,7 +3867,7 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
     bool ignoreKeys = actx->IsPlayerChangingBuffers();
 
     m_actionContext = actx;
-    MythPlayer *player = actx->player;
+    MythPlayer *play = actx->player;
 
     if (idleTimerId)
     {
@@ -3925,14 +3925,13 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
         if (!handled)
         {
             actx->LockDeletePlayer(__FILE__, __LINE__);
-            int64_t current_frame = player->GetFramesPlayed();
+            int64_t current_frame = play->GetFramesPlayed();
             actx->UnlockDeletePlayer(__FILE__, __LINE__);
-            handled |= player->HandleProgramEditorActions(actions,
-                                                          current_frame);
+            handled |= play->HandleProgramEditorActions(actions, current_frame);
         }
 
         if (handled)
-            editmode = player->GetEditMode();
+            editmode = play->GetEditMode();
     }
 
     if (handled)
@@ -3954,14 +3953,14 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
 
     // Teletext menu
     actx->LockDeletePlayer(__FILE__, __LINE__);
-    if (player && player->GetCaptionMode() == kDisplayTeletextMenu)
+    if (play && play->GetCaptionMode() == kDisplayTeletextMenu)
     {
         QStringList tt_actions;
         handled = GetMythMainWindow()->TranslateKeyPress("Teletext Menu", e,
                                                          tt_actions);
 
         if (!handled && !tt_actions.isEmpty())
-            handled = player->HandleTeletextActions(tt_actions);
+            handled = play->HandleTeletextActions(tt_actions);
 
         if (handled)
         {
@@ -3971,7 +3970,7 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
     }
 
     // Interactive television
-    if (player && player->GetInteractiveTV())
+    if (play && play->GetInteractiveTV())
     {
         QStringList itv_actions;
         handled = GetMythMainWindow()->TranslateKeyPress("TV Playback", e,
@@ -3979,7 +3978,7 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
 
         if (!handled && !itv_actions.isEmpty())
         {
-            handled = player->ITVHandleActions(itv_actions);
+            handled = play->ITVHandleActions(itv_actions);
         }
     }
     actx->UnlockDeletePlayer(__FILE__, __LINE__);
@@ -4237,8 +4236,8 @@ bool TV::ManualZoomHandleAction(PlayerContext *actx, const QStringList &actions)
     m_actionContext = actx;
 
     actx->LockDeletePlayer(__FILE__, __LINE__);
-    MythPlayer *player = actx->player;
-    if (!player)
+    MythPlayer *play = actx->player;
+    if (!play)
     {
         actx->UnlockDeletePlayer(__FILE__, __LINE__);
         return false;
@@ -4646,11 +4645,11 @@ bool TV::doActiveNextScan(const QString &action)
 {
     QString msg = QString::null;
     m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
-    MythPlayer *player = m_actionContext->player;
-    if (player)
+    MythPlayer *play = m_actionContext->player;
+    if (play)
     {
-        player->NextScanType();
-        msg = toString(player->GetScanType());
+        play->NextScanType();
+        msg = toString(play->GetScanType());
     }
     m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
 
@@ -4713,10 +4712,10 @@ bool TV::doActiveJumpFfwd(const QString &action)
 bool TV::doActiveJumpBkmrk(const QString &action)
 {
     m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
-    MythPlayer *player = m_actionContext->player;
-    long long bookmark = player->GetBookmark();
-    long long curloc   = player->GetFramesPlayed();
-    float     rate     = player->GetFrameRate();
+    MythPlayer *play   = m_actionContext->player;
+    long long bookmark = play->GetBookmark();
+    long long curloc   = play->GetFramesPlayed();
+    float     rate     = play->GetFrameRate();
     long long seekloc = (long long) ((bookmark - curloc) / rate);
     m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
 
@@ -4729,9 +4728,8 @@ bool TV::doActiveJumpStart(const QString &action)
 {
     long long seekloc = +1;
     m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
-    MythPlayer *player = m_actionContext->player;
-    seekloc = (int64_t) (-1.0 * player->GetFramesPlayed() /
-                         player->GetFrameRate());
+    MythPlayer *play = m_actionContext->player;
+    seekloc = (int64_t) (-1.0 * play->GetFramesPlayed() / play->GetFrameRate());
     m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
 
     if (seekloc <= 0)
@@ -4873,11 +4871,11 @@ bool TV::doActiveEscape(const QString &action)
             // If it's a DVD, and we're not trying to execute a
             // jumppoint, and it's not in a menu, then first try
             // jumping to the title or root menu.
-            MythPlayer *player = m_actionContext->player;
+            MythPlayer *play = m_actionContext->player;
             if (isDVD && !GetMythMainWindow()->IsExitingToMain() &&
                 action == "BACK" &&
                 !m_actionContext->buffer->DVD()->IsInMenu() &&
-                (player->GoToMenu("title") || player->GoToMenu("root")))
+                (play->GoToMenu("title") || play->GoToMenu("root")))
             {
                 return true;
             }
@@ -9542,6 +9540,586 @@ void TV::PauseAudioUntilBuffered(PlayerContext *ctx)
     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
 }
 
+static struct ActionDefStruct<TV> tmeActions[] = {
+    { ACTION_SETVOLUME,     &TV::doMythEventSetVolume },
+    { ACTION_SETAUDIOSYNC,  &TV::doMythEventSetAudioSync },
+    { ACTION_SETBRIGHTNESS, &TV::doMythEventSetBrightness },
+    { ACTION_SETCONTRAST,   &TV::doMythEventSetContrast },
+    { ACTION_SETCOLOUR,     &TV::doMythEventSetColor },
+    { ACTION_SETHUE,        &TV::doMythEventSetHue },
+    { ACTION_JUMPCHAPTER,   &TV::doMythEventJumpChapter },
+    { ACTION_SWITCHTITLE,   &TV::doMythEventSwitchTitle },
+    { ACTION_SWITCHANGLE,   &TV::doMythEventSwitchAngle },
+    { ACTION_SEEKABSOLUTE,  &TV::doMythEventSeekAbsolute },
+    { ACTION_SCREENSHOT,    &TV::doMythEventScreenshot },
+    { ACTION_GETSTATUS,     &TV::doMythEventGetStatus },
+    { "^DONE_RECORDING",    &TV::doMythEventDoneRecording },
+    { "^ASK_RECORDING",     &TV::doMythEventAskRecording },
+    { "^QUIT_LIVETV",       &TV::doMythEventQuitLiveTV },
+    { "^LIVETV_WATCH",      &TV::doMythEventLiveTVWatch },
+    { "^LIVETV_CHAIN",      &TV::doMythEventLiveTVChain },
+    { "^EXIT_TO_MENU",      &TV::doMythEventExitToMenu },
+    { "^NETWORK_CONTROL",   &TV::doMythEventNetworkControl },
+    { "^(EPG|PROGFINDER|VIEWSCHEDULED|PLAYBACKBOX|SCHEDULEEDITOR)_EXITING",
+                            &TV::doMythEventExiting },
+    { "^COMMFLAG_START",    &TV::doMythEventCommflagStart },
+    { "^COMMFLAG_UPDATE",   &TV::doMythEventCommflagUpdate }
+};
+static int tmeActionCount = NELEMS(tmeActions);
+
+bool TV::doMythEventSetVolume(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    ChangeVolume(ctx, false, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSetAudioSync(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    ChangeAudioSync(ctx, 0, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSetBrightness(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
+                             kPictureAttribute_Brightness, false, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSetContrast(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
+                             kPictureAttribute_Contrast, false, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSetColor(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
+                             kPictureAttribute_Colour, false, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSetHue(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
+                             kPictureAttribute_Hue, false, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventJumpChapter(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoJumpChapter(ctx, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSwitchTitle(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoSwitchTitle(ctx, value - 1);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSwitchAngle(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoSwitchAngle(ctx, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventSeekAbsolute(const QString &action)
+{
+    if (m_actionMythEventArgs.size() != 1)
+        return false;
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    int value = m_actionMythEventArgs[0].toInt();
+    DoSeekAbsolute(ctx, value);
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventScreenshot(const QString &action)
+{
+    int width = 0;
+    int height = 0;
+    QString filename;
+
+    if (m_actionMythEventArgs.size() >= 2)
+    {
+        width  = m_actionMythEventArgs[0].toInt();
+        height = m_actionMythEventArgs[1].toInt();
+
+        if (m_actionMythEventArgs.size() == 3)
+            filename = m_actionMythEventArgs[2];
+    }
+
+    PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    MythPlayer *play = ctx->player;
+
+    if (!play || !play->GetScreenShot(width, height, filename))
+    {
+        GetMythMainWindow()->ScreenShot(width, height, filename);
+    }
+    ReturnPlayerLock(ctx);
+    return true;
+}
+
+bool TV::doMythEventGetStatus(const QString &action)
+{
+    GetStatus();
+    return true;
+}
+
+bool TV::doMythEventDoneRecording(const QString &action)
+{
+    uint cardnum = 0;
+    int seconds = 0;
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    if (tokens.size() >= 4)
+    {
+        cardnum = tokens[1].toUInt();
+        seconds = tokens[2].toInt();
+        //frames = tokens[3].toLongLong();
+    }
+
+    PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    for (uint i = 0; mctx && (i < player.size()); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        if (ctx->GetState() == kState_WatchingRecording)
+        {
+            if (ctx->recorder && (cardnum == ctx->GetCardID()))
+            {
+                ctx->LockDeletePlayer(__FILE__, __LINE__);
+                if (ctx->player)
+                {
+                    ctx->player->SetWatchingRecording(false);
+                    ctx->player->SetLength(seconds);
+                }
+                ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+
+                ctx->ChangeState(kState_WatchingPreRecorded);
+                ScheduleStateChange(ctx);
+            }
+        }
+        else if (StateIsLiveTV(ctx->GetState()))
+        {
+            if (ctx->recorder && cardnum == ctx->GetCardID() &&
+                ctx->tvchain && ctx->tvchain->HasNext())
+            {
+                ctx->LockDeletePlayer(__FILE__, __LINE__);
+                if (ctx->player)
+                {
+                    ctx->player->SetWatchingRecording(false);
+                    ctx->player->SetLength(seconds);
+                }
+                ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+            }
+        }
+    }
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventAskRecording(const QString &action)
+{
+    uint cardnum = 0;
+    int timeuntil = 0;
+    int hasrec = 0;
+    int haslater = 0;
+
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    if (tokens.size() >= 5)
+    {
+        cardnum   = tokens[1].toUInt();
+        timeuntil = tokens[2].toInt();
+        hasrec    = tokens[3].toInt();
+        haslater  = tokens[4].toInt();
+    }
+
+    LOG(VB_GENERAL, LOG_INFO,
+        LOC + action + QString(" hasrec: %1 haslater: %2")
+            .arg(hasrec).arg(haslater));
+
+    PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    if (mctx->recorder && cardnum == mctx->GetCardID())
+    {
+        AskAllowRecording(mctx, m_actionMythEventArgs,
+                          timeuntil, hasrec, haslater);
+    }
+
+    for (uint i = 1; i < player.size(); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        if (ctx->recorder && ctx->GetCardID() == cardnum)
+        {
+            LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling PxP for recording");
+            QString type = ctx->IsPIP() ?  tr("PiP", "Picture-in-Picture") :
+                                           tr("PbP", "Picture-by-Picture");
+            StopStuff(mctx, ctx, true, true, true);
+            SetOSDMessage(mctx, tr("Disabling %1 for recording").arg(type));
+        }
+    }
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventQuitLiveTV(const QString &action)
+{
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    uint cardnum = (tokens.size() >= 2) ? tokens[1].toUInt() : 0;
+
+    PlayerContext *mctx = GetPlayerReadLock(-1, __FILE__, __LINE__);
+    int match = -1;
+    for (uint i = 0; mctx && (i < player.size()); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        match = (ctx->GetCardID() == cardnum) ? i : match;
+    }
+
+    if (match >= 0 && GetPlayer(mctx, match)->recorder)
+    {
+        if (match == 0)
+        {
+            for (uint i = 1; mctx && (i < player.size()); i++)
+            {
+                PlayerContext *ctx = GetPlayer(mctx, i);
+                if (ctx->recorder && (ctx->GetCardID() == cardnum))
+                {
+                    LOG(VB_GENERAL, LOG_INFO, LOC +
+                        "Disabling PiP for QUIT_LIVETV");
+                    StopStuff(mctx, ctx, true, true, true);
+                }
+            }
+            SetLastProgram(NULL);
+            jumpToProgram = true;
+            SetExitPlayer(true, false);
+        }
+        else
+        {
+            PlayerContext *ctx = GetPlayer(mctx, match);
+            StopStuff(mctx, ctx, true, true, true);
+        }
+    }
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventLiveTVWatch(const QString &action)
+{
+    uint cardnum = 0;
+    int watch = 0;
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    if (tokens.size() >= 3)
+    {
+        cardnum = tokens[1].toUInt();
+        watch   = tokens[2].toInt();
+    }
+
+    PlayerContext *mctx = GetPlayerWriteLock(0, __FILE__, __LINE__);
+    int match = -1;
+    for (uint i = 0; mctx && (i < player.size()); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        match = (ctx->GetCardID() == cardnum) ? i : match;
+    }
+
+    if (match >= 0)
+    {
+        if (watch)
+        {
+            ProgramInfo pi(m_actionMythEventArgs);
+            if (pi.HasPathname() || pi.GetChanID())
+            {
+                PlayerContext *ctx = GetPlayer(mctx, match);
+                ctx->SetPseudoLiveTV(&pi, kPseudoChangeChannel);
+
+                QMutexLocker locker(&timerIdLock);
+                if (!pseudoChangeChanTimerId)
+                    pseudoChangeChanTimerId = StartTimer(0, __LINE__);
+            }
+        }
+        else
+        {
+            PlayerContext *ctx = GetPlayer(mctx, match);
+            ctx->SetPseudoLiveTV(NULL, kPseudoNormalLiveTV);
+        }
+    }
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventLiveTVChain(const QString &action)
+{
+    QString id = QString::null;
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    if ((tokens.size() >= 2) && tokens[1] == "UPDATE")
+        id = tokens[2];
+
+    PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    for (uint i = 0; mctx && (i < player.size()); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        if (ctx->tvchain && ctx->tvchain->GetID() == id)
+        {
+            QMutexLocker locker(&timerIdLock);
+            tvchainUpdateTimerId[StartTimer(1, __LINE__)] = ctx;
+            break;
+        }
+    }
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventExitToMenu(const QString &action)
+{
+    PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    for (uint i = 0; mctx && (i < player.size()); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        PrepareToExitPlayer(ctx, __LINE__, db_playback_exit_prompt == 1 ||
+                                           db_playback_exit_prompt == 2);
+    }
+
+    SetExitPlayer(true, true);
+    if (mctx && mctx->player)
+        mctx->player->DisableEdit(-1);
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventSignal(const QString &action)
+{
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    uint cardnum = (tokens.size() >= 2) ? tokens[1].toUInt() : 0;
+
+    PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    OSD *osd = GetOSDLock(mctx);
+    if (osd && !osd->IsWindowVisible(OSD_WIN_INTERACT))
+    {
+        for (uint i = 0; mctx && (i < player.size()); i++)
+        {
+            PlayerContext *ctx = GetPlayer(mctx, i);
+            bool tc = ctx->recorder && (ctx->GetCardID() == cardnum);
+            if (tc && !m_actionMythEventArgs.empty())
+            {
+                UpdateOSDSignal(ctx, m_actionMythEventArgs);
+                UpdateOSDTimeoutMessage(ctx);
+            }
+        }
+    }
+    ReturnOSDLock(mctx, osd);
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventNetworkControl(const QString &action)
+{
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    if ((tokens.size() >= 2) &&
+        (tokens[1] != "ANSWER") && (tokens[1] != "RESPONSE"))
+    {
+        QMutexLocker locker(&timerIdLock);
+        QString command(action);
+        command.detach();
+        networkControlCommands.enqueue(command);
+        if (!networkControlTimerId)
+            networkControlTimerId = StartTimer(1, __LINE__);
+    }
+    return true;
+}
+
+bool TV::doMythEventStartEPG(const QString &action)
+{
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    int editType = tokens[1].toInt();
+    DoEditSchedule(editType);
+    return true;
+}
+
+bool TV::doMythEventExiting(const QString &action)
+{
+    // Resize the window back to the MythTV Player size
+    PlayerContext *actx = GetPlayerReadLock(-1, __FILE__, __LINE__);
+    PlayerContext *mctx;
+    MythMainWindow *mwnd = GetMythMainWindow();
+
+    StopEmbedding();
+    MythPainter *painter = GetMythPainter();
+    if (painter)
+        painter->FreeResources();
+
+    mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    mctx->LockDeletePlayer(__FILE__, __LINE__);
+    if (mctx->player && mctx->player->GetVideoOutput())
+        mctx->player->GetVideoOutput()->ResizeForVideo();
+    mctx->UnlockDeletePlayer(__FILE__, __LINE__);
+    ReturnPlayerLock(mctx);
+
+    if (!db_use_gui_size_for_tv || !db_use_fixed_size)
+    {
+        mwnd->setMinimumSize(QSize(16, 16));
+        mwnd->setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
+        mwnd->setGeometry(player_bounds.left(), player_bounds.top(),
+                          player_bounds.width(), player_bounds.height());
+    }
+
+    DoSetPauseState(actx, saved_pause); // Restore pause states
+    disableDrawUnusedRects = false;
+
+    qApp->processEvents();
+
+    if (!weDisabledGUI)
+    {
+        weDisabledGUI = true;
+        GetMythMainWindow()->PushDrawDisabled();
+        DrawUnusedRects();
+    }
+
+    isEmbedded = false;
+    ignoreKeyPresses = false;
+
+    QString which(action);
+    which.chop(8);
+    if (which == "PLAYBACKBOX")
+    {
+        ProgramInfo pginfo(m_actionMythEventArgs);
+        if (pginfo.HasPathname() || pginfo.GetChanID())
+            PrepToSwitchToRecordedProgram(actx, pginfo);
+    }
+
+    ReturnPlayerLock(actx);
+    return true;
+}
+
+bool TV::doMythEventCommflagStart(const QString &action)
+{
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    if (tokens.size() < 2)
+        return false;
+
+    uint evchanid = 0;
+    QDateTime evrecstartts;
+    ProgramInfo::ExtractKey(tokens[1], evchanid, evrecstartts);
+
+    PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    for (uint i = 0; mctx && (i < player.size()); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        ctx->LockPlayingInfo(__FILE__, __LINE__);
+        bool doit = ((ctx->playingInfo) &&
+                   (ctx->playingInfo->GetChanID()             == evchanid) &&
+                   (ctx->playingInfo->GetRecordingStartTime() == evrecstartts));
+        ctx->UnlockPlayingInfo(__FILE__, __LINE__);
+
+        if (doit)
+        {
+            QString msg = "COMMFLAG_REQUEST ";
+            msg += ProgramInfo::MakeUniqueKey(evchanid, evrecstartts);
+            gCoreContext->SendMessage(msg);
+        }
+    }
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+bool TV::doMythEventCommflagUpdate(const QString &action)
+{
+    QStringList tokens = action.split(" ", QString::SkipEmptyParts);
+    if (tokens.size() < 3)
+        return false;
+
+    uint evchanid = 0;
+    QDateTime evrecstartts;
+    ProgramInfo::ExtractKey(tokens[1], evchanid, evrecstartts);
+
+    PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+    for (uint i = 0; mctx && evchanid && (i < player.size()); i++)
+    {
+        PlayerContext *ctx = GetPlayer(mctx, i);
+        ctx->LockPlayingInfo(__FILE__, __LINE__);
+        bool doit = ((ctx->playingInfo) &&
+                   (ctx->playingInfo->GetChanID()             == evchanid) &&
+                   (ctx->playingInfo->GetRecordingStartTime() == evrecstartts));
+        ctx->UnlockPlayingInfo(__FILE__, __LINE__);
+
+        if (doit)
+        {
+            frm_dir_map_t newMap;
+            QStringList mark;
+            QStringList marks = tokens[2].split(",", QString::SkipEmptyParts);
+            for (uint i = 0; i < (uint)marks.size(); i++)
+            {
+                mark = marks[i].split(":", QString::SkipEmptyParts);
+                if (marks.size() >= 2)
+                {
+                    newMap[mark[0].toLongLong()] = (MarkTypes) mark[1].toInt();
+                }
+            }
+            ctx->LockDeletePlayer(__FILE__, __LINE__);
+            if (ctx->player)
+                ctx->player->SetCommBreakMap(newMap);
+            ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+        }
+    }
+    ReturnPlayerLock(mctx);
+    return true;
+}
+
+
 /// This handles all custom events
 void TV::customEvent(QEvent *e)
 {
@@ -9617,451 +10195,15 @@ void TV::customEvent(QEvent *e)
     if (e->type() != MythEvent::MythEventMessage)
         return;
 
-    uint cardnum   = 0;
     MythEvent *me = reinterpret_cast<MythEvent*>(e);
     QString message = me->Message();
+    m_actionMythEventArgs = me->ExtraDataList();
 
-    // TODO Go through these and make sure they make sense...
-    QStringList tokens = message.split(" ", QString::SkipEmptyParts);
-
-    if (me->ExtraDataCount() == 1)
-    {
-        PlayerContext *ctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        int value = me->ExtraData(0).toInt();
-        if (message == ACTION_SETVOLUME)
-            ChangeVolume(ctx, false, value);
-        else if (message == ACTION_SETAUDIOSYNC)
-            ChangeAudioSync(ctx, 0, value);
-        else if (message == ACTION_SETBRIGHTNESS)
-            DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
-                                     kPictureAttribute_Brightness,
-                                     false, value);
-        else if (message == ACTION_SETCONTRAST)
-            DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
-                                     kPictureAttribute_Contrast,
-                                     false, value);
-        else if (message == ACTION_SETCOLOUR)
-            DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
-                                     kPictureAttribute_Colour,
-                                     false, value);
-        else if (message == ACTION_SETHUE)
-            DoChangePictureAttribute(ctx, kAdjustingPicture_Playback,
-                                     kPictureAttribute_Hue,
-                                     false, value);
-        else if (message == ACTION_JUMPCHAPTER)
-            DoJumpChapter(ctx, value);
-        else if (message == ACTION_SWITCHTITLE)
-            DoSwitchTitle(ctx, value - 1);
-        else if (message == ACTION_SWITCHANGLE)
-            DoSwitchAngle(ctx, value);
-        else if (message == ACTION_SEEKABSOLUTE)
-            DoSeekAbsolute(ctx, value);
-        ReturnPlayerLock(ctx);
-    }
-
-    if (message == ACTION_SCREENSHOT)
-    {
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        int width = 0;
-        int height = 0;
-        QString filename;
-
-        if (me->ExtraDataCount() >= 2)
-        {
-            width  = me->ExtraData(0).toInt();
-            height = me->ExtraData(1).toInt();
-
-            if (me->ExtraDataCount() == 3)
-                filename = me->ExtraData(2);
-        }
-        if (mctx && mctx->player &&
-            mctx->player->GetScreenShot(width, height, filename))
-        {
-        }
-        else
-        {
-            GetMythMainWindow()->ScreenShot(width, height, filename);
-        }
-        ReturnPlayerLock(mctx);
-    }
-    else if (message == ACTION_GETSTATUS)
-    {
-        GetStatus();
-    }
-    else if (message.left(14) == "DONE_RECORDING")
-    {
-        int seconds = 0;
-        //long long frames = 0;
-        if (tokens.size() >= 4)
-        {
-            cardnum = tokens[1].toUInt();
-            seconds = tokens[2].toInt();
-            //frames = tokens[3].toLongLong();
-        }
-
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        for (uint i = 0; mctx && (i < player.size()); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            if (ctx->GetState() == kState_WatchingRecording)
-            {
-                if (ctx->recorder && (cardnum == ctx->GetCardID()))
-                {
-                    ctx->LockDeletePlayer(__FILE__, __LINE__);
-                    if (ctx->player)
-                    {
-                        ctx->player->SetWatchingRecording(false);
-                        ctx->player->SetLength(seconds);
-                    }
-                    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-                    ctx->ChangeState(kState_WatchingPreRecorded);
-                    ScheduleStateChange(ctx);
-                }
-            }
-            else if (StateIsLiveTV(ctx->GetState()))
-            {
-                if (ctx->recorder && cardnum == ctx->GetCardID() &&
-                    ctx->tvchain && ctx->tvchain->HasNext())
-                {
-                    ctx->LockDeletePlayer(__FILE__, __LINE__);
-                    if (ctx->player)
-                    {
-                        ctx->player->SetWatchingRecording(false);
-                        ctx->player->SetLength(seconds);
-                    }
-                    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-                }
-            }
-        }
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(14) == "ASK_RECORDING ")
-    {
-        int timeuntil = 0, hasrec = 0, haslater = 0;
-        if (tokens.size() >= 5)
-        {
-            cardnum   = tokens[1].toUInt();
-            timeuntil = tokens[2].toInt();
-            hasrec    = tokens[3].toInt();
-            haslater  = tokens[4].toInt();
-        }
-        LOG(VB_GENERAL, LOG_INFO,
-            LOC + message + QString(" hasrec: %1 haslater: %2")
-                .arg(hasrec).arg(haslater));
-
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        if (mctx->recorder && cardnum == mctx->GetCardID())
-        {
-            AskAllowRecording(mctx, me->ExtraDataList(),
-                              timeuntil, hasrec, haslater);
-        }
-
-        for (uint i = 1; i < player.size(); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            if (ctx->recorder && ctx->GetCardID() == cardnum)
-            {
-                LOG(VB_GENERAL, LOG_INFO, LOC + "Disabling PxP for recording");
-                QString type = ctx->IsPIP() ?
-                    tr("PiP", "Picture-in-Picture") :
-                    tr("PbP", "Picture-by-Picture");
-                StopStuff(mctx, ctx, true, true, true);
-                SetOSDMessage(mctx, tr("Disabling %1 for recording").arg(type));
-            }
-        }
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(11) == "QUIT_LIVETV")
-    {
-        cardnum = (tokens.size() >= 2) ? tokens[1].toUInt() : 0;
-
-        PlayerContext *mctx = GetPlayerReadLock(-1, __FILE__, __LINE__);
-        int match = -1;
-        for (uint i = 0; mctx && (i < player.size()); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            match = (ctx->GetCardID() == cardnum) ? i : match;
-        }
-
-        if (match >= 0 && GetPlayer(mctx, match)->recorder)
-        {
-            if (0 == match)
-            {
-                for (uint i = 1; mctx && (i < player.size()); i++)
-                {
-                    PlayerContext *ctx = GetPlayer(mctx, i);
-                    if (ctx->recorder && (ctx->GetCardID() == cardnum))
-                    {
-                        LOG(VB_GENERAL, LOG_INFO, LOC +
-                            "Disabling PiP for QUIT_LIVETV");
-                        StopStuff(mctx, ctx, true, true, true);
-                    }
-                }
-                SetLastProgram(NULL);
-                jumpToProgram = true;
-                SetExitPlayer(true, false);
-            }
-            else
-            {
-                PlayerContext *ctx = GetPlayer(mctx, match);
-                StopStuff(mctx, ctx, true, true, true);
-            }
-        }
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(12) == "LIVETV_WATCH")
-    {
-        int watch = 0;
-        if (tokens.size() >= 3)
-        {
-            cardnum = tokens[1].toUInt();
-            watch   = tokens[2].toInt();
-        }
-
-        PlayerContext *mctx = GetPlayerWriteLock(0, __FILE__, __LINE__);
-        int match = -1;
-        for (uint i = 0; mctx && (i < player.size()); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            match = (ctx->GetCardID() == cardnum) ? i : match;
-        }
-
-        if (match >= 0)
-        {
-            if (watch)
-            {
-                ProgramInfo pi(me->ExtraDataList());
-                if (pi.HasPathname() || pi.GetChanID())
-                {
-                    PlayerContext *ctx = GetPlayer(mctx, match);
-                    ctx->SetPseudoLiveTV(&pi, kPseudoChangeChannel);
-
-                    QMutexLocker locker(&timerIdLock);
-                    if (!pseudoChangeChanTimerId)
-                        pseudoChangeChanTimerId = StartTimer(0, __LINE__);
-                }
-            }
-            else
-            {
-                PlayerContext *ctx = GetPlayer(mctx, match);
-                ctx->SetPseudoLiveTV(NULL, kPseudoNormalLiveTV);
-            }
-        }
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(12) == "LIVETV_CHAIN")
-    {
-        QString id = QString::null;
-        if ((tokens.size() >= 2) && tokens[1] == "UPDATE")
-            id = tokens[2];
-
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        for (uint i = 0; mctx && (i < player.size()); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            if (ctx->tvchain && ctx->tvchain->GetID() == id)
-            {
-                QMutexLocker locker(&timerIdLock);
-                tvchainUpdateTimerId[StartTimer(1, __LINE__)] = ctx;
-                break;
-            }
-        }
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(12) == "EXIT_TO_MENU")
-    {
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        for (uint i = 0; mctx && (i < player.size()); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            PrepareToExitPlayer(ctx, __LINE__, db_playback_exit_prompt == 1 ||
-                                               db_playback_exit_prompt == 2);
-        }
-
-        SetExitPlayer(true, true);
-        if (mctx && mctx->player)
-            mctx->player->DisableEdit(-1);
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(6) == "SIGNAL")
-    {
-        cardnum = (tokens.size() >= 2) ? tokens[1].toUInt() : 0;
-        QStringList signalList = me->ExtraDataList();
-
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        OSD *osd = GetOSDLock(mctx);
-        if (osd && !osd->IsWindowVisible(OSD_WIN_INTERACT))
-        {
-            for (uint i = 0; mctx && (i < player.size()); i++)
-            {
-                PlayerContext *ctx = GetPlayer(mctx, i);
-                bool tc = ctx->recorder && (ctx->GetCardID() == cardnum);
-                if (tc && !signalList.empty())
-                {
-                    UpdateOSDSignal(ctx, signalList);
-                    UpdateOSDTimeoutMessage(ctx);
-                }
-            }
-        }
-        ReturnOSDLock(mctx, osd);
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(15) == "NETWORK_CONTROL")
-    {
-        if ((tokens.size() >= 2) &&
-            (tokens[1] != "ANSWER") && (tokens[1] != "RESPONSE"))
-        {
-            QStringList tokens = message.split(" ", QString::SkipEmptyParts);
-            if ((tokens.size() >= 2) &&
-                (tokens[1] != "ANSWER") && (tokens[1] != "RESPONSE"))
-            {
-                QMutexLocker locker(&timerIdLock);
-                message.detach();
-                networkControlCommands.enqueue(message);
-                if (!networkControlTimerId)
-                    networkControlTimerId = StartTimer(1, __LINE__);
-            }
-        }
-    }
-
-    if (message.left(9) == "START_EPG")
-    {
-        int editType = tokens[1].toInt();
-        DoEditSchedule(editType);
-    }
-
-    if (message.left(11) == "EPG_EXITING" ||
-        message.left(18) == "PROGFINDER_EXITING" ||
-        message.left(21) == "VIEWSCHEDULED_EXITING" ||
-        message.left(19)   == "PLAYBACKBOX_EXITING" ||
-        message.left(22) == "SCHEDULEEDITOR_EXITING")
-    {
-        // Resize the window back to the MythTV Player size
-        PlayerContext *actx = GetPlayerReadLock(-1, __FILE__, __LINE__);
-        PlayerContext *mctx;
-        MythMainWindow *mwnd = GetMythMainWindow();
-
-        StopEmbedding();
-        MythPainter *painter = GetMythPainter();
-        if (painter)
-            painter->FreeResources();
-
-        mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        mctx->LockDeletePlayer(__FILE__, __LINE__);
-        if (mctx->player && mctx->player->GetVideoOutput())
-            mctx->player->GetVideoOutput()->ResizeForVideo();
-        mctx->UnlockDeletePlayer(__FILE__, __LINE__);
-        ReturnPlayerLock(mctx);
-
-        if (!db_use_gui_size_for_tv || !db_use_fixed_size)
-        {
-            mwnd->setMinimumSize(QSize(16, 16));
-            mwnd->setMaximumSize(QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX));
-            mwnd->setGeometry(player_bounds.left(), player_bounds.top(),
-                              player_bounds.width(), player_bounds.height());
-        }
-
-        DoSetPauseState(actx, saved_pause); // Restore pause states
-        disableDrawUnusedRects = false;
-
-        qApp->processEvents();
-
-        if (!weDisabledGUI)
-        {
-            weDisabledGUI = true;
-            GetMythMainWindow()->PushDrawDisabled();
-            DrawUnusedRects();
-        }
-
-        isEmbedded = false;
-        ignoreKeyPresses = false;
-
-        if (message.left(19) == "PLAYBACKBOX_EXITING")
-        {
-            ProgramInfo pginfo(me->ExtraDataList());
-            if (pginfo.HasPathname() || pginfo.GetChanID())
-                PrepToSwitchToRecordedProgram(actx, pginfo);
-        }
-
-        ReturnPlayerLock(actx);
-
-    }
-
-    if (message.left(14) == "COMMFLAG_START" && (tokens.size() >= 2))
-    {
-        uint evchanid = 0;
-        QDateTime evrecstartts;
-        ProgramInfo::ExtractKey(tokens[1], evchanid, evrecstartts);
-
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        for (uint i = 0; mctx && (i < player.size()); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            ctx->LockPlayingInfo(__FILE__, __LINE__);
-            bool doit =
-                ((ctx->playingInfo) &&
-                 (ctx->playingInfo->GetChanID()             == evchanid) &&
-                 (ctx->playingInfo->GetRecordingStartTime() == evrecstartts));
-            ctx->UnlockPlayingInfo(__FILE__, __LINE__);
-
-            if (doit)
-            {
-                QString msg = "COMMFLAG_REQUEST ";
-                msg += ProgramInfo::MakeUniqueKey(evchanid, evrecstartts);
-                gCoreContext->SendMessage(msg);
-            }
-        }
-        ReturnPlayerLock(mctx);
-    }
-
-    if (message.left(15) == "COMMFLAG_UPDATE" && (tokens.size() >= 3))
-    {
-        uint evchanid = 0;
-        QDateTime evrecstartts;
-        ProgramInfo::ExtractKey(tokens[1], evchanid, evrecstartts);
-
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        for (uint i = 0; mctx && evchanid && (i < player.size()); i++)
-        {
-            PlayerContext *ctx = GetPlayer(mctx, i);
-            ctx->LockPlayingInfo(__FILE__, __LINE__);
-            bool doit =
-                ((ctx->playingInfo) &&
-                 (ctx->playingInfo->GetChanID()             == evchanid) &&
-                 (ctx->playingInfo->GetRecordingStartTime() == evrecstartts));
-            ctx->UnlockPlayingInfo(__FILE__, __LINE__);
-
-            if (doit)
-            {
-                frm_dir_map_t newMap;
-                QStringList mark;
-                QStringList marks =
-                    tokens[2].split(",", QString::SkipEmptyParts);
-                for (uint i = 0; i < (uint)marks.size(); i++)
-                {
-                    mark = marks[i].split(":", QString::SkipEmptyParts);
-                    if (marks.size() >= 2)
-                    {
-                        newMap[mark[0].toLongLong()] =
-                            (MarkTypes) mark[1].toInt();
-                    }
-                }
-                ctx->LockDeletePlayer(__FILE__, __LINE__);
-                if (ctx->player)
-                    ctx->player->SetCommBreakMap(newMap);
-                ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-            }
-        }
-        ReturnPlayerLock(mctx);
-    }
+    if (!m_mythEventActions)
+        m_mythEventActions = new MythActions<TV>(this, tmeActions,
+                                                 tmeActionCount);
+    bool touched;
+    m_mythEventActions->handleAction(message, touched);
 }
 
 void TV::ToggleRecord(PlayerContext *ctx)
@@ -11138,10 +11280,10 @@ bool TV::doOSDSelectScan(const QString &action)
 {
     QString msg = QString("");
     m_actionOSDContext->LockDeletePlayer(__FILE__, __LINE__);
-    MythPlayer *player = m_actionOSDContext->player;
-    player->SetScanType((FrameScanType) action.right(1).toInt());
+    MythPlayer *play = m_actionOSDContext->player;
+    play->SetScanType((FrameScanType) action.right(1).toInt());
     m_actionOSDContext->UnlockDeletePlayer(__FILE__, __LINE__);
-    msg = toString(player->GetScanType());
+    msg = toString(play->GetScanType());
 
     if (!msg.isEmpty())
         SetOSDMessage(m_actionOSDContext, msg);
@@ -11213,9 +11355,9 @@ bool TV::doOSDToggleFill(const QString &action)
 
 bool TV::doOSDAutodetectFill(const QString &action)
 {
-    MythPlayer *player = m_actionOSDContext->player;
-    player->detect_letter_box->SetDetectLetterbox(
-                             !player->detect_letter_box->GetDetectLetterbox());
+    MythPlayer *play = m_actionOSDContext->player;
+    play->detect_letter_box->SetDetectLetterbox(
+                               !play->detect_letter_box->GetDetectLetterbox());
     return true;
 }
 
