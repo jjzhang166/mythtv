@@ -447,6 +447,16 @@ class MTV_PUBLIC TV : public QObject
     bool doMythEventCommflagStart(const QString &action);
     bool doMythEventCommflagUpdate(const QString &action);
 
+    bool doOSDVideoExitDelRecord(const QString &action);
+    bool doOSDVideoExitDelete(const QString &action);
+    bool doOSDVideoExitConfDelete(const QString &action);
+    bool doOSDVideoExitSaveExit(const QString &action);
+    bool doOSDVideoExitKeepWatching(const QString &action);
+
+    bool doOSDChanEditProbe(const QString &action);
+    bool doOSDChanEditOk(const QString &action);
+    bool doOSDChanEditQuit(const QString &action);
+
   public slots:
     void HandleOSDClosed(int osdType);
     void timerEvent(QTimerEvent*);
@@ -1136,6 +1146,8 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_osdPlayingActions;
     MythActions<TV> *m_osdDialogActions;
     MythActions<TV> *m_osdAskAllowActions;
+    MythActions<TV> *m_osdVideoExitActions;
+    MythActions<TV> *m_osdChanEditActions;
 
     MythActions<TV> *m_networkControlActions;
     MythActions<TV> *m_mythEventActions;

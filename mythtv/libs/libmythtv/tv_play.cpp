@@ -991,6 +991,7 @@ TV::TV(void)
       m_activePostQActions(NULL), m_osdActions(NULL), m_osdExitActions(NULL),
       m_osdLiveTVActions(NULL), m_osdPlayingActions(NULL),
       m_osdDialogActions(NULL), m_osdAskAllowActions(NULL),
+      m_osdVideoExitActions(NULL), m_osdChanEditActions(NULL),
       m_networkControlActions(NULL), m_mythEventActions(NULL),
       m_actionContext(NULL)
 {
@@ -1413,6 +1414,12 @@ TV::~TV(void)
 
     if (m_osdAskAllowActions)
         delete m_osdAskAllowActions;
+
+    if (m_osdVideoExitActions)
+        delete m_osdVideoExitActions;
+
+    if (m_osdChanEditActions)
+        delete m_osdChanEditActions;
 
     if (m_networkControlActions)
         delete m_networkControlActions;
@@ -4478,7 +4485,8 @@ bool TV::Handle3D(PlayerContext *ctx, const QString &action)
     if (!m_3dActions)
         m_3dActions = new MythActions<TV>(this, t3dhActions, t3dhActionCount);
 
-    bool handled = m_3dActions->handleActions(QStringList(action));
+    bool touched;
+    bool handled = m_3dActions->handleAction(action, touched);
 
     if (!handled)
         m_action3dMode = kStereoscopicModeNone;
@@ -10631,15 +10639,18 @@ bool TV::HandleOSDCutpoint(PlayerContext *ctx, QString action, long long frame)
         return res;
 
     OSD *osd = GetOSDLock(ctx);
-    if (action == "CUTLISTOPTIONS" && osd)
+    if (!osd)
+    {
+        ReturnOSDLock(ctx, osd);
+        return true;
+    }
+
+    if (action == "CUTLISTOPTIONS")
     {
         ShowOSDCutpoint(ctx, "CUT_LIST_OPTIONS");
         res = false;
     }
-    else if (action == "DONOTHING" && osd)
-    {
-    }
-    else if (osd)
+    else if (action != "DONOTHING")
     {
         QStringList actions(action);
         if (!ctx->player->HandleProgramEditorActions(actions, frame))
@@ -10775,40 +10786,75 @@ void TV::StartChannelEditMode(PlayerContext *ctx)
     }
 }
 
-/** \fn TV::ChannelEditKey(const PlayerContext*, const QKeyEvent *e)
- *  \brief Processes channel editing key.
+
+static struct ActionDefStruct<TV> toceActions[] = {
+    { "PROBE", &TV::doOSDChanEditProbe },
+    { "OK",    &TV::doOSDChanEditOk },
+    { "QUIT",  &TV::doOSDChanEditQuit }
+};
+static int toceActionCount = NELEMS(toceActions);
+
+bool TV::doOSDChanEditProbe(const QString &action)
+{
+    OSD *osd = GetOSDLock(m_actionOSDContext);
+    if (!osd)
+    {
+        ReturnOSDLock(m_actionOSDContext, osd);
+        return false;
+    }
+
+    InfoMap infoMap;
+    osd->DialogGetText(infoMap);
+    ChannelEditAutoFill(m_actionOSDContext, infoMap);
+    insert_map(chanEditMap, infoMap);
+    osd->SetText(OSD_DLG_EDITOR, chanEditMap, kOSDTimeout_None);
+    ReturnOSDLock(m_actionOSDContext, osd);
+    return true;
+}
+
+bool TV::doOSDChanEditOk(const QString &action)
+{
+    OSD *osd = GetOSDLock(m_actionOSDContext);
+    if (!osd)
+    {
+        ReturnOSDLock(m_actionOSDContext, osd);
+        return false;
+    }
+
+    InfoMap infoMap;
+    osd->DialogGetText(infoMap);
+    insert_map(chanEditMap, infoMap);
+    m_actionOSDContext->recorder->SetChannelInfo(chanEditMap);
+    m_actionOSDHide = true;
+    ReturnOSDLock(m_actionOSDContext, osd);
+    return true;
+}
+
+bool TV::doOSDChanEditQuit(const QString &action)
+{
+    m_actionOSDHide = true;
+    return true;
+}
+
+
+/** \brief Processes channel editing key.
  */
 bool TV::HandleOSDChannelEdit(PlayerContext *ctx, QString action)
 {
     QMutexLocker locker(&chanEditMapLock);
-    bool hide = false;
+    m_actionOSDHide = false;
+    m_actionOSDContext = ctx;
 
     if (!DialogIsVisible(ctx, OSD_DLG_EDITOR))
-        return hide;
+        return false;
 
-    OSD *osd = GetOSDLock(ctx);
-    if (osd && action == "PROBE")
-    {
-        InfoMap infoMap;
-        osd->DialogGetText(infoMap);
-        ChannelEditAutoFill(ctx, infoMap);
-        insert_map(chanEditMap, infoMap);
-        osd->SetText(OSD_DLG_EDITOR, chanEditMap, kOSDTimeout_None);
-    }
-    else if (osd && action == "OK")
-    {
-        InfoMap infoMap;
-        osd->DialogGetText(infoMap);
-        insert_map(chanEditMap, infoMap);
-        ctx->recorder->SetChannelInfo(chanEditMap);
-        hide = true;
-    }
-    else if (osd && action == "QUIT")
-    {
-        hide = true;
-    }
-    ReturnOSDLock(ctx, osd);
-    return hide;
+    if (!m_osdChanEditActions)
+        m_osdChanEditActions = new MythActions<TV>(this, toceActions,
+                                                   toceActionCount);
+    bool touched;
+    m_osdChanEditActions->handleAction(action, touched);
+
+    return m_actionOSDHide;
 }
 
 /** \fn TV::ChannelEditAutoFill(const PlayerContext*,InfoMap&) const
@@ -13722,47 +13768,88 @@ void TV::ShowOSDPromptDeleteRecording(PlayerContext *ctx, QString title,
     ReturnOSDLock(ctx, osd);
 }
 
+
+static struct ActionDefStruct<TV> toveActions[] = {
+    { "DELETEANDRERECORD",   &TV::doOSDVideoExitDelRecord },
+    { "JUSTDELETE",          &TV::doOSDVideoExitDelete },
+    { "CONFIRMDELETE",       &TV::doOSDVideoExitConfDelete },
+    { "SAVEPOSITIONANDEXIT", &TV::doOSDVideoExitSaveExit },
+    { "KEEPWATCHING",        &TV::doOSDVideoExitKeepWatching }
+};
+static int toveActionCount = NELEMS(toveActions);
+
+bool TV::doOSDVideoExitDelRecord(const QString &action)
+{
+    bool delete_ok = IsDeleteAllowed(m_actionOSDContext);
+    if (!delete_ok)
+        return false;
+
+    allowRerecord = true;
+    requestDelete = true;
+    SetExitPlayer(true, true);
+    return true;
+}
+
+bool TV::doOSDVideoExitDelete(const QString &action)
+{
+    bool delete_ok = IsDeleteAllowed(m_actionOSDContext);
+    if (!delete_ok)
+        return false;
+
+    requestDelete = true;
+    SetExitPlayer(true, true);
+    return true;
+}
+
+bool TV::doOSDVideoExitConfDelete(const QString &action)
+{
+    m_actionOSDHide = false;
+    ShowOSDPromptDeleteRecording(m_actionOSDContext,
+                                 tr("Are you sure you want to delete:"), true);
+    return true;
+}
+
+bool TV::doOSDVideoExitSaveExit(const QString &action)
+{
+    bool bookmark_ok = IsBookmarkAllowed(m_actionOSDContext);
+    if (!bookmark_ok)
+        return false;
+
+    PrepareToExitPlayer(m_actionOSDContext, __LINE__);
+    SetExitPlayer(true, true);
+    return true;
+}
+
+bool TV::doOSDVideoExitKeepWatching(const QString &action)
+{
+    m_actionOSDContext->LockDeletePlayer(__FILE__, __LINE__);
+    bool near_end = m_actionOSDContext->player &&
+                    m_actionOSDContext->player->IsNearEnd();
+    m_actionOSDContext->UnlockDeletePlayer(__FILE__, __LINE__);
+
+    if (near_end)
+        return false;
+
+    DoTogglePause(m_actionOSDContext, true);
+    return true;
+}
+
+
 bool TV::HandleOSDVideoExit(PlayerContext *ctx, QString action)
 {
     if (!DialogIsVisible(ctx, OSD_DLG_VIDEOEXIT))
         return false;
 
-    bool hide        = true;
-    bool delete_ok   = IsDeleteAllowed(ctx);
-    bool bookmark_ok = IsBookmarkAllowed(ctx);
+    m_actionOSDHide = true;
+    m_actionOSDContext = ctx;
 
-    ctx->LockDeletePlayer(__FILE__, __LINE__);
-    bool near_end = ctx->player && ctx->player->IsNearEnd();
-    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+    if (!m_osdVideoExitActions)
+        m_osdVideoExitActions = new MythActions<TV>(this, toveActions,
+                                                    toveActionCount);
+    bool touched;
+    m_osdVideoExitActions->handleAction(action, touched);
 
-    if (action == "DELETEANDRERECORD" && delete_ok)
-    {
-        allowRerecord = true;
-        requestDelete = true;
-        SetExitPlayer(true, true);
-    }
-    else if (action == "JUSTDELETE" && delete_ok)
-    {
-        requestDelete = true;
-        SetExitPlayer(true, true);
-    }
-    else if (action == "CONFIRMDELETE")
-    {
-        hide = false;
-        ShowOSDPromptDeleteRecording(ctx, tr("Are you sure you want to delete:"),
-                                     true);
-    }
-    else if (action == "SAVEPOSITIONANDEXIT" && bookmark_ok)
-    {
-        PrepareToExitPlayer(ctx, __LINE__);
-        SetExitPlayer(true, true);
-    }
-    else if (action == "KEEPWATCHING" && !near_end)
-    {
-        DoTogglePause(ctx, true);
-    }
-
-    return hide;
+    return m_actionOSDContext;
 }
 
 void TV::SetLastProgram(const ProgramInfo *rcinfo)
