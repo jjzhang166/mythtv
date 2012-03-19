@@ -424,7 +424,8 @@ PlaybackBox::PlaybackBox(MythScreenStack *parent, QString name, BoxType ltype,
     // Selection state variables
     m_needUpdate(false),
     // Other
-    m_player(NULL), m_helper(this), m_actions(NULL)
+    m_player(NULL), m_helper(this), m_actions(NULL), m_mythEventActions(NULL),
+    m_recListActions(NULL)
 {
     for (uint i = 0; i < sizeof(m_artImage) / sizeof(MythUIImage*); i++)
     {
@@ -521,6 +522,12 @@ PlaybackBox::~PlaybackBox(void)
 
     if (m_actions)
         delete m_actions;
+
+    if (m_mythEventActions)
+        delete m_mythEventActions;
+
+    if (m_recListActions)
+        delete m_recListActions;
 }
 
 bool PlaybackBox::Create()
@@ -3924,11 +3931,430 @@ bool PlaybackBox::keyPressEvent(QKeyEvent *event)
     return handled;
 }
 
+static struct ActionDefStruct<PlaybackBox> pbbmeActions[] = {
+    { "^RECORDING_LIST_CHANGE",      &PlaybackBox::doMythEventRecListChange },
+    { "^NETWORK_CONTROL",            &PlaybackBox::doMythEventNetworkControl },
+    { "^UPDATE_FILE_SIZE",           &PlaybackBox::doMythEventUpdateFileSize },
+    { "UPDATE_UI_LIST",              &PlaybackBox::doMythEventUpdateUIList },
+    { "UPDATE_USAGE_UI",             &PlaybackBox::doMythEventUpdateUsageUI },
+    { "RECONNECT_SUCCESS",           &PlaybackBox::doMythEventReconSuccess },
+    { "LOCAL_PBB_DELETE_RECORDINGS", &PlaybackBox::doMythEventLocalDelete },
+    { "DELETE_SUCCESSES",            &PlaybackBox::doMythEventDeleteSuccess },
+    { "DELETE_FAILURES",             &PlaybackBox::doMythEventDeleteFailure },
+    { "PREVIEW_SUCCESS",             &PlaybackBox::doMythEventPreviewSuccess },
+    { "PREVIEW_FAILED",              &PlaybackBox::doMythEventPreviewFailure },
+    { "AVAILABILITY",                &PlaybackBox::doMythEventAvailability },
+    { "PLAY_PLAYLIST",               &PlaybackBox::doMythEventPlayPlaylist },
+    { "SET_PLAYBACK_URL",            &PlaybackBox::doMythEventSetPlaybackURL },
+    { "FOUND_ARTWORK",               &PlaybackBox::doMythEventFoundArtwork },
+    { "EXIT_TO_MENU",                &PlaybackBox::doMythEventExit }
+};
+static int pbbmeActionCount = NELEMS(pbbmeActions);
+
+static struct ActionDefStruct<PlaybackBox> pbbmerlcActions[] = {
+    { "^UPDATE", &PlaybackBox::doRecListUpdate },
+    { "^ADD",    &PlaybackBox::doRecListAdd },
+    { "^DELETE", &PlaybackBox::doRecListDelete }
+};
+static int pbbmerlcActionCount = NELEMS(pbbmerlcActions);
+
+bool PlaybackBox::doRecListUpdate(const QString &action)
+{
+    ProgramInfo evinfo(m_actionMythEventArgs);
+    if (evinfo.HasPathname() || evinfo.GetChanID())
+        HandleUpdateProgramInfoEvent(evinfo);
+    return true;
+}
+
+bool PlaybackBox::doRecListAdd(const QString &action)
+{
+    QStringList tokens = action.simplified().split(" ");
+    if (tokens.size() < 3)
+        return false;
+
+    uint chanid = tokens[1].toUInt();
+    QDateTime recstartts = QDateTime::fromString(tokens[2], Qt::ISODate);
+
+    if (!chanid || !recstartts.isValid())
+        return false;
+
+    ProgramInfo evinfo(chanid, recstartts);
+    if (evinfo.GetChanID())
+    {
+        evinfo.SetRecordingStatus(rsRecording);
+        HandleRecordingAddEvent(evinfo);
+    }
+    return true;
+}
+
+bool PlaybackBox::doRecListDelete(const QString &action)
+{
+    QStringList tokens = action.simplified().split(" ");
+    if (tokens.size() < 3)
+        return false;
+
+    uint chanid = tokens[1].toUInt();
+    QDateTime recstartts = QDateTime::fromString(tokens[2], Qt::ISODate);
+
+    if (!chanid || !recstartts.isValid())
+        return false;
+
+    HandleRecordingRemoveEvent(chanid, recstartts);
+    return true;
+}
+
+
+bool PlaybackBox::doMythEventRecListChange(const QString &action)
+{
+    QStringList tokens = action.simplified().split(" ");
+    tokens.removeFirst();
+
+    bool handled = false;
+
+    if (tokens.size())
+    {
+        QString subAction = tokens.size() ? tokens.join(" ") : "";
+
+
+        if (!m_recListActions)
+            m_recListActions =
+                new MythActions<PlaybackBox>(this, pbbmerlcActions,
+                                             pbbmerlcActionCount);
+        bool touched;
+        handled = m_recListActions->handleAction(subAction, touched);
+    }
+
+    if (!handled)
+        m_programInfoCache.ScheduleLoad();
+
+    return true;
+}
+
+bool PlaybackBox::doMythEventNetworkControl(const QString &action)
+{
+    QStringList tokens = action.simplified().split(" ");
+    if ((tokens[1] != "ANSWER") && (tokens[1] != "RESPONSE"))
+    {
+        m_ncLock.lock();
+        m_networkControlCommands.push_back(action);
+        m_ncLock.unlock();
+
+        // This should be an impossible keypress we're simulating
+        QKeyEvent *keyevent;
+        Qt::KeyboardModifiers modifiers = Qt::ShiftModifier |
+                                          Qt::ControlModifier |
+                                          Qt::AltModifier |
+                                          Qt::MetaModifier |
+                                          Qt::KeypadModifier;
+        keyevent = new QKeyEvent(QEvent::KeyPress,
+                                 Qt::Key_LaunchMedia, modifiers);
+        QCoreApplication::postEvent((QObject*)(GetMythMainWindow()),
+                                    keyevent);
+
+        keyevent = new QKeyEvent(QEvent::KeyRelease,
+                                 Qt::Key_LaunchMedia, modifiers);
+        QCoreApplication::postEvent((QObject*)(GetMythMainWindow()),
+                                    keyevent);
+    }
+    return true;
+}
+
+bool PlaybackBox::doMythEventUpdateFileSize(const QString &action)
+{
+    QStringList tokens = action.simplified().split(" ");
+    bool ok = false;
+    uint chanid = 0;
+    QDateTime recstartts;
+    uint64_t filesize = 0ULL;
+    if (tokens.size() >= 4)
+    {
+        chanid     = tokens[1].toUInt();
+        recstartts = QDateTime::fromString(tokens[2], Qt::ISODate);
+        filesize   = tokens[3].toLongLong(&ok);
+    }
+    if (chanid && recstartts.isValid() && ok)
+    {
+        HandleUpdateProgramInfoFileSizeEvent(chanid, recstartts, filesize);
+    }
+    return true;
+}
+
+bool PlaybackBox::doMythEventUpdateUIList(const QString &action)
+{
+    if (m_playingSomething)
+        m_needUpdate = true;
+    else
+    {
+        UpdateUILists();
+        m_helper.ForceFreeSpaceUpdate();
+    }
+    return true;
+}
+
+bool PlaybackBox::doMythEventUpdateUsageUI(const QString &action)
+{
+    UpdateUsageUI();
+    return true;
+}
+
+bool PlaybackBox::doMythEventReconSuccess(const QString &action)
+{
+    m_programInfoCache.ScheduleLoad();
+    return true;
+}
+
+bool PlaybackBox::doMythEventLocalDelete(const QString &action)
+{
+    QStringList list;
+    int size = m_actionMythEventArgs.size();
+    for (int i = 0; i + 3 < size; i += 4)
+    {
+        ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(
+                m_actionMythEventArgs[i].toUInt(),
+                QDateTime::fromString(m_actionMythEventArgs[i+1], Qt::ISODate));
+
+        if (!pginfo)
+            continue;
+
+        QString forceDeleteStr = m_actionMythEventArgs[i+2];
+        QString forgetHistoryStr = m_actionMythEventArgs[i+3];
+
+        list.push_back(QString::number(pginfo->GetChanID()));
+        list.push_back(pginfo->GetRecordingStartTime(ISODate));
+        list.push_back(forceDeleteStr);
+        list.push_back(forgetHistoryStr);
+        pginfo->SetAvailableStatus(asPendingDelete,
+                                   "LOCAL_PBB_DELETE_RECORDINGS");
+
+        // if the item is in the current recording list UI
+        // then delete it.
+        MythUIButtonListItem *uiItem =
+            m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+        if (uiItem)
+            m_recordingList->RemoveItem(uiItem);
+    }
+    if (!list.empty())
+        m_helper.DeleteRecordings(list);
+    return true;
+}
+
+bool PlaybackBox::doMythEventDeleteSuccess(const QString &action)
+{
+    m_helper.ForceFreeSpaceUpdate();
+    return true;
+}
+
+bool PlaybackBox::doMythEventDeleteFailure(const QString &action)
+{
+    int size = m_actionMythEventArgs.size();
+    if (size < 4)
+        return true;
+
+    for (int i = 0; i + 3 < size; i += 4)
+    {
+        ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(
+                m_actionMythEventArgs[i].toUInt(),
+                QDateTime::fromString(m_actionMythEventArgs[i+1], Qt::ISODate));
+
+        if (pginfo)
+        {
+            pginfo->SetAvailableStatus(asAvailable, "DELETE_FAILURES");
+            m_helper.CheckAvailability(*pginfo, kCheckForCache);
+        }
+    }
+
+    bool forceDelete = m_actionMythEventArgs[2].toUInt();
+    if (!forceDelete)
+    {
+        m_delList = m_actionMythEventArgs;
+        if (!m_menuDialog)
+        {
+            ShowDeletePopup(kForceDeleteRecording);
+            return true;
+        }
+
+        LOG(VB_GENERAL, LOG_WARNING, LOC +
+            "Delete failures not handled due to pre-existing popup.");
+    }
+
+    // Since we deleted items from the UI after we set
+    // asPendingDelete, we need to put them back now..
+    ScheduleUpdateUIList();
+    return true;
+}
+
+bool PlaybackBox::doMythEventPreviewSuccess(const QString &action)
+{
+    HandlePreviewEvent(m_actionMythEventArgs);
+    return true;
+}
+
+bool PlaybackBox::doMythEventPreviewFailure(const QString &action)
+{
+    int size = m_actionMythEventArgs.size();
+
+    if (size < 5)
+        return false;
+
+    for (int i = 4; i < size; i++)
+    {
+        QString token = m_actionMythEventArgs[i];
+        QSet<QString>::iterator it = m_preview_tokens.find(token);
+        if (it != m_preview_tokens.end())
+            m_preview_tokens.erase(it);
+    }
+    return false;
+}
+
+bool PlaybackBox::doMythEventAvailability(const QString &action)
+{
+    int size = m_actionMythEventArgs.size();
+
+    if (size != 8)
+        return false;
+
+    const uint kMaxUIWaitTime = 10000; // ms
+    QStringList list = m_actionMythEventArgs;
+    QString key = list[0];
+    CheckAvailabilityType cat = (CheckAvailabilityType) list[1].toInt();
+    AvailableStatusType availableStatus = (AvailableStatusType) list[2].toInt();
+    uint64_t fs = list[3].toULongLong();
+    QTime tm;
+    tm.setHMS(list[4].toUInt(), list[5].toUInt(),
+              list[6].toUInt(), list[7].toUInt());
+    QTime now = QTime::currentTime();
+    int time_elapsed = tm.msecsTo(now);
+    if (time_elapsed < 0)
+        time_elapsed += 24 * 60 * 60 * 1000;
+
+    AvailableStatusType old_avail = availableStatus;
+    ProgramInfo *pginfo = FindProgramInUILists(key);
+    if (pginfo)
+    {
+        pginfo->SetFilesize(max(pginfo->GetFilesize(), fs));
+        old_avail = pginfo->GetAvailableStatus();
+        pginfo->SetAvailableStatus(availableStatus, "AVAILABILITY");
+    }
+
+    if ((uint)time_elapsed >= kMaxUIWaitTime)
+        m_playListPlay.clear();
+
+    bool playnext = ((kCheckForPlaylistAction == cat) &&
+                     !m_playListPlay.empty());
+
+
+    if (((kCheckForPlayAction == cat) || (kCheckForPlaylistAction == cat)) &&
+        ((uint)time_elapsed < kMaxUIWaitTime))
+    {
+        if (asAvailable != availableStatus)
+        {
+            if (kCheckForPlayAction == cat && pginfo)
+                ShowAvailabilityPopup(*pginfo);
+        }
+        else if (pginfo)
+        {
+            playnext = false;
+            Play(*pginfo, kCheckForPlaylistAction == cat, false, false);
+        }
+    }
+
+    if (playnext)
+    {
+        // failed to play this item, instead
+        // play the next item on the list..
+        QCoreApplication::postEvent(this, new MythEvent("PLAY_PLAYLIST"));
+    }
+
+    if (old_avail != availableStatus)
+        UpdateUIListItem(pginfo, true);
+
+    return true;
+}
+
+bool PlaybackBox::doMythEventPlayPlaylist(const QString &action)
+{
+    if (m_playListPlay.isEmpty())
+        return false;
+
+    QString key = m_playListPlay.front();
+    m_playListPlay.pop_front();
+
+    if (!m_playListPlay.isEmpty())
+    {
+        const ProgramInfo *pginfo =
+            FindProgramInUILists(m_playListPlay.front());
+        if (pginfo)
+            m_helper.CheckAvailability(*pginfo, kCheckForCache);
+    }
+
+    ProgramInfo *pginfo = FindProgramInUILists(key);
+    if (pginfo)
+        Play(*pginfo, true, false, false);
+
+    return true;
+}
+
+bool PlaybackBox::doMythEventSetPlaybackURL(const QString &action)
+{
+    int size = m_actionMythEventArgs.size();
+    if (size != 2)
+        return false;
+
+    QString piKey = m_actionMythEventArgs[0];
+    ProgramInfo *info = m_programInfoCache.GetProgramInfo(piKey);
+    if (info)
+        info->SetPathname(m_actionMythEventArgs[1]);
+
+    return true;
+}
+
+bool PlaybackBox::doMythEventFoundArtwork(const QString &action)
+{
+    int size = m_actionMythEventArgs.size();
+    if (size < 5)
+        return false;
+
+    VideoArtworkType type      = 
+        (VideoArtworkType) m_actionMythEventArgs[2].toInt();
+    QString          pikey     = m_actionMythEventArgs[3];
+    QString          group     = m_actionMythEventArgs[4];
+    QString          fn        = m_actionMythEventArgs[5];
+
+    if (!pikey.isEmpty())
+    {
+        ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(pikey);
+        if (pginfo &&
+            m_recordingList->GetItemByData(qVariantFromValue(pginfo)) ==
+            m_recordingList->GetItemCurrent() &&
+            m_artImage[(uint)type]->GetFilename() != fn)
+        {
+            m_artImage[(uint)type]->SetFilename(fn);
+            m_artTimer[(uint)type]->start(s_artDelay[(uint)type]);
+        }
+    }
+    else if (!group.isEmpty() && (m_currentGroup == group) &&
+             m_artImage[type] && m_groupList->GetItemCurrent() &&
+             m_artImage[(uint)type]->GetFilename() != fn)
+    {
+        m_artImage[(uint)type]->SetFilename(fn);
+        m_artTimer[(uint)type]->start(s_artDelay[(uint)type]);
+    }
+    return true;
+}
+
+bool PlaybackBox::doMythEventExit(const QString &action)
+{
+    m_playListPlay.clear();
+    return true;
+}
+
+
 void PlaybackBox::customEvent(QEvent *event)
 {
     if (event->type() == DialogCompletionEvent::kEventType)
     {
-        DialogCompletionEvent *dce = dynamic_cast<DialogCompletionEvent*>(event);
+        DialogCompletionEvent *dce =
+            dynamic_cast<DialogCompletionEvent*>(event);
 
         if (!dce)
             return;
@@ -3943,315 +4369,13 @@ void PlaybackBox::customEvent(QEvent *event)
         MythEvent *me = (MythEvent *)event;
         QString message = me->Message();
 
-        if (message.left(21) == "RECORDING_LIST_CHANGE")
-        {
-            QStringList tokens = message.simplified().split(" ");
-            uint chanid = 0;
-            QDateTime recstartts;
-            if (tokens.size() >= 4)
-            {
-                chanid = tokens[2].toUInt();
-                recstartts = QDateTime::fromString(tokens[3], Qt::ISODate);
-            }
-
-            if ((tokens.size() >= 2) && tokens[1] == "UPDATE")
-            {
-                ProgramInfo evinfo(me->ExtraDataList());
-                if (evinfo.HasPathname() || evinfo.GetChanID())
-                    HandleUpdateProgramInfoEvent(evinfo);
-            }
-            else if (chanid && recstartts.isValid() && (tokens[1] == "ADD"))
-            {
-                ProgramInfo evinfo(chanid, recstartts);
-                if (evinfo.GetChanID())
-                {
-                    evinfo.SetRecordingStatus(rsRecording);
-                    HandleRecordingAddEvent(evinfo);
-                }
-            }
-            else if (chanid && recstartts.isValid() && (tokens[1] == "DELETE"))
-            {
-                if (chanid && recstartts.isValid())
-                    HandleRecordingRemoveEvent(chanid, recstartts);
-            }
-            else
-            {
-                m_programInfoCache.ScheduleLoad();
-            }
-        }
-        else if (message.left(15) == "NETWORK_CONTROL")
-        {
-            QStringList tokens = message.simplified().split(" ");
-            if ((tokens[1] != "ANSWER") && (tokens[1] != "RESPONSE"))
-            {
-                m_ncLock.lock();
-                m_networkControlCommands.push_back(message);
-                m_ncLock.unlock();
-
-                // This should be an impossible keypress we're simulating
-                QKeyEvent *keyevent;
-                Qt::KeyboardModifiers modifiers =
-                    Qt::ShiftModifier |
-                    Qt::ControlModifier |
-                    Qt::AltModifier |
-                    Qt::MetaModifier |
-                    Qt::KeypadModifier;
-                keyevent = new QKeyEvent(QEvent::KeyPress,
-                                         Qt::Key_LaunchMedia, modifiers);
-                QCoreApplication::postEvent((QObject*)(GetMythMainWindow()),
-                                            keyevent);
-
-                keyevent = new QKeyEvent(QEvent::KeyRelease,
-                                         Qt::Key_LaunchMedia, modifiers);
-                QCoreApplication::postEvent((QObject*)(GetMythMainWindow()),
-                                            keyevent);
-            }
-        }
-        else if (message.left(16) == "UPDATE_FILE_SIZE")
-        {
-            QStringList tokens = message.simplified().split(" ");
-            bool ok = false;
-            uint chanid = 0;
-            QDateTime recstartts;
-            uint64_t filesize = 0ULL;
-            if (tokens.size() >= 4)
-            {
-                chanid     = tokens[1].toUInt();
-                recstartts = QDateTime::fromString(tokens[2], Qt::ISODate);
-                filesize   = tokens[3].toLongLong(&ok);
-            }
-            if (chanid && recstartts.isValid() && ok)
-            {
-                HandleUpdateProgramInfoFileSizeEvent(
-                    chanid, recstartts, filesize);
-            }
-        }
-        else if (message == "UPDATE_UI_LIST")
-        {
-            if (m_playingSomething)
-                m_needUpdate = true;
-            else
-            {
-                UpdateUILists();
-                m_helper.ForceFreeSpaceUpdate();
-            }
-        }
-        else if (message == "UPDATE_USAGE_UI")
-        {
-            UpdateUsageUI();
-        }
-        else if (message == "RECONNECT_SUCCESS")
-        {
-            m_programInfoCache.ScheduleLoad();
-        }
-        else if (message == "LOCAL_PBB_DELETE_RECORDINGS")
-        {
-            QStringList list;
-            for (uint i = 0; i+3 < (uint)me->ExtraDataList().size(); i+=4)
-            {
-                ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(
-                        me->ExtraDataList()[i+0].toUInt(),
-                        QDateTime::fromString(
-                            me->ExtraDataList()[i+1], Qt::ISODate));
-
-                if (!pginfo)
-                    continue;
-
-                QString forceDeleteStr = me->ExtraDataList()[i+2];
-                QString forgetHistoryStr = me->ExtraDataList()[i+3];
-
-                list.push_back(QString::number(pginfo->GetChanID()));
-                list.push_back(pginfo->GetRecordingStartTime(ISODate));
-                list.push_back(forceDeleteStr);
-                list.push_back(forgetHistoryStr);
-                pginfo->SetAvailableStatus(asPendingDelete,
-                                           "LOCAL_PBB_DELETE_RECORDINGS");
-
-                // if the item is in the current recording list UI
-                // then delete it.
-                MythUIButtonListItem *uiItem =
-                    m_recordingList->GetItemByData(qVariantFromValue(pginfo));
-                if (uiItem)
-                    m_recordingList->RemoveItem(uiItem);
-            }
-            if (!list.empty())
-                m_helper.DeleteRecordings(list);
-        }
-        else if (message == "DELETE_SUCCESSES")
-        {
-            m_helper.ForceFreeSpaceUpdate();
-        }
-        else if (message == "DELETE_FAILURES")
-        {
-            if (me->ExtraDataList().size() < 4)
-                return;
-
-            for (uint i = 0; i+3 < (uint)me->ExtraDataList().size(); i += 4)
-            {
-                ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(
-                        me->ExtraDataList()[i+0].toUInt(),
-                        QDateTime::fromString(
-                            me->ExtraDataList()[i+1], Qt::ISODate));
-                if (pginfo)
-                {
-                    pginfo->SetAvailableStatus(asAvailable, "DELETE_FAILURES");
-                    m_helper.CheckAvailability(*pginfo, kCheckForCache);
-                }
-            }
-
-            bool forceDelete = me->ExtraDataList()[2].toUInt();
-            if (!forceDelete)
-            {
-                m_delList = me->ExtraDataList();
-                if (!m_menuDialog)
-                {
-                    ShowDeletePopup(kForceDeleteRecording);
-                    return;
-                }
-                else
-                {
-                    LOG(VB_GENERAL, LOG_WARNING, LOC +
-                        "Delete failures not handled due to "
-                        "pre-existing popup.");
-                }
-            }
-
-            // Since we deleted items from the UI after we set
-            // asPendingDelete, we need to put them back now..
-            ScheduleUpdateUIList();
-        }
-        else if (message == "PREVIEW_SUCCESS")
-        {
-            HandlePreviewEvent(me->ExtraDataList());
-        }
-        else if (message == "PREVIEW_FAILED" && me->ExtraDataCount() >= 5)
-        {
-            for (uint i = 4; i < (uint) me->ExtraDataCount(); i++)
-            {
-                QString token = me->ExtraData(i);
-                QSet<QString>::iterator it = m_preview_tokens.find(token);
-                if (it != m_preview_tokens.end())
-                    m_preview_tokens.erase(it);
-            }
-        }
-        else if (message == "AVAILABILITY" && me->ExtraDataCount() == 8)
-        {
-            const uint kMaxUIWaitTime = 10000; // ms
-            QStringList list = me->ExtraDataList();
-            QString key = list[0];
-            CheckAvailabilityType cat =
-                (CheckAvailabilityType) list[1].toInt();
-            AvailableStatusType availableStatus =
-                (AvailableStatusType) list[2].toInt();
-            uint64_t fs = list[3].toULongLong();
-            QTime tm;
-            tm.setHMS(list[4].toUInt(), list[5].toUInt(),
-                      list[6].toUInt(), list[7].toUInt());
-            QTime now = QTime::currentTime();
-            int time_elapsed = tm.msecsTo(now);
-            if (time_elapsed < 0)
-                time_elapsed += 24 * 60 * 60 * 1000;
-
-            AvailableStatusType old_avail = availableStatus;
-            ProgramInfo *pginfo = FindProgramInUILists(key);
-            if (pginfo)
-            {
-                pginfo->SetFilesize(max(pginfo->GetFilesize(), fs));
-                old_avail = pginfo->GetAvailableStatus();
-                pginfo->SetAvailableStatus(availableStatus, "AVAILABILITY");
-            }
-
-            if ((uint)time_elapsed >= kMaxUIWaitTime)
-                m_playListPlay.clear();
-
-            bool playnext = ((kCheckForPlaylistAction == cat) &&
-                             !m_playListPlay.empty());
-
-
-            if (((kCheckForPlayAction     == cat) ||
-                 (kCheckForPlaylistAction == cat)) &&
-                ((uint)time_elapsed < kMaxUIWaitTime))
-            {
-                if (asAvailable != availableStatus)
-                {
-                    if (kCheckForPlayAction == cat && pginfo)
-                        ShowAvailabilityPopup(*pginfo);
-                }
-                else if (pginfo)
-                {
-                    playnext = false;
-                    Play(*pginfo, kCheckForPlaylistAction == cat, false, false);
-                }
-            }
-
-            if (playnext)
-            {
-                // failed to play this item, instead
-                // play the next item on the list..
-                QCoreApplication::postEvent(
-                    this, new MythEvent("PLAY_PLAYLIST"));
-            }
-
-            if (old_avail != availableStatus)
-                UpdateUIListItem(pginfo, true);
-        }
-        else if ((message == "PLAY_PLAYLIST") && !m_playListPlay.empty())
-        {
-            QString key = m_playListPlay.front();
-            m_playListPlay.pop_front();
-
-            if (!m_playListPlay.empty())
-            {
-                const ProgramInfo *pginfo =
-                    FindProgramInUILists(m_playListPlay.front());
-                if (pginfo)
-                    m_helper.CheckAvailability(*pginfo, kCheckForCache);
-            }
-
-            ProgramInfo *pginfo = FindProgramInUILists(key);
-            if (pginfo)
-                Play(*pginfo, true, false, false);
-        }
-        else if ((message == "SET_PLAYBACK_URL") && (me->ExtraDataCount() == 2))
-        {
-            QString piKey = me->ExtraData(0);
-            ProgramInfo *info = m_programInfoCache.GetProgramInfo(piKey);
-            if (info)
-                info->SetPathname(me->ExtraData(1));
-        }
-        else if ((message == "FOUND_ARTWORK") && (me->ExtraDataCount() >= 5))
-        {
-            VideoArtworkType type      = (VideoArtworkType) me->ExtraData(2).toInt();
-            QString          pikey     = me->ExtraData(3);
-            QString          group     = me->ExtraData(4);
-            QString          fn        = me->ExtraData(5);
-
-            if (!pikey.isEmpty())
-            {
-                ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(pikey);
-                if (pginfo &&
-                    m_recordingList->GetItemByData(qVariantFromValue(pginfo)) ==
-                    m_recordingList->GetItemCurrent() &&
-                    m_artImage[(uint)type]->GetFilename() != fn)
-                {
-                    m_artImage[(uint)type]->SetFilename(fn);
-                    m_artTimer[(uint)type]->start(s_artDelay[(uint)type]);
-                }
-            }
-            else if (!group.isEmpty() &&
-                     (m_currentGroup == group) &&
-                     m_artImage[type] &&
-                     m_groupList->GetItemCurrent() &&
-                     m_artImage[(uint)type]->GetFilename() != fn)
-            {
-                m_artImage[(uint)type]->SetFilename(fn);
-                m_artTimer[(uint)type]->start(s_artDelay[(uint)type]);
-            }
-        }
-        else if (message == "EXIT_TO_MENU")
-        {
-            m_playListPlay.clear();
-        }
+        if (!m_mythEventActions)
+            m_mythEventActions =
+                new MythActions<PlaybackBox>(this, pbbmeActions,
+                                             pbbmeActionCount);
+        bool touched;
+        m_actionMythEventArgs = me->ExtraDataList();
+        m_mythEventActions->handleAction(message, touched);
     }
     else
         ScheduleCommon::customEvent(event);

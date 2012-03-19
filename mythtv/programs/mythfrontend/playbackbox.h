@@ -151,6 +151,27 @@ class PlaybackBox : public ScheduleCommon
     bool doUpcoming(const QString &action);
     bool doViewScheduled(const QString &action);
 
+    bool doMythEventRecListChange(const QString &action);
+    bool doMythEventNetworkControl(const QString &action);
+    bool doMythEventUpdateFileSize(const QString &action);
+    bool doMythEventUpdateUIList(const QString &action);
+    bool doMythEventUpdateUsageUI(const QString &action);
+    bool doMythEventReconSuccess(const QString &action);
+    bool doMythEventLocalDelete(const QString &action);
+    bool doMythEventDeleteSuccess(const QString &action);
+    bool doMythEventDeleteFailure(const QString &action);
+    bool doMythEventPreviewSuccess(const QString &action);
+    bool doMythEventPreviewFailure(const QString &action);
+    bool doMythEventAvailability(const QString &action);
+    bool doMythEventPlayPlaylist(const QString &action);
+    bool doMythEventSetPlaybackURL(const QString &action);
+    bool doMythEventFoundArtwork(const QString &action);
+    bool doMythEventExit(const QString &action);
+
+    bool doRecListUpdate(const QString &action);
+    bool doRecListAdd(const QString &action);
+    bool doRecListDelete(const QString &action);
+
   public slots:
     void displayRecGroup(const QString &newRecGroup = "");
     void groupSelectorClosed(void);
@@ -462,6 +483,10 @@ class PlaybackBox : public ScheduleCommon
     QSet<QString>       m_preview_tokens;
 
     MythActions<PlaybackBox> *m_actions;
+    MythActions<PlaybackBox> *m_mythEventActions;
+    MythActions<PlaybackBox> *m_recListActions;
+
+    QStringList m_actionMythEventArgs;
 };
 
 class GroupSelector : public MythScreenType
