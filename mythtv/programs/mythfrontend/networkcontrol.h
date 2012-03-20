@@ -101,6 +101,72 @@ class NetworkControl : public ServerPool, public QRunnable
     bool doMusicControl(const QString &action);
     bool doNetworkControl(const QString &action);
 
+    bool doNetCtrlJump(const QString &action);
+    bool doNetCtrlKey(const QString &action);
+    bool doNetCtrlPlay(const QString &action);
+    bool doNetCtrlQuery(const QString &action);
+    bool doNetCtrlSet(const QString &action);
+    bool doNetCtrlScreenshot(const QString &action);
+    bool doNetCtrlHelp(const QString &action);
+    bool doNetCtrlMessage(const QString &action);
+    bool doNetCtrlExit(const QString &action);
+
+    bool doPlayFile(const QString &action);
+    bool doPlayProgram(const QString &action);
+    bool doPlayMusic(const QString &action);
+    bool doPlayChanID(const QString &action);
+    bool doPlayChannel(const QString &action);
+    bool doPlaySeek(const QString &action);
+    bool doPlaySpeed(const QString &action);
+    bool doPlaySave(const QString &action);
+    bool doPlayStop(const QString &action);
+    bool doPlayVolume(const QString &action);
+
+    bool doMusicPlay(const QString &action);
+    bool doMusicPause(const QString &action);
+    bool doMusicStop(const QString &action);
+    bool doMusicGetVolume(const QString &action);
+    bool doMusicGetMeta(const QString &action);
+    bool doMusicSetVolume(const QString &action);
+    bool doMusicTrack(const QString &action);
+    bool doMusicURL(const QString &action);
+    bool doMusicFile(const QString &action);
+
+    bool doChanUp(const QString &action);
+    bool doChanDown(const QString &action);
+    bool doChanChannel(const QString &action);
+
+    bool doSeekBegin(const QString &action);
+    bool doSeekForward(const QString &action);
+    bool doSeekBackward(const QString &action);
+    bool doSeekTime(const QString &action);
+
+    bool doSpeedNormal(const QString &action);
+    bool doSpeedPause(const QString &action);
+    bool doSpeedSpeed(const QString &action);
+
+    bool doQueryLocation(const QString &action);
+    bool doQueryVerbose(const QString &action);
+    bool doQueryLiveTV(const QString &action);
+    bool doQueryVersion(const QString &action);
+    bool doQueryTime(const QString &action);
+    bool doQueryUptime(const QString &action);
+    bool doQueryLoad(const QString &action);
+    bool doQueryMemstats(const QString &action);
+    bool doQueryVolume(const QString &action);
+    bool doQueryRecording(const QString &action);
+    bool doQueryRecordings(const QString &action);
+    bool doQueryChannels(const QString &action);
+
+    bool doHelpJump(const QString &action);
+    bool doHelpKey(const QString &action);
+    bool doHelpPlay(const QString &action);
+    bool doHelpQuery(const QString &action);
+    bool doHelpSet(const QString &action);
+    bool doHelpScreenshot(const QString &action);
+    bool doHelpExit(const QString &action);
+    bool doHelpMessage(const QString &action);
+
   private slots:
     void newConnection(QTcpSocket *socket);
     void receiveCommand(QString &command);
@@ -153,6 +219,19 @@ class NetworkControl : public ServerPool, public QRunnable
     bool stopCommandThread; // protected by ncLock
 
     MythActions<NetworkControl> *m_actions;
+    MythActions<NetworkControl> *m_netCtrlCmdActions;
+    MythActions<NetworkControl> *m_playCmdActions;
+    MythActions<NetworkControl> *m_musicCmdActions;
+    MythActions<NetworkControl> *m_chanCmdActions;
+    MythActions<NetworkControl> *m_seekCmdActions;
+    MythActions<NetworkControl> *m_speedCmdActions;
+    MythActions<NetworkControl> *m_queryCmdActions;
+    MythActions<NetworkControl> *m_helpCmdActions;
+
+    NetworkCommand *m_netCtrlCmd;
+    int m_netCtrlClient;
+    QString m_netCtrlResult;
+    QString m_netCtrlMessage;
 };
 
 #endif

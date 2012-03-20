@@ -38,29 +38,67 @@ template <class T>
 class MBASE_PUBLIC MythActions : public ActionMap<T>
 {
   public:
-    MythActions(T *parent, struct ActionDefStruct<T> *defs, int count) :
+    MythActions(T *parent, struct ActionDefStruct<T> *defs, int count,
+                bool abbrev = false) :
         m_parent(parent), m_regex(false)
     {
-        LOG(VB_KEYPRESS, LOG_DEBUG, "Creating map");
-        static QRegExp special("[^$*]");
+        LOG(VB_KEYPRESS, LOG_DEBUG, "Creating hash");
+        static QRegExp special("[\\^\\$\\[\\]]");
 
-        m_actions = new struct ActionStruct<T>[count];
-        for (int i = 0; i < count; i++)
+        int size = count;
+
+        if (abbrev)
         {
-            m_actions[i].def.name    = defs[i].name;
-            m_actions[i].def.handler = defs[i].handler;
+            // This will likely be larger than needed (if containing a regex)
+            size = 0;
+            for (int i = 0; i < count; i++)
+                size += defs[i].name.size();
+        }
 
-            QString name = m_actions[i].def.name;
-
+        m_actions = new struct ActionStruct<T>[size];
+        for (int i = 0, j = 0; i < count; i++)
+        {
+            QString name = defs[i].name;
             if (name.contains(special))
             {
-                m_actions[i].regex = QRegExp(name);
-                m_regexList.append(&m_actions[i]);
+                LOG(VB_KEYPRESS, LOG_DEBUG, "Regexp: " + name);
+                m_actions[j].def.name    = defs[i].name;
+                m_actions[j].def.handler = defs[i].handler;
+                m_actions[j].regex       = QRegExp(name);
+                m_regexList.append(&m_actions[j]);
                 m_regex = true;
+                j++;
             }
-            insert(name, &m_actions[i]);
+            else
+            {
+                do {
+                    LOG(VB_KEYPRESS, LOG_DEBUG, "Mapping " + name);
+                    m_actions[j].def.name    = name;
+                    m_actions[j].def.handler = defs[i].handler;
+                    insertMulti(name, &m_actions[j]);
+                    j++;
+                    name.chop(1);
+                } while (abbrev && !name.isEmpty());
+            }
         }
-        LOG(VB_KEYPRESS, LOG_DEBUG, "Finished creating map");
+
+        if (abbrev)
+        {
+            // prune the hash to just unique mappings
+            LOG(VB_KEYPRESS, LOG_DEBUG, "Pruning abbreviation hash");
+            QStringList keylist = this->uniqueKeys();
+
+            for(QStringList::iterator it = keylist.begin(); it != keylist.end();
+                ++it)
+            {
+                if (this->count(*it) > 1)
+                {
+                    LOG(VB_KEYPRESS, LOG_DEBUG, "Removing " + *it);
+                    this->remove(*it);
+                }
+            }
+        }
+        LOG(VB_KEYPRESS, LOG_DEBUG, "Finished creating hash");
     }
 
     ~MythActions()
