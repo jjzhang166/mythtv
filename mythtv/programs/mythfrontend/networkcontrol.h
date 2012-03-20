@@ -13,6 +13,7 @@ using namespace std;
 
 #include "mthread.h"
 #include "serverpool.h"
+#include "mythactions.h"
 
 class MainServer;
 class QTextStream;
@@ -97,6 +98,9 @@ class NetworkControl : public ServerPool, public QRunnable
     NetworkControl();
     ~NetworkControl();
 
+    bool doMusicControl(const QString &action);
+    bool doNetworkControl(const QString &action);
+
   private slots:
     void newConnection(QTcpSocket *socket);
     void receiveCommand(QString &command);
@@ -147,6 +151,8 @@ class NetworkControl : public ServerPool, public QRunnable
 
     MThread *commandThread;
     bool stopCommandThread; // protected by ncLock
+
+    MythActions<NetworkControl> *m_actions;
 };
 
 #endif

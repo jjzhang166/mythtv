@@ -23,6 +23,7 @@
 // libmythui
 #include "mythmainwindow.h"
 #include "mythuihelper.h"
+#include "mythactions.h"
 
 #define LOC QString("NetworkControl: ")
 #define LOC_ERR QString("NetworkControl Error: ")
@@ -56,7 +57,7 @@ NetworkControl::NetworkControl() :
     gotAnswer(false), answer(""),
     clientLock(QMutex::Recursive),
     commandThread(new MThread("NetworkControl", this)),
-    stopCommandThread(false)
+    stopCommandThread(false), m_actions(NULL)
 {
     // Eventually this map should be in the jumppoints table
     jumpMap["channelpriorities"]     = "Channel Recording Priorities";
@@ -243,6 +244,9 @@ NetworkControl::~NetworkControl(void)
     commandThread->wait();
     delete commandThread;
     commandThread = NULL;
+
+    if (m_actions)
+        delete m_actions;
 }
 
 void NetworkControl::run(void)
@@ -385,15 +389,7 @@ void NetworkControlClient::readClient(void)
     QString lineIn;
     while (socket->canReadLine())
     {
-        lineIn = socket->readLine();
-#if 0
-        lineIn.replace(QRegExp("[^-a-zA-Z0-9\\s\\.:_#/$%&()*+,;<=>?\\[\\]\\|]"),
-                       "");
-#endif
-
-        // TODO: can this be replaced with lineIn.simplify()?
-        lineIn.replace(QRegExp("[\r\n]"), "");
-        lineIn.replace(QRegExp("^\\s"), "");
+        lineIn = socket->readLine().simplified();
 
         if (lineIn.isEmpty())
             continue;
@@ -1237,6 +1233,54 @@ void NetworkControl::sendReplyToClient(NetworkControlClient *ncc,
     }
 }
 
+static struct ActionDefStruct<NetworkControl> ncActions[] = {
+    { "^MUSIC_CONTROL",   &NetworkControl::doMusicControl },
+    { "^NETWORK_CONTROL", &NetworkControl::doNetworkControl }
+};
+static int ncActionCount = NELEMS(ncActions);
+
+bool NetworkControl::doMusicControl(const QString &action)
+{
+    QStringList tokens = action.simplified().split(" ");
+    tokens.removeFirst();
+    int size = tokens.size();
+
+    if ((size >= 3) && (tokens[0] == "ANSWER") &&
+        (tokens[1] == gCoreContext->GetHostName()))
+    {
+        answer = tokens[2];
+        for (int i = 3; i < size; i++)
+            answer += QString(" ") + tokens[i];
+        gotAnswer = true;
+    } 
+
+    return true;
+}
+
+bool NetworkControl::doNetworkControl(const QString &action)
+{
+    QStringList tokens = action.simplified().split(" ");
+    tokens.removeFirst();
+    int size = tokens.size();
+
+    if ((size >= 2) && (tokens[0] == "ANSWER"))
+    {
+        answer = tokens[1];
+        for (int i = 2; i < size; i++)
+            answer += QString(" ") + tokens[i];
+        gotAnswer = true;
+    }
+    else if ((size >= 3) && (tokens[0] == "RESPONSE"))
+    {
+//        int clientID = tokens[1].toInt();
+        answer = tokens[2];
+        for (int i = 3; i < size; i++)
+            answer += QString(" ") + tokens[i];
+        gotAnswer = true;
+    }
+    return true;
+}
+
 void NetworkControl::customEvent(QEvent *e)
 {
     if ((MythEvent::Type)(e->type()) == MythEvent::MythEventMessage)
@@ -1244,41 +1288,12 @@ void NetworkControl::customEvent(QEvent *e)
         MythEvent *me = (MythEvent *)e;
         QString message = me->Message();
 
-        if (message.left(13) == "MUSIC_CONTROL")
-        {
-            QStringList tokens = message.simplified().split(" ");
-            if ((tokens.size() >= 4) &&
-                (tokens[1] == "ANSWER") &&
-                (tokens[2] == gCoreContext->GetHostName()))
-            {
-                answer = tokens[3];
-                for (int i = 4; i < tokens.size(); i++)
-                    answer += QString(" ") + tokens[i];
-                gotAnswer = true;
-            } 
+        if (!m_actions)
+            m_actions = new MythActions<NetworkControl>(this, ncActions,
+                                                        ncActionCount);
+        bool touched;
+        m_actions->handleAction(message, touched);
 
-        }
-        else if (message.left(15) == "NETWORK_CONTROL")
-        {
-            QStringList tokens = message.simplified().split(" ");
-            if ((tokens.size() >= 3) &&
-                (tokens[1] == "ANSWER"))
-            {
-                answer = tokens[2];
-                for (int i = 3; i < tokens.size(); i++)
-                    answer += QString(" ") + tokens[i];
-                gotAnswer = true;
-            }
-            else if ((tokens.size() >= 4) &&
-                     (tokens[1] == "RESPONSE"))
-            {
-//                int clientID = tokens[2].toInt();
-                answer = tokens[3];
-                for (int i = 4; i < tokens.size(); i++)
-                    answer += QString(" ") + tokens[i];
-                gotAnswer = true;
-            }
-        }
     }
     else if (e->type() == kNetworkControlDataReadyEvent)
     {
@@ -1315,7 +1330,8 @@ void NetworkControl::customEvent(QEvent *e)
     }
     else if (e->type() == NetworkControlCloseEvent::kEventType)
     {
-        NetworkControlCloseEvent *ncce = static_cast<NetworkControlCloseEvent*>(e);
+        NetworkControlCloseEvent *ncce =
+            static_cast<NetworkControlCloseEvent*>(e);
         NetworkControlClient     *ncc  = ncce->getClient();
 
         deleteClient(ncc);
