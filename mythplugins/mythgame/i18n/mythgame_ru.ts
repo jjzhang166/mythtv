@@ -250,7 +250,7 @@ Remove it from the database?</source>
         <location filename="../mythgame/gamehandler.cpp" line="714"/>
         <location filename="../mythgame/gamehandler.cpp" line="742"/>
         <source>Scanning for %1 games...</source>
-        <translation type="unfinished">Поиск игр(ы) %1...</translation>
+        <translation>Поиск игр(ы) %1...</translation>
     </message>
     <message>
         <location filename="../mythgame/gamehandler.cpp" line="382"/>
@@ -268,44 +268,14 @@ Remove it from the database?</source>
         <translation>Порядок в котором сортируются игры - задается для всей системы. Доступные варианты: система, год, жанр и название игры</translation>
     </message>
     <message>
-        <location filename="../mythgame/gamesettings.cpp" line="36"/>
-        <source>Favourite display order</source>
-        <translation>Порядок отображения избранного</translation>
-    </message>
-    <message>
-        <location filename="../mythgame/gamesettings.cpp" line="38"/>
-        <source>Order in which to sort the games marked as favourites - this is for all systems. Available choices: system, year, genre and gamename</source>
-        <translation>Порядок в котором сортируются игры помеченные как избранные - задается для всей системы. Доступные варианты: система, год, жанр и название игры</translation>
-    </message>
-    <message>
         <location filename="../mythgame/gamesettings.cpp" line="48"/>
         <source>Indepth Game Scan</source>
         <translation>Тщательный поиск игр</translation>
     </message>
     <message>
-        <location filename="../mythgame/gamesettings.cpp" line="49"/>
-        <source>Enabling this causes a game scan to gather crc values and attempt to find out more detailed information about the game: NOTE this can greatly increase the time a gamescan takes based on the amount of games scanned.</source>
-        <translation type="unfinished">Включение этого приведет к тому что при поиске игр будут собираться значения CRC и будет выполненена попытка найти более подробную информацию об игре: это может значительно увеличить время поиска игр в зависимости от количества игр.</translation>
-    </message>
-    <message>
-        <location filename="../mythgame/gamesettings.cpp" line="58"/>
-        <source>Prompt for removal of deleted rom(s)</source>
-        <translation>Запрос на удаление ROM образа(ов)</translation>
-    </message>
-    <message>
-        <location filename="../mythgame/gamesettings.cpp" line="59"/>
-        <source>This enables a prompt for removing deleted roms from the database during a  gamescan</source>
-        <translation>Это включает запрос при удалении ROM образов из базы данных во время поиска игр</translation>
-    </message>
-    <message>
         <location filename="../mythgame/gamesettings.cpp" line="69"/>
         <source>Display Files Names in Game Tree</source>
         <translation>Показывать имя файлов в дереве игр</translation>
-    </message>
-    <message>
-        <location filename="../mythgame/gamesettings.cpp" line="70"/>
-        <source>Enabling this causes the filenames to be displayed in the game tree rather than the trimmed/looked up gamename</source>
-        <translation type="unfinished">Включение этого приведет к тому что имена файлов будут отображаться в дереве игр, а не обрезанные названия игр</translation>
     </message>
     <message>
         <location filename="../mythgame/gamesettings.cpp" line="77"/>
@@ -353,11 +323,6 @@ Remove it from the database?</source>
         <translation>Настройки MythGame -- Общее</translation>
     </message>
     <message>
-        <location filename="../mythgame/gamesettings.cpp" line="160"/>
-        <source>Allow games to span multiple roms/disks</source>
-        <translation>Разрешить играм занимать нескольо образов/дисков</translation>
-    </message>
-    <message>
         <location filename="../mythgame/gamesettings.cpp" line="161"/>
         <source>This setting means that we will look for items like game.1.rom, game.2.rom and consider them a single game.</source>
         <translation>Этот параметр означает, что мы будем искать элементы такие как game.1.rom, game.2.rom и считать их одной игрой.</translation>
@@ -366,11 +331,6 @@ Remove it from the database?</source>
         <location filename="../mythgame/gamesettings.cpp" line="171"/>
         <source>Command</source>
         <translation>Команда</translation>
-    </message>
-    <message>
-        <location filename="../mythgame/gamesettings.cpp" line="172"/>
-        <source>Binary and optional parameters. Multiple commands separated with &apos;;&apos; . Use %s for the rom name. %d1, %d2, %d3 and %d4 represent disks in a multidisk/game. %s auto appended if not specified</source>
-        <translation>Двоичные и необязательные параметры. Несколько команд, разделенные &quot;;&quot;. Используйте %s для названия образа rom %d1,%d2,%d3 и %d4 представляют собой диски в многодисковых играх. %s добавляется автоматически, если не указано</translation>
     </message>
     <message>
         <location filename="../mythgame/gamesettings.cpp" line="198"/>
@@ -386,6 +346,46 @@ Remove it from the database?</source>
         <location filename="../mythgame/gamesettings.cpp" line="182"/>
         <source>Type</source>
         <translation>Тип</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="36"/>
+        <source>Favorite display order</source>
+        <translation>Порядок отображения избранного</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="38"/>
+        <source>Order in which to sort the games marked as favorites - this is for all systems. Available choices: system, year, genre and gamename</source>
+        <translation>Порядок в котором сортируются игры помеченные как избранные - задается для всех систем. Доступные варианты: система, год, жанр и название игры</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="49"/>
+        <source>Enabling this causes a game scan to gather CRC values and attempt to find out more detailed information about the game: NOTE this can greatly increase the time a game scan takes based on the amount of games scanned.</source>
+        <translation>Включение этого приведет к тому что при поиске игр будут собираться значения CRC и будет выполненена попытка найти более подробную информацию об игре: это может значительно увеличить время поиска игр в зависимости от количества игр.</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="58"/>
+        <source>Prompt for removal of deleted ROM(s)</source>
+        <translation>Запрос на удаление ROM образа(ов)</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="59"/>
+        <source>This enables a prompt for removing deleted ROMs from the database during a  game scan</source>
+        <translation>Это включает запрос при удалении ROM образов из базы данных во время поиска игр</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="70"/>
+        <source>Enabling this causes the filenames to be displayed in the game tree rather than the trimmed/looked up game name</source>
+        <translation>Включение этого приведет к тому что имена файлов будут отображаться в дереве игр, а не обрезанные названия игр</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="160"/>
+        <source>Allow games to span multiple ROMs/disks</source>
+        <translation>Разрешить играм занимать нескольо образов/дисков</translation>
+    </message>
+    <message>
+        <location filename="../mythgame/gamesettings.cpp" line="172"/>
+        <source>Binary and optional parameters. Multiple commands separated with &apos;;&apos; . Use %s for the ROM name. %d1, %d2, %d3 and %d4 represent disks in a multidisk/game. %s auto appended if not specified</source>
+        <translation>Двоичные и необязательные параметры. Несколько команд, разделенные &quot;;&quot;. Используйте %s для названия образа rom %d1,%d2,%d3 и %d4 представляют собой диски в многодисковых играх. %s добавляется автоматически, если не указано</translation>
     </message>
     <message>
         <location filename="../mythgame/gamesettings.cpp" line="188"/>
@@ -405,7 +405,7 @@ Remove it from the database?</source>
     <message>
         <location filename="../mythgame/gamesettings.cpp" line="210"/>
         <source>Directory to change to before launching emulator. Blank is usually fine</source>
-        <translation type="unfinished">Каталог для изменения перед запуском эмулятора. Пустой, как правило, является хорошим вариантом</translation>
+        <translation>Каталог для изменения перед запуском эмулятора. Пустой, как правило, является хорошим вариантом</translation>
     </message>
     <message>
         <location filename="../mythgame/gamesettings.cpp" line="220"/>
@@ -702,46 +702,51 @@ Remove it from the database?</source>
     </message>
     <message>
         <location filename="themestrings.h" line="46"/>
+        <source>Favorite</source>
+        <translation>Избранное</translation>
+    </message>
+    <message>
+        <location filename="themestrings.h" line="47"/>
         <source>No Plot.</source>
         <translation>Нет описания.</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="47"/>
+        <location filename="themestrings.h" line="48"/>
         <source>General Settings</source>
         <translation>Общие настройки</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="48"/>
+        <location filename="themestrings.h" line="49"/>
         <source>Game folders and general options</source>
         <translation>Каталоги для игр и общие параметы</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="49"/>
+        <location filename="themestrings.h" line="50"/>
         <source>Game Players</source>
         <translation>Эмуляторы</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="50"/>
+        <location filename="themestrings.h" line="51"/>
         <source>Configure an emulator</source>
         <translation>Настроить эмулятор</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="51"/>
+        <location filename="themestrings.h" line="52"/>
         <source>Scan for Games</source>
         <translation>Поиск игр</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="52"/>
+        <location filename="themestrings.h" line="53"/>
         <source>Add games to your library</source>
         <translation>Добавить игры в библиотеку</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="53"/>
+        <location filename="themestrings.h" line="54"/>
         <source>Clear Game Data</source>
         <translation>Очистить данные игры</translation>
     </message>
     <message>
-        <location filename="themestrings.h" line="54"/>
+        <location filename="themestrings.h" line="55"/>
         <source>Empty your game library</source>
         <translation>Очистить библиотеку игр</translation>
     </message>

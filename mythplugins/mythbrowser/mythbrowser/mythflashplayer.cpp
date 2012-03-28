@@ -8,7 +8,7 @@
 // myth
 #include <mythlogging.h>
 #include <mythcontext.h>
-#include <libmythui/mythmainwindow.h>
+#include <mythmainwindow.h>
 #include <mythuiwebbrowser.h>
 #include <playgroup.h>
 
@@ -28,6 +28,7 @@ MythFlashPlayer::MythFlashPlayer(MythScreenStack *parent,
     m_rewtime      = PlayGroup::GetSetting("Default", "skipback", 5);
     m_jumptime     = PlayGroup::GetSetting("Default", "jump", 10);
     qApp->setOverrideCursor(QCursor(Qt::BlankCursor));
+    GetMythMainWindow()->PauseIdleTimer(true);
 }
 
 
@@ -44,6 +45,8 @@ MythFlashPlayer::~MythFlashPlayer()
 
     if (m_actions)
         delete m_actions;
+
+    GetMythMainWindow()->PauseIdleTimer(false);
 }
 
 bool MythFlashPlayer::Create(void)

@@ -144,8 +144,8 @@ const char* NamedOptType(int type)
 CommandLineArg::CommandLineArg(QString name, QVariant::Type type,
                    QVariant def, QString help, QString longhelp) :
     ReferenceCounter(), m_given(false), m_converted(false), m_name(name),
-    m_group(""), m_deprecated(""), m_type(type), m_default(def), m_help(help),
-    m_longhelp(longhelp)
+    m_group(""), m_deprecated(""), m_removed(""), m_removedversion(""),
+    m_type(type), m_default(def), m_help(help), m_longhelp(longhelp)
 {
     if ((m_type != QVariant::String) && (m_type != QVariant::StringList) &&
             (m_type != QVariant::Map))
@@ -160,7 +160,8 @@ CommandLineArg::CommandLineArg(QString name, QVariant::Type type,
  */
 CommandLineArg::CommandLineArg(QString name, QVariant::Type type, QVariant def)
   : ReferenceCounter(), m_given(false), m_converted(false), m_name(name),
-    m_group(""), m_deprecated(""), m_type(type), m_default(def)
+    m_group(""), m_deprecated(""), m_removed(""), m_removedversion(""),
+    m_type(type), m_default(def)
 {
     if ((m_type != QVariant::String) && (m_type != QVariant::StringList) &&
             (m_type != QVariant::Map))
@@ -176,7 +177,8 @@ CommandLineArg::CommandLineArg(QString name, QVariant::Type type, QVariant def)
  */
 CommandLineArg::CommandLineArg(QString name) :
     ReferenceCounter(), m_given(false), m_converted(false), m_name(name),
-    m_deprecated(""), m_type(QVariant::Invalid)
+    m_deprecated(""), m_removed(""), m_removedversion(""),
+    m_type(QVariant::Invalid)
 {
 }
 
@@ -242,6 +244,10 @@ QString CommandLineArg::GetHelpString(int off, QString group, bool force) const
         // option is marked as deprecated, do not show
         return helpstr;
 
+    if (!m_removed.isEmpty())
+        // option is marked as removed, do not show
+        return helpstr;
+
     QString pad;
     pad.fill(' ', off);
 
@@ -284,14 +290,12 @@ QString CommandLineArg::GetLongHelpString(QString keyword) const
     if (!m_keywords.contains(keyword))
         return helpstr;
 
+    // argument has been marked as removed, so warn user of such
+    if (!m_removed.isEmpty())
+        PrintRemovedWarning(keyword);
     // argument has been marked as deprecated, so warn user of such
-    if (!m_deprecated.isEmpty())
-        cerr << QString("****************************************************\n"
-                        " WARNING: %1 has been deprecated\n"
-                        "          %2\n"
-                        "****************************************************\n\n")
-                    .arg(keyword).arg(m_deprecated)
-                    .toLocal8Bit().constData();
+    else if (!m_deprecated.isEmpty())
+        PrintDeprecatedWarning(keyword);
 
     msg << "Option:      " << keyword << endl << endl;
 
@@ -652,6 +656,17 @@ CommandLineArg* CommandLineArg::SetDeprecated(QString depstr)
     if (depstr.isEmpty())
         depstr = "and will be removed in a future version.";
     m_deprecated = depstr;
+    return this;
+}
+
+/** \brief Set option as removed
+ */
+CommandLineArg* CommandLineArg::SetRemoved(QString remstr, QString remver)
+{
+    if (remstr.isEmpty())
+        remstr = "and is no longer available in this version.";
+    m_removed = remstr;
+    m_removedversion = remver;
     return this;
 }
 
@@ -1063,6 +1078,34 @@ void CommandLineArg::PrintVerbose(void) const
     }
 }
 
+/** \brief Internal use. Print warning for removed option.
+ */
+void CommandLineArg::PrintRemovedWarning(QString &keyword) const
+{
+    QString warn = QString("%1 has been removed").arg(keyword);
+    if (!m_removedversion.isEmpty())
+        warn += QString(" as of MythTV %1").arg(m_removedversion);
+
+    cerr << QString("****************************************************\n"
+                    " WARNING: %1\n"
+                    "          %2\n"
+                    "****************************************************\n\n")
+                .arg(warn).arg(m_removed)
+                .toLocal8Bit().constData();
+}
+
+/** \brief Internal use. Print warning for deprecated option.
+ */
+void CommandLineArg::PrintDeprecatedWarning(QString &keyword) const
+{
+    cerr << QString("****************************************************\n"
+                    " WARNING: %1 has been deprecated\n"
+                    "          %2\n"
+                    "****************************************************\n\n")
+                .arg(keyword).arg(m_deprecated)
+                .toLocal8Bit().constData();
+}
+
 /** \class MythCommandLineParser
  *  \brief Parent class for defining application command line parsers
  *
@@ -1096,8 +1139,8 @@ MythCommandLineParser::~MythCommandLineParser()
     i = m_namedArgs.begin();
     while (i != m_namedArgs.end())
     {
-        (*i)->DownRef();
         (*i)->CleanupLinks();
+        (*i)->DownRef();
         i = m_namedArgs.erase(i);
     }
 
@@ -1356,8 +1399,11 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
     QByteArray val;
     CommandLineArg *argdef;
 
+    // reconnect interdependencies between command line options
+    if (!ReconcileLinks())
+        return false;
+
     // loop through command line arguments until all are spent
-    QMap<QString, CommandLineArg>::const_iterator i;
     for (int argpos = 1; argpos < argc; ++argpos)
     {
 
@@ -1373,6 +1419,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         if (res == kPassthrough && !m_namedArgs.contains("_passthrough"))
         {
             cerr << "Received '--' but passthrough has not been enabled" << endl;
+            SetValue("showhelp", "");
             return false;
         }
 
@@ -1390,6 +1437,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         {
             cerr << "Invalid option received:" << endl << "    "
                  << opt.toLocal8Bit().constData();
+            SetValue("showhelp", "");
             return false;
         }
 
@@ -1409,6 +1457,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
                      << val.constData()
                      << "' but unassociated arguments have not been enabled"
                      << endl;
+                SetValue("showhelp", "");
                 return false;        
             }
 
@@ -1421,6 +1470,7 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         {
             cerr << "Command line arguments received out of sequence"
                  << endl;
+            SetValue("showhelp", "");
             return false;
         }
 
@@ -1451,20 +1501,24 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
                 // arbitrary not allowed, fault out
                 cerr << "Unhandled option given on command line:" << endl 
                      << "    " << opt.toLocal8Bit().constData() << endl;
+                SetValue("showhelp", "");
                 return false;
             }
         }
         else
             argdef = m_optionedArgs[opt];
 
+        // argument has been marked as removed, warn user and fail
+        if (!argdef->m_removed.isEmpty())
+        {
+            argdef->PrintRemovedWarning(opt);
+            SetValue("showhelp", "");
+            return false;
+        }
+
         // argument has been marked as deprecated, warn user
         if (!argdef->m_deprecated.isEmpty())
-            cerr << QString("****************************************************\n"
-                            " WARNING: %1 has been deprecated\n"
-                            "          %2\n"
-                            "****************************************************\n\n")
-                        .arg(opt).arg(argdef->m_deprecated)
-                        .toLocal8Bit().constData();
+            argdef->PrintDeprecatedWarning(opt);
 
         if (m_verbose)
             cerr << "name: " << argdef->GetName().toLocal8Bit().constData()
@@ -1474,7 +1528,10 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         if (res == kOptOnly)
         {
             if (!argdef->Set(opt))
+            {
+                SetValue("showhelp", "");
                 return false;
+            }
         }
         // argument has keyword and value
         else if (res == kOptVal)
@@ -1483,24 +1540,31 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
             {
                 // try testing keyword with no value
                 if (!argdef->Set(opt))
+                {
+                    SetValue("showhelp", "");
                     return false;
+                }
                 // drop back an iteration so the unused value will get
                 // processed a second time as a keyword-less argument
                 --argpos;
             }
         }
         else
+        {
+            SetValue("showhelp", "");
             return false; // this should not occur
+        }
 
         if (m_verbose)
             cerr << "value: " << argdef->m_stored.toString().toLocal8Bit().constData()
                  << endl;
     }
  
+    QMap<QString, CommandLineArg*>::const_iterator it;
+
     if (m_verbose)
     {
         cerr << "Processed option list:" << endl;
-        QMap<QString, CommandLineArg*>::const_iterator it;
         for (it = m_namedArgs.begin(); it != m_namedArgs.end(); ++it)
             (*it)->PrintVerbose();
 
@@ -1522,7 +1586,26 @@ bool MythCommandLineParser::Parse(int argc, const char * const * argv)
         cerr << endl;
     }
 
-    return ReconcileLinks();
+    // make sure all interdependencies are fulfilled
+    for (it = m_namedArgs.begin(); it != m_namedArgs.end(); ++it)
+    {
+        if (!(*it)->TestLinks())
+        {
+            QString keyword = (*it)->m_usedKeyword;
+            if (keyword.startsWith('-'))
+            {
+                if (keyword.startsWith("--"))
+                    keyword.remove(0,2);
+                else
+                    keyword.remove(0,1);
+            }
+
+            SetValue("showhelp", keyword);
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /** \brief Replace dummy arguments used to define interdependency with pointers
@@ -1663,12 +1746,6 @@ bool MythCommandLineParser::ReconcileLinks(void)
             (*i1)->SetBlocks(m_namedArgs[(*i2)->m_name]);
             ++i2;
         }
-    }
-
-    for (i1 = m_namedArgs.begin(); i1 != m_namedArgs.end(); ++i1)
-    {
-        if (!(*i1)->TestLinks())
-            return false;
     }
 
     return true;
@@ -2130,7 +2207,8 @@ void MythCommandLineParser::allowPassthrough(bool allow)
 void MythCommandLineParser::addHelp(void)
 {
     add(QStringList( QStringList() << "-h" << "--help" << "--usage" ),
-            "showhelp", "", "Display this help printout.",
+            "showhelp", "", "Display this help printout, or give detailed "
+                            "information of selected option.",
             "Displays a list of all commands available for use with "
             "this application. If another option is provided as an "
             "argument, it will provide detailed information on that "
@@ -2288,6 +2366,15 @@ void MythCommandLineParser::addLogging(
                 ->SetGroup("Logging");
     add("--nodblog", "nodblog", false, "Disable database logging.", "")
                 ->SetGroup("Logging");
+
+    add(QStringList( QStringList() << "-l" << "--logfile" ),
+        "logfile", "", "", "")
+                ->SetGroup("Logging")
+                ->SetRemoved("This option has been removed as part of "
+            "rewrite of the logging interface. Please update your init "
+            "scripts to use --syslog to interface with your system's "
+            "existing system logging daemon, or --logpath to specify a "
+            "dirctory for MythTV to write its logs to.", "0.25");
 }
 
 /** \brief Canned argument definition for --pidfile

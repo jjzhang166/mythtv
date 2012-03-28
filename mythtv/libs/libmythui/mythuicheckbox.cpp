@@ -82,7 +82,8 @@ void MythUICheckBox::toggleCheckState()
 void MythUICheckBox::SetCheckState(MythUIStateType::StateType state)
 {
     m_currentCheckState = state;
-    m_CheckState->DisplayState(state);
+    if (m_CheckState)
+        m_CheckState->DisplayState(state);
 
     if (state == MythUIStateType::Off)
         emit DependChanged(true);
@@ -126,7 +127,8 @@ void MythUICheckBox::Select()
         return;
 
     m_state = "selected";
-    m_BackgroundState->DisplayState(m_state);
+    if (m_BackgroundState)
+        m_BackgroundState->DisplayState(m_state);
 }
 
 void MythUICheckBox::Deselect()
@@ -136,19 +138,22 @@ void MythUICheckBox::Deselect()
     else
         m_state = "disabled";
 
-    m_BackgroundState->DisplayState(m_state);
+    if (m_BackgroundState)
+        m_BackgroundState->DisplayState(m_state);
 }
 
 void MythUICheckBox::Enable()
 {
     m_state = "active";
-    m_BackgroundState->DisplayState(m_state);
+    if (m_BackgroundState)
+        m_BackgroundState->DisplayState(m_state);
 }
 
 void MythUICheckBox::Disable()
 {
     m_state = "disabled";
-    m_BackgroundState->DisplayState(m_state);
+    if (m_BackgroundState)
+        m_BackgroundState->DisplayState(m_state);
 }
 
 /** \brief Mouse click/movement handler, receives mouse gesture events from the

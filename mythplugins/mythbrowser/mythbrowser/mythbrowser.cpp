@@ -28,6 +28,7 @@ MythBrowser::MythBrowser(MythScreenStack *parent,
     m_zoom(zoom),        m_menuPopup(NULL),
     m_defaultFavIcon(NULL), m_actions(NULL)
 {
+    GetMythMainWindow()->PauseIdleTimer(true);
 }
 
 MythBrowser::~MythBrowser()
@@ -37,6 +38,8 @@ MythBrowser::~MythBrowser()
 
     if (m_actions)
         delete m_actions;
+
+    GetMythMainWindow()->PauseIdleTimer(false);
 }
 
 bool MythBrowser::Create(void)

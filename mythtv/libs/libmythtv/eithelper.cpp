@@ -57,7 +57,7 @@ EITHelper::EITHelper() :
 EITHelper::~EITHelper()
 {
     QMutexLocker locker(&eitList_lock);
-    for (uint i = 0; i < db_events.size(); i++)
+    while (db_events.size())
         delete db_events.dequeue();
 
     delete eitfixup;
@@ -83,7 +83,7 @@ uint EITHelper::ProcessEvents(void)
         return 0;
 
     MSqlQuery query(MSqlQuery::InitCon());
-    for (uint i = 0; (i < kChunkSize) && (i < db_events.size()); i++)
+    for (uint i = 0; (i < kChunkSize) && (db_events.size() > 0); i++)
     {
         DBEventEIT *event = db_events.dequeue();
         eitList_lock.unlock();
@@ -807,6 +807,10 @@ static void init_fixup(QMap<uint64_t,uint> &fix)
     fix[ 2051LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2053LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2054LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2056LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2057LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2063LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2068LL << 32 | 2U << 16] = EITFixUp::kFixUK;
 
     // ComHem Sweden
     fix[40999U << 16       ] = EITFixUp::kFixComHem;

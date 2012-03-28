@@ -1409,6 +1409,8 @@ void MythUIButtonList::SetPositionArrowStates()
 
     updateLCD();
 
+    m_needsUpdate = false;
+
     if (!m_downArrow || !m_upArrow)
         return;
 
@@ -2888,6 +2890,9 @@ bool MythUIButtonList::DoFind(bool doMove, bool searchForward)
     if (m_searchStr.isEmpty())
         return true;
 
+    if (GetCount() == 0)
+        return false;
+
     int startPos = GetCurrentPos();
     int currPos = startPos;
     bool found = false;
@@ -3327,6 +3332,8 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
     if (!m_parent)
         return;
 
+    m_parent->ItemVisible(this);
+
     QString state;
 
     if (selected)
@@ -3516,8 +3523,6 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
 
         ++state_it;
     }
-
-    m_parent->ItemVisible(this);
 }
 
 //---------------------------------------------------------
