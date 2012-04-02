@@ -570,13 +570,14 @@ using_backend {
     HEADERS += iptvchannel.h              iptvrecorder.h
     HEADERS += iptvsignalmonitor.h        iptvstreamhandler.h
     HEADERS += iptvchannelfetcher.h       iptvtuningdata.h
+    HEADERS += iptvrtsp.h
     HEADERS += udppacket.h                udppacketbuffer.h
     HEADERS += packetbuffer.h             rtppacketbuffer.h
     HEADERS += rtpdatapacket.h            rtpfecpacket.h
 
     SOURCES += iptvchannel.cpp            iptvrecorder.cpp
     SOURCES += iptvsignalmonitor.cpp      iptvstreamhandler.cpp
-    SOURCES += iptvchannelfetcher.cpp
+    SOURCES += iptvchannelfetcher.cpp     iptvrtsp.cpp
     SOURCES += packetbuffer.cpp           rtppacketbuffer.cpp
     DEFINES += USING_IPTV
 

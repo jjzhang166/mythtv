@@ -20,29 +20,33 @@ IptvRTSP::IptvRTSP(const QUrl &url) :
     _ip(url.host()),
     _port((url.port() >= 0) ? url.port() : 554),
     _sequenceNumber(0),
-    _sessionNumber(0),
     _responseCode(-1)
 {
     _requestUrl = url.toString();
 }
 
 
-bool IptvRTSP::ProcessRequest(const QString &method, const QStringList* headers)
+bool IptvRTSP::ProcessRequest(const QString &method, const QString &controlUrl, const QStringList* headers)
 {
     QMutexLocker locker(&_rtspMutex);
     QTcpSocket socket;
     socket.connectToHost(_ip, _port);
 
     QStringList requestHeaders;
-    if(method.contains("SETUP"))
-	requestHeaders.append(QString("%1 %2/trackID=0 RTSP/1.0").arg(method, _requestUrl));
+    QString url;
+    if(controlUrl.isEmpty())
+	url.append(_requestUrl);
     else
-	requestHeaders.append(QString("%1 %2 RTSP/1.0").arg(method, _requestUrl));
-    requestHeaders.append(QString("User-Agent: MythTV Ceton Recorder"));
-    requestHeaders.append(QString("CSeq: %1").arg(++_sequenceNumber));
+	url.append(controlUrl);
 
-    if (_sessionNumber > 0)
-        requestHeaders.append(QString("Session: %1").arg(_sessionNumber));
+    LOG(VB_RECORD, LOG_INFO, LOC + QString("%1 %2 RTSP/1.0").arg(method, url));
+    requestHeaders.append(QString("%1 %2 RTSP/1.0").arg(method, url)); 
+    requestHeaders.append(QString("User-Agent: MythTV IPTV Recorder"));
+    requestHeaders.append(QString("CSeq: %1").arg(++_sequenceNumber));
+ 
+    if (!_sessionID.isEmpty()){ LOG(VB_RECORD, LOG_INFO, LOC +"Line");
+        requestHeaders.append(QString("Session: %1").arg(_sessionID));}
+
     if (headers != NULL)
     {
         for(int i = 0; i < headers->count(); i++)
@@ -114,8 +118,6 @@ bool IptvRTSP::ProcessRequest(const QString &method, const QStringList* headers)
         }
         QStringList parts = headerRegex.capturedTexts();
         _responseHeaders.insert(parts.at(1), parts.at(2));
-	LOG(VB_RECORD, LOG_WARNING, LOC +QString("%1: %2")
-            .arg(parts.at(1)).arg(_responseHeaders.value(parts.at(1))));
     }
 
     QString cSeq = _responseHeaders.value("Cseq");
@@ -164,15 +166,7 @@ bool IptvRTSP::GetOptions(QStringList &options)
 bool IptvRTSP::Describe(void)
 {
     if (!ProcessRequest("DESCRIBE"))
-        return false;
-
-    /*Code for DESCRIBE content logs ToBe Deleted*/
-    QList<QByteArray> temp_list = _responseContent.split('\n');
-    for (int i = 0; i < temp_list.size(); i++) 
-    {     
-        LOG(VB_GENERAL, LOG_INFO, LOC + QString("%1").arg(temp_list[i].data()));
-    }
-    /***************/
+        return false;   
 
     if (!_responseContent.contains("m=video"))
     {
@@ -184,26 +178,45 @@ bool IptvRTSP::Describe(void)
     return true;
 }
 
-bool IptvRTSP::Setup()
+bool IptvRTSP::Setup(ushort &clientPort1, ushort &clientPort2)
 {
-    LOG(VB_GENERAL, LOG_INFO, QString("CetonRTSP: ") +
-        QString("Transport: RTP/AVP;multicast"));
-
     QStringList extraHeaders;
-    extraHeaders.append(
-        QString("Transport: RTP/AVP;multicast"));
+    extraHeaders.append(QString("Transport: RTP/AVP;multicast"));
+	
+    /*Parse for control Url for RTSP setup*/
+    int pos = _responseContent.indexOf("m=video");
+    int pos1 = _responseContent.indexOf("a=control:", pos);
+    QList<QByteArray> parts = _responseContent.mid(pos1+QString("a=control:").size()).split('\n');    
+    // QString controlUrl = QString(parts[0].data());
+    QUrl url = QUrl::fromEncoded(parts[0]);
+    QString controlUrl = url.toString();
+    LOG(VB_RECORD, LOG_INFO, LOC +QString("control Url for Setup: %1 ").arg(controlUrl)); 
 
-    if (!ProcessRequest("SETUP", &extraHeaders))
+    if (!ProcessRequest("SETUP", controlUrl, &extraHeaders))
         return false;
 
-    _sessionNumber = _responseHeaders.value("Session").toInt();
-    if (_sessionNumber == 0)
+   _sessionID = _responseHeaders.value("Session");
+   if (_sessionID.isEmpty())
     {
         LOG(VB_RECORD, LOG_ERR, LOC +
             "session number not found in SETUP response");
         return false;
     }
-
+ 
+    /*Parse for the client ports*/
+    QStringList list = _responseHeaders.value("Transport").split(";");
+    for (int i = 0; i < list.size(); i++) 
+    {
+      if (list.at(i).contains("port"))
+      {
+         int pos = list.at(i).indexOf("=", 0);
+	 QStringList parts = list.at(i).mid(pos+1).split("-");
+	 clientPort1 = parts.at(0).toInt();
+	 clientPort2 = parts.at(1).toInt();
+	 LOG(VB_RECORD, LOG_INFO, LOC +QString("port1:%1 - port2:%2").arg(clientPort1).arg(clientPort2));
+	 break;
+      }
+    }
     return true;
 }
 
@@ -216,6 +229,6 @@ bool IptvRTSP::Teardown(void)
 {
 
     bool result = ProcessRequest("TEARDOWN");
-    _sessionNumber = 0;
+    _sessionID = QString();
     return result;
 }

@@ -18,19 +18,19 @@ class IptvRTSP
 
     bool GetOptions(QStringList &options);
     bool Describe(void);
-    bool Setup(void);
+    bool Setup(ushort &clientPort1, ushort &clientPort2);
     bool Play(void);
     bool Teardown(void);
 
   protected:
     bool ProcessRequest(
-        const QString &method, const QStringList *headers = NULL);
+        const QString &method, const QString &controlUrl = QString(), const QStringList *headers = NULL);
 
   private:
     QString     _ip;
     ushort      _port;
     uint        _sequenceNumber;
-    uint        _sessionNumber;
+    QString      _sessionID;
     QString     _requestUrl;
 
     int                     _responseCode;
