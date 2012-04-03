@@ -39,13 +39,12 @@ bool IptvRTSP::ProcessRequest(const QString &method, const QString &controlUrl, 
     else
 	url.append(controlUrl);
 
-    LOG(VB_RECORD, LOG_INFO, LOC + QString("%1 %2 RTSP/1.0").arg(method, url));
     requestHeaders.append(QString("%1 %2 RTSP/1.0").arg(method, url)); 
     requestHeaders.append(QString("User-Agent: MythTV IPTV Recorder"));
     requestHeaders.append(QString("CSeq: %1").arg(++_sequenceNumber));
  
-    if (!_sessionID.isEmpty()){ LOG(VB_RECORD, LOG_INFO, LOC +"Line");
-        requestHeaders.append(QString("Session: %1").arg(_sessionID));}
+    if (!_sessionID.isEmpty())
+        requestHeaders.append(QString("Session: %1").arg(_sessionID));
 
     if (headers != NULL)
     {
@@ -59,7 +58,6 @@ bool IptvRTSP::ProcessRequest(const QString &method, const QString &controlUrl, 
     QString request = requestHeaders.join("\r\n");
 
 
-    LOG(VB_RECORD, LOG_INFO, LOC + QString("write: %1").arg(request));
     socket.write(request.toAscii());
 
     _responseHeaders.clear();
@@ -86,7 +84,7 @@ bool IptvRTSP::ProcessRequest(const QString &method, const QString &controlUrl, 
         }
 
         QString line = socket.readLine();
-        LOG(VB_RECORD, LOG_INFO, LOC + QString("read: %1").arg(line));
+        LOG(VB_RECORD, LOG_DEBUG, LOC + QString("read: %1").arg(line));
 
         if (firstLine)
         {
@@ -187,11 +185,9 @@ bool IptvRTSP::Setup(ushort &clientPort1, ushort &clientPort2)
     int pos = _responseContent.indexOf("m=video");
     int pos1 = _responseContent.indexOf("a=control:", pos);
     QList<QByteArray> parts = _responseContent.mid(pos1+QString("a=control:").size()).split('\n');    
-    // QString controlUrl = QString(parts[0].data());
-    QUrl url = QUrl::fromEncoded(parts[0]);
-    QString controlUrl = url.toString();
-    LOG(VB_RECORD, LOG_INFO, LOC +QString("control Url for Setup: %1 ").arg(controlUrl)); 
-
+    QString controlUrl = QString(parts[0].data());
+    controlUrl.remove('\r');
+    
     if (!ProcessRequest("SETUP", controlUrl, &extraHeaders))
         return false;
 
@@ -213,7 +209,6 @@ bool IptvRTSP::Setup(ushort &clientPort1, ushort &clientPort2)
 	 QStringList parts = list.at(i).mid(pos+1).split("-");
 	 clientPort1 = parts.at(0).toInt();
 	 clientPort2 = parts.at(1).toInt();
-	 LOG(VB_RECORD, LOG_INFO, LOC +QString("port1:%1 - port2:%2").arg(clientPort1).arg(clientPort2));
 	 break;
       }
     }
