@@ -24,7 +24,8 @@ class IptvRTSP
 
   protected:
     bool ProcessRequest(
-        const QString &method, const QString &controlUrl = QString(), const QStringList *headers = NULL);
+        const QString &method, const QString &controlUrl = QString(),
+        const QStringList *headers = NULL);
 
   private:
     QString     _ip;

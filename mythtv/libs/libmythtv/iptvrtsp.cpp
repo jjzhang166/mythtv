@@ -26,7 +26,9 @@ IptvRTSP::IptvRTSP(const QUrl &url) :
 }
 
 
-bool IptvRTSP::ProcessRequest(const QString &method, const QString &controlUrl, const QStringList* headers)
+bool IptvRTSP::ProcessRequest(
+    const QString &method, const QString &controlUrl,
+    const QStringList *headers)
 {
     QMutexLocker locker(&_rtspMutex);
     QTcpSocket socket;
@@ -35,14 +37,14 @@ bool IptvRTSP::ProcessRequest(const QString &method, const QString &controlUrl, 
     QStringList requestHeaders;
     QString url;
     if(controlUrl.isEmpty())
-	url.append(_requestUrl);
+        url.append(_requestUrl);
     else
-	url.append(controlUrl);
+        url.append(controlUrl);
 
-    requestHeaders.append(QString("%1 %2 RTSP/1.0").arg(method, url)); 
+    requestHeaders.append(QString("%1 %2 RTSP/1.0").arg(method, url));
     requestHeaders.append(QString("User-Agent: MythTV IPTV Recorder"));
     requestHeaders.append(QString("CSeq: %1").arg(++_sequenceNumber));
- 
+
     if (!_sessionID.isEmpty())
         requestHeaders.append(QString("Session: %1").arg(_sessionID));
 
@@ -139,7 +141,7 @@ bool IptvRTSP::ProcessRequest(const QString &method, const QString &controlUrl, 
                 socket.waitForReadyRead();
 
             int count = socket.read(data+bytesRead, contentLength-bytesRead);
-	    if (count == -1)
+            if (count == -1)
             {
                 _responseCode = -1;
                 _responseMessage = "Could not read response content";
@@ -164,12 +166,13 @@ bool IptvRTSP::GetOptions(QStringList &options)
 bool IptvRTSP::Describe(void)
 {
     if (!ProcessRequest("DESCRIBE"))
-        return false;   
+        return false;
 
     if (!_responseContent.contains("m=video"))
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + QString("expected content to be type "
-            "\"m=video\" but it appears not to be"));
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("expected content to be type "
+                    "\"m=video\" but it appears not to be"));
         return false;
     }
 
@@ -180,37 +183,38 @@ bool IptvRTSP::Setup(ushort &clientPort1, ushort &clientPort2)
 {
     QStringList extraHeaders;
     extraHeaders.append(QString("Transport: RTP/AVP;multicast"));
-	
+
     /*Parse for control Url for RTSP setup*/
     int pos = _responseContent.indexOf("m=video");
     int pos1 = _responseContent.indexOf("a=control:", pos);
-    QList<QByteArray> parts = _responseContent.mid(pos1+QString("a=control:").size()).split('\n');    
+    QList<QByteArray> parts = _responseContent
+        .mid(pos1+QString("a=control:").size()).split('\n');
     QString controlUrl = QString(parts[0].data());
     controlUrl.remove('\r');
-    
+
     if (!ProcessRequest("SETUP", controlUrl, &extraHeaders))
         return false;
 
-   _sessionID = _responseHeaders.value("Session");
-   if (_sessionID.isEmpty())
+    _sessionID = _responseHeaders.value("Session");
+    if (_sessionID.isEmpty())
     {
         LOG(VB_RECORD, LOG_ERR, LOC +
             "session number not found in SETUP response");
         return false;
     }
- 
+
     /*Parse for the client ports*/
     QStringList list = _responseHeaders.value("Transport").split(";");
-    for (int i = 0; i < list.size(); i++) 
+    for (int i = 0; i < list.size(); i++)
     {
-      if (list.at(i).contains("port"))
-      {
-         int pos = list.at(i).indexOf("=", 0);
-	 QStringList parts = list.at(i).mid(pos+1).split("-");
-	 clientPort1 = parts.at(0).toInt();
-	 clientPort2 = parts.at(1).toInt();
-	 break;
-      }
+        if (list.at(i).contains("port"))
+        {
+            int pos = list.at(i).indexOf("=", 0);
+            QStringList parts = list.at(i).mid(pos+1).split("-");
+            clientPort1 = parts.at(0).toInt();
+            clientPort2 = parts.at(1).toInt();
+            break;
+        }
     }
     return true;
 }

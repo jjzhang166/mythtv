@@ -153,7 +153,7 @@ void IPTVStreamHandler::run(void)
             RunEpilog();
             return;
         }
-	ushort clientPort1 = 0, clientPort2 = 0;
+        ushort clientPort1 = 0, clientPort2 = 0;
         if (!rtsp->Setup(clientPort1, clientPort2))
         {
             LOG(VB_RECORD, LOG_ERR, LOC +
@@ -163,8 +163,8 @@ void IPTVStreamHandler::run(void)
             RunEpilog();
             return;
         }
-      
-	tuning = IPTVTuningData(
+
+        tuning = IPTVTuningData(
             QString("rtp://%1:%2").arg(m_tuning.GetURL(0).host()).arg(clientPort1), 0,
             IPTVTuningData::kNone,
             QString("rtp://%1:0").arg(m_tuning.GetURL(0).host()), 0,  //TODO port alteration for FEC
