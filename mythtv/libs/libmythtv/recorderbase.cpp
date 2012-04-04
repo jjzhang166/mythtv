@@ -442,7 +442,7 @@ void RecorderBase::AspectChange(uint aspect, long long frame)
 {
     MarkTypes mark = MARK_ASPECT_4_3;
     uint customAspect = 0;
-    if ((aspect == ASPECT_1_1 && m_videoHeight) || (aspect >= ASPECT_CUSTOM))
+    if (m_videoHeight &&(aspect == ASPECT_1_1 || aspect >= ASPECT_CUSTOM))
     {
         mark = MARK_ASPECT_CUSTOM;
         if (aspect > 0x0F)
