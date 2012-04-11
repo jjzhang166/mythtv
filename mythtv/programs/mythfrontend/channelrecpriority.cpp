@@ -274,7 +274,7 @@ void ChannelRecPriority::saveRecPriority(void)
             applyChannelRecPriorityChange(QString::number(chanInfo->chanid),
                                           chanInfo->recpriority);
     }
-    ScheduledRecording::signalChange(0);
+    ScheduledRecording::ReschedulePlace("SaveChannelPriority");
 }
 
 void ChannelRecPriority::FillList(void)
