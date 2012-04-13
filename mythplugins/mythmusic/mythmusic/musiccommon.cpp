@@ -892,8 +892,6 @@ bool MusicCommon::keyPressEvent(QKeyEvent *e)
 {
     bool handled = false;
 
-    resetVisualiserTimer();
-
     QStringList actions;
     handled = GetMythMainWindow()->TranslateKeyPress("Music", e, actions, true);
 
