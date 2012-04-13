@@ -81,30 +81,32 @@ QString toRawString(RecordingType rectype)
     }
 }
 
-RecordingType recTypeFromString(QString type)
+RecordingType recTypeFromString(const QString &type)
 {
-    if (type.toLower() == "not recording" || type.toLower() == "not")
+    QString typeL(type.toLower());
+
+    if (typeL == "not recording" || typeL == "not")
         return kNotRecording;
-    if (type.toLower() == "single record" || type.toLower() == "single")
+    if (typeL == "single record" || typeL == "single")
         return kSingleRecord;
-    else if (type.toLower() == "record daily" || type.toLower() == "daily")
+    if (typeL == "record daily" || typeL == "daily")
         return kTimeslotRecord;
-    else if (type.toLower() == "record weekly" || type.toLower() == "weekly")
+    if (typeL == "record weekly" || typeL == "weekly")
         return kWeekslotRecord;
-    else if (type.toLower() == "channel record" || type.toLower() == "channel")
+    if (typeL == "channel record" || typeL == "channel")
         return kChannelRecord;
-    else if (type.toLower() == "record all" || type.toLower() == "all")
+    if (typeL == "record all" || typeL == "all")
         return kAllRecord;
-    else if (type.toLower() == "find one" || type.toLower() == "findone")
+    if (typeL == "find one" || typeL == "findone")
         return kFindOneRecord;
-    else if (type.toLower() == "find daily" || type.toLower() == "finddaily")
+    if (typeL == "find daily" || typeL == "finddaily")
         return kFindDailyRecord;
-    else if (type.toLower() == "find weekly" || type.toLower() == "findweekly")
+    if (typeL == "find weekly" || typeL == "findweekly")
         return kFindWeeklyRecord;
-    else if (type.toLower() == "override recording" || type.toLower() == "override")
+    if (typeL == "override recording" || typeL == "override")
         return kOverrideRecord;
-    else
-        return kDontRecord;
+
+    return kDontRecord;
 }
 
 /// \brief Converts "rectype" into a human readable character.
@@ -157,18 +159,20 @@ QString toRawString(RecordingDupInType recdupin)
     }
 }
 
-RecordingDupInType dupInFromString(QString type)
+RecordingDupInType dupInFromString(const QString &type)
 {
-    if (type.toLower() == "current recordings" || type.toLower() == "current")
+    QString typeL(type.toLower());
+
+    if (typeL == "current recordings" || typeL == "current")
         return kDupsInRecorded;
-    else if (type.toLower() == "previous recordings" || type.toLower() == "previous")
+    if (typeL == "previous recordings" || typeL == "previous")
         return kDupsInOldRecorded;
-    else if (type.toLower() == "all recordings" || type.toLower() == "all")
+    if (typeL == "all recordings" || typeL == "all")
         return kDupsInAll;
-    else if (type.toLower() == "new episodes only" || type.toLower() == "new")
+    if (typeL == "new episodes only" || typeL == "new")
         return kDupsNewEpi;
-    else
-        return kDupsInAll;
+
+    return kDupsInAll;
 }
 
 QString toRawString(RecordingDupMethodType duptype)
@@ -190,20 +194,24 @@ QString toRawString(RecordingDupMethodType duptype)
     }
 }
 
-RecordingDupMethodType dupMethodFromString(QString type)
+RecordingDupMethodType dupMethodFromString(const QString &type)
 {
-    if (type.toLower() == "none")
+    QString typeL(type.toLower());
+
+    if (typeL == "none")
         return kDupCheckNone;
-    else if (type.toLower() == "subtitle")
+    if (typeL == "subtitle")
         return kDupCheckSub;
-    else if (type.toLower() == "description")
+    if (typeL == "description")
         return kDupCheckDesc;
-    else if (type.toLower() == "subtitle and description" || type.toLower() == "subtitleanddescription")
+    if (typeL == "subtitle and description" ||
+        typeL == "subtitleanddescription")
         return kDupCheckSubDesc;
-    else if (type.toLower() == "subtitle then description" || type.toLower() == "subtitlethendescription")
+    if (typeL == "subtitle then description" ||
+        typeL == "subtitlethendescription")
         return kDupCheckSubThenDesc;
-    else
-        return kDupCheckSubDesc;
+
+    return kDupCheckSubDesc;
 }
 
 QString toRawString(RecSearchType searchtype)
@@ -227,20 +235,22 @@ QString toRawString(RecSearchType searchtype)
     }
 }
 
-RecSearchType searchTypeFromString(QString type)
+RecSearchType searchTypeFromString(const QString &type)
 {
-    if (type.toLower() == "none")
+    QString typeL(type.toLower());
+
+    if (typeL == "none")
         return kNoSearch;
-    else if (type.toLower() == "power search" || type.toLower() == "power")
+    if (typeL == "power search" || typeL == "power")
         return kPowerSearch;
-    else if (type.toLower() == "title search" || type.toLower() == "title")
+    if (typeL == "title search" || typeL == "title")
         return kTitleSearch;
-    else if (type.toLower() == "keyword search" || type.toLower() == "keyword")
+    if (typeL == "keyword search" || typeL == "keyword")
         return kKeywordSearch;
-    else if (type.toLower() == "people search" || type.toLower() == "people")
+    if (typeL == "people search" || typeL == "people")
         return kPeopleSearch;
-    else if (type.toLower() == "manual search" || type.toLower() == "manual")
+    if (typeL == "manual search" || typeL == "manual")
         return kManualSearch;
-    else
-        return kNoSearch;
+
+    return kNoSearch;
 }
