@@ -4,8 +4,6 @@
 #include "recordingtypes.h"
 #include "mythactions.h"
 
-void RecTypeHashInit(void);
-
 typedef struct {
     RecordingType   type;
     int             priority;
@@ -19,12 +17,6 @@ typedef struct {
     { (t), (p), QObject::tr(string), QString(string), \
       QChar(QString(QObject::tr(letter, "RecTypeChar ##t"))[0]), \
       QStringList() << QString(string).toLower() << listing }
-
-typedef QHash<QString, RecordingTypeItem *> RecordingTypeStringHash;
-typedef QHash<RecordingType, RecordingTypeItem *> RecordingTypeHash;
-
-RecordingTypeStringHash *recTypeStringHash = NULL;
-RecordingTypeHash       *recTypeHash = NULL;
 
 static RecordingTypeItem recordingTypeItems[] = {
     RECORDING_TYPE_ITEM(kNotRecording, 0, "Not Recording", " ", "not"),
@@ -42,7 +34,14 @@ static RecordingTypeItem recordingTypeItems[] = {
 };
 static int recordingTypeItemCount = NELEMS(recordingTypeItems);
 
-void RecTypeHashInit(void)
+typedef QHash<QString, RecordingTypeItem *> RecordingTypeStringHash;
+typedef QHash<RecordingType, RecordingTypeItem *> RecordingTypeHash;
+
+static RecordingTypeStringHash *recTypeStringHash = NULL;
+static RecordingTypeHash       *recTypeHash = NULL;
+
+
+static void RecTypeHashInit(void)
 {
     if (recTypeHash)
         delete recTypeHash;
@@ -133,117 +132,250 @@ QChar toQChar(RecordingType rectype)
     return item->shortString;
 }
 
+
+typedef struct {
+    RecordingDupInType  type;
+    QString             rawString;
+    QStringList         stringList;
+} RecordingDupInTypeItem;
+
+#define RECORDING_DUP_IN_ITEM(t,string,listing) \
+    { (t), QString(string), QStringList() << QString(string).toLower() << \
+      listing }
+
+static RecordingDupInTypeItem recordingDupInTypeItems[] = {
+    RECORDING_DUP_IN_ITEM(kDupsInRecorded, "Current Recordings", "current"),
+    RECORDING_DUP_IN_ITEM(kDupsInOldRecorded, "Previous Recordings",
+        "previous"),
+    RECORDING_DUP_IN_ITEM(kDupsInAll, "All Recordings", "all"),
+    RECORDING_DUP_IN_ITEM(kDupsNewEpi, "New Episodes Only", "new")
+};
+static int recordingDupInTypeItemCount = NELEMS(recordingDupInTypeItems);
+
+typedef QHash<QString, RecordingDupInTypeItem *> RecordingDupInTypeStringHash;
+typedef QHash<RecordingDupInType, RecordingDupInTypeItem *>
+            RecordingDupInTypeHash;
+
+static RecordingDupInTypeStringHash *recDupInTypeStringHash = NULL;
+static RecordingDupInTypeHash       *recDupInTypeHash = NULL;
+
+
+static void RecDupInTypeHashInit(void)
+{
+    if (recDupInTypeHash)
+        delete recDupInTypeHash;
+
+    if (recDupInTypeStringHash)
+        delete recDupInTypeStringHash;
+
+    recDupInTypeHash = new RecordingDupInTypeHash;
+    recDupInTypeStringHash = new RecordingDupInTypeStringHash;
+
+    for (int i = 0; i < recordingDupInTypeItemCount; i++)
+    {
+        RecordingDupInTypeItem *item = &recordingDupInTypeItems[i];
+        for (QStringList::iterator it = item->stringList.begin();
+             it != item->stringList.end(); ++it)
+        {
+            QString string = *it;
+            if (!recDupInTypeStringHash->contains(string) && !string.isEmpty())
+                recDupInTypeStringHash->insert(string, item);
+        }
+
+        recDupInTypeHash->insert(item->type, item);
+    }
+}
+
+
 QString toRawString(RecordingDupInType recdupin)
 {
-    switch (recdupin)
-    {
-        case kDupsInRecorded:
-            return QString("Current Recordings");
-        case kDupsInOldRecorded:
-            return QString("Previous Recordings");
-        case kDupsInAll:
-            return QString("All Recordings");
-        case kDupsNewEpi:
-            return QString("New Episodes Only");
-        default:
-            return QString("Unknown");
-    }
+    if (!recDupInTypeHash)
+        RecDupInTypeHashInit();
+
+    RecordingDupInTypeItem *item = recDupInTypeHash->value(recdupin, NULL);
+    if (!item)
+        return QString("Unknown");
+
+    return item->rawString;
 }
 
 RecordingDupInType dupInFromString(const QString &type)
 {
-    QString typeL(type.toLower());
+    if (!recDupInTypeStringHash)
+        RecDupInTypeHashInit();
 
-    if (typeL == "current recordings" || typeL == "current")
-        return kDupsInRecorded;
-    if (typeL == "previous recordings" || typeL == "previous")
-        return kDupsInOldRecorded;
-    if (typeL == "all recordings" || typeL == "all")
+    RecordingDupInTypeItem *item = recDupInTypeStringHash->value(type.toLower(),
+                                                                 NULL);
+    if (!item)
         return kDupsInAll;
-    if (typeL == "new episodes only" || typeL == "new")
-        return kDupsNewEpi;
 
-    return kDupsInAll;
+    return item->type;
 }
+
+
+typedef struct {
+    RecordingDupMethodType  type;
+    QString                 rawString;
+    QStringList             stringList;
+} RecordingDupMethodTypeItem;
+
+#define RECORDING_DUP_METHOD_ITEM(t,string,listing) \
+    { (t), QString(string), QStringList() << QString(string).toLower() << \
+      listing }
+
+static RecordingDupMethodTypeItem recordingDupMethodTypeItems[] = {
+    RECORDING_DUP_METHOD_ITEM(kDupCheckNone, "None", ""),
+    RECORDING_DUP_METHOD_ITEM(kDupCheckSub, "Subtitle", ""),
+    RECORDING_DUP_METHOD_ITEM(kDupCheckDesc, "Description", ""),
+    RECORDING_DUP_METHOD_ITEM(kDupCheckSubDesc, "Subtitle and Description",
+        "subtitleanddescription"),
+    RECORDING_DUP_METHOD_ITEM(kDupCheckSubThenDesc, "Subtitle then Description",
+        "subtitlethendescription")
+};
+static int recordingDupMethodTypeItemCount =
+            NELEMS(recordingDupMethodTypeItems);
+
+typedef QHash<QString, RecordingDupMethodTypeItem *>
+            RecordingDupMethodTypeStringHash;
+typedef QHash<RecordingDupMethodType, RecordingDupMethodTypeItem *>
+            RecordingDupMethodTypeHash;
+
+static RecordingDupMethodTypeStringHash *recDupMethodTypeStringHash = NULL;
+static RecordingDupMethodTypeHash       *recDupMethodTypeHash = NULL;
+
+
+static void RecDupMethodTypeHashInit(void)
+{
+    if (recDupMethodTypeHash)
+        delete recDupMethodTypeHash;
+
+    if (recDupMethodTypeStringHash)
+        delete recDupMethodTypeStringHash;
+
+    recDupMethodTypeHash = new RecordingDupMethodTypeHash;
+    recDupMethodTypeStringHash = new RecordingDupMethodTypeStringHash;
+
+    for (int i = 0; i < recordingDupMethodTypeItemCount; i++)
+    {
+        RecordingDupMethodTypeItem *item = &recordingDupMethodTypeItems[i];
+        for (QStringList::iterator it = item->stringList.begin();
+             it != item->stringList.end(); ++it)
+        {
+            QString string = *it;
+            if (!recDupMethodTypeStringHash->contains(string) &&
+                !string.isEmpty())
+                recDupMethodTypeStringHash->insert(string, item);
+        }
+
+        recDupMethodTypeHash->insert(item->type, item);
+    }
+}
+
 
 QString toRawString(RecordingDupMethodType duptype)
 {
-    switch (duptype)
-    {
-        case kDupCheckNone:
-            return QString("None");
-        case kDupCheckSub:
-            return QString("Subtitle");
-        case kDupCheckDesc:
-            return QString("Description");
-        case kDupCheckSubDesc:
-            return QString("Subtitle and Description");
-        case kDupCheckSubThenDesc:
-            return QString("Subtitle then Description");
-        default:
-            return QString("Unknown");
-    }
+    if (!recDupMethodTypeHash)
+        RecDupMethodTypeHashInit();
+
+    RecordingDupMethodTypeItem *item = recDupMethodTypeHash->value(duptype,
+                                                                   NULL);
+    if (!item)
+        return QString("Unknown");
+
+    return item->rawString;
 }
 
 RecordingDupMethodType dupMethodFromString(const QString &type)
 {
-    QString typeL(type.toLower());
+    if (!recDupMethodTypeStringHash)
+        RecDupMethodTypeHashInit();
 
-    if (typeL == "none")
-        return kDupCheckNone;
-    if (typeL == "subtitle")
-        return kDupCheckSub;
-    if (typeL == "description")
-        return kDupCheckDesc;
-    if (typeL == "subtitle and description" ||
-        typeL == "subtitleanddescription")
+    RecordingDupMethodTypeItem *item =
+        recDupMethodTypeStringHash->value(type.toLower(), NULL);
+    if (!item)
         return kDupCheckSubDesc;
-    if (typeL == "subtitle then description" ||
-        typeL == "subtitlethendescription")
-        return kDupCheckSubThenDesc;
 
-    return kDupCheckSubDesc;
+    return item->type;
+}
+
+
+
+typedef struct {
+    RecSearchType   type;
+    QString         rawString;
+    QStringList     stringList;
+} RecSearchTypeItem;
+
+#define REC_SEARCH_ITEM(t,string,listing) \
+    { (t), QString(string), QStringList() << QString(string).toLower() << \
+      listing }
+
+static RecSearchTypeItem recSearchTypeItems[] = {
+    REC_SEARCH_ITEM(kNoSearch, "None", ""),
+    REC_SEARCH_ITEM(kPowerSearch, "Power Search", "power"),
+    REC_SEARCH_ITEM(kTitleSearch, "Title Search", "title"),
+    REC_SEARCH_ITEM(kKeywordSearch, "Keyword Search", "keyword"),
+    REC_SEARCH_ITEM(kPeopleSearch, "People Search", "people"),
+    REC_SEARCH_ITEM(kManualSearch, "Manual Search", "manual")
+};
+static int recSearchTypeItemCount = NELEMS(recSearchTypeItems);
+
+typedef QHash<QString, RecSearchTypeItem *> RecSearchTypeStringHash;
+typedef QHash<RecSearchType, RecSearchTypeItem *> RecSearchTypeHash;
+
+static RecSearchTypeStringHash *recSearchTypeStringHash = NULL;
+static RecSearchTypeHash       *recSearchTypeHash = NULL;
+
+
+static void RecSearchTypeHashInit(void)
+{
+    if (recSearchTypeHash)
+        delete recSearchTypeHash;
+
+    if (recSearchTypeStringHash)
+        delete recSearchTypeStringHash;
+
+    recSearchTypeHash = new RecSearchTypeHash;
+    recSearchTypeStringHash = new RecSearchTypeStringHash;
+
+    for (int i = 0; i < recSearchTypeItemCount; i++)
+    {
+        RecSearchTypeItem *item = &recSearchTypeItems[i];
+        for (QStringList::iterator it = item->stringList.begin();
+             it != item->stringList.end(); ++it)
+        {
+            QString string = *it;
+            if (!recSearchTypeStringHash->contains(string) && !string.isEmpty())
+                recSearchTypeStringHash->insert(string, item);
+        }
+
+        recSearchTypeHash->insert(item->type, item);
+    }
 }
 
 QString toRawString(RecSearchType searchtype)
 {
-    switch (searchtype)
-    {
-        case kNoSearch:
-            return QString("None");
-        case kPowerSearch:
-            return QString("Power Search");
-        case kTitleSearch:
-            return QString("Title Search");
-        case kKeywordSearch:
-            return QString("Keyword Search");
-        case kPeopleSearch:
-            return QString("People Search");
-        case kManualSearch:
-            return QString("Manual Search");
-        default:
-            return QString("Unknown");
-    }
+    if (!recSearchTypeHash)
+        RecSearchTypeHashInit();
+
+    RecSearchTypeItem *item = recSearchTypeHash->value(searchtype, NULL);
+    if (!item)
+        return QString("Unknown");
+
+    return item->rawString;
 }
 
 RecSearchType searchTypeFromString(const QString &type)
 {
-    QString typeL(type.toLower());
+    if (!recSearchTypeStringHash)
+        RecSearchTypeHashInit();
 
-    if (typeL == "none")
+    RecSearchTypeItem *item = recSearchTypeStringHash->value(type.toLower(),
+                                                             NULL);
+    if (!item)
         return kNoSearch;
-    if (typeL == "power search" || typeL == "power")
-        return kPowerSearch;
-    if (typeL == "title search" || typeL == "title")
-        return kTitleSearch;
-    if (typeL == "keyword search" || typeL == "keyword")
-        return kKeywordSearch;
-    if (typeL == "people search" || typeL == "people")
-        return kPeopleSearch;
-    if (typeL == "manual search" || typeL == "manual")
-        return kManualSearch;
 
-    return kNoSearch;
+    return item->type;
 }
 
 /*

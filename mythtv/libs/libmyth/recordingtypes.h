@@ -23,7 +23,6 @@ MPUBLIC QString toString(RecordingType);
 MPUBLIC QString toRawString(RecordingType);
 MPUBLIC QChar   toQChar( RecordingType);
 MPUBLIC RecordingType recTypeFromString(const QString &);
-
 MPUBLIC int RecTypePriority(RecordingType rectype);
 
 typedef enum RecordingDupInTypes
@@ -43,7 +42,7 @@ typedef enum RecordingDupMethodType
     kDupCheckDesc     = 0x04,
     kDupCheckSubDesc  = 0x06,
     kDupCheckSubThenDesc = 0x08
-} RecordingDupMethodType; // note stored in uin8_t in ProgramInfo
+} RecordingDupMethodType; // note stored in uint8_t in ProgramInfo
 MPUBLIC QString toRawString(RecordingDupMethodType);
 MPUBLIC RecordingDupMethodType dupMethodFromString(const QString &);
 
