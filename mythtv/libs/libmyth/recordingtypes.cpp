@@ -1,145 +1,136 @@
 #include <QObject>
+#include <QHash>
 
 #include "recordingtypes.h"
+#include "mythactions.h"
+
+void RecTypeHashInit(void);
+
+typedef struct {
+    RecordingType   type;
+    int             priority;
+    QString         transString;
+    QString         rawString;
+    QChar           shortString;
+    QStringList     stringList;
+} RecordingTypeItem;
+
+#define RECORDING_TYPE_ITEM(t,p,string,letter,listing) \
+    { (t), (p), QObject::tr(string), QString(string), \
+      QChar(QString(QObject::tr(letter, "RecTypeChar ##t"))[0]), \
+      QStringList() << QString(string).toLower() << listing }
+
+typedef QHash<QString, RecordingTypeItem *> RecordingTypeStringHash;
+typedef QHash<RecordingType, RecordingTypeItem *> RecordingTypeHash;
+
+RecordingTypeStringHash *recTypeStringHash = NULL;
+RecordingTypeHash       *recTypeHash = NULL;
+
+static RecordingTypeItem recordingTypeItems[] = {
+    RECORDING_TYPE_ITEM(kNotRecording, 0, "Not Recording", " ", "not"),
+    RECORDING_TYPE_ITEM(kSingleRecord, 3, "Single Record", "S", "single"),
+    RECORDING_TYPE_ITEM(kTimeslotRecord, 7, "Record Daily", "T", "daily"),
+    RECORDING_TYPE_ITEM(kChannelRecord, 9, "Channel Record", "C", "channel"),
+    RECORDING_TYPE_ITEM(kAllRecord, 10, "Record All", "A", "all"),
+    RECORDING_TYPE_ITEM(kWeekslotRecord, 5, "Record Weekly", "W", "weekly"),
+    RECORDING_TYPE_ITEM(kFindOneRecord, 4, "Find One", "F", "findone"),
+    RECORDING_TYPE_ITEM(kOverrideRecord, 2, "Override Recording", "O",
+                        "override"),
+    RECORDING_TYPE_ITEM(kDontRecord, 1, "Override Recording", "O", ""),
+    RECORDING_TYPE_ITEM(kFindDailyRecord, 8, "Find Daily", "d", "finddaily"),
+    RECORDING_TYPE_ITEM(kFindWeeklyRecord, 6, "Find Weekly", "w", "findweekly")
+};
+static int recordingTypeItemCount = NELEMS(recordingTypeItems);
+
+void RecTypeHashInit(void)
+{
+    if (recTypeHash)
+        delete recTypeHash;
+
+    if (recTypeStringHash)
+        delete recTypeStringHash;
+
+    recTypeHash = new RecordingTypeHash;
+    recTypeStringHash = new RecordingTypeStringHash;
+
+    for (int i = 0; i < recordingTypeItemCount; i++)
+    {
+        RecordingTypeItem *item = &recordingTypeItems[i];
+        for (QStringList::iterator it = item->stringList.begin();
+             it != item->stringList.end(); ++it)
+        {
+            QString string = *it;
+            if (!recTypeStringHash->contains(string) && !string.isEmpty())
+                recTypeStringHash->insert(string, item);
+        }
+
+        recTypeHash->insert(item->type, item);
+    }
+}
 
 /// Converts a RecordingType to a simple integer so it's specificity can
 /// be compared to another.  Lower number means more specific.
 int RecTypePriority(RecordingType rectype)
 {
-    switch (rectype)
-    {
-        case kNotRecording:   return 0; break;
-        case kDontRecord:     return 1; break;
-        case kOverrideRecord: return 2; break;
-        case kSingleRecord:   return 3; break;
-        case kFindOneRecord:  return 4; break;
-        case kWeekslotRecord: return 5; break;
-        case kFindWeeklyRecord: return 6; break;
-        case kTimeslotRecord: return 7; break;
-        case kFindDailyRecord: return 8; break;
-        case kChannelRecord:  return 9; break;
-        case kAllRecord:      return 10; break;
-        default: return 11;
-     }
+    if (!recTypeHash)
+        RecTypeHashInit();
+
+    RecordingTypeItem *item = recTypeHash->value(rectype, NULL);
+    if (!item)
+        return 11;
+
+    return item->priority;
 }
 
 /// \brief Converts "rectype" into a human readable description.
 QString toString(RecordingType rectype)
 {
-    switch (rectype)
-    {
-        case kSingleRecord:
-            return QObject::tr("Single Record");
-        case kTimeslotRecord:
-            return QObject::tr("Record Daily");
-        case kWeekslotRecord:
-            return QObject::tr("Record Weekly");
-        case kChannelRecord:
-            return QObject::tr("Channel Record");
-        case kAllRecord:
-            return QObject::tr("Record All");
-        case kFindOneRecord:
-            return QObject::tr("Find One");
-        case kFindDailyRecord:
-            return QObject::tr("Find Daily");
-        case kFindWeeklyRecord:
-            return QObject::tr("Find Weekly");
-        case kOverrideRecord:
-        case kDontRecord:
-            return QObject::tr("Override Recording");
-        default:
-            return QObject::tr("Not Recording");
-    }
+    if (!recTypeHash)
+        RecTypeHashInit();
+
+    RecordingTypeItem *item = recTypeHash->value(rectype, NULL);
+    if (!item)
+        return QObject::tr("Not Recording");
+
+    return item->transString;
 }
 
 /// \brief Converts "rectype" into an untranslated description.
 QString toRawString(RecordingType rectype)
 {
-    switch (rectype)
-    {
-        case kSingleRecord:
-            return QString("Single Record");
-        case kTimeslotRecord:
-            return QString("Record Daily");
-        case kWeekslotRecord:
-            return QString("Record Weekly");
-        case kChannelRecord:
-            return QString("Channel Record");
-        case kAllRecord:
-            return QString("Record All");
-        case kFindOneRecord:
-            return QString("Find One");
-        case kFindDailyRecord:
-            return QString("Find Daily");
-        case kFindWeeklyRecord:
-            return QString("Find Weekly");
-        case kOverrideRecord:
-        case kDontRecord:
-            return QString("Override Recording");
-        default:
-            return QString("Not Recording");
-    }
+    if (!recTypeHash)
+        RecTypeHashInit();
+
+    RecordingTypeItem *item = recTypeHash->value(rectype, NULL);
+    if (!item)
+        return QString("Not Recording");
+
+    return item->rawString;
 }
 
 RecordingType recTypeFromString(const QString &type)
 {
-    QString typeL(type.toLower());
+    if (!recTypeStringHash)
+        RecTypeHashInit();
 
-    if (typeL == "not recording" || typeL == "not")
-        return kNotRecording;
-    if (typeL == "single record" || typeL == "single")
-        return kSingleRecord;
-    if (typeL == "record daily" || typeL == "daily")
-        return kTimeslotRecord;
-    if (typeL == "record weekly" || typeL == "weekly")
-        return kWeekslotRecord;
-    if (typeL == "channel record" || typeL == "channel")
-        return kChannelRecord;
-    if (typeL == "record all" || typeL == "all")
-        return kAllRecord;
-    if (typeL == "find one" || typeL == "findone")
-        return kFindOneRecord;
-    if (typeL == "find daily" || typeL == "finddaily")
-        return kFindDailyRecord;
-    if (typeL == "find weekly" || typeL == "findweekly")
-        return kFindWeeklyRecord;
-    if (typeL == "override recording" || typeL == "override")
-        return kOverrideRecord;
+    RecordingTypeItem *item = recTypeStringHash->value(type.toLower(), NULL);
+    if (!item)
+        return kDontRecord;
 
-    return kDontRecord;
+    return item->type;
 }
 
 /// \brief Converts "rectype" into a human readable character.
 QChar toQChar(RecordingType rectype)
 {
-    QString ret;
-    switch (rectype)
-    {
-        case kSingleRecord:
-            ret = QObject::tr("S", "RecTypeChar kSingleRecord");     break;
-        case kTimeslotRecord:
-            ret = QObject::tr("T", "RecTypeChar kTimeslotRecord");   break;
-        case kWeekslotRecord:
-            ret = QObject::tr("W", "RecTypeChar kWeekslotRecord");   break;
-        case kChannelRecord:
-            ret = QObject::tr("C", "RecTypeChar kChannelRecord");    break;
-        case kAllRecord:
-            ret = QObject::tr("A", "RecTypeChar kAllRecord");        break;
-        case kFindOneRecord:
-            ret = QObject::tr("F", "RecTypeChar kFindOneRecord");    break;
-        case kFindDailyRecord:
-            ret = QObject::tr("d", "RecTypeChar kFindDailyRecord");  break;
-        case kFindWeeklyRecord:
-            ret = QObject::tr("w", "RecTypeChar kFindWeeklyRecord"); break;
-        case kOverrideRecord:
-        case kDontRecord:
-            ret = QObject::tr("O", "RecTypeChar kOverrideRecord/kDontRecord");
-            break;
-        case kNotRecording:
-        default:
-            ret = " ";
-    }
-    return (ret.isEmpty()) ? QChar(' ') : ret[0];
+    if (!recTypeHash)
+        RecTypeHashInit();
+
+    RecordingTypeItem *item = recTypeHash->value(rectype, NULL);
+    if (!item)
+        return QChar(' ');
+
+    return item->shortString;
 }
 
 QString toRawString(RecordingDupInType recdupin)
@@ -254,3 +245,7 @@ RecSearchType searchTypeFromString(const QString &type)
 
     return kNoSearch;
 }
+
+/*
+ * vim:ts=4:sw=4:ai:et:si:sts=4
+ */

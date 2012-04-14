@@ -18,7 +18,7 @@ typedef enum RecordingTypes
     kDontRecord,
     kFindDailyRecord,
     kFindWeeklyRecord
-} RecordingType; // note stored in uin8_t in ProgramInfo
+} RecordingType; // note stored in uint8_t in ProgramInfo
 MPUBLIC QString toString(RecordingType);
 MPUBLIC QString toRawString(RecordingType);
 MPUBLIC QChar   toQChar( RecordingType);
@@ -32,7 +32,7 @@ typedef enum RecordingDupInTypes
     kDupsInOldRecorded  = 0x02,
     kDupsInAll          = 0x0F,
     kDupsNewEpi         = 0x10
-} RecordingDupInType; // note stored in uin8_t in ProgramInfo
+} RecordingDupInType; // note stored in uint8_t in ProgramInfo
 MPUBLIC QString toRawString(RecordingDupInType);
 MPUBLIC RecordingDupInType dupInFromString(const QString &);
 
@@ -61,3 +61,6 @@ MPUBLIC RecSearchType searchTypeFromString(const QString &);
 
 #endif
 
+/*
+ * vim:ts=4:sw=4:ai:et:si:sts=4
+ */
