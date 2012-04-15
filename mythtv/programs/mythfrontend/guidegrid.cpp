@@ -1424,7 +1424,7 @@ void GuideGrid::fillProgramRowInfos(unsigned int row, bool useExistingData)
                 isCurrent = false;
 
             int recFlag;
-            switch (pginfo->GetRecordingRuleType())
+            switch (pginfo->GetRecordingRuleType().get())
             {
             case kSingleRecord:
                 recFlag = 1;
@@ -2166,7 +2166,7 @@ void GuideGrid::deleteRule()
     }
 
     QString message = tr("Delete '%1' %2 rule?").arg(record->m_title)
-        .arg(toString(pginfo->GetRecordingRuleType()));
+        .arg(pginfo->GetRecordingRuleType().toString());
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 

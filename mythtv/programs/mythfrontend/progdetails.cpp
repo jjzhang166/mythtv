@@ -597,7 +597,7 @@ void ProgDetails::loadPage(void)
     {
         recordingRule = QString("%1, ").arg(m_progInfo.GetRecordingRuleID());
         if (m_progInfo.GetRecordingRuleType() != kNotRecording)
-            recordingRule += toString(m_progInfo.GetRecordingRuleType());
+            recordingRule += m_progInfo.GetRecordingRuleType().toString();
         if (!(record->m_title.isEmpty()))
             recordingRule += QString(" \"%2\"").arg(record->m_title);
 

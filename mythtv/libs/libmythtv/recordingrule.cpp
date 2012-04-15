@@ -38,8 +38,8 @@ RecordingRule::RecordingRule()
     m_prefInput(0),
     m_startOffset(gCoreContext->GetNumSetting("DefaultStartOffset", 0)),
     m_endOffset(gCoreContext->GetNumSetting("DefaultEndOffset", 0)),
-    m_dupMethod(static_cast<RecordingDupMethodType>(
-                gCoreContext->GetNumSetting("prefDupMethod", kDupCheckSubDesc))),
+    m_dupMethod(RecordingDupMethodType(
+               gCoreContext->GetNumSetting("prefDupMethod", kDupCheckSubDesc))),
     m_dupIn(kDupsInAll),
     m_filter(GetDefaultFilter()),
     m_recProfile(QObject::tr("Default")),
@@ -98,15 +98,14 @@ bool RecordingRule::Load()
     if (query.next())
     {
         // Schedule
-        m_type = static_cast<RecordingType>(query.value(0).toInt());
-        m_searchType = static_cast<RecSearchType>(query.value(1).toInt());
+        m_type = RecordingType(query.value(0).toInt());
+        m_searchType = RecSearchType(query.value(1).toInt());
         m_recPriority = query.value(2).toInt();
         m_prefInput = query.value(3).toInt();
         m_startOffset = query.value(4).toInt();
         m_endOffset = query.value(5).toInt();
-        m_dupMethod = static_cast<RecordingDupMethodType>
-                                                (query.value(6).toInt());
-        m_dupIn = static_cast<RecordingDupInType>(query.value(7).toInt());
+        m_dupMethod = RecordingDupMethodType(query.value(6).toInt());
+        m_dupIn = RecordingDupInType(query.value(7).toInt());
         m_filter = query.value(47).toUInt();
         m_isInactive = query.value(8).toBool();
         // Storage
@@ -198,7 +197,7 @@ bool RecordingRule::LoadBySearch(RecSearchType lsearch, QString textname,
     int rid = 0;
     query.prepare("SELECT recordid FROM record WHERE "
                   "search = :SEARCH AND description LIKE :FORWHAT");
-    query.bindValue(":SEARCH", lsearch);
+    query.bindValue(":SEARCH", lsearch.get());
     query.bindValue(":FORWHAT", forwhat);
 
     if (query.exec())
@@ -318,14 +317,14 @@ bool RecordingRule::Save(bool sendSig)
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(sqlquery);
-    query.bindValue(":TYPE", m_type);
-    query.bindValue(":SEARCHTYPE", m_searchType);
+    query.bindValue(":TYPE", m_type.get());
+    query.bindValue(":SEARCHTYPE", m_searchType.get());
     query.bindValue(":RECPRIORITY", m_recPriority);
     query.bindValue(":INPUT", m_prefInput);
     query.bindValue(":STARTOFFSET",  m_startOffset);
     query.bindValue(":ENDOFFSET", m_endOffset);
-    query.bindValue(":DUPMETHOD", m_dupMethod);
-    query.bindValue(":DUPIN", m_dupIn);
+    query.bindValue(":DUPMETHOD", m_dupMethod.get());
+    query.bindValue(":DUPIN", m_dupIn.get());
     query.bindValue(":FILTER", m_filter);
     query.bindValue(":INACTIVE", m_isInactive);
     query.bindValue(":RECPROFILE", null_to_empty(m_recProfile));
@@ -420,7 +419,7 @@ bool RecordingRule::Delete(bool sendSig)
     return true;
 }
 
-void RecordingRule::ToMap(InfoMap &infoMap) const
+void RecordingRule::ToMap(InfoMap &infoMap)
 {
     infoMap["title"] = m_title;
     infoMap["subtitle"] = m_subtitle;
@@ -469,7 +468,7 @@ void RecordingRule::ToMap(InfoMap &infoMap) const
                           MythDateTimeToString(endts, kTime);
 
     infoMap["shorttimedate"] = MythDateTimeToString(startts,
-                                            kDateTimeShort | kSimplify) + " - " +
+                                           kDateTimeShort | kSimplify) + " - " +
                                MythDateTimeToString(endts, kTime);
 
     if (m_type == kFindDailyRecord || m_type == kFindWeeklyRecord)
@@ -502,8 +501,8 @@ void RecordingRule::ToMap(InfoMap &infoMap) const
         infoMap["lastdeleted"] = MythDateTimeToString(m_lastDeleted,
                                                       kDateFull | kAddYear);
 
-    infoMap["ruletype"] = toString(m_type);
-    infoMap["rectype"] = toString(m_type);
+    infoMap["ruletype"] = m_type.toString();
+    infoMap["rectype"] = m_type.toString();
 }
 
 void RecordingRule::UseTempTable(bool usetemp, QString table)
@@ -627,9 +626,10 @@ unsigned RecordingRule::GetDefaultFilter(void)
 
 QString RecordingRule::SearchTypeToString(const RecSearchType searchType)
 {
+    RecSearchEnumType typeVal = searchType.get();
     QString searchTypeString;
 
-    switch (searchType)
+    switch (typeVal)
     {
         case kNoSearch:
             searchTypeString = ""; // Allow themers to decide what to display

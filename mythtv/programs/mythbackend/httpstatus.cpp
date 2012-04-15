@@ -1586,11 +1586,11 @@ void HttpStatus::FillProgramInfo(QDomDocument *pDoc,
             recording.setAttribute( "playGroup"     ,
                                     pInfo->GetPlaybackGroup() );
             recording.setAttribute( "recType"       ,
-                                    pInfo->GetRecordingRuleType() );
+                                    pInfo->GetRecordingRuleType().get() );
             recording.setAttribute( "dupInType"     ,
-                                    pInfo->GetDuplicateCheckSource() );
+                                    pInfo->GetDuplicateCheckSource().get() );
             recording.setAttribute( "dupMethod"     ,
-                                    pInfo->GetDuplicateCheckMethod() );
+                                    pInfo->GetDuplicateCheckMethod().get() );
             recording.setAttribute( "encoderId"     ,
                                     pInfo->GetCardID() );
             const RecordingInfo ri(*pInfo);

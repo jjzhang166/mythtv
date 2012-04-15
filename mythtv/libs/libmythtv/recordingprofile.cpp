@@ -985,10 +985,10 @@ class TranscodeLossless : public CheckBoxSetting, public CodecParamStorage
     };
 };
 
-class RecordingType : public ComboBoxSetting, public CodecParamStorage
+class RecordingTypeSetting : public ComboBoxSetting, public CodecParamStorage
 {
   public:
-    RecordingType(const RecordingProfile &parent) :
+    RecordingTypeSetting(const RecordingProfile &parent) :
         ComboBoxSetting(this), CodecParamStorage(this, parent, "recordingtype")
     {
         setLabel(QObject::tr("Recording Type"));
@@ -1413,7 +1413,7 @@ void RecordingProfile::CompleteLoad(int profileId, const QString &type,
     }
     else if (type.toUpper() == "DVB")
     {
-        addChild(new RecordingType(*this));
+        addChild(new RecordingTypeSetting(*this));
     }
     else if (type.toUpper() == "ASI")
     {

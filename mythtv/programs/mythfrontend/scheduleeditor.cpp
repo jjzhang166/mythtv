@@ -199,8 +199,8 @@ void ScheduleEditor::Load()
                                  tr("Record this showing with normal options"),
                                  ENUM_TO_QVARIANT(kNotRecording));
         new MythUIButtonListItem(m_rulesList,
-                                 tr("Record this showing with override options"),
-                                 ENUM_TO_QVARIANT(kOverrideRecord));
+                                tr("Record this showing with override options"),
+                                ENUM_TO_QVARIANT(kOverrideRecord));
         new MythUIButtonListItem(m_rulesList,
                                  tr("Do not allow this showing to be recorded"),
                                  ENUM_TO_QVARIANT(kDontRecord));
@@ -246,7 +246,7 @@ void ScheduleEditor::Load()
                                      tr("Record at any time on any channel"),
                                      ENUM_TO_QVARIANT(kAllRecord));
     }
-    m_rulesList->SetValueByData(ENUM_TO_QVARIANT(type));
+    m_rulesList->SetValueByData(ENUM_TO_QVARIANT(type.get()));
 
     InfoMap progMap;
 
@@ -263,7 +263,7 @@ void ScheduleEditor::RuleChanged(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    RecordingType type = static_cast<RecordingType>(item->GetData().toInt());
+    RecordingType type = RecordingType(item->GetData().toInt());
 
     bool isScheduled = (type != kNotRecording);
 
@@ -279,7 +279,7 @@ void ScheduleEditor::Save()
     MythUIButtonListItem *item = m_rulesList->GetItemCurrent();
     if (item)
     {
-        RecordingType type = static_cast<RecordingType>(item->GetData().toInt());
+        RecordingType type = RecordingType(item->GetData().toInt());
         if (type == kNotRecording)
         {
             DeleteRule();
@@ -582,7 +582,7 @@ void SchedOptEditor::Load()
                              ENUM_TO_QVARIANT(kDupCheckNone));
 
     m_dupmethodList->SetValueByData(
-                                ENUM_TO_QVARIANT(m_recordingRule->m_dupMethod));
+                         ENUM_TO_QVARIANT(m_recordingRule->m_dupMethod.get()));
 
     // Duplicate Matching Scope
     new MythUIButtonListItem(m_dupscopeList,
@@ -605,7 +605,8 @@ void SchedOptEditor::Load()
                                  ENUM_TO_QVARIANT(kDupsNewEpi | kDupsInAll));
     }
 
-    m_dupscopeList->SetValueByData(ENUM_TO_QVARIANT(m_recordingRule->m_dupIn));
+    m_dupscopeList->SetValueByData(
+                           ENUM_TO_QVARIANT(m_recordingRule->m_dupIn.get()));
 
     // Active/Disabled
     m_ruleactiveCheck->SetCheckState(!m_recordingRule->m_isInactive);
@@ -648,12 +649,12 @@ void SchedOptEditor::Save()
     m_recordingRule->m_endOffset = m_endoffsetSpin->GetIntValue();
 
     // Duplicate Match Type
-    m_recordingRule->m_dupMethod = static_cast<RecordingDupMethodType>
-                                    (m_dupmethodList->GetDataValue().toInt());
+    m_recordingRule->m_dupMethod = 
+        RecordingDupMethodType(m_dupmethodList->GetDataValue().toInt());
 
     // Duplicate Matching Scope
-    m_recordingRule->m_dupIn = static_cast<RecordingDupInType>
-                                    (m_dupscopeList->GetDataValue().toInt());
+    m_recordingRule->m_dupIn =
+        RecordingDupInType(m_dupscopeList->GetDataValue().toInt());
 
     // Active/Disabled
     m_recordingRule->m_isInactive = (!m_ruleactiveCheck->GetBooleanCheckState());

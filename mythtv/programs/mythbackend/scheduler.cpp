@@ -250,13 +250,13 @@ static bool comp_overlap(RecordingInfo *a, RecordingInfo *b)
     // won't record except for those from kDontRecord rules.  This
     // will force them to yield to a rule that might record.
     // Otherwise, more specific record type beats less specific.
-    int apri = RecTypePriority(a->GetRecordingRuleType());
+    int apri = a->GetRecordingRuleType().toPriority();
     if (a->GetRecordingStatus() != rsUnknown &&
         a->GetRecordingStatus() != rsDontRecord)
     {
         apri += 100;
     }
-    int bpri = RecTypePriority(b->GetRecordingRuleType());
+    int bpri = b->GetRecordingRuleType().toPriority();
     if (b->GetRecordingStatus() != rsUnknown &&
         b->GetRecordingStatus() != rsDontRecord)
     {
@@ -332,8 +332,8 @@ static bool comp_priority(RecordingInfo *a, RecordingInfo *b)
     if (apast != bpast)
         return apast < bpast;
 
-    int apri = RecTypePriority(a->GetRecordingRuleType());
-    int bpri = RecTypePriority(b->GetRecordingRuleType());
+    int apri = a->GetRecordingRuleType().toPriority();
+    int bpri = b->GetRecordingRuleType().toPriority();
 
     if (apri != bpri)
         return apri < bpri;
@@ -558,7 +558,7 @@ void Scheduler::PrintRec(const RecordingInfo *p, const char *prefix)
         .arg(p->GetCardID())
         .arg(p->GetInputID());
     outstr += QString("%1 %2 %3")
-        .arg(toQChar(p->GetRecordingRuleType()))
+        .arg(p->GetRecordingRuleType().toQChar())
         .arg(toString(p->GetRecordingStatus(), p->GetCardID()))
         .arg(p->GetRecordingPriority());
     if (p->GetRecordingPriority2())
@@ -3224,7 +3224,7 @@ void Scheduler::UpdateManuals(uint recordid)
     bool weekday;
     int weeksoff;
 
-    switch (rectype)
+    switch (rectype.get())
     {
     case kSingleRecord:
     case kOverrideRecord:
@@ -3327,7 +3327,7 @@ void Scheduler::BuildNewRecordsQueries(uint recordid, QStringList &from,
 
         bindings[bindrecid] = result.value(0).toString();
 
-        switch (searchtype)
+        switch (searchtype.get())
         {
         case kPowerSearch:
             qphrase.remove(QRegExp("^\\s*AND\\s+", Qt::CaseInsensitive));
@@ -4092,14 +4092,15 @@ void Scheduler::AddNewRecords(void)
             p->SetRecordingStatus(p->oldrecstatus);
         }
 
-        if (!recTypeRecPriorityMap.contains(p->GetRecordingRuleType()))
+        RecordingType typeVal = p->GetRecordingRuleType();
+        if (!recTypeRecPriorityMap.contains(typeVal))
         {
-            recTypeRecPriorityMap[p->GetRecordingRuleType()] =
-                p->GetRecordingTypeRecPriority(p->GetRecordingRuleType());
+            recTypeRecPriorityMap[typeVal] =
+                p->GetRecordingTypeRecPriority(typeVal);
         }
 
         p->SetRecordingPriority(
-            p->GetRecordingPriority() + recTypeRecPriorityMap[p->GetRecordingRuleType()] +
+            p->GetRecordingPriority() + recTypeRecPriorityMap[typeVal] +
             result.value(48).toInt() +
             ((autopriority) ?
              autopriority - (result.value(45).toInt() * autostrata / 200) : 0));
@@ -4304,7 +4305,7 @@ void Scheduler::AddNotListed(void) {
         if (recendts < schedTime)
             continue;
 
-        bool sor = (kSingleRecord == rectype) || (kOverrideRecord == rectype);
+        bool sor = (rectype == kSingleRecord) || (rectype == kOverrideRecord);
 
         RecordingInfo *p = new RecordingInfo(
             result.value(0).toString(), // Title

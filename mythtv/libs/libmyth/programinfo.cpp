@@ -358,8 +358,8 @@ ProgramInfo::ProgramInfo(
     recstatus(_recstatus),
     oldrecstatus(rsUnknown),
     rectype(kNotRecording),
-    dupin(_dupin),
-    dupmethod(_dupmethod),
+    dupin(_dupin.toUint8()),
+    dupmethod(_dupmethod.toUint8()),
 
     // everything below this line is not serialized
     availableStatus(asAvailable),
@@ -466,7 +466,7 @@ ProgramInfo::ProgramInfo(
 
     recstatus(_recstatus),
     oldrecstatus(rsUnknown),
-    rectype(_rectype),
+    rectype(_rectype.toUint8()),
     dupin(kDupsInAll),
     dupmethod(kDupCheckSubDesc),
 
@@ -579,7 +579,7 @@ ProgramInfo::ProgramInfo(
 
     recstatus(_recstatus),
     oldrecstatus(rsUnknown),
-    rectype(_rectype),
+    rectype(_rectype.toUint8()),
     dupin(kDupsInAll),
     dupmethod(kDupCheckSubDesc),
 
@@ -1286,9 +1286,9 @@ bool ProgramInfo::FromStringList(QStringList::const_iterator &it,
     ENUM_FROM_LIST(recstatus, RecStatusType); // 20
     INT_FROM_LIST(recordid);         // 21
 
-    ENUM_FROM_LIST(rectype, RecordingType);            // 22
-    ENUM_FROM_LIST(dupin, RecordingDupInType);         // 23
-    ENUM_FROM_LIST(dupmethod, RecordingDupMethodType); // 24
+    ENUM_FROM_LIST(rectype, RecordingEnumType);            // 22
+    ENUM_FROM_LIST(dupin, RecordingDupInEnumType);         // 23
+    ENUM_FROM_LIST(dupmethod, RecordingDupMethodEnumType); // 24
     DATETIME_FROM_LIST(recstartts);   // 25
     DATETIME_FROM_LIST(recendts);     // 26
     INT_FROM_LIST(programflags);      // 27
@@ -1480,10 +1480,12 @@ void ProgramInfo::ToMap(InfoMap &progMap,
         progMap["lentime"] = QObject::tr("%n hour(s)","", hours);
     }
 
-    progMap["rectypechar"] = toQChar(GetRecordingRuleType());
-    progMap["rectype"] = ::toString(GetRecordingRuleType());
+    RecordingType recType = GetRecordingRuleType();
+
+    progMap["rectypechar"] = recType.toQChar();
+    progMap["rectype"] = recType.toString();
     QString tmp_rec = progMap["rectype"];
-    if (GetRecordingRuleType() != kNotRecording)
+    if (recType != kNotRecording)
     {
         if (((recendts > timeNow) && (recstatus <= rsWillRecord)) ||
             (recstatus == rsConflict) || (recstatus == rsLaterShowing))
@@ -1835,8 +1837,8 @@ bool ProgramInfo::LoadProgramFromRecorded(
     findid       = query.value(45).toUInt();
 
     /**///rectype;
-    dupin        = RecordingDupInType(query.value(46).toInt());
-    dupmethod    = RecordingDupMethodType(query.value(47).toInt());
+    dupin     = RecordingDupInType(query.value(46).toInt()).toUint8();
+    dupmethod = RecordingDupMethodType(query.value(47).toInt()).toUint8();
 
     // ancillary data -- begin
     set_flag(programflags, FL_CHANCOMMFREE,
@@ -1883,7 +1885,8 @@ bool ProgramInfo::LoadProgramFromRecorded(
  */
 int ProgramInfo::GetRecordingTypeRecPriority(RecordingType type)
 {
-    switch (type)
+    RecordingEnumType value = type.get();
+    switch (value)
     {
         case kSingleRecord:
             return gCoreContext->GetNumSetting("SingleRecordRecPriority", 1);

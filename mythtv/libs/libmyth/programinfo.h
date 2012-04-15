@@ -412,15 +412,15 @@ class MPUBLIC ProgramInfo
     uint    GetRecordingRuleID(void)          const { return recordid;  }
     uint    GetParentRecordingRuleID(void)    const { return parentid;  }
     RecordingType GetRecordingRuleType(void)  const
-        { return (RecordingType)rectype;   }
+        { return RecordingType(rectype);   }
 
     /// Where should we check for duplicates?
     RecordingDupInType GetDuplicateCheckSource(void) const
-        { return (RecordingDupInType)dupin; }
+        { return RecordingDupInType(dupin); }
 
     /// What should be compared to determine if two programs are the same?
     RecordingDupMethodType GetDuplicateCheckMethod(void) const
-        { return (RecordingDupMethodType)dupmethod; }
+        { return RecordingDupMethodType(dupmethod); }
 
     uint    GetSourceID(void)             const { return sourceid;     }
     uint    GetInputID(void)              const { return inputid;      }
@@ -510,7 +510,7 @@ class MPUBLIC ProgramInfo
         programflags |= (ignore) ? FL_IGNOREBOOKMARK : 0;
     }
     void SetRecordingStatus(RecStatusType status) { recstatus = status; }
-    void SetRecordingRuleType(RecordingType type) { rectype   = type;   }
+    void SetRecordingRuleType(RecordingType type) { rectype = type.toUint8(); }
     void SetPositionMapDBReplacement(PMapDBReplacement *pmap)
         { positionMapDBReplacement = pmap; }
 

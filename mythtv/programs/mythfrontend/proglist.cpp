@@ -436,7 +436,7 @@ void ProgLister::UpdateKeywordInDB(const QString &text, const QString &oldValue)
         query.prepare("DELETE FROM keyword "
                       "WHERE phrase = :PHRASE AND searchtype = :TYPE;");
         query.bindValue(":PHRASE", qphrase);
-        query.bindValue(":TYPE", m_searchType);
+        query.bindValue(":TYPE", m_searchType.get());
         if (!query.exec())
         {
             MythDB::DBError(
@@ -454,7 +454,7 @@ void ProgLister::UpdateKeywordInDB(const QString &text, const QString &oldValue)
         query.prepare("REPLACE INTO keyword (phrase, searchtype)"
                       "VALUES(:PHRASE, :TYPE );");
         query.bindValue(":PHRASE", qphrase);
-        query.bindValue(":TYPE", m_searchType);
+        query.bindValue(":TYPE", m_searchType.get());
         if (!query.exec())
         {
             MythDB::DBError(
@@ -678,7 +678,7 @@ void ProgLister::ShowDeleteRuleMenu(void)
     }
 
     QString message = tr("Delete '%1' %2 rule?").arg(record->m_title)
-        .arg(toString(pi->GetRecordingRuleType()));
+        .arg(pi->GetRecordingRuleType().toString());
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -902,7 +902,7 @@ void ProgLister::FillViewList(const QString &view)
         MSqlQuery query(MSqlQuery::InitCon());
         query.prepare("SELECT phrase FROM keyword "
                       "WHERE searchtype = :SEARCHTYPE;");
-        query.bindValue(":SEARCHTYPE", m_searchType);
+        query.bindValue(":SEARCHTYPE", m_searchType.get());
 
         if (query.exec())
         {
@@ -933,7 +933,7 @@ void ProgLister::FillViewList(const QString &view)
                 query.prepare("REPLACE INTO keyword (phrase, searchtype)"
                               "VALUES(:VIEW, :SEARCHTYPE );");
                 query.bindValue(":VIEW", qphrase);
-                query.bindValue(":SEARCHTYPE", m_searchType);
+                query.bindValue(":SEARCHTYPE", m_searchType.get());
                 if (!query.exec())
                     MythDB::DBError("ProgLister::FillViewList -- "
                                     "replace keyword", query);

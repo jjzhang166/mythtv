@@ -134,9 +134,9 @@ RecordingInfo::RecordingInfo(
 
     recordid = _recordid;
     parentid = _parentid;
-    rectype = _rectype;
-    dupin = _dupin;
-    dupmethod = _dupmethod;
+    rectype = _rectype.toUint8();
+    dupin = _dupin.toUint8();
+    dupmethod = _dupmethod.toUint8();
 
     sourceid = _sourceid;
     inputid = _inputid;
@@ -209,9 +209,9 @@ RecordingInfo::RecordingInfo(
     recstatus = _recstatus,
 
     recordid = _recordid;
-    rectype = _rectype;
-    dupin = _dupin;
-    dupmethod = _dupmethod;
+    rectype = _rectype.toUint8();
+    dupin = _dupin.toUint8();
+    dupmethod = _dupmethod.toUint8();
 
     findid = _findid;
 
@@ -762,7 +762,7 @@ void RecordingInfo::ApplyTranscoderProfileChange(const QString &profile) const
  */
 void RecordingInfo::ToggleRecord(void)
 {
-    RecordingType curType = GetProgramRecordingStatus();
+    RecordingEnumType curType = GetProgramRecordingStatus().get();
 
     switch (curType)
     {

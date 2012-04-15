@@ -190,14 +190,14 @@ void FillRecRuleInfo( DTC::RecRule  *pRecRule,
     pRecRule->setDay            (  pRule->m_findday                );
     pRecRule->setTime           (  pRule->m_findtime               );
     pRecRule->setFindId         (  pRule->m_findid                 );
-    pRecRule->setType           (  toRawString(pRule->m_type)      );
-    pRecRule->setSearchType     (  toRawString(pRule->m_searchType));
+    pRecRule->setType           (  pRule->m_type.toRawString()     );
+    pRecRule->setSearchType     (  pRule->m_searchType.toRawString());
     pRecRule->setRecPriority    (  pRule->m_recPriority            );
     pRecRule->setPreferredInput (  pRule->m_prefInput              );
     pRecRule->setStartOffset    (  pRule->m_startOffset            );
     pRecRule->setEndOffset      (  pRule->m_endOffset              );
-    pRecRule->setDupMethod      (  toRawString(pRule->m_dupMethod) );
-    pRecRule->setDupIn          (  toRawString(pRule->m_dupIn)     );
+    pRecRule->setDupMethod      (  pRule->m_dupMethod.toRawString());
+    pRecRule->setDupIn          (  pRule->m_dupIn.toRawString()    );
     pRecRule->setFilter         (  pRule->m_filter                 );
     pRecRule->setRecProfile     (  pRule->m_recProfile             );
     pRecRule->setRecGroup       (  pRule->m_recGroup               );

@@ -148,7 +148,7 @@ void PhrasePopup::deleteClicked(void)
     query.prepare("DELETE FROM keyword "
                   "WHERE phrase = :PHRASE AND searchtype = :TYPE;");
     query.bindValue(":PHRASE", qphrase);
-    query.bindValue(":TYPE", m_searchType);
+    query.bindValue(":TYPE", m_searchType.get());
     if (!query.exec())
         MythDB::DBError("PhrasePopup::deleteClicked", query);
 
@@ -350,7 +350,7 @@ void PowerSearchPopup::deleteClicked(void)
     query.prepare("DELETE FROM keyword "
                   "WHERE phrase = :PHRASE AND searchtype = :TYPE;");
     query.bindValue(":PHRASE", qphrase);
-    query.bindValue(":TYPE", m_searchType);
+    query.bindValue(":TYPE", m_searchType.get());
     if (!query.exec())
         MythDB::DBError("PowerSearchPopup::deleteClicked", query);
 

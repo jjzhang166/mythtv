@@ -157,8 +157,8 @@ class TitleSort
                 return finalA < finalB;
         }
 
-        int typeA = RecTypePriority(a.prog->recType);
-        int typeB = RecTypePriority(b.prog->recType);
+        int typeA = a.prog->recType.toPriority();
+        int typeB = b.prog->recType.toPriority();
 
         if (typeA != typeB)
         {
@@ -202,8 +202,8 @@ class ProgramRecPrioritySort
                 return finalA < finalB;
         }
 
-        int typeA = RecTypePriority(a.prog->recType);
-        int typeB = RecTypePriority(b.prog->recType);
+        int typeA = a.prog->recType.toPriority();
+        int typeB = b.prog->recType.toPriority();
 
         if (typeA != typeB)
         {
@@ -232,8 +232,8 @@ class ProgramRecTypeSort
 
     bool operator()(const RecPriorityInfo &a, const RecPriorityInfo &b) const
     {
-        int typeA = RecTypePriority(a.prog->recType);
-        int typeB = RecTypePriority(b.prog->recType);
+        int typeA = a.prog->recType.toPriority();
+        int typeB = b.prog->recType.toPriority();
 
         if (typeA != typeB)
         {
@@ -982,8 +982,8 @@ void ProgramRecPriority::scheduleChanged(int recid)
 
         // set the recording priorities of that program
         pgRecInfo->SetRecordingPriority(recPriority);
-        pgRecInfo->recType = (RecordingType)rectype;
-        pgRecInfo->recTypeRecPriority = rtRecPriors[pgRecInfo->recType];
+        pgRecInfo->recType = RecordingType(rectype);
+        pgRecInfo->recTypeRecPriority = rtRecPriors[pgRecInfo->recType.get()];
         // also set the m_origRecPriorityData with new recording
         // priority so we don't save to db again when we exit
         m_origRecPriorityData[pgRecInfo->GetRecordingRuleID()] =
@@ -1034,7 +1034,7 @@ void ProgramRecPriority::remove(void)
     }
 
     QString message = tr("Delete '%1' %2 rule?").arg(record->m_title)
-        .arg(toString(pgRecInfo->GetRecordingRuleType()));
+        .arg(pgRecInfo->GetRecordingRuleType().toString());
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -1299,8 +1299,8 @@ void ProgramRecPriority::FillList(void)
             QString chanid = result.value(2).toString();
             QString tempTime = result.value(3).toString();
             QString tempDate = result.value(4).toString();
-            RecordingType recType = (RecordingType)result.value(5).toInt();
-            int recTypeRecPriority = rtRecPriors[recType];
+            RecordingType recType = RecordingType(result.value(5).toInt());
+            int recTypeRecPriority = rtRecPriors[recType.get()];
             int inactive = result.value(6).toInt();
             QDateTime lastrec = result.value(7).toDateTime();
             int avgd = result.value(8).toInt();

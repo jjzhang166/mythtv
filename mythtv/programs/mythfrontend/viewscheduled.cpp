@@ -622,7 +622,7 @@ void ViewScheduled::deleteRule()
     }
 
     QString message = tr("Delete '%1' %2 rule?").arg(record->m_title)
-        .arg(toString(pginfo->GetRecordingRuleType()));
+        .arg(pginfo->GetRecordingRuleType().toString());
 
     MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
 

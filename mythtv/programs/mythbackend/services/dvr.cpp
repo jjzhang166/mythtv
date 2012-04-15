@@ -469,10 +469,10 @@ int Dvr::AddRecordSchedule   ( int       nChanId,
         sDupIn = "all";
 
     rule->m_title = info->GetTitle();
-    rule->m_type = recTypeFromString(sType);
-    rule->m_searchType = searchTypeFromString(sSearchType);
-    rule->m_dupMethod = dupMethodFromString(sDupMethod);
-    rule->m_dupIn = dupInFromString(sDupIn);
+    rule->m_type = RecordingType(sType);
+    rule->m_searchType = RecSearchType(sSearchType);
+    rule->m_dupMethod = RecordingDupMethodType(sDupMethod);
+    rule->m_dupIn = RecordingDupInType(sDupIn);
 
     if (sRecProfile.isEmpty())
         sRecProfile = "Default";
