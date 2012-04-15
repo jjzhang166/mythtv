@@ -326,7 +326,7 @@ void SendMythSystemRecEvent(const QString msg, const RecordingInfo *pginfo)
                     .arg(msg).arg(pginfo->GetCardID())
                     .arg(pginfo->GetChanID())
                     .arg(pginfo->GetRecordingStartTime(ISODate))
-                    .arg(pginfo->GetRecordingStatus()));
+                    .arg(pginfo->GetRecordingStatus().toInt8()));
     else
         LOG(VB_GENERAL, LOG_ERR, LOC + "SendMythSystemRecEvent() called with "
                                        "empty RecordingInfo");

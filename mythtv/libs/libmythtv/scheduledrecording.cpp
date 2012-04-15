@@ -44,7 +44,7 @@ QStringList ScheduledRecording::BuildCheckRequest(const RecordingInfo &recinfo,
                                                   const QString &why)
 {
     return QStringList(QString("CHECK %1 %2 %3 %4")
-                       .arg(recinfo.GetRecordingStatus())
+                       .arg(recinfo.GetRecordingStatus().toInt8())
                        .arg(recinfo.GetParentRecordingRuleID() ?
                             recinfo.GetParentRecordingRuleID() :
                             recinfo.GetRecordingRuleID())

@@ -106,7 +106,7 @@ AvailableStatusType PBHEventHandler::CheckAvailability(const QStringList &slist)
     list.clear();
     list.push_back(evinfo.MakeUniqueKey());
     list.push_back(QString::number((int)*cats.begin()));
-    list.push_back(QString::number((int)availableStatus));
+    list.push_back(QString::number(availableStatus.toUint8()));
     list.push_back(QString::number(evinfo.GetFilesize()));
     list.push_back(QString::number(tm.hour()));
     list.push_back(QString::number(tm.minute()));
@@ -126,6 +126,7 @@ AvailableStatusType PBHEventHandler::CheckAvailability(const QStringList &slist)
     return availableStatus;
 }
 
+// TODO: more mythactions
 bool PBHEventHandler::event(QEvent *e)
 {
     if (e->type() == QEvent::Timer)
@@ -247,9 +248,9 @@ bool PBHEventHandler::event(QEvent *e)
             list.clear();
             evinfo.ToStringList(list);
             list += QString::number(kCheckForCache);
-            if (check_avail && (asAvailable != CheckAvailability(list)))
+            if (check_avail && (CheckAvailability(list) != asAvailable))
                 return true;
-            else if (asAvailable != evinfo.GetAvailableStatus())
+            else if (evinfo.GetAvailableStatus() != asAvailable)
                 return true;
 
             // Now we can actually request the preview...

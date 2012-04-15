@@ -177,7 +177,7 @@ class Scheduler : public MThread, public MythScheduler
     void HandleTuning(
         RecordingInfo &ri, bool &statuschanged, int tuningTimeout);
     void HandleRecordingStatusChange(
-        RecordingInfo &ri, RecStatusTypes recStatus, const QString &details);
+        RecordingInfo &ri, RecStatusType &recStatus, const QString &details);
     void HandleIdleShutdown(
         bool &blockShutdown, QDateTime &idleSince, int prerollseconds,
         int idleTimeoutSecs, int idleWaitForRecordingTime,

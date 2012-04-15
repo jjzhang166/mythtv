@@ -1569,7 +1569,7 @@ void HttpStatus::FillProgramInfo(QDomDocument *pDoc,
         program.appendChild( recording );
 
         recording.setAttribute( "recStatus"     ,
-                                pInfo->GetRecordingStatus()   );
+                                pInfo->GetRecordingStatus().get() );
         recording.setAttribute( "recPriority"   ,
                                 pInfo->GetRecordingPriority() );
         recording.setAttribute( "recStartTs"    ,

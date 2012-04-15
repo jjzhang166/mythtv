@@ -206,7 +206,7 @@ RecordingInfo::RecordingInfo(
 {
     recpriority = _recpriority;
 
-    recstatus = _recstatus,
+    recstatus = _recstatus.toInt8(),
 
     recordid = _recordid;
     rectype = _rectype.toUint8();
@@ -1167,7 +1167,7 @@ void RecordingInfo::AddHistory(bool resched, bool forcedup, bool future)
     RecStatusType rs = (GetRecordingStatus() == rsCurrentRecording &&
                         !future) ? rsPreviousRecording : GetRecordingStatus();
     LOG(VB_SCHEDULE, LOG_INFO, QString("AddHistory: %1/%2, %3, %4, %5/%6")
-            .arg(int(rs)).arg(int(oldrecstatus)).arg(future).arg(dup)
+            .arg(rs.toInt8()).arg(oldrecstatus.toInt8()).arg(future).arg(dup)
             .arg(GetScheduledStartTime().toString()).arg(GetTitle()));
     if (!future)
         oldrecstatus = GetRecordingStatus();
@@ -1201,7 +1201,7 @@ void RecordingInfo::AddHistory(bool resched, bool forcedup, bool future)
     result.bindValue(":RECORDID", erecid);
     result.bindValue(":STATION", null_to_empty(chansign));
     result.bindValue(":RECTYPE", rectype);
-    result.bindValue(":RECSTATUS", rs);
+    result.bindValue(":RECSTATUS", rs.get());
     result.bindValue(":DUPLICATE", dup);
     result.bindValue(":REACTIVATE", IsReactivated());
     result.bindValue(":FUTURE", future);

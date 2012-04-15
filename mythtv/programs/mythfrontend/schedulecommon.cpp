@@ -197,7 +197,7 @@ void ScheduleCommon::ShowRecordingDialog(const RecordingInfo& recinfo)
     QString message = recinfo.toString(ProgramInfo::kTitleSubtitle, " - ");
 
     message += "\n\n";
-    message += toDescription(recinfo.GetRecordingStatus(),
+    message += recinfo.GetRecordingStatus().toDescription(
                              recinfo.GetRecordingRuleType(),
                              recinfo.GetRecordingStartTime());
 
@@ -320,7 +320,7 @@ void ScheduleCommon::ShowNotRecordingDialog(const RecordingInfo& recinfo)
     QString message = recinfo.toString(ProgramInfo::kTitleSubtitle, " - ");
 
     message += "\n\n";
-    message += toDescription(recinfo.GetRecordingStatus(),
+    message += recinfo.GetRecordingStatus().toDescription(
                              recinfo.GetRecordingRuleType(),
                              recinfo.GetRecordingStartTime());
 

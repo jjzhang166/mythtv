@@ -713,12 +713,12 @@ void StatusBox::doScheduleStatus()
     for (; it != schedList.end(); ++it)
     {
         const ProgramInfo *s = *it;
-        const RecStatusType recstatus = s->GetRecordingStatus();
+        RecStatusType recstatus = s->GetRecordingStatus();
 
         if (statusMatch[recstatus] < 1)
         {
-            statusText[recstatus] = toString(
-                recstatus, s->GetRecordingRuleType());
+            statusText[recstatus] =
+                recstatus.toString(s->GetRecordingRuleType());
         }
 
         ++statusMatch[recstatus];

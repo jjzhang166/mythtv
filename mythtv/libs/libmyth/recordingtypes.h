@@ -18,6 +18,10 @@ struct MPUBLIC RecTypeItem
     void        *priv;
 };
 
+#define REC_ITEM(t,string,listing) \
+    { (t), string, \
+      QStringList() << QString(string).toLower() << listing, NULL }
+
 template <typename T>
 class MPUBLIC RecType
 {
@@ -48,6 +52,12 @@ class MPUBLIC RecType
     bool operator<(const RecType<T> &other) const
         { return (m_value < other.m_value); };
 
+    bool operator<=(const RecType<T> &other) const
+        { return (m_value <= other.m_value); };
+
+    bool operator>(const RecType<T> &other) const
+        { return (m_value > other.m_value); };
+
 
     bool operator==(const T &other) const
         { return m_value == other; };
@@ -58,11 +68,19 @@ class MPUBLIC RecType
     bool operator<(const T &other) const
         { return (m_value < other); };
 
+    bool operator<=(const T &other) const
+        { return (m_value <= other); };
+
+    bool operator>(const T &other) const
+        { return (m_value > other); };
+
     T operator&(const T &other) const
         { return (T)((uint64_t)m_value & (uint64_t)other); };
 
-    T get(void) const { return m_value; };
+    int8_t  toInt8(void) const  { return (int8_t)m_value; };
     uint8_t toUint8(void) const { return (uint8_t)m_value; };
+
+    T get(void) const { return m_value; };
     void set(T value) { m_value = value; };
 
     QString toRawString(void)

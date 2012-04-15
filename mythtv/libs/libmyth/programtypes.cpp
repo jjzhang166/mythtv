@@ -4,6 +4,7 @@
 #include <QMutex>
 
 #include "programtypes.h"
+#include "mythactions.h"
 
 const char *kPlayerInUseID           = "player";
 const char *kPIPPlayerInUseID        = "pipplayer";
@@ -42,319 +43,252 @@ QString toString(MarkTypes type)
     return "unknown";
 }
 
-QString toUIState(RecStatusType recstatus)
+
+#define REC_STATUS_PRIV_ITEM(t,letter,ui,descr) \
+    { (t), (ui), (letter), "RecStatusChar ##t", (descr) }
+
+template <> struct RecTypeItem<RecStatusEnumType> RecStatusBaseType::m_items[] =
 {
-    if (recstatus == rsRecorded     || recstatus == rsWillRecord)
-        return "normal";
+    REC_ITEM(rsMissedFuture, "Missed Future", ""),
+    REC_ITEM(rsTuning, "Tuning", ""),
+    REC_ITEM(rsFailed, "Recorder Failed", ""),
+    REC_ITEM(rsTunerBusy, "Tuner Busy", ""),
+    REC_ITEM(rsLowDiskSpace, "Low Disk Space", ""),
+    REC_ITEM(rsCancelled, "Manual Cancel", ""),
+    REC_ITEM(rsMissed, "Missed", ""),
+    REC_ITEM(rsAborted, "Aborted", ""),
+    REC_ITEM(rsRecorded, "Recorded", ""),
+    REC_ITEM(rsRecording, "Recording", ""),
+    REC_ITEM(rsWillRecord, "Will Record", ""),
+    REC_ITEM(rsUnknown, "Unknown", ""),
+    REC_ITEM(rsDontRecord, "Don't Record", ""),
+    REC_ITEM(rsPreviousRecording, "Previously Recorded", ""),
+    REC_ITEM(rsCurrentRecording, "Currently Recorded", ""),
+    REC_ITEM(rsEarlierShowing, "Earlier Showing", ""),
+    REC_ITEM(rsTooManyRecordings, "Max Recordings", ""),
+    REC_ITEM(rsNotListed, "Not Listed", ""),
+    REC_ITEM(rsConflict, "Conflicting", ""),
+    REC_ITEM(rsLaterShowing, "Later Showing", ""),
+    REC_ITEM(rsRepeat, "Repeat", ""),
+    REC_ITEM(rsInactive, "Inactive", ""),
+    REC_ITEM(rsNeverRecord, "Never Record", ""),
+    REC_ITEM(rsOffLine, "Recorder Off-Line", ""),
+    REC_ITEM(rsOtherShowing, "Other Showing", "")
+};
+template <> int RecStatusBaseType::m_itemCount =
+            NELEMS(RecStatusBaseType::m_items);
 
-    if (recstatus == rsRecording    || recstatus == rsTuning)
-        return "running";
+template <> RecStatusPrivItem RecStatusType::m_privItems[] = {
+    REC_STATUS_PRIV_ITEM(rsMissedFuture, "m", "disabled",
+                         "This showing was not recorded because the "
+                         "master backend was hung or not running."),
+    REC_STATUS_PRIV_ITEM(rsTuning, "t", "running",
+                         "Thsi channel is being tuned."),
+    REC_STATUS_PRIV_ITEM(rsFailed, "f", "error",
+                         "The recorder failed to record."),
+    REC_STATUS_PRIV_ITEM(rsTunerBusy, "B", "error",
+                         "The tuner card was already being used."),
+    REC_STATUS_PRIV_ITEM(rsLowDiskSpace, "K", "disabled",
+                         "There wasn't enough disk space available."),
+    REC_STATUS_PRIV_ITEM(rsCancelled, "c", "disabled",
+                         "This showing was not recorded because it "
+                         "was manually cancelled."),
+    REC_STATUS_PRIV_ITEM(rsMissed, "M", "error",
+                         "This showing was not recorded because the "
+                         "master backend was hung or not running."),
+    REC_STATUS_PRIV_ITEM(rsAborted, "A", "error",
+                         "This showing was recorded but was aborted "
+                         "before recording was completed."),
+    REC_STATUS_PRIV_ITEM(rsRecorded, "R", "normal",
+                         "This showing was recorded."),
+    REC_STATUS_PRIV_ITEM(rsRecording, "", "running",
+                         "This showing is being recorded."),
+    REC_STATUS_PRIV_ITEM(rsWillRecord, "", "normal",
+                         "This showing will be recorded."),
+    REC_STATUS_PRIV_ITEM(rsUnknown, "-", "disabled",
+                         "The status of this showing is unknown."),
+    REC_STATUS_PRIV_ITEM(rsDontRecord, "X", "disabled",
+                         "it was manually set to not record."),
+    REC_STATUS_PRIV_ITEM(rsPreviousRecording, "P", "disabled",
+                         "this episode was previously recorded "
+                         "according to the duplicate policy chosen "
+                         "for this title."),
+    REC_STATUS_PRIV_ITEM(rsCurrentRecording, "R", "disabled",
+                         "this episode was previously recorded and "
+                         "is still available in the list of "
+                         "recordings."),
+    REC_STATUS_PRIV_ITEM(rsEarlierShowing, "E", "warning",
+                         "this episode will be recorded at an "
+                         "earlier time instead."),
+    REC_STATUS_PRIV_ITEM(rsTooManyRecordings, "T", "warning",
+                         "too many recordings of this program have "
+                         "already been recorded."),
+    REC_STATUS_PRIV_ITEM(rsNotListed, "N", "warning",
+                         "this rule does not match any showings in "
+                         "the current program listings."),
+    REC_STATUS_PRIV_ITEM(rsConflict, "C", "error",
+                         "another program with a higher priority "
+                         "will be recorded."),
+    REC_STATUS_PRIV_ITEM(rsLaterShowing, "L", "warning",
+                         "this episode will be recorded at a later time."),
+    REC_STATUS_PRIV_ITEM(rsRepeat, "r", "disabled",
+                         "this episode is a repeat."),
+    REC_STATUS_PRIV_ITEM(rsInactive, "x", "warning",
+                         "this recording rule is inactive."),
+    REC_STATUS_PRIV_ITEM(rsNeverRecord, "V", "disabled",
+                         "it was marked to never be recorded."),
+    REC_STATUS_PRIV_ITEM(rsOffLine, "F", "error",
+                         "the backend recorder is off-line."),
+    REC_STATUS_PRIV_ITEM(rsOtherShowing, "O", "disabled",
+                         "this episode will be recorded on a different "
+                         "channel in this time slot.")
+};
+template <> int RecStatusType::m_privItemCount =
+            NELEMS(RecStatusType::m_privItems);
 
-    if (recstatus == rsConflict     || recstatus == rsOffLine      ||
-        recstatus == rsTunerBusy    || recstatus == rsFailed       ||
-        recstatus == rsAborted      || recstatus == rsMissed)
+template <> RecStatusEnumType RecStatusBaseType::m_defaultValue = rsUnknown;
+template <> const char * RecStatusBaseType::m_defaultString = "Unknown";
+template <> QHash<QString, struct RecTypeItem<RecStatusEnumType> *> *
+            RecStatusBaseType::m_stringHash = NULL;
+template <> QHash<RecStatusEnumType, struct RecTypeItem<RecStatusEnumType> *> *
+            RecStatusBaseType::m_hash = NULL;
+template <> bool RecStatusType::m_privInit = false;
+template <> const char * RecStatusType::m_defaultChar = "-";
+template <> const char * RecStatusType::m_defaultUI = "warning";
+template <> const char * RecStatusType::m_defaultDescr =
+            "The status of this showing is unknown.";
+
+
+void RecStatusType::hashPrivInit(void)
+{
+    if (m_privInit)
+        return;
+
+    if (!m_hash)
+        hashInit();
+
+    for (int i = 0; i < m_privItemCount; i++)
     {
-        return "error";
+        RecStatusPrivItem *privItem = &m_privItems[i];
+        struct RecTypeItem<RecStatusEnumType> *item =
+            m_hash->value(privItem->type);
+
+        if (item)
+            item->priv = privItem;
     }
 
-    if (recstatus == rsRepeat       || recstatus == rsOtherShowing ||
-        recstatus == rsNeverRecord  || recstatus == rsDontRecord   ||
-        (recstatus != rsDontRecord && recstatus <= rsEarlierShowing))
-    {
-        return "disabled";
-    }
+    m_privInit = true;
+}
 
-    return "warning";
+QString RecStatusType::toUIState(void)
+{
+    if (!m_hash)
+        hashPrivInit();
+
+    struct RecTypeItem<RecStatusEnumType> *item =
+        m_hash->value(m_value, NULL);
+
+    if (!item || !item->priv)
+        return QString(m_defaultUI);
+
+    RecStatusPrivItem *privItem = (RecStatusPrivItem *)item->priv;
+    return QString(privItem->uiText);
 }
 
 /// \brief Converts "recstatus" into a human readable string.
-QString toString(RecStatusType recstatus, uint id)
+QString RecStatusType::toString(uint id)
 {
-    QString ret = "-";
-    switch (recstatus)
-    {
-        case rsAborted:
-            ret = QObject::tr("A", "RecStatusChar rsAborted");
-            break;
-        case rsRecorded:
-            ret = QObject::tr("R", "RecStatusChar rsRecorded");
-            break;
-        case rsRecording:
-            ret = QString::number(id);
-            break;
-        case rsTuning:
-            ret = QObject::tr("t", "RecStatusChar rsTuning");
-            break;
-        case rsWillRecord:
-            ret = QString::number(id);
-            break;
-        case rsDontRecord:
-            ret = QObject::tr("X", "RecStatusChar rsDontRecord");
-            break;
-        case rsPreviousRecording:
-            ret = QObject::tr("P", "RecStatusChar rsPreviousRecording");
-            break;
-        case rsCurrentRecording:
-            ret = QObject::tr("R", "RecStatusChar rsCurrentRecording");
-            break;
-        case rsEarlierShowing:
-            ret = QObject::tr("E", "RecStatusChar rsEarlierShowing");
-            break;
-        case rsTooManyRecordings:
-            ret = QObject::tr("T", "RecStatusChar rsTooManyRecordings");
-            break;
-        case rsCancelled:
-            ret = QObject::tr("c", "RecStatusChar rsCancelled");
-            break;
-        case rsMissed:
-            ret = QObject::tr("M", "RecStatusChar rsMissed");
-            break;
-        case rsMissedFuture:
-            ret = QObject::tr("m", "RecStatusChar rsMissedFuture");
-            break;
-        case rsConflict:
-            ret = QObject::tr("C", "RecStatusChar rsConflict");
-            break;
-        case rsLaterShowing:
-            ret = QObject::tr("L", "RecStatusChar rsLaterShowing");
-            break;
-        case rsRepeat:
-            ret = QObject::tr("r", "RecStatusChar rsRepeat");
-            break;
-        case rsInactive:
-            ret = QObject::tr("x", "RecStatusChar rsInactive");
-            break;
-        case rsLowDiskSpace:
-            ret = QObject::tr("K", "RecStatusChar rsLowDiskSpace");
-            break;
-        case rsTunerBusy:
-            ret = QObject::tr("B", "RecStatusChar rsTunerBusy");
-            break;
-        case rsFailed:
-            ret = QObject::tr("f", "RecStatusChar rsFailed");
-            break;
-        case rsNotListed:
-            ret = QObject::tr("N", "RecStatusChar rsNotListed");
-            break;
-        case rsNeverRecord:
-            ret = QObject::tr("V", "RecStatusChar rsNeverRecord");
-            break;
-        case rsOffLine:
-            ret = QObject::tr("F", "RecStatusChar rsOffLine");
-            break;
-        case rsOtherShowing:
-            ret = QObject::tr("O", "RecStatusChar rsOtherShowing");
-            break;
-    }
+    if (m_value == rsRecording || m_value == rsWillRecord)
+        return QString::number(id);
 
-    return (ret.isEmpty()) ? QString("-") : ret;
+    if (!m_hash)
+        hashPrivInit();
+
+    struct RecTypeItem<RecStatusEnumType> *item =
+        m_hash->value(m_value, NULL);
+
+    if (!item || !item->priv)
+        return QString(m_defaultChar);
+
+    RecStatusPrivItem *privItem = (RecStatusPrivItem *)item->priv;
+    if (!privItem->charVal[0])
+        return QString(m_defaultChar);
+
+    return QObject::tr(privItem->charVal, privItem->charType);
 }
 
 /// \brief Converts "recstatus" into a short human readable description.
-QString toString(RecStatusType recstatus, RecordingType rectype)
+QString RecStatusType::toString(RecordingType rectype)
 {
-    if (recstatus == rsUnknown && rectype == kNotRecording)
+    if (m_value == rsUnknown && rectype == kNotRecording)
         return QObject::tr("Not Recording");
 
-    switch (recstatus)
-    {
-        case rsAborted:
-            return QObject::tr("Aborted");
-        case rsRecorded:
-            return QObject::tr("Recorded");
-        case rsRecording:
-            return QObject::tr("Recording");
-        case rsTuning:
-            return QObject::tr("Tuning");
-        case rsWillRecord:
-            return QObject::tr("Will Record");
-        case rsDontRecord:
-            return QObject::tr("Don't Record");
-        case rsPreviousRecording:
-            return QObject::tr("Previously Recorded");
-        case rsCurrentRecording:
-            return QObject::tr("Currently Recorded");
-        case rsEarlierShowing:
-            return QObject::tr("Earlier Showing");
-        case rsTooManyRecordings:
-            return QObject::tr("Max Recordings");
-        case rsCancelled:
-            return QObject::tr("Manual Cancel");
-        case rsMissed:
-            return QObject::tr("Missed");
-        case rsMissedFuture:
-            return QObject::tr("Missed Future");
-        case rsConflict:
-            return QObject::tr("Conflicting");
-        case rsLaterShowing:
-            return QObject::tr("Later Showing");
-        case rsRepeat:
-            return QObject::tr("Repeat");
-        case rsInactive:
-            return QObject::tr("Inactive");
-        case rsLowDiskSpace:
-            return QObject::tr("Low Disk Space");
-        case rsTunerBusy:
-            return QObject::tr("Tuner Busy");
-        case rsFailed:
-            return QObject::tr("Recorder Failed");
-        case rsNotListed:
-            return QObject::tr("Not Listed");
-        case rsNeverRecord:
-            return QObject::tr("Never Record");
-        case rsOffLine:
-            return QObject::tr("Recorder Off-Line");
-        case rsOtherShowing:
-            return QObject::tr("Other Showing");
-    }
+    if (!m_hash)
+        hashPrivInit();
 
-    return QObject::tr("Unknown");
+    struct RecTypeItem<RecStatusEnumType> *item =
+        m_hash->value(m_value, NULL);
+
+    if (!item)
+        return QObject::tr(m_defaultString);
+
+    return QObject::tr(item->rawString);
 }
 
 /// \brief Converts "recstatus" into a long human readable description.
-QString toDescription(RecStatusType recstatus, RecordingType rectype,
-                      const QDateTime &recstartts)
+QString RecStatusType::toDescription(RecordingType rectype,
+                                     const QDateTime &recstartts)
 {
-    if (recstatus == rsUnknown && rectype == kNotRecording)
+    if (m_value == rsUnknown && rectype == kNotRecording)
         return QObject::tr("This showing is not scheduled to record");
 
     QString message;
     QDateTime now = QDateTime::currentDateTime();
 
-    if (recstatus <= rsWillRecord)
-    {
-        switch (recstatus)
-        {
-            case rsWillRecord:
-                message = QObject::tr("This showing will be recorded.");
-                break;
-            case rsRecording:
-                message = QObject::tr("This showing is being recorded.");
-                break;
-            case rsTuning:
-                message = QObject::tr("The channel is being tuned.");
-                break;
-            case rsRecorded:
-                message = QObject::tr("This showing was recorded.");
-                break;
-            case rsAborted:
-                message = QObject::tr(
-                    "This showing was recorded but was aborted "
-                    "before recording was completed.");
-                break;
-            case rsMissed:
-                message = QObject::tr(
-                    "This showing was not recorded because the "
-                    "master backend was hung or not running.");
-                break;
-            case rsMissedFuture:
-                message = QObject::tr(
-                    "This showing was not recorded because the "
-                    "master backend was hung or not running.");
-                break;
-            case rsCancelled:
-                message = QObject::tr(
-                    "This showing was not recorded because it "
-                    "was manually cancelled.");
-                break;
-            case rsLowDiskSpace:
-                message = QObject::tr(
-                    "There wasn't enough disk space available.");
-                break;
-            case rsTunerBusy:
-                message = QObject::tr("The tuner card was already being used.");
-                break;
-            case rsFailed:
-                message = QObject::tr("The recorder failed to record.");
-                break;
-            default:
-                message = QObject::tr(
-                    "The status of this showing is unknown.");
-                break;
-        }
+    if (!m_hash)
+        hashPrivInit();
 
+    struct RecTypeItem<RecStatusEnumType> *item =
+        m_hash->value(m_value, NULL);
+
+    if (!item || !item->priv)
+        return QObject::tr(m_defaultString);
+
+    RecStatusPrivItem *privItem = (RecStatusPrivItem *)item->priv;
+    message = QObject::tr(privItem->descrText);
+    if (m_value <= rsUnknown)
         return message;
-    }
 
     if (recstartts > now)
-        message = QObject::tr("This showing will not be recorded because ");
+        message = QObject::tr("This showing will not be recorded because ") +
+                  message;
     else
-        message = QObject::tr("This showing was not recorded because ");
-
-    switch (recstatus)
-    {
-        case rsDontRecord:
-            message += QObject::tr("it was manually set to not record.");
-            break;
-        case rsPreviousRecording:
-            message += QObject::tr("this episode was previously recorded "
-                                   "according to the duplicate policy chosen "
-                                   "for this title.");
-            break;
-        case rsCurrentRecording:
-            message += QObject::tr("this episode was previously recorded and "
-                                   "is still available in the list of "
-                                   "recordings.");
-            break;
-        case rsEarlierShowing:
-            message += QObject::tr("this episode will be recorded at an "
-                                   "earlier time instead.");
-            break;
-        case rsTooManyRecordings:
-            message += QObject::tr("too many recordings of this program have "
-                                   "already been recorded.");
-            break;
-        case rsConflict:
-            message += QObject::tr("another program with a higher priority "
-                                   "will be recorded.");
-            break;
-        case rsLaterShowing:
-            message += QObject::tr("this episode will be recorded at a "
-                                   "later time.");
-            break;
-        case rsRepeat:
-            message += QObject::tr("this episode is a repeat.");
-            break;
-        case rsInactive:
-            message += QObject::tr("this recording rule is inactive.");
-            break;
-        case rsNotListed:
-            message += QObject::tr("this rule does not match any showings in "
-                                   "the current program listings.");
-            break;
-        case rsNeverRecord:
-            message += QObject::tr("it was marked to never be recorded.");
-            break;
-        case rsOffLine:
-            message += QObject::tr("the backend recorder is off-line.");
-            break;
-        case rsOtherShowing:
-            message += QObject::tr("this episode will be recorded on a "
-                                   "different channel in this time slot.");
-            break;
-        default:
-            if (recstartts > now)
-                message = QObject::tr("This showing will not be recorded.");
-            else
-                message = QObject::tr("This showing was not recorded.");
-            break;
-    }
+        message = QObject::tr("This showing was not recorded because ") +
+                  message;
 
     return message;
 }
 
-QString toString(AvailableStatusType status)
+template <> struct RecTypeItem<AvailableStatusEnumType>
+            AvailableStatusType::m_items[] =
 {
-    switch (status)
-    {
-        case asAvailable:       return "Available";
-        case asNotYetAvailable: return "NotYetAvailable";
-        case asPendingDelete:   return "PendingDelete";
-        case asFileNotFound:    return "FileNotFound";
-        case asZeroByte:        return "ZeroByte";
-        case asDeleted:         return "Deleted";
-    }
-    return QString("Unknown(%1)").arg((int)status);
-}
+    REC_ITEM(asAvailable, "Available", ""),
+    REC_ITEM(asNotYetAvailable, "NotYetAvailable", ""),
+    REC_ITEM(asPendingDelete, "PendingDelete", ""),
+    REC_ITEM(asFileNotFound, "FileNotFound", ""),
+    REC_ITEM(asZeroByte, "ZeroByte", ""),
+    REC_ITEM(asDeleted, "Deleted", "")
+};
+template <> int AvailableStatusType::m_itemCount =
+            NELEMS(AvailableStatusType::m_items);
+
+template <> AvailableStatusEnumType AvailableStatusType::m_defaultValue =
+            asAvailable;
+template <> const char * AvailableStatusType::m_defaultString = "Unknown";
+template <> QHash<QString, struct RecTypeItem<AvailableStatusEnumType> *> *
+            AvailableStatusType::m_stringHash = NULL;
+template <> QHash<AvailableStatusEnumType,
+                  struct RecTypeItem<AvailableStatusEnumType> *> *
+            AvailableStatusType::m_hash = NULL;
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

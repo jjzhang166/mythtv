@@ -355,7 +355,7 @@ ProgramInfo::ProgramInfo(
                (_audioproperties << kAudioPropertyOffset)),
     year(_year),
 
-    recstatus(_recstatus),
+    recstatus(_recstatus.toInt8()),
     oldrecstatus(rsUnknown),
     rectype(kNotRecording),
     dupin(_dupin.toUint8()),
@@ -464,7 +464,7 @@ ProgramInfo::ProgramInfo(
     properties(0),
     year(0),
 
-    recstatus(_recstatus),
+    recstatus(_recstatus.toInt8()),
     oldrecstatus(rsUnknown),
     rectype(_rectype.toUint8()),
     dupin(kDupsInAll),
@@ -577,7 +577,7 @@ ProgramInfo::ProgramInfo(
                (_audioproperties << kAudioPropertyOffset)),
     year(_year),
 
-    recstatus(_recstatus),
+    recstatus(_recstatus.toInt8()),
     oldrecstatus(rsUnknown),
     rectype(_rectype.toUint8()),
     dupin(kDupsInAll),
@@ -1283,7 +1283,7 @@ bool ProgramInfo::FromStringList(QStringList::const_iterator &it,
     INT_FROM_LIST(cardid);           // 17
     INT_FROM_LIST(inputid);          // 18
     INT_FROM_LIST(recpriority);      // 19
-    ENUM_FROM_LIST(recstatus, RecStatusType); // 20
+    ENUM_FROM_LIST(recstatus, RecStatusEnumType); // 20
     INT_FROM_LIST(recordid);         // 21
 
     ENUM_FROM_LIST(rectype, RecordingEnumType);            // 22
@@ -1506,13 +1506,13 @@ void ProgramInfo::ToMap(InfoMap &progMap,
         }
         else
         {
-            tmp_rec += ::toString(GetRecordingStatus(), GetRecordingRuleType());
+            tmp_rec += GetRecordingStatus().toString(GetRecordingRuleType());
         }
     }
     progMap["rectypestatus"] = tmp_rec;
 
-    progMap["card"] = ::toString(GetRecordingStatus(), cardid);
-    progMap["input"] = ::toString(GetRecordingStatus(), inputid);
+    progMap["card"] = GetRecordingStatus().toString(cardid);
+    progMap["input"] = GetRecordingStatus().toString(inputid);
     progMap["inputname"] = QueryInputDisplayName();
 
     progMap["recpriority"] = recpriority;
@@ -1524,7 +1524,8 @@ void ProgramInfo::ToMap(InfoMap &progMap,
     if (storagegroup == "Default")
         progMap["storagegroup"] = QObject::tr("Default");
     else if (StorageGroup::kSpecialGroups.contains(storagegroup))
-        progMap["storagegroup"] = QObject::tr(storagegroup.toUtf8().constData());
+        progMap["storagegroup"] =
+             QObject::tr(storagegroup.toUtf8().constData());
     else
         progMap["storagegroup"] = storagegroup;
 
@@ -1534,11 +1535,11 @@ void ProgramInfo::ToMap(InfoMap &progMap,
     progMap["videoproperties"] = GetVideoProperties();
     progMap["subtitleType"] = GetSubtitleType();
 
-    progMap["recstatus"] = ::toString(GetRecordingStatus(),
-                                      GetRecordingRuleType());
-    progMap["recstatuslong"] = ::toDescription(GetRecordingStatus(),
-                                               GetRecordingRuleType(),
-                                               GetRecordingStartTime());
+    progMap["recstatus"] =
+        GetRecordingStatus().toString(GetRecordingRuleType());
+    progMap["recstatuslong"] =
+        GetRecordingStatus().toDescription(GetRecordingRuleType(),
+                                           GetRecordingStartTime());
 
     if (IsRepeat())
     {
@@ -2125,17 +2126,17 @@ ProgramInfoType ProgramInfo::DiscoverProgramInfoType(void) const
     return discover_program_info_type(chanid, pathname, true);
 }
 
-void ProgramInfo::SetAvailableStatus(
-    AvailableStatusType status, const QString &where)
+void ProgramInfo::SetAvailableStatus(AvailableStatusType status,
+                                     const QString &where)
 {
     if (status != availableStatus)
     {
         LOG(VB_GUI, LOG_INFO,
                  toString(kTitleSubtitle) + QString(": %1 -> %2")
-                     .arg(::toString((AvailableStatusType)availableStatus))
-                     .arg(::toString(status)));
+                     .arg(AvailableStatusType(availableStatus).toRawString())
+                     .arg(status.toRawString()));
     }
-    availableStatus = status;
+    availableStatus = status.toUint8();
 }
 
 /** \fn ProgramInfo::SaveBasename(const QString&)

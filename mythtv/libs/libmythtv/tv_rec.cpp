@@ -667,8 +667,8 @@ RecStatusType TVRec::GetRecordingStatus(void) const
     return m_recStatus;
 }
 
-void TVRec::SetRecordingStatus(
-    RecStatusType new_status, int line, bool have_lock)
+void TVRec::SetRecordingStatus(RecStatusType new_status, int line,
+                               bool have_lock)
 {
     RecStatusType old_status;
     if (have_lock)
@@ -686,8 +686,8 @@ void TVRec::SetRecordingStatus(
 
     LOG(VB_RECORD, LOG_DEBUG, LOC +
         QString("SetRecordingStatus(%1->%2) on line %3")
-        .arg(toString(old_status, kSingleRecord))
-        .arg(toString(new_status, kSingleRecord))
+        .arg(old_status.toString(kSingleRecord))
+        .arg(new_status.toString(kSingleRecord))
         .arg(line));
 }
 
@@ -815,7 +815,7 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
         recq = NULL;
     }
 
-    RecStatusTypes ors = curRec->GetRecordingStatus();
+    RecStatusType ors = curRec->GetRecordingStatus();
     // Set the final recording status
     if (curRec->GetRecordingStatus() == rsRecording)
         curRec->SetRecordingStatus(rsRecorded);
@@ -856,8 +856,8 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
             .arg(curRec->MakeUniqueKey())
             .arg(curRec->GetTitle())
             .arg(recgrp)
-            .arg(toString(ors, kSingleRecord))
-            .arg(toString(curRec->GetRecordingStatus(), kSingleRecord))
+            .arg(ors.toString(kSingleRecord))
+            .arg(curRec->GetRecordingStatus().toString(kSingleRecord))
             .arg(HasFlags(kFlagDummyRecorderRunning)?"is_dummy":"not_dummy")
             .arg(was_finished?"already_finished":"finished_now"));
 
@@ -907,7 +907,7 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
                      .arg(curRec->GetCardID())
                      .arg(curRec->GetChanID())
                      .arg(curRec->GetScheduledStartTime(ISODate))
-                     .arg(curRec->GetRecordingStatus())
+                     .arg(curRec->GetRecordingStatus().toInt8())
                      .arg(curRec->GetRecordingEndTime(ISODate)));
         gCoreContext->dispatch(me);
     }
@@ -2741,7 +2741,7 @@ void TVRec::SetLiveRecording(int recording)
                  .arg(curRecording->GetCardID())
                  .arg(curRecording->GetChanID())
                  .arg(curRecording->GetScheduledStartTime(ISODate))
-                 .arg(recstat)
+                 .arg(recstat.toInt8())
                  .arg(curRecording->GetRecordingEndTime(ISODate)));
 
     gCoreContext->dispatch(me);
@@ -3787,7 +3787,7 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
                     .arg(curRecording->GetCardID())
                     .arg(curRecording->GetChanID())
                     .arg(curRecording->GetScheduledStartTime(ISODate))
-                    .arg(newRecStatus)
+                    .arg(newRecStatus.toInt8())
                     .arg(curRecording->GetRecordingEndTime(ISODate)));
         gCoreContext->dispatch(me);
     }

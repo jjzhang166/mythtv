@@ -557,7 +557,7 @@ void ProgFinder::updateTimesList()
             m_showData[i]->ToMap(infoMap);
             item->SetTextFromMap(infoMap);
 
-            QString state = toUIState(m_showData[i]->GetRecordingStatus());
+            QString state = m_showData[i]->GetRecordingStatus().toUIState();
             item->SetText(itemText, "buttontext", state);
             item->DisplayState(state, "status");
         }

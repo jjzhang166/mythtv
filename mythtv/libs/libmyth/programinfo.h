@@ -405,9 +405,9 @@ class MPUBLIC ProgramInfo
         { return (int)(stars * range_max + 0.5f); }
 
     RecStatusType GetRecordingStatus(void)    const
-        { return (RecStatusType)recstatus; }
+        { return RecStatusType(recstatus); }
     RecStatusType GetOldRecordingStatus(void) const
-        { return (RecStatusType)oldrecstatus; }
+        { return RecStatusType(oldrecstatus); }
     uint    GetPreferedInputID(void)          const { return prefinput; }
     uint    GetRecordingRuleID(void)          const { return recordid;  }
     uint    GetParentRecordingRuleID(void)    const { return parentid;  }
@@ -509,7 +509,8 @@ class MPUBLIC ProgramInfo
         programflags &= ~FL_IGNOREBOOKMARK;
         programflags |= (ignore) ? FL_IGNOREBOOKMARK : 0;
     }
-    void SetRecordingStatus(RecStatusType status) { recstatus = status; }
+    void SetRecordingStatus(RecStatusType status)
+        { recstatus = status.toInt8(); }
     void SetRecordingRuleType(RecordingType type) { rectype = type.toUint8(); }
     void SetPositionMapDBReplacement(PMapDBReplacement *pmap)
         { positionMapDBReplacement = pmap; }
@@ -706,7 +707,7 @@ class MPUBLIC ProgramInfo
   public:
     void SetAvailableStatus(AvailableStatusType status, const QString &where);
     AvailableStatusType GetAvailableStatus(void) const
-        { return (AvailableStatusType) availableStatus; }
+        { return AvailableStatusType(availableStatus); }
     int8_t spread;   // only used in guidegrid.cpp
     int8_t startCol; // only used in guidegrid.cpp
     QString sortTitle; // only use for sorting in frontend

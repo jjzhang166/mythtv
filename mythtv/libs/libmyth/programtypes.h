@@ -223,12 +223,69 @@ typedef enum RecStatusTypes {
     rsNeverRecord = 11,
     rsOffLine = 12,
     rsOtherShowing = 13
-} RecStatusType; // note stored in int8_t in ProgramInfo
-MPUBLIC QString toUIState(RecStatusType);
-MPUBLIC QString toString(RecStatusType, uint id);
-MPUBLIC QString toString(RecStatusType, RecordingType);
-MPUBLIC QString toDescription(RecStatusType, RecordingType,
-                              const QDateTime &recstartts);
+} RecStatusEnumType; // note stored in int8_t in ProgramInfo
+typedef RecType<RecStatusEnumType> RecStatusBaseType;
+
+typedef struct {
+    RecStatusEnumType   type;
+    const char         *uiText;
+    const char         *charVal;
+    const char         *charType;
+    const char         *descrText;
+} RecStatusPrivItem;
+
+
+class MPUBLIC RecStatusType : public RecType<RecStatusEnumType>
+{
+  public:
+    RecStatusType() : RecType<RecStatusEnumType>()
+    {
+        if (!m_privInit)
+            hashPrivInit();
+    }
+
+    RecStatusType(int value) : RecType<RecStatusEnumType>(value)
+    {
+        if (!m_privInit)
+            hashPrivInit();
+    }
+
+    RecStatusType(RecStatusEnumType value) : RecType<RecStatusEnumType>(value)
+    {
+        if (!m_privInit)
+            hashPrivInit();
+    }
+
+    RecStatusType(const RecStatusType &old) :
+        RecType<RecStatusEnumType>(
+            static_cast<RecType<RecStatusEnumType> >(old))
+    {
+        if (!m_privInit)
+            hashPrivInit();
+    }
+
+    RecStatusType(const QString &string) : RecType<RecStatusEnumType>(string)
+    {
+        if (!m_privInit)
+            hashPrivInit();
+    }
+
+    QString toUIState(void);
+    QString toString(uint id);
+    QString toString(RecordingType);
+    QString toDescription(RecordingType, const QDateTime &recstartts);
+
+  private:
+    static bool m_privInit;
+    static const char *m_defaultChar;
+    static const char *m_defaultDescr;
+    static const char *m_defaultUI;
+    static RecStatusPrivItem m_privItems[];
+    static int m_privItemCount;
+
+    static void hashPrivInit(void);
+};
+
 
 typedef enum AvailableStatusTypes {
     asAvailable = 0,
@@ -237,8 +294,8 @@ typedef enum AvailableStatusTypes {
     asFileNotFound,
     asZeroByte,
     asDeleted
-} AvailableStatusType; // note stored in uint8_t in ProgramInfo
-MPUBLIC QString toString(AvailableStatusType);
+} AvailableStatusEnumType; // note stored in uint8_t in ProgramInfo
+typedef RecType<AvailableStatusEnumType> AvailableStatusType;
 
 enum WatchListStatus {
     wlDeleted = -4,
@@ -262,3 +319,7 @@ typedef enum MythDateFormats {
 } MythDateFormat;
 
 #endif // _PROGRAM_INFO_TYPES_H_
+
+/*
+ * vim:ts=4:sw=4:ai:et:si:sts=4
+ */

@@ -559,7 +559,7 @@ void Scheduler::PrintRec(const RecordingInfo *p, const char *prefix)
         .arg(p->GetInputID());
     outstr += QString("%1 %2 %3")
         .arg(p->GetRecordingRuleType().toQChar())
-        .arg(toString(p->GetRecordingStatus(), p->GetCardID()))
+        .arg(p->GetRecordingStatus().toString(p->GetCardID()))
         .arg(p->GetRecordingPriority());
     if (p->GetRecordingPriority2())
         outstr += QString("/%1").arg(p->GetRecordingPriority2());
@@ -597,9 +597,9 @@ void Scheduler::UpdateRecStatus(RecordingInfo *pginfo)
                     QString("Updating status for %1 on cardid %2 (%3 => %4)")
                         .arg(p->toString(ProgramInfo::kTitleSubtitle))
                         .arg(p->GetCardID())
-                        .arg(toString(p->GetRecordingStatus(),
+                        .arg(p->GetRecordingStatus().toString(
                                       p->GetRecordingRuleType()))
-                        .arg(toString(pginfo->GetRecordingStatus(),
+                        .arg(pginfo->GetRecordingStatus().toString(
                                       p->GetRecordingRuleType())));
                 bool resched =
                     ((p->GetRecordingStatus() != rsRecording &&
@@ -647,10 +647,9 @@ void Scheduler::UpdateRecStatus(uint cardid, uint chanid,
                     QString("Updating status for %1 on cardid %2 (%3 => %4)")
                         .arg(p->toString(ProgramInfo::kTitleSubtitle))
                         .arg(p->GetCardID())
-                        .arg(toString(p->GetRecordingStatus(),
+                        .arg(p->GetRecordingStatus().toString(
                                       p->GetRecordingRuleType()))
-                        .arg(toString(recstatus,
-                                      p->GetRecordingRuleType())));
+                        .arg(recstatus.toString(p->GetRecordingRuleType())));
                 bool resched =
                     ((p->GetRecordingStatus() != rsRecording &&
                       p->GetRecordingStatus() != rsTuning) ||
@@ -764,7 +763,7 @@ void Scheduler::SlaveConnected(RecordingList &slavelist)
                             .arg(sp->GetCardID())
                             .arg(sp->GetChannelSchedulingID())
                             .arg(sp->GetTitle())
-                            .arg(toUIState(sp->GetRecordingStatus())));
+                            .arg(sp->GetRecordingStatus().toUIState()));
                 }
                 else
                 {
@@ -1569,8 +1568,8 @@ QMap<QString,ProgramInfo*> Scheduler::GetRecording(void) const
     RecConstIter it = reclist.begin();
     for (; it != reclist.end(); ++it)
     {
-        if (rsRecording == (*it)->GetRecordingStatus() ||
-            rsTuning == (*it)->GetRecordingStatus())
+        if ((*it)->GetRecordingStatus() == rsRecording ||
+            (*it)->GetRecordingStatus() == rsTuning)
             recMap[(*it)->MakeUniqueKey()] = new ProgramInfo(**it);
     }
 
@@ -1585,8 +1584,8 @@ RecStatusType Scheduler::GetRecStatus(const ProgramInfo &pginfo)
     {
         if (pginfo.IsSameRecording(**it))
         {
-            return (rsRecording == (**it).GetRecordingStatus() ||
-                    rsTuning == (**it).GetRecordingStatus()) ?
+            return ((**it).GetRecordingStatus() == rsRecording ||
+                    (**it).GetRecordingStatus() == rsTuning) ?
                 (**it).GetRecordingStatus() : pginfo.GetRecordingStatus();
         }
     }
@@ -2566,7 +2565,7 @@ bool Scheduler::HandleRecording(
         .arg(ri.GetCardID())
         .arg(ri.GetSourceID());
 
-    RecStatusTypes recStatus = rsOffLine;
+    RecStatusType recStatus = rsOffLine;
     if (schedulingEnabled && nexttv->IsConnected())
     {
         if (ri.GetRecordingStatus() == rsWillRecord)
@@ -2587,37 +2586,37 @@ bool Scheduler::HandleRecording(
 }
 
 void Scheduler::HandleRecordingStatusChange(
-    RecordingInfo &ri, RecStatusTypes recStatus, const QString &details)
+    RecordingInfo &ri, RecStatusType &recStatus, const QString &details)
 {
     if (ri.GetRecordingStatus() == recStatus)
         return;
 
     ri.SetRecordingStatus(recStatus);
 
-    if (rsTuning != recStatus)
+    if (recStatus != rsTuning)
     {
         bool doSchedAfterStart =
-            ((rsRecording != recStatus) && (rsTuning != recStatus)) ||
+            ((recStatus != rsRecording) && (recStatus != rsTuning)) ||
             schedAfterStartMap[ri.GetRecordingRuleID()] ||
             (ri.GetParentRecordingRuleID() &&
              schedAfterStartMap[ri.GetParentRecordingRuleID()]);
         ri.AddHistory(doSchedAfterStart);
     }
 
-    QString msg = (rsRecording == recStatus) ?
+    QString msg = (recStatus == rsRecording) ?
         QString("Started recording") :
-        ((rsTuning == recStatus) ?
+        ((recStatus == rsTuning) ?
          QString("Tuning recording") :
          QString("Canceled recording (%1)")
-         .arg(toString(ri.GetRecordingStatus(), ri.GetRecordingRuleType())));
+         .arg(ri.GetRecordingStatus().toString(ri.GetRecordingRuleType())));
 
     LOG(VB_GENERAL, LOG_INFO, QString("%1: %2").arg(msg).arg(details));
 
-    if ((rsRecording == recStatus) || (rsTuning == recStatus))
+    if ((recStatus == rsRecording) || (recStatus == rsTuning))
     {
         UpdateNextRecord();
     }
-    else if (rsFailed == recStatus)
+    else if (recStatus == rsFailed)
     {
         MythEvent me(QString("FORCE_DELETE_RECORDING %1 %2")
                      .arg(ri.GetChanID())
@@ -2629,12 +2628,12 @@ void Scheduler::HandleRecordingStatusChange(
 void Scheduler::HandleTuning(
     RecordingInfo &ri, bool &statuschanged, int tuningTimeout)
 {
-    if (rsTuning != ri.GetRecordingStatus())
+    if (ri.GetRecordingStatus() != rsTuning)
         return;
 
     // Determine current recording status
     QMap<int, EncoderLink*>::iterator tvit = m_tvList->find(ri.GetCardID());
-    RecStatusTypes recStatus = rsTunerBusy;
+    RecStatusType recStatus = rsTunerBusy;
     if (tvit == m_tvList->end())
     {
         QString msg = QString("Invalid cardid (%1) for %2")
@@ -2644,7 +2643,7 @@ void Scheduler::HandleTuning(
     else if (tuningTimeout > 0)
     {
         recStatus = (*tvit)->GetRecordingStatus();
-        if (rsTuning == recStatus)
+        if (recStatus == rsTuning)
         {
             // If tuning is still taking place this long after we
             // started give up on it so the scheduler can try to
@@ -2663,7 +2662,7 @@ void Scheduler::HandleTuning(
     }
 
     // If the status has changed, handle it
-    if (rsTuning != recStatus)
+    if (recStatus != rsTuning)
     {
         QString details = QString("%1: channel %2 on cardid %3, sourceid %4")
             .arg(ri.toString(ProgramInfo::kTitleSubtitle))

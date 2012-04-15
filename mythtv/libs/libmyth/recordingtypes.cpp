@@ -4,10 +4,6 @@
 #include "recordingtypes.h"
 #include "mythactions.h"
 
-#define REC_ITEM(t,string,listing) \
-    { (t), string, \
-      QStringList() << QString(string).toLower() << listing, NULL }
-
 #define REC_TYPE_PRIV_ITEM(t,p,letter) \
     { (t), (p), letter, "RecTypeChar ##t" }
 

@@ -102,7 +102,7 @@ void ViewScheduleDiff::showStatus(MythUIButtonListItem *item)
 
     QString message = pi->toString(ProgramInfo::kTitleSubtitle, " - ");
     message += "\n\n";
-    message += toDescription(pi->GetRecordingStatus(),
+    message += pi->GetRecordingStatus().toDescription(
                              pi->GetRecordingRuleType(),
                              pi->GetRecordingStartTime());
 
@@ -295,20 +295,20 @@ void ViewScheduleDiff::updateUIList(void)
         InfoMap infoMap;
         pginfo->ToMap(infoMap);
 
-        QString state = toUIState(pginfo->GetRecordingStatus());
+        QString state = pginfo->GetRecordingStatus().toUIState();
 
         item->DisplayState(state, "status");
         item->SetTextFromMap(infoMap, state);
 
         if (s.before)
-            item->SetText(toString(s.before->GetRecordingStatus(),
+            item->SetText(s.before->GetRecordingStatus().toString(
                                    s.before->GetCardID()), "statusbefore",
                           state);
         else
             item->SetText("-", "statusbefore");
 
         if (s.after)
-            item->SetText(toString(s.after->GetRecordingStatus(),
+            item->SetText(s.after->GetRecordingStatus().toString(
                                    s.after->GetCardID()), "statusafter",
                           state);
         else

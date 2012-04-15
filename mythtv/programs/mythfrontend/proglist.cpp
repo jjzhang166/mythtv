@@ -1553,8 +1553,8 @@ void ProgLister::UpdateButtonList(void)
         InfoMap infoMap;
         (**it).ToMap(infoMap);
 
-        QString state = toUIState((**it).GetRecordingStatus());
-        if ((state == "warning") && (plPreviouslyRecorded == m_type))
+        QString state = (**it).GetRecordingStatus().toUIState();
+        if ((state == "warning") && (m_type == plPreviouslyRecorded))
             state = "disabled";
 
         item->SetTextFromMap(infoMap, state);

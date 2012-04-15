@@ -932,7 +932,7 @@ void PlaybackBox::ItemVisible(MythUIButtonListItem *item)
 
     MythUIButtonListItem *sel_item = item->parent()->GetItemCurrent();
     if ((item != sel_item) && pginfo && item->GetImage("preview").isEmpty() &&
-        (asAvailable == pginfo->GetAvailableStatus()))
+        (pginfo->GetAvailableStatus() == asAvailable))
     {
         QString token = m_helper.GetPreviewImage(*pginfo, true);
         if (token.isEmpty())
@@ -943,7 +943,7 @@ void PlaybackBox::ItemVisible(MythUIButtonListItem *item)
         ProgramInfo *sel_pginfo =
             qVariantValue<ProgramInfo*>(sel_item->GetData());
         if (sel_pginfo && sel_item->GetImage("preview").isEmpty() &&
-            (asAvailable == sel_pginfo->GetAvailableStatus()))
+            (sel_pginfo->GetAvailableStatus() == asAvailable))
         {
             m_preview_tokens.insert(
                 m_helper.GetPreviewImage(*sel_pginfo, false));
@@ -2246,7 +2246,7 @@ void PlaybackBox::deleteSelected(MythUIButtonListItem *item)
         LOG(VB_GENERAL, LOG_ERR, QString("deleteSelected(%1) -- failed ")
                 .arg(pginfo->toString(ProgramInfo::kTitleSubtitle)) +
             QString("availability status: %1 ")
-                .arg(pginfo->GetAvailableStatus()));
+                .arg(pginfo->GetAvailableStatus().toUint8()));
 
         ShowOkPopup(tr("Cannot delete\n") +
                     tr("This recording is already being deleted"));
@@ -2356,7 +2356,7 @@ void PlaybackBox::popupClosed(QString which, int result)
             {
                 m_helper.CheckAvailability(*pginfo, kCheckForMenuAction);
 
-                if (asPendingDelete == pginfo->GetAvailableStatus())
+                if (pginfo->GetAvailableStatus() == asPendingDelete)
                 {
                     ShowAvailabilityPopup(*pginfo);
                 }
@@ -2427,7 +2427,7 @@ bool PlaybackBox::Play(
     if (m_player)
         return true;
 
-    if ((asAvailable != rec.GetAvailableStatus()) || !rec.GetFilesize() ||
+    if ((rec.GetAvailableStatus() != asAvailable) || !rec.GetFilesize() ||
         !rec.IsPathSet())
     {
         m_helper.CheckAvailability(
@@ -2637,7 +2637,7 @@ void PlaybackBox::ShowAvailabilityPopup(const ProgramInfo &pginfo)
     msg += "\n";
 
     QString byWho;
-    switch (pginfo.GetAvailableStatus())
+    switch (pginfo.GetAvailableStatus().get())
     {
         case asAvailable:
             if (pginfo.QueryIsInUse(byWho))
@@ -2879,27 +2879,27 @@ void PlaybackBox::ShowMenu()
         return;
 
     if (GetFocusWidget() == m_groupList)
+    {
         ShowGroupPopup();
+        return;
+    }
+
+    ProgramInfo *pginfo = CurrentItem();
+    if (!pginfo)
+    {
+        ShowGroupPopup();
+        return;
+    }
+
+    m_helper.CheckAvailability(*pginfo, kCheckForMenuAction);
+
+    if (pginfo->GetAvailableStatus() == asPendingDelete)
+    {
+        ShowAvailabilityPopup(*pginfo);
+    }
     else
     {
-        ProgramInfo *pginfo = CurrentItem();
-        if (pginfo)
-        {
-            m_helper.CheckAvailability(
-                *pginfo, kCheckForMenuAction);
-
-            if ((asPendingDelete == pginfo->GetAvailableStatus()) ||
-                (asPendingDelete == pginfo->GetAvailableStatus()))
-            {
-                ShowAvailabilityPopup(*pginfo);
-            }
-            else
-            {
-                ShowActionPopup(*pginfo);
-            }
-        }
-        else
-            ShowGroupPopup();
+        ShowActionPopup(*pginfo);
     }
 }
 
@@ -3106,18 +3106,20 @@ void PlaybackBox::changeProfileAndTranscode(int id)
 void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
 {
     QString label =
-        (asFileNotFound == pginfo.GetAvailableStatus()) ?
+        (pginfo.GetAvailableStatus() == asFileNotFound) ?
         tr("Recording file cannot be found") :
-        (asZeroByte     == pginfo.GetAvailableStatus()) ?
-        tr("Recording file contains no data") :
-        tr("Recording Options");
+        ((pginfo.GetAvailableStatus() == asZeroByte) ?
+         tr("Recording file contains no data") :
+         tr("Recording Options"));
 
-    m_popupMenu = new MythMenu(label + CreateProgramInfoString(pginfo), this, "actionmenu");
+    m_popupMenu = new MythMenu(label + CreateProgramInfoString(pginfo), this,
+                               "actionmenu");
 
-    if ((asFileNotFound  == pginfo.GetAvailableStatus()) ||
-        (asZeroByte      == pginfo.GetAvailableStatus()))
+    if ((pginfo.GetAvailableStatus() == asFileNotFound) ||
+        (pginfo.GetAvailableStatus() == asZeroByte))
     {
-        m_popupMenu->AddItem(tr("Show Recording Details"), SLOT(showProgramDetails()));
+        m_popupMenu->AddItem(tr("Show Recording Details"),
+                             SLOT(showProgramDetails()));
         m_popupMenu->AddItem(tr("Delete"), SLOT(askDelete()));
 
         if (m_playList.filter(pginfo.MakeUniqueKey()).size())
@@ -4217,7 +4219,7 @@ bool PlaybackBox::doMythEventAvailability(const QString &action)
     QStringList list = m_actionMythEventArgs;
     QString key = list[0];
     CheckAvailabilityType cat = (CheckAvailabilityType) list[1].toInt();
-    AvailableStatusType availableStatus = (AvailableStatusType) list[2].toInt();
+    AvailableStatusType availableStatus = AvailableStatusType(list[2].toInt());
     uint64_t fs = list[3].toULongLong();
     QTime tm;
     tm.setHMS(list[4].toUInt(), list[5].toUInt(),
@@ -4239,22 +4241,22 @@ bool PlaybackBox::doMythEventAvailability(const QString &action)
     if ((uint)time_elapsed >= kMaxUIWaitTime)
         m_playListPlay.clear();
 
-    bool playnext = ((kCheckForPlaylistAction == cat) &&
+    bool playnext = ((cat == kCheckForPlaylistAction) &&
                      !m_playListPlay.empty());
 
 
-    if (((kCheckForPlayAction == cat) || (kCheckForPlaylistAction == cat)) &&
+    if (((cat == kCheckForPlayAction) || (cat == kCheckForPlaylistAction)) &&
         ((uint)time_elapsed < kMaxUIWaitTime))
     {
-        if (asAvailable != availableStatus)
+        if (availableStatus != asAvailable)
         {
-            if (kCheckForPlayAction == cat && pginfo)
+            if (cat == kCheckForPlayAction && pginfo)
                 ShowAvailabilityPopup(*pginfo);
         }
         else if (pginfo)
         {
             playnext = false;
-            Play(*pginfo, kCheckForPlaylistAction == cat, false, false);
+            Play(*pginfo, cat == kCheckForPlaylistAction, false, false);
         }
     }
 

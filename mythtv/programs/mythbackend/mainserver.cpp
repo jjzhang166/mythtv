@@ -4164,11 +4164,11 @@ void MainServer::HandleRemoteEncoder(QStringList &slist, QStringList &commands,
         QStringList::const_iterator it = slist.begin() + 2;
         ProgramInfo pginfo(it, slist.end());
 
-        retlist << QString::number(enc->StartRecording(&pginfo));
+        retlist << QString::number(enc->StartRecording(&pginfo).toInt8());
     }
     else if (command == "GET_RECORDING_STATUS")
     {
-        retlist << QString::number((int)enc->GetRecordingStatus());
+        retlist << QString::number(enc->GetRecordingStatus().toInt8());
     }
     else if (command == "RECORD_PENDING" &&
              (slist.size() >= 4 + NUMPROGRAMLINES))

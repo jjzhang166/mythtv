@@ -1522,7 +1522,7 @@ void ProgramRecPriority::UpdateList()
         {
             matchInfo = QString("%1 %2")
                         .arg(m_listMatch[progInfo->GetRecordingRuleID()])
-                        .arg(toString(progInfo->GetRecordingStatus(),
+                        .arg(progInfo->GetRecordingStatus().toString(
                                       progInfo->GetRecordingRuleType()));
         }
         else
@@ -1632,7 +1632,7 @@ void ProgramRecPriority::updateInfo(MythUIButtonListItem *item)
     {
         matchInfo = QString("%1 %2")
             .arg(m_listMatch[pgRecInfo->GetRecordingRuleID()])
-            .arg(toString(pgRecInfo->GetRecordingStatus(),
+            .arg(pgRecInfo->GetRecordingStatus().toString(
                           pgRecInfo->GetRecordingRuleType()));
     }
     else

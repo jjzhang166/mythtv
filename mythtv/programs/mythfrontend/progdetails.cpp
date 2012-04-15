@@ -578,7 +578,7 @@ void ProgDetails::loadPage(void)
         }
     }
 
-    s = toString(recstatus, rectype);
+    s = recstatus.toString(rectype);
 
     if (statusDate.isValid())
         s += " " + MythDateTimeToString(statusDate, kDateFull | kAddYear);
