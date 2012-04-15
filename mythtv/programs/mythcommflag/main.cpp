@@ -351,7 +351,7 @@ static void streamOutCommercialBreakList(
         frm_dir_map_t::const_iterator it = commercialBreakList.begin();
         for (; it != commercialBreakList.end(); ++it)
         {
-            output << "framenum: " << it.key() << "\tmarktype: " << *it
+            output << "framenum: " << it.key() << "\tmarktype: " << it->get()
                    << endl;
         }
     }
@@ -364,7 +364,7 @@ static void print_comm_flag_output(
     const ProgramInfo          *program_info,
     const frm_dir_map_t        &commBreakList,
     uint64_t                    frame_count,
-    const CommDetectorBase     *commDetect,
+    CommDetectorBase           *commDetect,
     const QString              &output_filename)
 {
     if (output_filename.isEmpty())
@@ -471,8 +471,7 @@ static void commDetectorGotNewCommercialBreakList(void)
             message += ",";
         else
             message += " ";
-        message += QString("%1:%2").arg(it.key())
-                   .arg(*it);
+        message += QString("%1:%2").arg(it.key()).arg(it->get());
     }
 
     LOG(VB_COMMFLAG, LOG_INFO,

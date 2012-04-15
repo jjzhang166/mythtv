@@ -264,7 +264,7 @@ class DecoderBase
     bool hasFullPositionMap;
     bool recordingHasPositionMap;
     bool posmapStarted;
-    MarkTypes positionMapType;
+    MarkType positionMapType;
 
     mutable QMutex m_positionMapLock;
     vector<PosMapEntry> m_positionMap;

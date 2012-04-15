@@ -471,7 +471,7 @@ uint64_t DecoderBase::SavePositionMapDelta(uint64_t first, uint64_t last)
     ttm.start();
 
     QMutexLocker locker(&m_positionMapLock);
-    MarkTypes type = positionMapType;
+    MarkType type = positionMapType;
     uint64_t saved = 0;
 
     if (!m_playbackinfo || (positionMapType == MARK_UNSET))

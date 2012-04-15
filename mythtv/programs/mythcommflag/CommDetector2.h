@@ -46,8 +46,8 @@ class CommDetector2 : public CommDetectorBase
     virtual void GetCommercialBreakList(frm_dir_map_t &comms);
     virtual void recordingFinished(long long totalFileSize);
     virtual void requestCommBreakMapUpdate(void);
-    virtual void PrintFullMap(
-        ostream &out, const frm_dir_map_t *comm_breaks, bool verbose) const;
+    virtual void PrintFullMap(ostream &out, const frm_dir_map_t *comm_breaks,
+                              bool verbose);
 
   private:
     virtual ~CommDetector2() {}

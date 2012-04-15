@@ -1900,7 +1900,7 @@ int MPEG2fixup::Start()
     int64_t origvPTS = 0, origaPTS[N_AUDIO];
     int64_t cutStartPTS = 0, cutEndPTS = 0;
     uint64_t frame_count = 0;
-    int new_discard_state = 0;
+    MarkType new_discard_state = MARK_CUT_END;
     int ret;
     QMap<int, int> af_dlta_cnt, cutState;
 
@@ -2119,13 +2119,13 @@ int MPEG2fixup::Start()
                         new_discard_state = delMap.begin().value();
                         LOG(VB_GENERAL, LOG_INFO,
                             QString("Del map found %1 at %2 (%3)")
-                                .arg(new_discard_state) .arg(frame_count)
+                                .arg(new_discard_state.get()) .arg(frame_count)
                                 .arg(delMap.begin().key()));
 
                         delMap.remove(delMap.begin().key());
                         markedFrameP = curFrame;
 
-                        if (!new_discard_state)
+                        if (new_discard_state == MARK_CUT_END)
                         {
                             cutEndPTS = markedFrameP->pkt.pts;
                             poq.SetNextPTS(
@@ -2149,14 +2149,14 @@ int MPEG2fixup::Start()
                         // marked frame is a 'P' frame.
                         // After conversion, frames will be in linear order.
                         if ((GetFrameTypeT(curFrame) == 'B') ||
-                            (!new_discard_state &&
+                            (new_discard_state == MARK_CUT_END &&
                              (GetFrameTypeT(curFrame) == 'P')))
                         {
                             if (ConvertToI(&Lreorder, frame_pos))
                                 return GENERIC_EXIT_WRITE_FRAME_ERROR;
                             ptsorder_eq_dtsorder = true;
                         }
-                        else if (!new_discard_state &&
+                        else if (new_discard_state == MARK_CUT_END &&
                                  GetFrameTypeT(curFrame) == 'I')
                         {
                             vFrame.move(frame_pos, frame_pos + curIndex);
@@ -2166,7 +2166,7 @@ int MPEG2fixup::Start()
                         //convert from presentation-order to decode-order
                         markedFrame = vFrame.at(frame_pos + curIndex);
 
-                        if (!new_discard_state)
+                        if (new_discard_state == MARK_CUT_END)
                         {
                             AddSequence(markedFrame, seqFrame);
                             RenumberFrames(frame_pos + curIndex,
@@ -2234,7 +2234,8 @@ int MPEG2fixup::Start()
                         expectedvPTS += 150 * ptsIncrement *
                                         GetNbFields(curFrame);
 
-                        if (curFrame == markedFrameP && new_discard_state)
+                        if (curFrame == markedFrameP &&
+                            new_discard_state != MARK_CUT_END)
                             break;
                     }
 

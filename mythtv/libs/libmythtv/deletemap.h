@@ -53,7 +53,7 @@ class MTV_PUBLIC DeleteMap
 
     void Clear(QString undoMessage = "");
     void ReverseAll(uint64_t total);
-    void Add(uint64_t frame, uint64_t total, MarkTypes type,
+    void Add(uint64_t frame, uint64_t total, MarkType type,
              QString undoMessage);
     void NewCut(uint64_t frame, uint64_t total);
     void Delete(uint64_t frame, uint64_t total, QString undoMessage = "");
@@ -79,8 +79,8 @@ class MTV_PUBLIC DeleteMap
     QString GetRedoMessage(void) const;
 
   private:
-    void Add(uint64_t frame, MarkTypes type);
-    MarkTypes Delete(uint64_t frame);
+    void Add(uint64_t frame, MarkType type);
+    MarkType Delete(uint64_t frame);
 
     void Push(QString undoMessage);
 

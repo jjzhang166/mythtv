@@ -40,6 +40,7 @@ typedef QMap<uint64_t, uint64_t> frm_pos_map_t;
 
 typedef enum {
     MARK_ALL           = -100,
+    MARK_UNKNOWN       = -99,
     MARK_UNSET         = -10,
     MARK_TMP_CUT_END   = -5,
     MARK_TMP_CUT_START = -4,
@@ -65,11 +66,11 @@ typedef enum {
     MARK_VIDEO_RATE    = 32,
     MARK_DURATION_MS   = 33,
     MARK_TOTAL_FRAMES  = 34,
-} MarkTypes;
-MPUBLIC QString toString(MarkTypes type);
+} MarkEnumType;
+typedef RecType<MarkEnumType> MarkType;
 
 /// Frame # -> Mark map
-typedef QMap<uint64_t, MarkTypes> frm_dir_map_t;
+typedef QMap<uint64_t, MarkType> frm_dir_map_t;
 
 typedef enum CommFlagStatuses {
     COMM_FLAG_NOT_FLAGGED = 0,

@@ -61,9 +61,8 @@ class ClassicCommDetector : public CommDetectorBase
         void recordingFinished(long long totalFileSize);
         void requestCommBreakMapUpdate(void);
 
-        void PrintFullMap(
-            ostream &out, const frm_dir_map_t *comm_breaks,
-            bool verbose) const;
+        void PrintFullMap(ostream &out, const frm_dir_map_t *comm_breaks,
+                          bool verbose);
 
         void logoDetectorBreathe();
 

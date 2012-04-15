@@ -559,7 +559,7 @@ void OSD::SetRegions(const QString &window, frm_dir_map_t &map,
     long long start = -1;
     long long end   = -1;
     bool first = true;
-    QMapIterator<uint64_t, MarkTypes> it(map);
+    QMapIterator<uint64_t, MarkType> it(map);
     while (it.hasNext())
     {
         bool error = false;
@@ -591,7 +591,7 @@ void OSD::SetRegions(const QString &window, frm_dir_map_t &map,
             end   = -1;
         }
 
-        if (start >=0 && end >= 0)
+        if (start >= 0 && end >= 0)
         {
             bar->AddRegion((float)((double)start/(double)total),
                            (float)((double)end/(double)total));

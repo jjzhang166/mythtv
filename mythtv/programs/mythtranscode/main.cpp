@@ -727,7 +727,7 @@ static uint64_t ComputeNewBookmark(uint64_t oldBookmark,
     while (delMap.count() && delMap.begin().key() <= oldBookmark)
     {
         uint64_t key = delMap.begin().key();
-        MarkTypes mark = delMap.begin().value();
+        MarkType mark = delMap.begin().value();
 
         if (mark == MARK_CUT_START && !withinCut)
         {

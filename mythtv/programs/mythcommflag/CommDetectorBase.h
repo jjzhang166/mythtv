@@ -41,8 +41,8 @@ public:
         { (void)totalFileSize; };
     virtual void requestCommBreakMapUpdate(void) {};
 
-    virtual void PrintFullMap(
-        ostream &out, const frm_dir_map_t *comm_breaks, bool verbose) const = 0;
+    virtual void PrintFullMap(ostream &out, const frm_dir_map_t *comm_breaks,
+                              bool verbose) = 0;
 
 signals:
     void statusUpdate(const QString& a) ;

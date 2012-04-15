@@ -19,30 +19,44 @@ const char *kPreviewGeneratorInUseID = "preview_generator";
 const char *kJobQueueInUseID         = "jobqueue";
 const char *kCCExtractorInUseID      = "ccextractor";
 
-QString toString(MarkTypes type)
+template <> struct RecTypeItem<MarkEnumType> MarkType::m_items[] =
 {
-    switch (type)
-    {
-        case MARK_UNSET:        return "UNSET";
-        case MARK_TMP_CUT_END:  return "TMP_CUT_END";
-        case MARK_TMP_CUT_START:return "TMP_CUT_START";
-        case MARK_UPDATED_CUT:  return "UPDATED_CUT";
-        case MARK_PLACEHOLDER:  return "PLACEHOLDER";
-        case MARK_CUT_END:      return "CUT_END";
-        case MARK_CUT_START:    return "CUT_START";
-        case MARK_BOOKMARK:     return "BOOKMARK";
-        case MARK_BLANK_FRAME:  return "BLANK_FRAME";
-        case MARK_COMM_START:   return "COMM_START";
-        case MARK_COMM_END:     return "COMM_END";
-        case MARK_GOP_START:    return "GOP_START";
-        case MARK_KEYFRAME:     return "KEYFRAME";
-        case MARK_SCENE_CHANGE: return "SCENE_CHANGE";
-        case MARK_GOP_BYFRAME:  return "GOP_BYFRAME";
-    }
+    REC_ITEM(MARK_ALL, "ALL", ""),
+    REC_ITEM(MARK_UNKNOWN, "UNKNOWN", ""),
+    REC_ITEM(MARK_UNSET, "UNSET", ""),
+    REC_ITEM(MARK_TMP_CUT_END, "TMP_CUT_END", ""),
+    REC_ITEM(MARK_TMP_CUT_START, "TMP_CUT_START", ""),
+    REC_ITEM(MARK_UPDATED_CUT, "UPDATED_CUT", ""),
+    REC_ITEM(MARK_PLACEHOLDER, "PLACEHOLDER", ""),
+    REC_ITEM(MARK_CUT_END, "CUT_END", ""),
+    REC_ITEM(MARK_CUT_START, "CUT_START", ""),
+    REC_ITEM(MARK_BOOKMARK, "BOOKMARK", ""),
+    REC_ITEM(MARK_BLANK_FRAME, "BLANK_FRAME", ""),
+    REC_ITEM(MARK_COMM_START, "COMM_START", ""),
+    REC_ITEM(MARK_COMM_END, "COMM_END", ""),
+    REC_ITEM(MARK_GOP_START, "GOP_START", ""),
+    REC_ITEM(MARK_KEYFRAME, "KEYFRAME", ""),
+    REC_ITEM(MARK_SCENE_CHANGE, "SCENE_CHANGE", ""),
+    REC_ITEM(MARK_GOP_BYFRAME, "GOP_BYFRAME", ""),
+    REC_ITEM(MARK_ASPECT_1_1, "ASPECT 1:1", ""),
+    REC_ITEM(MARK_ASPECT_4_3, "ASPECT 4:3", ""),
+    REC_ITEM(MARK_ASPECT_16_9, "ASPECT 16:9", ""),
+    REC_ITEM(MARK_ASPECT_2_21_1, "ASPECT 2.21:1", ""),
+    REC_ITEM(MARK_ASPECT_CUSTOM, "ASPECT CUSTOM", ""),
+    REC_ITEM(MARK_VIDEO_WIDTH, "VIDEO_WIDTH", ""),
+    REC_ITEM(MARK_VIDEO_HEIGHT, "VIDEO_HEIGHT", ""),
+    REC_ITEM(MARK_VIDEO_RATE, "VIDEO_RATE", ""),
+    REC_ITEM(MARK_DURATION_MS, "DURATION MS", ""),
+    REC_ITEM(MARK_TOTAL_FRAMES, "TOTAL_FRAMES", "")
+};
+template <> int MarkType::m_itemCount = NELEMS(MarkType::m_items);
 
-    return "unknown";
-}
-
+template <> MarkEnumType MarkType::m_defaultValue = MARK_UNKNOWN;
+template <> const char * MarkType::m_defaultString = "Unknown";
+template <> QHash<QString, struct RecTypeItem<MarkEnumType> *> *
+            MarkType::m_stringHash = NULL;
+template <> QHash<MarkEnumType, struct RecTypeItem<MarkEnumType> *> *
+            MarkType::m_hash = NULL;
 
 #define REC_STATUS_PRIV_ITEM(t,letter,ui,descr) \
     { (t), (ui), (letter), "RecStatusChar ##t", (descr) }

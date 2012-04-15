@@ -857,8 +857,8 @@ static void PrintReportMap(ostream &out,
     out << flush;
 }
 
-void CommDetector2::PrintFullMap(
-    ostream &out, const frm_dir_map_t *comm_breaks, bool verbose) const
+void CommDetector2::PrintFullMap(ostream &out, const frm_dir_map_t *comm_breaks,
+                                 bool verbose)
 {
     FrameAnalyzer::FrameMap logoMap, blankMap, blankBreakMap, sceneMap;
     if (logoFinder)

@@ -439,7 +439,7 @@ class Cutter
 
         for (it = deleteMap.begin(); it != deleteMap.end(); ++it)
         {
-            switch(it.value())
+            switch(it.value().get())
             {
                 case MARK_CUT_START:
                     foreshortenedCutList[it.key()] = MARK_CUT_START;
@@ -973,7 +973,7 @@ int Transcode::TranscodeFile(const QString &inputname,
 
         for (it = deleteMap.begin(); it != deleteMap.end(); ++it)
         {
-            if (*it)
+            if (*it != MARK_CUT_END)
             {
                 if (!cutStr.isEmpty())
                     cutStr += ",";

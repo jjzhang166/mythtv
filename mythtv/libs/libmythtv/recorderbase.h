@@ -13,7 +13,7 @@
 #include <QMap>
 
 #include "recordingquality.h"
-#include "programtypes.h" // for MarkTypes, frm_pos_map_t
+#include "programtypes.h" // for MarkType, frm_pos_map_t
 #include "mythtimer.h"
 #include "mythtvexp.h"
 
@@ -237,7 +237,7 @@ class MTV_PUBLIC RecorderBase : public QRunnable
 
     /** \brief Set seektable type
      */
-    void SetPositionMapType(MarkTypes type) { positionMapType = type; }
+    void SetPositionMapType(MarkType type) { positionMapType = type; }
 
     /** \brief Note a change in aspect ratio in the recordedmark table
      */
@@ -297,7 +297,7 @@ class MTV_PUBLIC RecorderBase : public QRunnable
     ProgramInfo   *nextRecording;
 
     // Seektable  support
-    MarkTypes      positionMapType;
+    MarkType       positionMapType;
     mutable QMutex positionMapLock;
     frm_pos_map_t  positionMap;
     frm_pos_map_t  positionMapDelta;

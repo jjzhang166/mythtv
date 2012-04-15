@@ -4733,7 +4733,7 @@ void MainServer::HandleCutMapQuery(const QString &chanid,
         for (it = markMap.begin(); it != markMap.end(); ++it)
         {
             rowcnt++;
-            QString intstr = QString("%1").arg(*it);
+            QString intstr = QString("%1").arg(it->get());
             retlist << intstr;
             retlist << QString::number(it.key());
         }

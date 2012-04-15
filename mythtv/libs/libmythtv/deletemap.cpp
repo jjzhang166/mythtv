@@ -244,18 +244,18 @@ void DeleteMap::ReverseAll(uint64_t total)
  *        existing redundant mark of that type is removed. This simplifies
  *        the cleanup code.
  */
-void DeleteMap::Add(uint64_t frame, uint64_t total, MarkTypes type,
+void DeleteMap::Add(uint64_t frame, uint64_t total, MarkType type,
                     QString undoMessage)
 {
     EDIT_CHECK;
-    if ((MARK_CUT_START != type) && (MARK_CUT_END != type) &&
-        (MARK_PLACEHOLDER != type))
+    if ((type != MARK_CUT_START) && (type != MARK_CUT_END) &&
+        (type != MARK_PLACEHOLDER))
         return;
 
     frm_dir_map_t::Iterator find_temporary = m_deleteMap.find(frame);
     if (find_temporary != m_deleteMap.end())
     {
-        if (MARK_PLACEHOLDER == find_temporary.value())
+        if (find_temporary.value() == MARK_PLACEHOLDER)
         {
             // Delete the temporary mark before putting a real mark at its
             // location
@@ -265,10 +265,10 @@ void DeleteMap::Add(uint64_t frame, uint64_t total, MarkTypes type,
             return;
     }
 
-    int       lasttype  = MARK_UNSET;
+    MarkType  lasttype  = MARK_UNSET;
     long long lastframe = -1;
     long long remove    = -1;
-    QMutableMapIterator<uint64_t, MarkTypes> it(m_deleteMap);
+    QMutableMapIterator<uint64_t, MarkType> it(m_deleteMap);
 
     if (type == MARK_CUT_END)
     {
@@ -333,12 +333,12 @@ void DeleteMap::Delete(uint64_t frame, uint64_t total, QString undoMessage)
     frm_dir_map_t::Iterator it = m_deleteMap.find(frame);
     if (it != m_deleteMap.end())
     {
-        int type = it.value();
-        if (MARK_PLACEHOLDER == type)
+        MarkType type = it.value();
+        if (type == MARK_PLACEHOLDER)
             next = prev = frame;
-        else if (MARK_CUT_END == type)
+        else if (type == MARK_CUT_END)
             next  = frame;
-        else if (MARK_CUT_START == type)
+        else if (type == MARK_CUT_START)
             prev = frame;
     }
 
@@ -360,7 +360,7 @@ void DeleteMap::NewCut(uint64_t frame, uint64_t total)
     frm_dir_map_t::Iterator it;
     for (it = m_deleteMap.begin() ; it != m_deleteMap.end(); ++it)
     {
-        if (MARK_PLACEHOLDER == it.value())
+        if (it.value() == MARK_PLACEHOLDER)
         {
             existing = it.key();
             break;
@@ -380,17 +380,17 @@ void DeleteMap::NewCut(uint64_t frame, uint64_t total)
             int64_t cut_end = -1;
             if (IsInDelete(frame))
             {
-                MarkTypes type = MARK_UNSET;
+                MarkType type = MARK_UNSET;
                 cut_start = GetNearestMark(frame, total, false);
                 cut_end = GetNearestMark(frame, total, true);
                 frm_dir_map_t::Iterator it = m_deleteMap.find(frame);
                 if (it != m_deleteMap.end())
                     type = it.value();
-                if (MARK_CUT_START == type)
+                if (type == MARK_CUT_START)
                 {
                     cut_start = frame;
                 }
-                else if (MARK_CUT_END == type)
+                else if (type == MARK_CUT_END)
                 {
                     cut_end = frame;
                 }
@@ -455,23 +455,23 @@ void DeleteMap::MoveRelative(uint64_t frame, uint64_t total, bool right)
     frm_dir_map_t::Iterator it = m_deleteMap.find(frame);
     if (it != m_deleteMap.end())
     {
-        int type = it.value();
-        if (((MARK_CUT_START == type) && !right) ||
-            ((MARK_CUT_END == type) && right))
+        MarkType type = it.value();
+        if (((type == MARK_CUT_START) && !right) ||
+            ((type == MARK_CUT_END) && right))
         {
             // If on a mark, don't move a mark from a different cut region;
             // instead, "move" this mark onto itself
             return;
         }
-        else if (((MARK_CUT_START == type) && right) ||
-                 ((MARK_CUT_END == type) && !right))
+        else if (((type == MARK_CUT_START) && right) ||
+                 ((type == MARK_CUT_END) && !right))
         {
             // If on a mark, don't collapse a cut region to 0;
             // instead, delete the region
             Delete(frame, total, QObject::tr("Delete"));
             return;
         }
-        else if (MARK_PLACEHOLDER == type)
+        else if (type == MARK_PLACEHOLDER)
         {
             // Delete the temporary mark before putting a real mark at its
             // location
@@ -487,8 +487,8 @@ void DeleteMap::MoveRelative(uint64_t frame, uint64_t total, bool right)
 void DeleteMap::Move(uint64_t frame, uint64_t to, uint64_t total)
 {
     EDIT_CHECK;
-    MarkTypes type = Delete(frame);
-    if (MARK_UNSET == type)
+    MarkType type = Delete(frame);
+    if (type == MARK_UNSET)
     {
         if (frame == 0)
             type = MARK_CUT_START;
@@ -499,14 +499,14 @@ void DeleteMap::Move(uint64_t frame, uint64_t to, uint64_t total)
 }
 
 /// Private addition to the deleteMap.
-void DeleteMap::Add(uint64_t frame, MarkTypes type)
+void DeleteMap::Add(uint64_t frame, MarkType type)
 {
     m_deleteMap[frame] = type;
     m_changed = true;
 }
 
 /// Private removal from the deleteMap.
-MarkTypes DeleteMap::Delete(uint64_t frame)
+MarkType DeleteMap::Delete(uint64_t frame)
 {
     if (m_deleteMap.contains(frame))
     {
@@ -529,12 +529,12 @@ bool DeleteMap::IsInDelete(uint64_t frame) const
     if (it != m_deleteMap.end())
         return true;
 
-    int      lasttype  = MARK_UNSET;
+    MarkType lasttype  = MARK_UNSET;
     uint64_t lastframe = -1;
     for (it = m_deleteMap.begin() ; it != m_deleteMap.end(); ++it)
     {
         if (it.key() > frame)
-            return MARK_CUT_END == it.value();
+            return it.value() == MARK_CUT_END;
         lasttype  = it.value();
         lastframe = it.key();
     }
@@ -553,7 +553,7 @@ bool DeleteMap::IsTemporaryMark(uint64_t frame) const
         return false;
 
     frm_dir_map_t::const_iterator it = m_deleteMap.find(frame);
-    return (it != m_deleteMap.end()) && (MARK_PLACEHOLDER == it.value());
+    return (it != m_deleteMap.end()) && (it.value() == MARK_PLACEHOLDER);
 }
 
 /**
@@ -601,7 +601,7 @@ bool DeleteMap::HasTemporaryMark(void) const
     {
         frm_dir_map_t::const_iterator it = m_deleteMap.begin();
         for ( ; it != m_deleteMap.end(); ++it)
-            if (MARK_PLACEHOLDER == it.value())
+            if (it.value() == MARK_PLACEHOLDER)
                 return true;
     }
 
@@ -625,13 +625,13 @@ void DeleteMap::CleanMap(uint64_t total)
     while (!IsEmpty() && !clear)
     {
         clear = true;
-        int     lasttype  = MARK_UNSET;
-        int64_t lastframe = -1;
-        int64_t tempframe = -1;
+        MarkType lasttype  = MARK_UNSET;
+        int64_t  lastframe = -1;
+        int64_t  tempframe = -1;
         frm_dir_map_t::iterator it = m_deleteMap.begin();
         for ( ; it != m_deleteMap.end(); ++it)
         {
-            int      thistype  = it.value();
+            MarkType thistype  = it.value();
             uint64_t thisframe = it.key();
             if (thisframe >= total)
             {
@@ -644,7 +644,7 @@ void DeleteMap::CleanMap(uint64_t total)
                 clear = false;
                 break;
             }
-            if (MARK_PLACEHOLDER == thistype)
+            if (thistype == MARK_PLACEHOLDER)
             {
                 if (tempframe > 0)
                     Delete(tempframe);
@@ -727,11 +727,11 @@ void DeleteMap::SaveMap(uint64_t total, bool isAutoSave)
     if (!isAutoSave)
     {
         // Remove temporary placeholder marks
-        QMutableMapIterator<uint64_t, MarkTypes> it(m_deleteMap);
+        QMutableMapIterator<uint64_t, MarkType> it(m_deleteMap);
         while (it.hasNext())
         {
             it.next();
-            if (MARK_PLACEHOLDER == it.value())
+            if (it.value() == MARK_PLACEHOLDER)
             {
                 it.remove();
                 m_changed = true;
@@ -829,11 +829,11 @@ bool DeleteMap::IsSaved(void) const
     m_ctx->UnlockPlayingInfo(__FILE__, __LINE__);
 
     // Remove temporary placeholder marks from currentMap
-    QMutableMapIterator<uint64_t, MarkTypes> it(currentMap);
+    QMutableMapIterator<uint64_t, MarkType> it(currentMap);
     while (it.hasNext())
     {
         it.next();
-        if (MARK_PLACEHOLDER == it.value())
+        if (it.value() == MARK_PLACEHOLDER)
             it.remove();
     }
 

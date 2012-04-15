@@ -3003,7 +3003,7 @@ bool ProgramInfo::QueryCutList(frm_dir_map_t &delMap, bool loadAutoSave) const
         for (; i != autosaveMap.constEnd(); ++i)
         {
             uint64_t frame = i.key();
-            MarkTypes mark = i.value();
+            MarkType mark = i.value();
             if (mark == MARK_TMP_CUT_START)
                 mark = MARK_CUT_START;
             else if (mark == MARK_TMP_CUT_END)
@@ -3037,7 +3037,7 @@ void ProgramInfo::SaveCutList(frm_dir_map_t &delMap, bool isAutoSave) const
     for (; i != delMap.constEnd(); ++i)
     {
         uint64_t frame = i.key();
-        MarkTypes mark = i.value();
+        MarkType mark = i.value();
         if (isAutoSave)
         {
             if (mark == MARK_CUT_START)
@@ -3081,8 +3081,8 @@ void ProgramInfo::QueryCommBreakList(frm_dir_map_t &frames) const
     QueryMarkupMap(frames, MARK_COMM_END, true);
 }
 
-void ProgramInfo::ClearMarkupMap(
-    MarkTypes type, int64_t min_frame, int64_t max_frame) const
+void ProgramInfo::ClearMarkupMap(MarkType type, int64_t min_frame,
+                                 int64_t max_frame) const
 {
     MSqlQuery query(MSqlQuery::InitCon());
     QString comp;
@@ -3116,15 +3116,14 @@ void ProgramInfo::ClearMarkupMap(
     {
         return;
     }
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     if (!query.exec())
         MythDB::DBError("ClearMarkupMap deleting", query);
 }
 
-void ProgramInfo::SaveMarkupMap(
-    const frm_dir_map_t &marks, MarkTypes type,
-    int64_t min_frame, int64_t max_frame) const
+void ProgramInfo::SaveMarkupMap(const frm_dir_map_t &marks, MarkType type,
+                                int64_t min_frame, int64_t max_frame) const
 {
     MSqlQuery query(MSqlQuery::InitCon());
     QString videoPath;
@@ -3157,7 +3156,7 @@ void ProgramInfo::SaveMarkupMap(
     for (it = marks.begin(); it != marks.end(); ++it)
     {
         uint64_t frame = it.key();
-        int mark_type;
+        MarkType mark_type;
         QString querystr;
 
         if ((min_frame >= 0) && (frame < (uint64_t)min_frame))
@@ -3183,15 +3182,15 @@ void ProgramInfo::SaveMarkupMap(
             query.bindValue(":STARTTIME", recstartts);
         }
         query.bindValue(":MARK", (quint64)frame);
-        query.bindValue(":TYPE", mark_type);
+        query.bindValue(":TYPE", mark_type.get());
 
         if (!query.exec())
             MythDB::DBError("SaveMarkupMap inserting", query);
     }
 }
 
-void ProgramInfo::QueryMarkupMap(
-    frm_dir_map_t &marks, MarkTypes type, bool merge) const
+void ProgramInfo::QueryMarkupMap(frm_dir_map_t &marks, MarkType type,
+                                 bool merge) const
 {
     if (!merge)
         marks.clear();
@@ -3207,10 +3206,9 @@ void ProgramInfo::QueryMarkupMap(
     }
 }
 
-void ProgramInfo::QueryMarkupMap(
-    const QString &video_pathname,
-    frm_dir_map_t &marks,
-    MarkTypes type, bool mergeIntoMap)
+void ProgramInfo::QueryMarkupMap(const QString &video_pathname,
+                                 frm_dir_map_t &marks, MarkType type,
+                                 bool mergeIntoMap)
 {
     if (!mergeIntoMap)
         marks.clear();
@@ -3223,7 +3221,7 @@ void ProgramInfo::QueryMarkupMap(
                   "      type     = :TYPE "
                   "ORDER BY mark");
     query.bindValue(":PATH", video_pathname);
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     if (!query.exec())
     {
@@ -3233,15 +3231,13 @@ void ProgramInfo::QueryMarkupMap(
 
     while (query.next())
     {
-        marks[query.value(0).toLongLong()] =
-            (MarkTypes) query.value(1).toInt();
+        marks[query.value(0).toLongLong()] = MarkType(query.value(1).toInt());
     }
 }
 
-void ProgramInfo::QueryMarkupMap(
-    uint chanid, const QDateTime &recstartts,
-    frm_dir_map_t &marks,
-    MarkTypes type, bool mergeIntoMap)
+void ProgramInfo::QueryMarkupMap(uint chanid, const QDateTime &recstartts,
+                                 frm_dir_map_t &marks, MarkType type,
+                                 bool mergeIntoMap)
 {
     if (!mergeIntoMap)
         marks.clear();
@@ -3255,7 +3251,7 @@ void ProgramInfo::QueryMarkupMap(
                   "ORDER BY mark");
     query.bindValue(":CHANID", chanid);
     query.bindValue(":STARTTIME", recstartts);
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     if (!query.exec())
     {
@@ -3265,13 +3261,12 @@ void ProgramInfo::QueryMarkupMap(
 
     while (query.next())
     {
-        marks[query.value(0).toULongLong()] =
-            (MarkTypes) query.value(1).toInt();
+        marks[query.value(0).toULongLong()] = MarkType(query.value(1).toInt());
     }
 }
 
 /// Returns true iff the speficied mark type is set on frame 0
-bool ProgramInfo::QueryMarkupFlag(MarkTypes type) const
+bool ProgramInfo::QueryMarkupFlag(MarkType type) const
 {
     frm_dir_map_t flagMap;
 
@@ -3281,7 +3276,7 @@ bool ProgramInfo::QueryMarkupFlag(MarkTypes type) const
 }
 
 /// Clears the specified flag, then if sets it
-void ProgramInfo::SaveMarkupFlag(MarkTypes type) const
+void ProgramInfo::SaveMarkupFlag(MarkType type) const
 {
     ClearMarkupMap(type);
     frm_dir_map_t flagMap;
@@ -3289,13 +3284,12 @@ void ProgramInfo::SaveMarkupFlag(MarkTypes type) const
     SaveMarkupMap(flagMap, type);
 }
 
-void ProgramInfo::QueryPositionMap(
-    frm_pos_map_t &posMap, MarkTypes type) const
+void ProgramInfo::QueryPositionMap(frm_pos_map_t &posMap, MarkType type) const
 {
     if (positionMapDBReplacement)
     {
         QMutexLocker locker(positionMapDBReplacement->lock);
-        posMap = positionMapDBReplacement->map[(MarkTypes)type];
+        posMap = positionMapDBReplacement->map[type];
 
         return;
     }
@@ -3323,7 +3317,7 @@ void ProgramInfo::QueryPositionMap(
     {
         return;
     }
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     if (!query.exec())
     {
@@ -3335,7 +3329,7 @@ void ProgramInfo::QueryPositionMap(
         posMap[query.value(0).toULongLong()] = query.value(1).toULongLong();
 }
 
-void ProgramInfo::ClearPositionMap(MarkTypes type) const
+void ProgramInfo::ClearPositionMap(MarkType type) const
 {
     if (positionMapDBReplacement)
     {
@@ -3367,15 +3361,14 @@ void ProgramInfo::ClearPositionMap(MarkTypes type) const
         return;
     }
 
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     if (!query.exec())
         MythDB::DBError("clear position map", query);
 }
 
-void ProgramInfo::SavePositionMap(
-    frm_pos_map_t &posMap, MarkTypes type,
-    int64_t min_frame, int64_t max_frame) const
+void ProgramInfo::SavePositionMap(frm_pos_map_t &posMap, MarkType type,
+                                  int64_t min_frame, int64_t max_frame) const
 {
     if (positionMapDBReplacement)
     {
@@ -3384,8 +3377,8 @@ void ProgramInfo::SavePositionMap(
         if ((min_frame >= 0) || (max_frame >= 0))
         {
             frm_pos_map_t::const_iterator it, it_end;
-            it     = positionMapDBReplacement->map[(MarkTypes)type].begin();
-            it_end = positionMapDBReplacement->map[(MarkTypes)type].end();
+            it     = positionMapDBReplacement->map[type].begin();
+            it_end = positionMapDBReplacement->map[type].end();
 
             frm_pos_map_t new_map;
             for (; it != it_end; ++it)
@@ -3397,11 +3390,11 @@ void ProgramInfo::SavePositionMap(
                     continue;
                 new_map.insert(it.key(), *it);
             }
-            positionMapDBReplacement->map[(MarkTypes)type] = new_map;
+            positionMapDBReplacement->map[type] = new_map;
         }
         else
         {
-            positionMapDBReplacement->map[(MarkTypes)type].clear();
+            positionMapDBReplacement->map[type].clear();
         }
 
         frm_pos_map_t::const_iterator it     = posMap.begin();
@@ -3414,7 +3407,7 @@ void ProgramInfo::SavePositionMap(
             if ((min_frame >= 0) && (frame <= (uint64_t)max_frame))
                 continue;
 
-            positionMapDBReplacement->map[(MarkTypes)type]
+            positionMapDBReplacement->map[type]
                 .insert(frame, *it);
         }
 
@@ -3455,7 +3448,7 @@ void ProgramInfo::SavePositionMap(
         return;
     }
 
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
     if (min_frame >= 0)
         query.bindValue(":MIN_FRAME", (quint64)min_frame);
     if (max_frame >= 0)
@@ -3481,7 +3474,7 @@ void ProgramInfo::SavePositionMap(
         query.bindValue(":CHANID",    chanid);
         query.bindValue(":STARTTIME", recstartts);
     }
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     frm_pos_map_t::iterator it;
     for (it = posMap.begin(); it != posMap.end(); ++it)
@@ -3507,8 +3500,8 @@ void ProgramInfo::SavePositionMap(
     }
 }
 
-void ProgramInfo::SavePositionMapDelta(
-    frm_pos_map_t &posMap, MarkTypes type) const
+void ProgramInfo::SavePositionMapDelta(frm_pos_map_t &posMap, MarkType type)
+        const
 {
     if (positionMapDBReplacement)
     {
@@ -3545,7 +3538,7 @@ void ProgramInfo::SavePositionMapDelta(
     {
         return;
     }
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     frm_pos_map_t::iterator it;
     for (it = posMap.begin(); it != posMap.end(); ++it)
@@ -3567,8 +3560,7 @@ void ProgramInfo::SavePositionMapDelta(
 /// \brief Store aspect ratio of a frame in the recordedmark table
 /// \note  All frames until the next one with a stored aspect ratio
 ///        are assumed to have the same aspect ratio
-void ProgramInfo::SaveAspect(
-    uint64_t frame, MarkTypes type, uint customAspect)
+void ProgramInfo::SaveAspect(uint64_t frame, MarkType type, uint customAspect)
 {
     if (!IsRecording())
         return;
@@ -3583,7 +3575,7 @@ void ProgramInfo::SaveAspect(
     query.bindValue(":STARTTIME", recstartts);
 
     query.bindValue(":MARK", (quint64)frame);
-    query.bindValue(":TYPE", type);
+    query.bindValue(":TYPE", type.get());
 
     if (type == MARK_ASPECT_CUSTOM)
         query.bindValue(":DATA", customAspect);
@@ -3720,8 +3712,8 @@ void ProgramInfo::SaveResolution(uint64_t frame, uint width, uint height)
         MythDB::DBError("Resolution insert", query);
 }
 
-static uint load_markup_datum(
-    MarkTypes type, uint chanid, const QDateTime &recstartts)
+static uint load_markup_datum(MarkType type, uint chanid,
+                              const QDateTime &recstartts)
 {
     QString qstr = QString(
         "SELECT recordedmarkup.data "
@@ -3739,7 +3731,7 @@ static uint load_markup_datum(
         "                ORDER BY rm.mark ASC LIMIT 1 "
         "              ) - recordedmarkup.mark "
         "            ) DESC "
-        "LIMIT 1").arg((int)type);
+        "LIMIT 1").arg(type.toInt8());
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(qstr);

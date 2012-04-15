@@ -10121,7 +10121,7 @@ bool TV::doMythEventCommflagUpdate(const QString &action)
                 mark = marks[i].split(":", QString::SkipEmptyParts);
                 if (marks.size() >= 2)
                 {
-                    newMap[mark[0].toLongLong()] = (MarkTypes) mark[1].toInt();
+                    newMap[mark[0].toLongLong()] = MarkType(mark[1].toInt());
                 }
             }
             ctx->LockDeletePlayer(__FILE__, __LINE__);

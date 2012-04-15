@@ -2023,14 +2023,14 @@ void ClassicCommDetector::BuildBlankFrameCommList(void)
     LOG(VB_COMMFLAG, LOG_INFO, "Blank-Frame Commercial Map" );
     for(it = blankCommMap.begin(); it != blankCommMap.end(); ++it)
         LOG(VB_COMMFLAG, LOG_INFO, QString("    %1:%2")
-                .arg(it.key()).arg(*it));
+                .arg(it.key()).arg(it->get()));
 
     MergeBlankCommList();
 
     LOG(VB_COMMFLAG, LOG_INFO, "Merged Blank-Frame Commercial Break Map" );
     for(it = blankCommBreakMap.begin(); it != blankCommBreakMap.end(); ++it)
         LOG(VB_COMMFLAG, LOG_INFO, QString("    %1:%2")
-                .arg(it.key()).arg(*it));
+                .arg(it.key()).arg(it->get()));
 }
 
 
@@ -2130,7 +2130,7 @@ void ClassicCommDetector::BuildSceneChangeCommList(void)
     for (it = sceneCommBreakMap.begin(); it != sceneCommBreakMap.end(); ++it)
     {
         LOG(VB_COMMFLAG, LOG_INFO, QString("    %1:%2")
-            .arg(it.key()).arg(*it));
+            .arg(it.key()).arg(it->get()));
     }
 }
 
@@ -2146,7 +2146,7 @@ void ClassicCommDetector::BuildLogoCommList()
     LOG(VB_COMMFLAG, LOG_INFO, "Logo Commercial Break Map" );
     for(it = logoCommBreakMap.begin(); it != logoCommBreakMap.end(); ++it)
         LOG(VB_COMMFLAG, LOG_INFO, QString("    %1:%2")
-                .arg(it.key()).arg(*it));
+                .arg(it.key()).arg(it->get()));
 }
 
 void ClassicCommDetector::MergeBlankCommList(void)
@@ -2214,14 +2214,14 @@ void ClassicCommDetector::MergeBlankCommList(void)
     }
 }
 
-bool ClassicCommDetector::FrameIsInBreakMap(
-    uint64_t f, const frm_dir_map_t &breakMap) const
+bool ClassicCommDetector::FrameIsInBreakMap(uint64_t f,
+                                            const frm_dir_map_t &breakMap) const
 {
     for (uint64_t i = f; i < framesProcessed; i++)
     {
         if (breakMap.contains(i))
         {
-            int type = breakMap[i];
+            MarkType type = breakMap[i];
             if ((type == MARK_COMM_END) || (i == f))
                 return true;
             if (type == MARK_COMM_START)
@@ -2235,7 +2235,7 @@ bool ClassicCommDetector::FrameIsInBreakMap(
     {
         if (breakMap.contains(i))
         {
-            int type = breakMap[i];
+            MarkType type = breakMap[i];
             if ((type == MARK_COMM_START) || (i == f))
                 return true;
             if (type == MARK_COMM_END)
@@ -2256,7 +2256,7 @@ void ClassicCommDetector::DumpMap(frm_dir_map_t &map)
     for (it = map.begin(); it != map.end(); ++it)
     {
         long long frame = it.key();
-        int flag = *it;
+        MarkType flag = *it;
         int my_fps = (int)ceil(fps);
         int hour = (frame / my_fps) / 60 / 60;
         int min = (frame / my_fps) / 60 - (hour * 60);
@@ -2265,7 +2265,7 @@ void ClassicCommDetector::DumpMap(frm_dir_map_t &map)
                            (hour * 60 * 60 * my_fps));
         int my_sec = (int)(frame / my_fps);
         msg.sprintf("%7ld : %d (%02d:%02d:%02d.%02d) (%d)",
-                    (long)frame, flag, hour, min, sec, frm, my_sec);
+                    (long)frame, flag.get(), hour, min, sec, frm, my_sec);
         LOG(VB_COMMFLAG, LOG_INFO, msg);
     }
     LOG(VB_COMMFLAG, LOG_INFO,
@@ -2357,7 +2357,7 @@ void ClassicCommDetector::ConvertShowMapToCommMap(
     if (it == out.end())
         return;
 
-    switch (out[it.key()])
+    switch (out[it.key()].get())
     {
         case MARK_COMM_END:
             if (it.key() == 0)
@@ -2496,8 +2496,9 @@ void ClassicCommDetector::logoDetectorBreathe()
     emit breathe();
 }
 
-void ClassicCommDetector::PrintFullMap(
-    ostream &out, const frm_dir_map_t *comm_breaks, bool verbose) const
+void ClassicCommDetector::PrintFullMap(ostream &out,
+                                       const frm_dir_map_t *comm_breaks,
+                                       bool verbose)
 {
     if (verbose)
     {
@@ -2518,8 +2519,9 @@ void ClassicCommDetector::PrintFullMap(
             frm_dir_map_t::const_iterator mit = comm_breaks->find(i);
             if (mit != comm_breaks->end())
             {
+                MarkType type = *mit;
                 QString tmp = (verbose) ?
-                    toString((MarkTypes)*mit) : QString::number(*mit);
+                    type.toRawString() : QString::number(type.toInt8());
                 atmp = tmp.toAscii();
 
                 out << atmp.constData();

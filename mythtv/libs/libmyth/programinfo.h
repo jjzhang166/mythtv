@@ -537,7 +537,7 @@ class MPUBLIC ProgramInfo
     int64_t     QueryTotalDuration(void) const;
     int64_t     QueryTotalFrames(void) const;
     QString     QueryRecordingGroup(void) const;
-    bool        QueryMarkupFlag(MarkTypes type) const;
+    bool        QueryMarkupFlag(MarkType type) const;
     uint        QueryTranscoderID(void) const;
     uint64_t    QueryLastFrameInPosMap(void) const;
     bool        Reload(void);
@@ -554,14 +554,14 @@ class MPUBLIC ProgramInfo
     void SaveAutoExpire(AutoExpireType autoExpire, bool updateDelete = false);
     void SavePreserve(bool preserveEpisode);
     bool SaveBasename(const QString &basename);
-    void SaveAspect(uint64_t frame, MarkTypes type, uint customAspect);
+    void SaveAspect(uint64_t frame, MarkType type, uint customAspect);
     void SaveResolution(uint64_t frame, uint width, uint height);
     void SaveFrameRate(uint64_t frame, uint framerate);
     void SaveTotalDuration(int64_t duration);
     void SaveTotalFrames(int64_t frames);
     void SaveVideoProperties(uint mask, uint video_property_flags);
-    void SaveMarkupFlag(MarkTypes type) const;
-    void ClearMarkupFlag(MarkTypes type) const { ClearMarkupMap(type); }
+    void SaveMarkupFlag(MarkType type) const;
+    void ClearMarkupFlag(MarkType type) const { ClearMarkupMap(type); }
     void UpdateLastDelete(bool setTime) const;
     void MarkAsInUse(bool inuse, QString usedFor = "");
     void UpdateInUseMark(bool force = false);
@@ -583,11 +583,11 @@ class MPUBLIC ProgramInfo
     void SaveCommBreakList(frm_dir_map_t &) const;
 
     // Keyframe positions map
-    void QueryPositionMap(frm_pos_map_t &, MarkTypes type) const;
-    void ClearPositionMap(MarkTypes type) const;
-    void SavePositionMap(frm_pos_map_t &, MarkTypes type,
+    void QueryPositionMap(frm_pos_map_t &, MarkType type) const;
+    void ClearPositionMap(MarkType type) const;
+    void SavePositionMap(frm_pos_map_t &, MarkType type,
                          int64_t min_frm = -1, int64_t max_frm = -1) const;
-    void SavePositionMapDelta(frm_pos_map_t &, MarkTypes type) const;
+    void SavePositionMapDelta(frm_pos_map_t &, MarkType type) const;
 
     /// Sends event out that the ProgramInfo should be reloaded.
     void SendUpdateEvent(void);
@@ -615,11 +615,11 @@ class MPUBLIC ProgramInfo
 
   protected:
     // Flagging map support methods
-    void QueryMarkupMap(frm_dir_map_t&, MarkTypes type,
+    void QueryMarkupMap(frm_dir_map_t&, MarkType type,
                         bool merge = false) const;
-    void SaveMarkupMap(const frm_dir_map_t &, MarkTypes type = MARK_ALL,
+    void SaveMarkupMap(const frm_dir_map_t &, MarkType type = MARK_ALL,
                        int64_t min_frm = -1, int64_t max_frm = -1) const;
-    void ClearMarkupMap(MarkTypes type = MARK_ALL,
+    void ClearMarkupMap(MarkType type = MARK_ALL,
                         int64_t min_frm = -1, int64_t max_frm = -1) const;
 
     // Creates a basename from the start and end times
@@ -631,12 +631,11 @@ class MPUBLIC ProgramInfo
     bool FromStringList(QStringList::const_iterator &it,
                         QStringList::const_iterator  end);
 
-    static void QueryMarkupMap(
-        const QString &video_pathname,
-        frm_dir_map_t&, MarkTypes type, bool merge = false);
-    static void QueryMarkupMap(
-        uint chanid, const QDateTime &recstartts,
-        frm_dir_map_t&, MarkTypes type, bool merge = false);
+    static void QueryMarkupMap(const QString &video_pathname, frm_dir_map_t&,
+                               MarkType type, bool merge = false);
+    static void QueryMarkupMap(uint chanid, const QDateTime &recstartts,
+                               frm_dir_map_t&, MarkType type,
+                               bool merge = false);
 
     static int InitStatics(void);
 
@@ -801,7 +800,7 @@ class MPUBLIC PMapDBReplacement
     PMapDBReplacement();
    ~PMapDBReplacement();
     QMutex *lock;
-    QMap<MarkTypes,frm_pos_map_t> map;
+    QMap<MarkType, frm_pos_map_t> map;
 };
 
 Q_DECLARE_METATYPE(ProgramInfo*)

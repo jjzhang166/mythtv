@@ -89,7 +89,7 @@ void CommBreakMap::SetTracker(uint64_t framesPlayed)
     {
         LOG(VB_COMMFLAG, LOG_INFO, LOC +
             QString("new commBreakIter = %1 @ frame %2, framesPlayed = %3")
-                .arg(*commBreakIter).arg(commBreakIter.key())
+                .arg(commBreakIter->get()).arg(commBreakIter.key())
                 .arg(framesPlayed));
     }
 }
@@ -112,21 +112,18 @@ bool CommBreakMap::IsInCommBreak(uint64_t frameNumber) const
     if (it != commBreakMap.end())
         return true;
 
-    int lastType = MARK_UNSET;
+    MarkType lastType = MARK_UNSET;
     for (it = commBreakMap.begin(); it != commBreakMap.end(); ++it)
     {
         if (it.key() > frameNumber)
         {
-            int type = *it;
+            MarkType type = *it;
 
-            if (((type == MARK_COMM_END) ||
-                 (type == MARK_CUT_END)) &&
-                ((lastType == MARK_COMM_START) ||
-                 (lastType == MARK_CUT_START)))
+            if (((type == MARK_COMM_END) || (type == MARK_CUT_END)) &&
+                ((lastType == MARK_COMM_START) || (lastType == MARK_CUT_START)))
                 return true;
 
-            if ((type == MARK_COMM_START) ||
-                (type == MARK_CUT_START))
+            if ((type == MARK_COMM_START) || (type == MARK_CUT_START))
                 return false;
         }
 
@@ -321,7 +318,7 @@ bool CommBreakMap::DoSkipCommercials(uint64_t &jumpToFrame,
         // start or within commrewindamount of the break end
         // Even though commrewindamount has a max of 10 per the settings UI,
         // check for MARK_COMM_END to make the code generic
-        MarkTypes type = *commBreakIter;
+        MarkType type = *commBreakIter;
         if (((type == MARK_COMM_START) && (skipped_seconds < 20)) ||
             ((type == MARK_COMM_END) && (skipped_seconds < commrewindamount)))
         {
