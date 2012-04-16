@@ -50,20 +50,20 @@ class SERVICE_PUBLIC RecordingInfo : public QObject
     Q_ENUMS( RecordingDupMethodType )
     */
 
-    PROPERTYIMP_ENUM( RecStatusType          , Status      )
-    PROPERTYIMP     ( int                    , Priority    )
-    PROPERTYIMP     ( QDateTime              , StartTs     )
-    PROPERTYIMP     ( QDateTime              , EndTs       )
+    PROPERTYIMP_ENUM( RecStatusEnumType          , Status      )
+    PROPERTYIMP     ( int                        , Priority    )
+    PROPERTYIMP     ( QDateTime                  , StartTs     )
+    PROPERTYIMP     ( QDateTime                  , EndTs       )
                                                  
-    PROPERTYIMP     ( int                    , RecordId    )
-    PROPERTYIMP     ( QString                , RecGroup    )
-    PROPERTYIMP     ( QString                , StorageGroup)
-    PROPERTYIMP     ( QString                , PlayGroup   )
-    PROPERTYIMP_ENUM( RecordingType          , RecType     )
-    PROPERTYIMP_ENUM( RecordingDupInType     , DupInType   )
-    PROPERTYIMP_ENUM( RecordingDupMethodType , DupMethod   )
-    PROPERTYIMP     ( int                    , EncoderId   )
-    PROPERTYIMP     ( QString                , Profile     )
+    PROPERTYIMP     ( int                        , RecordId    )
+    PROPERTYIMP     ( QString                    , RecGroup    )
+    PROPERTYIMP     ( QString                    , StorageGroup)
+    PROPERTYIMP     ( QString                    , PlayGroup   )
+    PROPERTYIMP_ENUM( RecordingEnumType          , RecType     )
+    PROPERTYIMP_ENUM( RecordingDupInEnumType     , DupInType   )
+    PROPERTYIMP_ENUM( RecordingDupMethodEnumType , DupMethod   )
+    PROPERTYIMP     ( int                        , EncoderId   )
+    PROPERTYIMP     ( QString                    , Profile     )
 
     // Used only by Serializer
     PROPERTYIMP( bool, SerializeDetails )

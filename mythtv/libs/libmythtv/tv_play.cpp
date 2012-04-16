@@ -4736,20 +4736,20 @@ bool TV::doActiveJumpFfwd(const QString &action)
 bool TV::doActiveJumpBkmrk(const QString &action)
 {
     m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
-    MythPlayer *play   = m_actionContext->player;
-    uint64_t bookmark  = ctx->player->GetBookmark();
-    float     rate     = play->GetFrameRate();
-    float seekloc = ctx->player->TranslatePositionAbsToRel(bookmark) / rate;
+    MythPlayer *play  = m_actionContext->player;
+    uint64_t bookmark = play->GetBookmark();
+    float    rate     = play->GetFrameRate();
+    float    seekloc  = play->TranslatePositionAbsToRel(bookmark) / rate;
     m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
 
     if (bookmark > rate)
-        DoSeek(ctx, seekloc, tr("Jump to Bookmark"), false, true);
+        DoSeek(m_actionContext, seekloc, tr("Jump to Bookmark"), false, true);
     return true;
 }
 
 bool TV::doActiveJumpStart(const QString &action)
 {
-    DoSeek(ctx, 0, tr("Jump to Beginning"), false, true);
+    DoSeek(m_actionContext, 0, tr("Jump to Beginning"), false, true);
     return true;
 }
 
@@ -6974,7 +6974,7 @@ void TV::DoArbSeek(PlayerContext *ctx, ArbSeekWhence whence,
         time = (ctx->player->CalcMaxFFTime(LONG_MAX, false) /
                 ctx->player->GetFrameRate()) - time;
         ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-        DoSeek(ctx, time, tr("Jump To") (whence != ARBSEEK_SET), honorCutlist);
+        DoSeek(ctx, time, tr("Jump To"), (whence != ARBSEEK_SET), honorCutlist);
     }
     else
         DoSeekAbsolute(ctx, time, honorCutlist);

@@ -92,7 +92,7 @@ void FillProgramInfo( DTC::Program *pProgram,
 
         DTC::RecordingInfo *pRecording = pProgram->Recording();
 
-        pRecording->setStatus  ( pInfo->GetRecordingStatus()    );
+        pRecording->setStatus  ( pInfo->GetRecordingStatus().get() );
         pRecording->setPriority( pInfo->GetRecordingPriority()  );
         pRecording->setStartTs ( pInfo->GetRecordingStartTime() );
         pRecording->setEndTs   ( pInfo->GetRecordingEndTime()   );
@@ -105,9 +105,9 @@ void FillProgramInfo( DTC::Program *pProgram,
             pRecording->setRecGroup    ( pInfo->GetRecordingGroup()       );
             pRecording->setPlayGroup   ( pInfo->GetPlaybackGroup()        );
             pRecording->setStorageGroup( pInfo->GetStorageGroup()         );
-            pRecording->setRecType     ( pInfo->GetRecordingRuleType()    );
-            pRecording->setDupInType   ( pInfo->GetDuplicateCheckSource() );
-            pRecording->setDupMethod   ( pInfo->GetDuplicateCheckMethod() );
+            pRecording->setRecType     ( pInfo->GetRecordingRuleType().get() );
+            pRecording->setDupInType   ( pInfo->GetDuplicateCheckSource().get() );
+            pRecording->setDupMethod   ( pInfo->GetDuplicateCheckMethod().get() );
             pRecording->setEncoderId   ( pInfo->GetCardID()               );
 
             const RecordingInfo ri(*pInfo);
