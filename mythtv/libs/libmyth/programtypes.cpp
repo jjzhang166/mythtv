@@ -93,7 +93,7 @@ template <> int RecStatusBaseType::m_itemCount =
             NELEMS(RecStatusBaseType::m_items);
 
 template <> RecStatusPrivItem RecStatusType::m_privItems[] = {
-    REC_STATUS_PRIV_ITEM(rsMissedFuture, "m", "disabled",
+    REC_STATUS_PRIV_ITEM(rsMissedFuture, "M", "disabled",
                          "This showing was not recorded because the "
                          "master backend was hung or not running."),
     REC_STATUS_PRIV_ITEM(rsTuning, "t", "running",
