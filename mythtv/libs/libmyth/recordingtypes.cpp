@@ -5,7 +5,7 @@
 #include "mythactions.h"
 
 #define REC_TYPE_PRIV_ITEM(t,p,letter) \
-    { (t), (p), letter, "RecTypeChar ##t" }
+    { (t), (p), QT_TR_NOOP(letter), "RecTypeChar ##t" }
 
 template <> struct RecTypeItem<RecordingEnumType> RecordingBaseType::m_items[] =
 {

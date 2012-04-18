@@ -19,7 +19,7 @@ struct MPUBLIC RecTypeItem
 };
 
 #define REC_ITEM(t,string,listing) \
-    { (t), string, \
+    { (t), QT_TR_NOOP(string), \
       QStringList() << QString(string).toLower() << listing, NULL }
 
 template <typename T>

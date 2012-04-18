@@ -59,7 +59,7 @@ template <> QHash<MarkEnumType, struct RecTypeItem<MarkEnumType> *> *
             MarkType::m_hash = NULL;
 
 #define REC_STATUS_PRIV_ITEM(t,letter,ui,descr) \
-    { (t), (ui), (letter), "RecStatusChar ##t", (descr) }
+    { (t), (ui), QT_TR_NOOP(letter), "RecStatusChar ##t", QT_TR_NOOP(descr) }
 
 template <> struct RecTypeItem<RecStatusEnumType> RecStatusBaseType::m_items[] =
 {
