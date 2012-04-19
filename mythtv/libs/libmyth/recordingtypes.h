@@ -1,6 +1,7 @@
 #ifndef RECORDINGTYPES_H_
 #define RECORDINGTYPES_H_
 
+#include <QApplication>
 #include <QString>
 #include <QStringList>
 #include <QChar>
@@ -19,12 +20,13 @@ struct MPUBLIC RecTypeItem
 };
 
 #define REC_ITEM(t,string,listing) \
-    { (t), QT_TR_NOOP(string), \
+    { (t), string, \
       QStringList() << QString(string).toLower() << listing, NULL }
 
 template <typename T>
 class MPUBLIC RecType
 {
+    Q_DECLARE_TR_FUNCTIONS(RecType);
   public:
     RecType<T>() {};
     RecType<T>(int value) : m_value((T)value) {};
@@ -151,12 +153,12 @@ typedef RecType<RecordingEnumType> RecordingBaseType;
 typedef struct {
     RecordingEnumType   type;
     int                 priority;
-    const char         *charVal;
-    const char         *charType;
+    const char         *charStr[2];
 } RecordingPrivItem;
 
 class MPUBLIC RecordingType : public RecType<RecordingEnumType>
 {
+    Q_DECLARE_TR_FUNCTIONS(RecType);
   public:
     RecordingType() : RecType<RecordingEnumType>()
     {
@@ -200,9 +202,9 @@ class MPUBLIC RecordingType : public RecType<RecordingEnumType>
             m_hash->value(m_value, NULL);
 
         if (!item || !item->priv)
-            return QObject::tr(m_defaultString);
+            return tr(m_defaultString);
 
-        return QObject::tr(item->rawString);
+        return tr(item->rawString);
     }
 
     int toPriority(void)
@@ -232,7 +234,8 @@ class MPUBLIC RecordingType : public RecType<RecordingEnumType>
             return QChar(m_defaultChar[0]);
 
         RecordingPrivItem *privItem = (RecordingPrivItem *)item->priv;
-        QString translated = QObject::tr(privItem->charVal, privItem->charType);
+        QString translated = tr(privItem->charStr[0],
+                                privItem->charStr[1]);
         return QChar(translated[0]);
     }
 

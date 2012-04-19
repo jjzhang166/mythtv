@@ -9,6 +9,7 @@
 using namespace std;
 
 // Qt headers
+#include <QApplication>
 #include <QString>
 #include <QMap>
 #include <QHash>
@@ -229,15 +230,15 @@ typedef RecType<RecStatusEnumType> RecStatusBaseType;
 
 typedef struct {
     RecStatusEnumType   type;
+    const char         *charStr[2];
     const char         *uiText;
-    const char         *charVal;
-    const char         *charType;
     const char         *descrText;
 } RecStatusPrivItem;
 
 
 class MPUBLIC RecStatusType : public RecType<RecStatusEnumType>
 {
+    Q_DECLARE_TR_FUNCTIONS(RecType);
   public:
     RecStatusType() : RecType<RecStatusEnumType>()
     {
