@@ -34,6 +34,7 @@ using namespace std;
 #include "DisplayRes.h"
 #include "signalmonitorvalue.h"
 #include "scheduledrecording.h"
+#include "recordingrule.h"
 #include "previewgenerator.h"
 #include "mythconfig.h"
 #include "livetvchain.h"
@@ -1014,7 +1015,6 @@ void TV::InitFromDB(void)
     kv["LiveTVIdleTimeout"]        = "0";
     kv["BrowseMaxForward"]         = "240";
     kv["PlaybackExitPrompt"]       = "0";
-    kv["AutoExpireDefault"]        = "0";
     kv["AutomaticSetWatched"]      = "0";
     kv["EndOfRecordingExitPrompt"] = "0";
     kv["JumpToProgramOSD"]         = "1";
@@ -1063,7 +1063,6 @@ void TV::InitFromDB(void)
     db_idle_timeout        = kv["LiveTVIdleTimeout"].toInt() * 60 * 1000;
     db_browse_max_forward  = kv["BrowseMaxForward"].toInt() * 60;
     db_playback_exit_prompt= kv["PlaybackExitPrompt"].toInt();
-    db_autoexpire_default  = kv["AutoExpireDefault"].toInt();
     db_auto_set_watched    = kv["AutomaticSetWatched"].toInt();
     db_end_of_rec_exit_prompt = kv["EndOfRecordingExitPrompt"].toInt();
     db_jump_prefer_osd     = kv["JumpToProgramOSD"].toInt();
@@ -1091,6 +1090,10 @@ void TV::InitFromDB(void)
 
     QString beVBI          = kv["VbiFormat"];
     QString feVBI          = kv["DecodeVBIFormat"];
+
+    RecordingRule record;
+    record.LoadTemplate("Default");
+    db_autoexpire_default  = record.m_autoExpire;
 
     if (db_use_channel_groups)
     {
@@ -2174,7 +2177,9 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
             if (reclist.size())
             {
                 RemoteEncoder *testrec = NULL;
-                testrec = RemoteRequestFreeRecorderFromList(reclist);
+                vector<uint> excluded_cardids;
+                testrec = RemoteRequestFreeRecorderFromList(reclist,
+                                                            excluded_cardids);
                 if (testrec && testrec->IsValidRecorder())
                 {
                     ctx->SetRecorder(testrec);
@@ -6410,13 +6415,11 @@ void TV::DoSkipCommercials(PlayerContext *ctx, int direction)
 void TV::SwitchSource(PlayerContext *ctx, uint source_direction)
 {
     QMap<uint,InputInfo> sources;
-    vector<uint> cardids = RemoteRequestFreeRecorderList();
     uint         cardid  = ctx->GetCardID();
-    cardids.push_back(cardid);
-    stable_sort(cardids.begin(), cardids.end());
-
     vector<uint> excluded_cardids;
     excluded_cardids.push_back(cardid);
+    vector<uint> cardids = RemoteRequestFreeRecorderList(excluded_cardids);
+    stable_sort(cardids.begin(), cardids.end());
 
     InfoMap info;
     ctx->recorder->GetChannelInfo(info);
@@ -6535,7 +6538,11 @@ void TV::SwitchCards(PlayerContext *ctx,
     }
 
     if (!reclist.empty())
-        testrec = RemoteRequestFreeRecorderFromList(reclist);
+    {
+        vector<uint> excluded_cardids;
+        excluded_cardids.push_back(ctx->GetCardID());
+        testrec = RemoteRequestFreeRecorderFromList(reclist, excluded_cardids);
+    }
 
     if (testrec && testrec->IsValidRecorder())
     {
@@ -7172,7 +7179,9 @@ void TV::ChangeChannel(PlayerContext *ctx, uint chanid, const QString &chan)
     if (reclist.size())
     {
         RemoteEncoder *testrec = NULL;
-        testrec = RemoteRequestFreeRecorderFromList(reclist);
+        vector<uint> excluded_cardids;
+        excluded_cardids.push_back(ctx->GetCardID());
+        testrec = RemoteRequestFreeRecorderFromList(reclist, excluded_cardids);
         if (!testrec || !testrec->IsValidRecorder())
         {
             ClearInputQueues(ctx, true);
@@ -7485,6 +7494,7 @@ void TV::UpdateOSDStatus(const PlayerContext *ctx, QString title, QString desc,
 {
     osdInfo info;
     info.values.insert("position", position);
+    info.values.insert("relposition", position);
     info.values.insert("previous", prev);
     info.values.insert("next",     next);
     info.text.insert("title", title);
@@ -7883,7 +7893,7 @@ QSet<uint> TV::IsTunableOn(
         excluded_cards.push_back(ctx->GetCardID());
 
     uint sourceid = ChannelUtil::GetSourceIDForChannel(chanid);
-    vector<uint> connected   = RemoteRequestFreeRecorderList();
+    vector<uint> connected   = RemoteRequestFreeRecorderList(excluded_cards);
     vector<uint> interesting = CardUtil::GetCardIDs(sourceid);
 
     // filter disconnected cards

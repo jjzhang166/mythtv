@@ -706,7 +706,7 @@ ProgramList GuideGrid::GetProgramList(uint chanid) const
     bindings[":CHANID"]  = chanid;
 
     ProgramList dummy;
-    LoadFromProgram(proglist, querystr, bindings, dummy, false);
+    LoadFromProgram(proglist, querystr, bindings, dummy);
 
     return proglist;
 }
@@ -1082,7 +1082,7 @@ ProgramList *GuideGrid::getProgramListFromProgram(int chanNum)
         bindings[":ENDTS"] =
             m_currentEndTime.addSecs(0 - m_currentEndTime.time().second());
 
-        LoadFromProgram(*proglist, querystr, bindings, m_recList, false);
+        LoadFromProgram(*proglist, querystr, bindings, m_recList);
     }
 
     return proglist;
@@ -1578,7 +1578,7 @@ void GuideGrid::updateChannels(void)
             if (!chinfo->icon.isEmpty())
             {
                 QString iconurl =
-                                gCoreContext->GetMasterHostPrefix("ChannelIcon",
+                                gCoreContext->GetMasterHostPrefix("ChannelIcons",
                                                                   chinfo->icon);
                 item->SetImage(iconurl, "channelicon");
             }
@@ -1612,7 +1612,7 @@ void GuideGrid::updateInfo(void)
         m_channelImage->Reset();
         if (!chinfo->icon.isEmpty())
         {
-            QString iconurl = gCoreContext->GetMasterHostPrefix("ChannelIcon",
+            QString iconurl = gCoreContext->GetMasterHostPrefix("ChannelIcons",
                                                                 chinfo->icon);
 
             m_channelImage->SetFilename(iconurl);

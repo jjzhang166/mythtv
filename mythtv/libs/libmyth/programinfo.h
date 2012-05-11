@@ -198,8 +198,7 @@ class MPUBLIC ProgramInfo
                 uint audioprops,
                 uint subtitletype,
 
-                const ProgramList &schedList,
-                bool               oneChanid);
+                const ProgramList &schedList);
     /// Constructs a basic ProgramInfo (used by RecordingInfo)
     ProgramInfo(const QString &title,
                 const QString &subtitle,
@@ -480,6 +479,7 @@ class MPUBLIC ProgramInfo
     void SetFilesize(      uint64_t       sz)       { filesize     = sz;    }
     void SetSeriesID(      const QString &id)       { seriesid     = id;    }
     void SetProgramID(     const QString &id)       { programid    = id;    }
+    void SetCategory(      const QString &cat)      { category     = cat;   }
     void SetCategoryType(  const QString &type)     { catType      = type;  }
     void SetRecordingPriority(int priority)       { recpriority = priority; }
     void SetRecordingPriority2(int priority)     { recpriority2 = priority; }
@@ -727,8 +727,7 @@ MPUBLIC bool LoadFromProgram(
     ProgramList        &destination,
     const QString      &sql,
     const MSqlBindings &bindings,
-    const ProgramList  &schedList,
-    bool                oneChanid);
+    const ProgramList  &schedList);
 
 MPUBLIC bool LoadFromOldRecorded(
     ProgramList        &destination,

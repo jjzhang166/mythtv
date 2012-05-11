@@ -518,7 +518,7 @@ ProgramInfo::ProgramInfo(
     uint _audioproperties,
     uint _subtitleType,
 
-    const ProgramList &schedList, bool oneChanid) :
+    const ProgramList &schedList) :
     title(_title),
     subtitle(_subtitle),
     description(_description),
@@ -618,21 +618,25 @@ ProgramInfo::ProgramInfo(
         dupmethod   = s.dupmethod;
         findid      = s.findid;
 
-        if (s.recstatus == rsWillRecord || 
-            s.recstatus == rsRecording ||
+        if (chanstr != s.chanstr)
+        {
+            if (s.recstatus == rsWillRecord)
+                recstatus = rsOtherShowing;
+            else if (s.recstatus == rsRecording)
+                recstatus = rsOtherRecording;
+            else if (s.recstatus == rsTuning)
+                recstatus = rsOtherTuning;
+        }
+
+        // Stop recording keys on chanid (and recstarts).  If the
+        // recording is running, override the chanid, so we can stop
+        // it from any matching program.  Remove this hack when we
+        // replace chanid/recstartts as the primary key for the
+        // recorded and related tables with something better.
+        if (s.recstatus == rsRecording ||
             s.recstatus == rsTuning)
         {
-            if (oneChanid)
-            {
-                chanid   = s.chanid;
-                chanstr  = s.chanstr;
-                chansign = s.chansign;
-                channame = s.channame;
-            }
-            else if ((chanid != s.chanid) && (chanstr != s.chanstr))
-            {
-                recstatus = rsOtherShowing;
-            }
+            chanid = s.chanid;
         }
     }
 }
@@ -1336,6 +1340,7 @@ void ProgramInfo::ToMap(InfoMap &progMap,
                         bool showrerecord,
                         uint star_range) const
 {
+    QLocale locale = gCoreContext->GetQLocale();
     // NOTE: Format changes and relevant additions made here should be
     //       reflected in RecordingRule
     QString channelFormat =
@@ -1450,13 +1455,10 @@ void ProgramInfo::ToMap(InfoMap &progMap,
     progMap["channel"] = ChannelText(channelFormat);
     progMap["longchannel"] = ChannelText(longChannelFormat);
 
-    QString tmpSize;
+    QString tmpSize = locale.toString(filesize * (1.0 / (1024.0 * 1024.0 * 1024.0)), 'f', 2);
+    progMap["filesize_str"] = QObject::tr("%1 GB", "GigaBytes").arg(tmpSize);
 
-    tmpSize.sprintf("%0.2f ", filesize * (1.0 / (1024.0 * 1024.0 * 1024.0)));
-    tmpSize += QObject::tr("GB", "GigaBytes");
-    progMap["filesize_str"] = tmpSize;
-
-    progMap["filesize"] = QString::number(filesize);
+    progMap["filesize"] = locale.toString((quint64)filesize);
 
     seconds = recstartts.secsTo(recendts);
     minutes = seconds / 60;
@@ -2241,14 +2243,10 @@ QString ProgramInfo::GetPlaybackURL(
             {
                 host  = list.size() == 1 ? list[0]   : list[1];
                 group = list.size() == 1 ? QString() : list[0];
-                StorageGroup *sg = new StorageGroup(group, host);
-                if (sg)
-                {
-                    QString local = sg->FindFile(path);
-                    if (!local.isEmpty())
-                        if (sg->FileExists(local))
-                            return local;
-                }
+                StorageGroup sg = StorageGroup(group, host);
+                QString local = sg.FindFile(path);
+                if (!local.isEmpty() && sg.FileExists(local))
+                    return local;
             }
         }
         return fullpath;
@@ -4576,7 +4574,7 @@ static bool FromProgramQuery(
 bool LoadFromProgram(
     ProgramList &destination,
     const QString &sql, const MSqlBindings &bindings,
-    const ProgramList &schedList, bool oneChanid)
+    const ProgramList &schedList)
 {
     destination.clear();
 
@@ -4622,7 +4620,7 @@ bool LoadFromProgram(
                 query.value(24).toInt(), // audioprop
                 query.value(25).toInt(), // subtitletypes
 
-                schedList, oneChanid));
+                schedList));
     }
 
     return true;

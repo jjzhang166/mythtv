@@ -10,6 +10,7 @@
 #include "mythuiimage.h"
 #include "mythpainter.h"
 #include "teletextscreen.h"
+#include "subtitlescreen.h"
 
 #define LOC QString("TeletextScreen: ")
 
@@ -65,8 +66,12 @@ bool TeletextScreen::Create(void)
 void TeletextScreen::ClearScreen(void)
 {
     DeleteAllChildren();
-    for (int i = 0; i < m_rowImages.size(); i++)
-        delete m_rowImages.value(i);
+    QHash<int, QImage*>::iterator it = m_rowImages.begin();
+    for (; it != m_rowImages.end(); ++it)
+    {
+        if (*it)
+            delete (*it);
+    }
     m_rowImages.clear();
     SetRedraw();
 }
@@ -674,15 +679,19 @@ void TeletextScreen::DrawStatus(void)
 bool TeletextScreen::InitialiseFont()
 {
     static bool initialised = false;
-    QString font = gCoreContext->GetSetting("DefaultSubtitleFont", "FreeMono");
+    //QString font = gCoreContext->GetSetting("DefaultSubtitleFont", "FreeMono");
     if (initialised)
     {
+        return true;
+#if 0
         if (gTTFont->face().family() == font)
             return true;
         delete gTTFont;
+#endif // 0
     }
 
     MythFontProperties *mythfont = new MythFontProperties();
+    QString font = SubtitleScreen::GetTeletextFontName();
     if (mythfont)
     {
         QFont newfont(font);

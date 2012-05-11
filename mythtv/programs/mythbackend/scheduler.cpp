@@ -2105,8 +2105,8 @@ bool Scheduler::HandleReschedule(void)
             return false;
         }
 
-        LOG(VB_GENERAL, LOG_INFO, QString("Reschedule requested for %1 %2")
-            .arg(request[0]).arg((request.size() > 1) ? request[1] : ""));
+        LOG(VB_GENERAL, LOG_INFO, QString("Reschedule requested for %1")
+            .arg(request.join(" | ")));
 
         if (tokens[0] == "MATCH")
         {
@@ -3391,11 +3391,13 @@ void Scheduler::BuildNewRecordsQueries(uint recordid, QStringList &from,
         if (recordid != 0)
             recidmatch = "RECTABLE.recordid = :NRRECORDID AND ";
         QString s1 = recidmatch +
+            "RECTABLE.type <> :NRTEMPLATE AND "
             "RECTABLE.search = :NRST AND "
             "program.manualid = 0 AND "
             "program.title = RECTABLE.title ";
         s1.replace("RECTABLE", recordTable);
         QString s2 = recidmatch +
+            "RECTABLE.type <> :NRTEMPLATE AND "
             "RECTABLE.search = :NRST AND "
             "program.manualid = 0 AND "
             "program.seriesid <> '' AND "
@@ -3406,6 +3408,7 @@ void Scheduler::BuildNewRecordsQueries(uint recordid, QStringList &from,
         where << s1;
         from << "";
         where << s2;
+        bindings[":NRTEMPLATE"] = kTemplateRecord;
         bindings[":NRST"] = kNoSearch;
         if (recordid != 0)
             bindings[":NRRECORDID"] = recordid;
