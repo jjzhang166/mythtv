@@ -187,9 +187,9 @@ void IPTVStreamHandler::run(void)
         int buf_size = 2 * 1024 * max(tuning.GetBitrate(i)/1000, 500U);
         if (!tuning.GetBitrate(i))
             buf_size = 2 * 1024 * 1024;
-        int ok = setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
+        int err = setsockopt(fd, SOL_SOCKET, SO_RCVBUF,
                             (char *)&buf_size, sizeof(buf_size));
-        if (ok)
+        if (err)
         {
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("Increasing buffer size to %1 failed")
