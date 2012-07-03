@@ -643,6 +643,7 @@ QString VideoDisplayProfile::GetDecoderName(const QString &decoder)
         dec_name["vdpau"]    = QObject::tr("NVidia VDPAU acceleration");
         dec_name["vaapi"]    = QObject::tr("VAAPI acceleration");
         dec_name["dxva2"]    = QObject::tr("Windows hardware acceleration");
+        dec_name["vda"]      = QObject::tr("Mac VDA hardware acceleration");
     }
 
     QString ret = decoder;
@@ -1070,7 +1071,6 @@ void VideoDisplayProfile::CreateNewProfiles(const QString &hostname)
                   "linearblend", "linearblend", "");
 }
 
-#if defined(USING_VDPAU)
 void VideoDisplayProfile::CreateVDPAUProfiles(const QString &hostname)
 {
     (void) QObject::tr("VDPAU High Quality", "Sample: VDPAU high quality");
@@ -1101,9 +1101,7 @@ void VideoDisplayProfile::CreateVDPAUProfiles(const QString &hostname)
                   "vdpaubobdeint", "vdpauonefield",
                   "vdpauskipchroma,vdpaucolorspace=auto");
 }
-#endif
 
-#if defined(Q_OS_MACX)
 void VideoDisplayProfile::CreateVDAProfiles(const QString &hostname)
 {
     (void) QObject::tr("VDA High Quality", "Sample: VDA high quality");
@@ -1142,9 +1140,7 @@ void VideoDisplayProfile::CreateVDAProfiles(const QString &hostname)
                   "opengldoubleratelinearblend", "opengllinearblend",
                   "");
 }
-#endif
 
-#if defined(USING_OPENGL_VIDEO)
 void VideoDisplayProfile::CreateOpenGLProfiles(const QString &hostname)
 {
     (void) QObject::tr("OpenGL High Quality", "Sample: OpenGL high quality");
@@ -1171,9 +1167,7 @@ void VideoDisplayProfile::CreateOpenGLProfiles(const QString &hostname)
                   "opengldoubleratelinearblend", "opengllinearblend",
                   "");
 }
-#endif
 
-#if defined(USING_GLVAAPI)
 void VideoDisplayProfile::CreateVAAPIProfiles(const QString &hostname)
 {
     (void) QObject::tr("VAAPI Normal", "Sample: VAAPI average quality");
@@ -1188,14 +1182,10 @@ void VideoDisplayProfile::CreateVAAPIProfiles(const QString &hostname)
                   "opengldoubleratekerneldeint", "openglkerneldeint",
                   "");
 }
-#endif
 
 void VideoDisplayProfile::CreateProfiles(const QString &hostname)
 {
     CreateNewProfiles(hostname);
-#if defined(USING_VDPAU)
-    CreateVDPAUProfiles(hostname);
-#endif
 }
 
 QStringList VideoDisplayProfile::GetVideoRenderers(const QString &decoder)

@@ -62,6 +62,7 @@ class ProgLister : public ScheduleCommon
 
   protected slots:
     void HandleSelected(MythUIButtonListItem *item);
+    void HandleVisible(MythUIButtonListItem *item);
     void HandleClicked(void);
 
     void DeleteOldEpisode(bool ok);
@@ -127,6 +128,7 @@ class ProgLister : public ScheduleCommon
     QStringList       m_viewTextList;
 
     ProgramList       m_itemList;
+    ProgramList       m_itemListSave;
     ProgramList       m_schedList;
 
     QStringList       m_typeList;

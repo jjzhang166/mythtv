@@ -235,7 +235,7 @@ VideoOutput *VideoOutput::Create(
 #ifdef USING_GLVAAPI
         if (renderer == "openglvaapi")
             vo = new VideoOutputOpenGLVAAPI();
-#endif // USING_GLVAAPI        
+#endif // USING_GLVAAPI
 #ifdef USING_XV
         if (xvlist.contains(renderer))
             vo = new VideoOutputXv();
@@ -255,12 +255,16 @@ VideoOutput *VideoOutput::Create(
             if (!widget)
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC + "No window for video output.");
+                delete vo;
+                vo = NULL;
                 return NULL;
             }
 
             if (!widget->winId())
             {
                 LOG(VB_GENERAL, LOG_ERR, LOC + "No window for video output.");
+                delete vo;
+                vo = NULL;
                 return NULL;
             }
 
@@ -439,7 +443,7 @@ VideoOutput::VideoOutput() :
 VideoOutput::~VideoOutput()
 {
     if (osd_image)
-        osd_image->DownRef();
+        osd_image->DecrRef();
     if (osd_painter)
         delete osd_painter;
 
@@ -1123,7 +1127,7 @@ void VideoOutput::ShowPIP(VideoFrame  *frame,
             pipw = pip_display_size.width();
             piph = pip_display_size.height();
 
-            init(&pip_tmp_image, FMT_YV12, pipbuf, pipw, piph, sizeof(pipbuf));
+            init(&pip_tmp_image, FMT_YV12, pipbuf, pipw, piph, sizeof(*pipbuf));
         }
     }
 
@@ -1351,7 +1355,7 @@ bool VideoOutput::DisplayOSD(VideoFrame *frame, OSD *osd)
     if (osd_image && (osd_image->size() != osd_size))
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("OSD size changed."));
-        osd_image->DownRef();
+        osd_image->DecrRef();
         osd_image = NULL;
     }
 

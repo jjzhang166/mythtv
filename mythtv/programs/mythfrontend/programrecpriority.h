@@ -1,6 +1,8 @@
 #ifndef PROGRAMRECPROIRITY_H_
 #define PROGRAMRECPROIRITY_H_
 
+#include <vector>
+
 #include "recordinginfo.h"
 #include "mythscreentype.h"
 
@@ -16,6 +18,8 @@ class MythUIText;
 class MythUIStateType;
 class ProgramRecPriority;
 
+class RecordingRule;
+
 class ProgramRecPriorityInfo : public RecordingInfo
 {
     friend class ProgramRecPriority;
@@ -30,6 +34,10 @@ class ProgramRecPriorityInfo : public RecordingInfo
     virtual ProgramRecPriorityInfo &clone(const ProgramRecPriorityInfo &other);
     virtual ProgramRecPriorityInfo &clone(const ProgramInfo &other);
     virtual void clear(void);
+
+    virtual void ToMap(QHash<QString, QString> &progMap,
+                       bool showrerecord = false,
+                       uint star_range = 10) const;
 
     int recTypeRecPriority;
     RecordingType recType;
@@ -91,13 +99,14 @@ class ProgramRecPriority : public ScheduleCommon
     virtual void Init(void);
 
     void FillList(void);
-    void SortList(void);
+    void SortList(ProgramRecPriorityInfo *newCurrentItem = NULL);
     void UpdateList();
     void RemoveItemFromList(MythUIButtonListItem *item);
 
     void changeRecPriority(int howMuch);
     void saveRecPriority(void);
     void customEdit();
+    void newTemplate(QString category);
     void remove();
     void deactivate();
     void upcoming();
@@ -106,8 +115,8 @@ class ProgramRecPriority : public ScheduleCommon
     void showMenu(void);
     void showSortMenu(void);
 
-    QMap<QString, ProgramRecPriorityInfo> m_programData;
-    QMap<QString, ProgramRecPriorityInfo*> m_sortedProgram;
+    QMap<int, ProgramRecPriorityInfo> m_programData;
+    vector<ProgramRecPriorityInfo*> m_sortedProgram;
     QMap<int, int> m_origRecPriorityData;
 
     void countMatches(void);

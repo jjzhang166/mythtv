@@ -548,8 +548,8 @@ void ProgFinder::updateTimesList()
         for (uint i = 0; i < m_showData.size(); ++i)
         {
             starttime = m_showData[i]->GetScheduledStartTime();
-            itemText = MythDateTimeToString(starttime,
-                                            kDateTimeFull | kSimplify);
+            itemText = MythDate::toString(starttime,
+                                            MythDate::kDateTimeFull | MythDate::kSimplify);
 
             MythUIButtonListItem *item =
                 new MythUIButtonListItem(m_timesList, "");
@@ -614,7 +614,7 @@ void ProgFinder::selectShowData(QString progTitle, int newCurShow)
 {
     progTitle = m_showList->GetValue();
 
-    QDateTime progStart = QDateTime::currentDateTime();
+    QDateTime progStart = MythDate::current();
 
     MSqlBindings bindings;
     QString querystr = "WHERE program.title = :TITLE "
@@ -624,7 +624,7 @@ void ProgFinder::selectShowData(QString progTitle, int newCurShow)
     bindings[":ENDTIME"] = progStart.addSecs(50 - progStart.time().second());
 
     LoadFromScheduler(m_schedList);
-    LoadFromProgram(m_showData, querystr, bindings, m_schedList, false);
+    LoadFromProgram(m_showData, querystr, bindings, m_schedList);
 
     updateTimesList();
 
@@ -646,7 +646,7 @@ void ProgFinder::initAlphabetList(void)
 
 void ProgFinder::whereClauseGetSearchData(QString &where, MSqlBindings &bindings)
 {
-    QDateTime progStart = QDateTime::currentDateTime();
+    QDateTime progStart = MythDate::current();
     QString searchChar = m_alphabetList->GetValue();
 
     if (searchChar.isEmpty())
@@ -836,7 +836,7 @@ void JaProgFinder::initAlphabetList()
 // because query work not fine, if mysql's default charset latin1
 void JaProgFinder::whereClauseGetSearchData(QString &where, MSqlBindings &bindings)
 {
-    QDateTime progStart = QDateTime::currentDateTime();
+    QDateTime progStart = MythDate::current();
     int charNum = m_alphabetList->GetCurrentPos();
 
     where = "SELECT DISTINCT title FROM program "
@@ -943,7 +943,7 @@ void HeProgFinder::initAlphabetList()
 // # for all numbers, E for all latin
 void HeProgFinder::whereClauseGetSearchData(QString &where, MSqlBindings &bindings)
 {
-    QDateTime progStart = QDateTime::currentDateTime();
+    QDateTime progStart = MythDate::current();
     QString searchChar = m_alphabetList->GetValue();
 
     if (searchChar.isEmpty())
@@ -1034,7 +1034,7 @@ void RuProgFinder::initAlphabetList()
 void RuProgFinder::whereClauseGetSearchData(QString &where, MSqlBindings
 &bindings)
 {
-   QDateTime progStart = QDateTime::currentDateTime();
+   QDateTime progStart = MythDate::current();
    QString searchChar = m_alphabetList->GetValue();
 
    if (searchChar.isEmpty())

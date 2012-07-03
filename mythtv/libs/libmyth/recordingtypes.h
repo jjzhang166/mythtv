@@ -2,6 +2,17 @@
 #define RECORDINGTYPES_H_
 
 #include <QApplication>
+
+//////////////////////////////////////////////////////////////////////
+//
+// WARNING
+//
+// The enums in this header are used in libmythservicecontracts,
+// and for database values: hence when removing something from
+// these enums leave a gap, and when adding a new value give it
+// a explicit integer value.
+// 
+//////////////////////////////////////////////////////////////////////
 #include <QString>
 #include <QStringList>
 #include <QChar>
@@ -146,7 +157,8 @@ typedef enum RecordingTypes
     kOverrideRecord,
     kDontRecord,
     kFindDailyRecord,
-    kFindWeeklyRecord
+    kFindWeeklyRecord,
+    kTemplateRecord
 } RecordingEnumType; // note stored in uint8_t in ProgramInfo
 typedef RecType<RecordingEnumType> RecordingBaseType;
 

@@ -5,6 +5,7 @@
 
 #include "programtypes.h"
 #include "mythactions.h"
+#include "mythdate.h"
 
 const char *kPlayerInUseID           = "player";
 const char *kPIPPlayerInUseID        = "pipplayer";
@@ -366,7 +367,7 @@ QString RecStatusType::toDescription(RecordingType rectype,
         return tr("This showing is not scheduled to record");
 
     QString message;
-    QDateTime now = QDateTime::currentDateTime();
+    QDateTime now = MythDate::current();
 
     if (!m_hash)
         hashPrivInit();

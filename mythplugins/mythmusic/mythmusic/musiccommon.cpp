@@ -291,9 +291,14 @@ void MusicCommon::updateRepeatMode(void)
                 break;
         }
     }
+
+    // need this to update the next track info
+    Metadata *curMeta = gPlayer->getCurrentMetadata();
+    if (curMeta)
+        updateTrackInfo(curMeta);
 }
 
-void MusicCommon::updateShuffleMode(void)
+void MusicCommon::updateShuffleMode(bool updateUIList)
 {
     if (m_shuffleState)
     {
@@ -330,6 +335,24 @@ void MusicCommon::updateShuffleMode(void)
                     lcd->setMusicShuffle(LCD::MUSIC_SHUFFLE_NONE);
                 break;
         }
+    }
+
+    if (updateUIList)
+    {
+        // store id of current track
+        int curTrackID = -1;
+        if (gPlayer->getCurrentMetadata())
+            curTrackID = gPlayer->getCurrentMetadata()->ID();
+
+        updateUIPlaylist();
+
+        if (!restorePosition(curTrackID))
+            playFirstTrack();
+
+        // need this to update the next track info
+        Metadata *curMeta = gPlayer->getCurrentMetadata();
+        if (curMeta)
+            updateTrackInfo(curMeta);
     }
 }
 
@@ -1516,22 +1539,7 @@ void MusicCommon::customEvent(QEvent *event)
         {
             int mode = dce->GetData().toInt();
             gPlayer->setShuffleMode((MusicPlayer::ShuffleMode) mode);
-            updateShuffleMode();
-
-            // store id of current track
-            int curTrackID = -1;
-            if (gPlayer->getCurrentMetadata())
-                curTrackID = gPlayer->getCurrentMetadata()->ID();
-
-            updateUIPlaylist();
-
-            if (!restorePosition(curTrackID))
-                playFirstTrack();
-
-            // need this to update the next track info
-            Metadata *curMeta = gPlayer->getCurrentMetadata();
-            if (curMeta)
-                updateTrackInfo(curMeta);
+            updateShuffleMode(true);
         }
         else if (resultid == "exitmenu")
         {
@@ -1823,7 +1831,7 @@ void MusicCommon::customEvent(QEvent *event)
                 if (mdata && mdata->ID() == trackID)
                 {
                     // reload the albumart image if one has already been loaded for this track
-                    if (!item->GetImage().isEmpty())
+                    if (!item->GetImageFilename().isEmpty())
                     {
                         QString artFile = mdata->getAlbumArtFile();
                         if (artFile.isEmpty())
@@ -1997,7 +2005,7 @@ void MusicCommon::playlistItemVisible(MythUIButtonListItem *item)
     Metadata *mdata = qVariantValue<Metadata*> (item->GetData());
     if (mdata)
     {
-        if (item->GetImage().isEmpty())
+        if (item->GetImageFilename().isEmpty())
         {
             QString artFile = mdata->getAlbumArtFile();
             if (artFile.isEmpty())

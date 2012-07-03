@@ -54,20 +54,30 @@ class MUI_PUBLIC MythUIButtonListItem
     void SetFontState(const QString &state, const QString &name="");
 
     /** Sets an image directly, should only be used in special circumstances
-     *  since it bypasses the cache
+     *  since it bypasses the cache.
      */
-    void setImage(MythImage *image, const QString &name="");
+    void SetImage(MythImage *image, const QString &name="");
 
     /** Gets a MythImage which has been assigned to this button item,
-     *  as with setImage() it should only be used in special circumstances
-     *  since it bypasses the cache
+     *  as with SetImage() it should only be used in special circumstances
+     *  since it bypasses the cache.
+     *  \note The reference count is set for one use, call DecrRef() to delete.
      */
-    MythImage *getImage(const QString &name="");
+    MythImage *GetImage(const QString &name="");
+
+    /// Returns true when the image exists.
+    bool HasImage(const QString &name="")
+    {
+        MythImage *img = GetImage(name);
+        bool ret = img;
+        img->DecrRef();
+        return ret;
+    }
 
     void SetImage(const QString &filename, const QString &name="",
                   bool force_reload = false);
     void SetImageFromMap(const InfoMap &imageMap);
-    QString GetImage(const QString &name="") const;
+    QString GetImageFilename(const QString &name="") const;
 
     void DisplayState(const QString &state, const QString &name);
     void SetStatesFromMap(const InfoMap &stateMap);
@@ -129,6 +139,7 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
 
     virtual bool keyPressEvent(QKeyEvent *);
     virtual bool gestureEvent(MythGestureEvent *event);
+    virtual void customEvent(QEvent *);
 
     enum MovementUnit { MoveItem, MoveColumn, MoveRow, MovePage, MoveMax,
                         MoveMid, MoveByAmount };
@@ -140,7 +151,7 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
     void Update();
 
     virtual void SetValue(int value) { MoveToNamedPosition(QString::number(value)); }
-    virtual void SetValue(QString value) { MoveToNamedPosition(value); }
+    virtual void SetValue(const QString &value) { MoveToNamedPosition(value); }
     void SetValueByData(QVariant data);
     virtual int  GetIntValue() const;
     virtual QString  GetValue() const;
@@ -197,6 +208,9 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
     bool doSelect(const QString &action);
     bool doSearch(const QString &action);
 
+    void LoadInBackground(int start = 0, int pageSize = 20);
+    int  StopLoad(void);
+
   public slots:
     void Select();
     void Deselect();
@@ -205,6 +219,7 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
     void itemSelected(MythUIButtonListItem* item);
     void itemClicked(MythUIButtonListItem* item);
     void itemVisible(MythUIButtonListItem* item);
+    void itemLoaded(MythUIButtonListItem* item);
 
   protected:
     enum ScrollStyle { ScrollFree, ScrollCenter, ScrollGroupCenter };
@@ -240,8 +255,8 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
                         int & top_height, int & bottom_height,
                         bool & wrapped);
     bool DistributeButtons(void);
-    void SetPosition(void);
-    void SetPositionArrowStates(void);
+    void CalculateButtonPositions(void);
+    void CalculateArrowStates(void);
     void SetScrollBarPosition(void);
     void ItemVisible(MythUIButtonListItem *item);
 
@@ -315,6 +330,7 @@ class MUI_PUBLIC MythUIButtonList : public MythUIType
     bool m_keepSelAtBottom;
 
     QList<MythUIButtonListItem*> m_itemList;
+    int m_nextItemLoaded;
 
     bool m_drawFromBottom;
 

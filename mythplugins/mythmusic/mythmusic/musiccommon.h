@@ -146,7 +146,7 @@ class MPUBLIC MusicCommon : public MythScreenType
     void updatePlaylistStats(void);
     void updateUIPlayedList(void);    // for streaming
     void updateRepeatMode(void);
-    void updateShuffleMode(void);
+    void updateShuffleMode(bool updateUIList = false);
 
     void changeVolume(bool up);
     void changeSpeed(bool up);

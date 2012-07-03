@@ -40,6 +40,11 @@ MythBrowser::~MythBrowser()
         delete m_actions;
 
     GetMythMainWindow()->PauseIdleTimer(false);
+    if (m_defaultFavIcon)
+    {
+        m_defaultFavIcon->DecrRef();
+        m_defaultFavIcon = NULL;
+    }
 }
 
 bool MythBrowser::Create(void)
@@ -75,7 +80,6 @@ bool MythBrowser::Create(void)
         QImage image(favIcon);
         m_defaultFavIcon = GetMythPainter()->GetFormatImage();
         m_defaultFavIcon->Assign(image);
-        m_defaultFavIcon->UpRef();
     }
 
     // this is the template for all other browser tabs

@@ -30,13 +30,14 @@ using namespace std;
 // MythTV
 #include "mythdeque.h"
 #include "tv.h"
-#include "mythmiscutil.h"
+#include "mythdate.h"
 #include "programinfo.h"
 #include "channelutil.h"
 #include "videoouttypes.h"
 #include "volumebase.h"
 #include "inputinfo.h"
 #include "channelgroup.h"
+#include "mythtimer.h"
 #include "osd.h"
 #include "mythactions.h"
 
@@ -734,7 +735,7 @@ class MTV_PUBLIC TV : public QObject
     void UpdateOSDProgInfo(const PlayerContext*, const char *whichInfo);
     void UpdateOSDStatus(const PlayerContext *ctx, QString title, QString desc,
                          QString value, int type, QString units,
-                         int position = 0, int prev = 0, int next = 0,
+                         int position = 0,
                          enum OSDTimeout timeout = kOSDTimeout_Med);
     void UpdateOSDStatus(const PlayerContext *ctx, osdInfo &info,
                          int type, enum OSDTimeout timeout);
@@ -746,6 +747,11 @@ class MTV_PUBLIC TV : public QObject
     void UpdateOSDTimeoutMessage(PlayerContext*);
     void UpdateOSDAskAllowDialog(PlayerContext*);
     void SetUpdateOSDPosition(bool set_it);
+
+    // Captions/subtitles
+    bool SubtitleZoomHandleAction(PlayerContext *ctx,
+                                  const QStringList &actions);
+    void ChangeSubtitleZoom(PlayerContext *ctx, int dir);
 
     // PxP handling
     bool CreatePBP(PlayerContext *lctx, const ProgramInfo *info);
@@ -937,6 +943,7 @@ class MTV_PUBLIC TV : public QObject
     mutable bool wantsToQuit;
     bool stretchAdjustment; ///< True if time stretch is turned on
     bool audiosyncAdjustment; ///< True if audiosync is turned on
+    bool subtitleZoomAdjustment; ///< True if subtitle zoom is turned on
     bool editmode;          ///< Are we in video editing mode
     bool zoomMode;
     bool sigMonMode;     ///< Are we in signal monitoring mode?

@@ -437,7 +437,7 @@ void MythWebView::keyPressEvent(QKeyEvent *event)
 
     // if the QWebView widget has focus then all keypresses from a regular
     // keyboard get sent here first
-    if (editHasFocus || (m_parentBrowser && m_parentBrowser->IsInputToggled()))
+    if (editHasFocus || m_parentBrowser->IsInputToggled())
     {
         // input is toggled so pass all keypresses to the QWebView's handler
         QWebView::keyPressEvent(event);
@@ -871,6 +871,7 @@ static int muwbActionCount = NELEMS(muwbActions);
  */
 MythUIWebBrowser::MythUIWebBrowser(MythUIType *parent, const QString &name) :
     MythUIType(parent, name),
+    m_parentScreen(NULL),
     m_browser(NULL),       m_image(NULL),
     m_active(false),       m_wasActive(false),
     m_initialized(false),  m_lastUpdateTime(QTime()),
@@ -1057,7 +1058,7 @@ MythUIWebBrowser::~MythUIWebBrowser()
 
     if (m_image)
     {
-        m_image->DownRef();
+        m_image->DecrRef();
         m_image = NULL;
     }
 
@@ -1448,6 +1449,9 @@ void MythUIWebBrowser::UpdateScrollBars(void)
 void MythUIWebBrowser::UpdateBuffer(void)
 {
     UpdateScrollBars();
+
+    if (!m_image)
+        return;
 
     if (!m_active || (m_active && !m_browser->hasFocus()))
     {

@@ -25,7 +25,7 @@
 #include <mythprogressdialog.h>
 #include <mythdialogbox.h>
 #include <mythlogging.h>
-#include <mythmiscutil.h>
+#include <mythdate.h>
 #include <netutils.h>
 
 // mytharchive
@@ -287,7 +287,7 @@ void RecordingSelector::titleChanged(MythUIButtonListItem *item)
         m_titleText->SetText(p->GetTitle());
 
     if (m_datetimeText)
-        m_datetimeText->SetText(p->GetScheduledStartTime()
+        m_datetimeText->SetText(p->GetScheduledStartTime().toLocalTime()
                                 .toString("dd MMM yy (hh:mm)"));
 
     if (m_descriptionText)
@@ -385,8 +385,10 @@ void RecordingSelector::OKPressed()
         a->title = p->GetTitle();
         a->subtitle = p->GetSubtitle();
         a->description = p->GetDescription();
-        a->startDate = p->GetScheduledStartTime().toString("dd MMM yy");
-        a->startTime = p->GetScheduledStartTime().toString("(hh:mm)");
+        a->startDate = p->GetScheduledStartTime()
+            .toLocalTime().toString("dd MMM yy");
+        a->startTime = p->GetScheduledStartTime()
+            .toLocalTime().toString("(hh:mm)");
         a->size = p->GetFilesize();
         a->filename = p->GetPlaybackURL(false, true);
         a->hasCutlist = p->HasCutlist();
@@ -433,7 +435,8 @@ void RecordingSelector::updateRecordingList(void)
                 MythUIButtonListItem* item = new MythUIButtonListItem(
                     m_recordingButtonList,
                     p->GetTitle() + " ~ " +
-                    p->GetScheduledStartTime().toString("dd MMM yy (hh:mm)"));
+                    p->GetScheduledStartTime().toLocalTime()
+                    .toString("dd MMM yy (hh:mm)"));
                 item->setCheckable(true);
                 if (m_selectedList.indexOf((ProgramInfo *) p) != -1)
                 {
@@ -451,9 +454,8 @@ void RecordingSelector::updateRecordingList(void)
                 QDateTime recendts   = p->GetScheduledEndTime();
 
                 QString timedate = QString("%1 - %2")
-                                   .arg(MythDateTimeToString
-                                        (recstartts, kDateTimeFull))
-                                   .arg(MythDateTimeToString(recendts, kTime));
+                    .arg(MythDate::toString(recstartts,MythDate::kDateTimeFull))
+                    .arg(MythDate::toString(recendts, MythDate::kTime));
 
                 uint season = p->GetSeason();
                 uint episode = p->GetEpisode();
