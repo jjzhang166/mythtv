@@ -318,6 +318,7 @@ class MTV_PUBLIC TV : public QObject
     bool doToggleAspect(const QString &action);
     bool doToggleFill(const QString &action);
     bool doToggleAudioSync(const QString &action);
+    bool doToggleSubtitleZoom(const QString &action);
     bool doToggleVisualisation(const QString &action);
     bool doToggleEnableVis(const QString &action);
     bool doToggleDisableVis(const QString &action);
@@ -384,6 +385,8 @@ class MTV_PUBLIC TV : public QObject
     bool doOSDViewScheduled(const QString &action);
     bool doOSDVisualiser(const QString &action);
     bool doOSD3d(const QString &action);
+    bool doOSDCancelPlaylist(const QString &action);
+    bool doOSDToggleSubtitleZoom(const QString &action);
 
     bool doOSDDialogMenu(const QString &action);
     bool doOSDDialogRecord(const QString &action);

@@ -24,6 +24,7 @@ class CustomEdit : public MythScreenType
    void customEvent(QEvent *event);
 
    bool doDelete(const QString &action);
+   bool doEdit(const QString &action);
 
   protected slots:
     void ruleChanged(MythUIButtonListItem *item);

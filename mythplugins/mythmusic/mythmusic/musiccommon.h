@@ -77,6 +77,13 @@ class MPUBLIC MusicCommon : public MythScreenType
     bool doMenu(const QString &action);
     bool doRefresh(const QString &action);
     bool doMark(const QString &action);
+    bool doSwitchToPlaylist(const QString &action);
+    bool doSwitchToEditorTree(const QString &action);
+    bool doSwitchToEditorGallery(const QString &action);
+    bool doSwitchToSearch(const QString &action);
+    bool doSwitchToVisualiser(const QString &action);
+    bool doToggleShuffle(const QString &action);
+    bool doToggleRepeat(const QString &action);
 
   protected:
 

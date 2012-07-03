@@ -3860,8 +3860,7 @@ bool TV::doEditEscape(const QString &action)
     else
     {
         m_actionContext->LockDeletePlayer(__FILE__, __LINE__);
-        if (m_actionContext->player)
-            m_actionContext->player->DisableEdit(0);
+        m_actionContext->player->DisableEdit(0);
         m_actionContext->UnlockDeletePlayer(__FILE__, __LINE__);
     }
     return true;
@@ -5104,6 +5103,7 @@ static struct ActionDefStruct<TV> ttoghActions[] = {
     { "TOGGLEASPECT",              &TV::doToggleAspect },
     { "TOGGLEFILL",                &TV::doToggleFill },
     { ACTION_TOGGELAUDIOSYNC,      &TV::doToggleAudioSync },
+    { ACTION_TOGGLESUBTITLEZOOM,   &TV::doToggleSubtitleZoom },
     { ACTION_TOGGLEVISUALISATION,  &TV::doToggleVisualisation },
     { ACTION_ENABLEVISUALISATION,  &TV::doToggleEnableVis },
     { ACTION_DISABLEVISUALISATION, &TV::doToggleDisableVis },
@@ -5138,6 +5138,12 @@ bool TV::doToggleFill(const QString &action)
 bool TV::doToggleAudioSync(const QString &action)
 {
     ChangeAudioSync(m_actionContext, 0);   // just display
+    return true;
+}
+
+bool TV::doToggleSubtitleZoom(const QString &action)
+{
+    ChangeSubtitleZoom(m_actionContext, 0);   // just display
     return true;
 }
 
@@ -11308,7 +11314,9 @@ static struct ActionDefStruct<TV> toActions[] = {
     { "SCHEDULE",                    &TV::doOSDSchedule },
     { ACTION_VIEWSCHEDULED,          &TV::doOSDViewScheduled },
     { "^VISUALISER",                 &TV::doOSDVisualiser },
-    { "^3D",                         &TV::doOSD3d }
+    { "^3D",                         &TV::doOSD3d },
+    { "CANCELPLAYLIST",              &TV::doOSDCancelPlaylist },
+    { ACTION_TOGGLESUBTITLEZOOM,     &TV::doOSDToggleSubtitleZoom }
 };
 static int toActionCount = NELEMS(toActions);
 
@@ -11649,6 +11657,19 @@ bool TV::doOSD3d(const QString &action)
     return true;
 }
 
+bool TV::doOSDCancelPlaylist(const QString &action)
+{
+    setInPlayList(false);
+    MythEvent xe("CANCEL_PLAYLIST");
+    gCoreContext->dispatch(xe);
+    return true;
+}
+
+bool TV::doOSDToggleSubtitleZoom(const QString &action)
+{
+    ChangeSubtitleZoom(m_actionOSDContext, 0);
+    return true;
+}
 
 bool TV::doOSDDialogMenu(const QString &action)
 {

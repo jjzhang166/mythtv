@@ -120,7 +120,11 @@ template <> struct RecTypeItem<RecStatusEnumType> RecStatusBaseType::m_items[] =
     REC_ITEM(rsOffLine,
              QT_TRANSLATE_NOOP("RecType", "Recorder Off-Line"), ""),
     REC_ITEM(rsOtherShowing,
-             QT_TRANSLATE_NOOP("RecType", "Other Showing"), "")
+             QT_TRANSLATE_NOOP("RecType", "Other Showing"), ""),
+    REC_ITEM(rsOtherRecording,
+             QT_TRANSLATE_NOOP("RecType", "Other Recording"), ""),
+    REC_ITEM(rsOtherTuning,
+             QT_TRANSLATE_NOOP("RecType", "Other Tuning"), "")
 };
 template <> int RecStatusBaseType::m_itemCount =
             NELEMS(RecStatusBaseType::m_items);
@@ -133,137 +137,148 @@ template <> RecStatusPrivItem RecStatusType::m_privItems[] = {
                          "This showing was not recorded because the "
                          "master backend was hung or not running."),
     REC_STATUS_PRIV_ITEM(rsTuning,
-                         QT_TRANSLATE_NOOP3("RecType", "t",
-                                            "RecStatusChar rsMissedFuture"),
+                         QT_TRANSLATE_NOOP3("RecType", "",
+                                            "RecStatusChar rsTuning"),
                          "running",
-                         "Thsi channel is being tuned."),
+                         "This showing is being tuned."),
     REC_STATUS_PRIV_ITEM(rsFailed,
                          QT_TRANSLATE_NOOP3("RecType", "f",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsFailed"),
                          "error",
                          "The recorder failed to record."),
     REC_STATUS_PRIV_ITEM(rsTunerBusy,
                          QT_TRANSLATE_NOOP3("RecType", "B",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsTunerBusy"),
                          "error",
                          "The tuner card was already being used."),
     REC_STATUS_PRIV_ITEM(rsLowDiskSpace,
                          QT_TRANSLATE_NOOP3("RecType", "K",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsLowDiskSpace"),
                          "disabled",
                          "There wasn't enough disk space available."),
     REC_STATUS_PRIV_ITEM(rsCancelled,
                          QT_TRANSLATE_NOOP3("RecType", "c",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsCancelled"),
                          "disabled",
                          "This showing was not recorded because it "
                          "was manually cancelled."),
     REC_STATUS_PRIV_ITEM(rsMissed,
                          QT_TRANSLATE_NOOP3("RecType", "M",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsMissed"),
                          "error",
                          "This showing was not recorded because the "
                          "master backend was hung or not running."),
     REC_STATUS_PRIV_ITEM(rsAborted,
                          QT_TRANSLATE_NOOP3("RecType", "A",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsAborted"),
                          "error",
                          "This showing was recorded but was aborted "
                          "before recording was completed."),
     REC_STATUS_PRIV_ITEM(rsRecorded,
                          QT_TRANSLATE_NOOP3("RecType", "R",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsRecorded"),
                          "normal",
                          "This showing was recorded."),
     REC_STATUS_PRIV_ITEM(rsRecording,
                          QT_TRANSLATE_NOOP3("RecType", "",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsRecording"),
                          "running",
                          "This showing is being recorded."),
     REC_STATUS_PRIV_ITEM(rsWillRecord,
                          QT_TRANSLATE_NOOP3("RecType", "",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsWillRecord"),
                          "normal",
                          "This showing will be recorded."),
     REC_STATUS_PRIV_ITEM(rsUnknown,
                          QT_TRANSLATE_NOOP3("RecType", "-",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsUnknown"),
                          "disabled",
                          "The status of this showing is unknown."),
     REC_STATUS_PRIV_ITEM(rsDontRecord,
                          QT_TRANSLATE_NOOP3("RecType", "X",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsDontRecord"),
                          "disabled",
                          "it was manually set to not record."),
     REC_STATUS_PRIV_ITEM(rsPreviousRecording,
                          QT_TRANSLATE_NOOP3("RecType", "P",
-                                            "RecStatusChar rsMissedFuture"),
+                                           "RecStatusChar rsPreviousRecording"),
                          "disabled",
                          "this episode was previously recorded "
                          "according to the duplicate policy chosen "
                          "for this title."),
     REC_STATUS_PRIV_ITEM(rsCurrentRecording,
                          QT_TRANSLATE_NOOP3("RecType", "R",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsCurrentRecording"),
                          "disabled",
                          "this episode was previously recorded and "
                          "is still available in the list of "
                          "recordings."),
     REC_STATUS_PRIV_ITEM(rsEarlierShowing,
                          QT_TRANSLATE_NOOP3("RecType", "E",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsEarlierShowing"),
                          "warning",
                          "this episode will be recorded at an "
                          "earlier time instead."),
     REC_STATUS_PRIV_ITEM(rsTooManyRecordings,
                          QT_TRANSLATE_NOOP3("RecType", "T",
-                                            "RecStatusChar rsMissedFuture"),
+                                           "RecStatusChar rsTooManyRecordings"),
                          "warning",
                          "too many recordings of this program have "
                          "already been recorded."),
     REC_STATUS_PRIV_ITEM(rsNotListed,
                          QT_TRANSLATE_NOOP3("RecType", "N",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsNotListed"),
                          "warning",
                          "this rule does not match any showings in "
                          "the current program listings."),
     REC_STATUS_PRIV_ITEM(rsConflict,
                          QT_TRANSLATE_NOOP3("RecType", "C",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsConflict"),
                          "error",
                          "another program with a higher priority "
                          "will be recorded."),
     REC_STATUS_PRIV_ITEM(rsLaterShowing,
                          QT_TRANSLATE_NOOP3("RecType", "L",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsLaterShowing"),
                          "warning",
                          "this episode will be recorded at a later time."),
     REC_STATUS_PRIV_ITEM(rsRepeat,
                          QT_TRANSLATE_NOOP3("RecType", "r",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsRepeat"),
                          "disabled",
                          "this episode is a repeat."),
     REC_STATUS_PRIV_ITEM(rsInactive,
                          QT_TRANSLATE_NOOP3("RecType", "x",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsInactive"),
                          "warning",
                          "this recording rule is inactive."),
     REC_STATUS_PRIV_ITEM(rsNeverRecord,
                          QT_TRANSLATE_NOOP3("RecType", "V",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsNeverRecord"),
                          "disabled",
                          "it was marked to never be recorded."),
     REC_STATUS_PRIV_ITEM(rsOffLine,
                          QT_TRANSLATE_NOOP3("RecType", "F",
-                                            "RecStatusChar rsMissedFuture"),
+                                            "RecStatusChar rsOffLine"),
                          "error",
                          "the backend recorder is off-line."),
     REC_STATUS_PRIV_ITEM(rsOtherShowing,
-                         QT_TRANSLATE_NOOP3("RecType", "O",
-                                            "RecStatusChar rsMissedFuture"),
-                         "disabled",
+                         QT_TRANSLATE_NOOP3("RecType", "",
+                                            "RecStatusChar rsOtherShowing"),
+                         "normal",
                          "this episode will be recorded on a different "
-                         "channel in this time slot.")
+                         "channel in this time slot."),
+    REC_STATUS_PRIV_ITEM(rsOtherRecording,
+                         QT_TRANSLATE_NOOP3("RecType", "",
+                                            "RecStatusChar rsOtherRecording"),
+                         "running",
+                         "This showing is being recorded on a different "
+                         "channel."),
+    REC_STATUS_PRIV_ITEM(rsOtherTuning,
+                         QT_TRANSLATE_NOOP3("RecType", "",
+                                            "RecStatusChar rsOtherTuning"),
+                         "running",
+                         "This showing is bing tuned on a different channel.")
 };
 template <> int RecStatusType::m_privItemCount =
             NELEMS(RecStatusType::m_privItems);
@@ -322,8 +337,18 @@ QString RecStatusType::toUIState(void)
 /// \brief Converts "recstatus" into a human readable string.
 QString RecStatusType::toString(uint id)
 {
-    if (m_value == rsRecording || m_value == rsWillRecord)
-        return QString::number(id);
+    switch (m_value)
+    {
+        case rsRecording:
+        case rsTuning:
+        case rsWillRecord:
+        case rsOtherShowing:
+        case rsOtherRecording:
+        case rsOtherTuning:
+            return QString::number(id);
+        default:
+            break;
+    }
 
     if (!m_hash)
         hashPrivInit();

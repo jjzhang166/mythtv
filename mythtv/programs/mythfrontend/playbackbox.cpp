@@ -3975,7 +3975,8 @@ static struct ActionDefStruct<PlaybackBox> pbbmeActions[] = {
     { "PLAY_PLAYLIST",               &PlaybackBox::doMythEventPlayPlaylist },
     { "SET_PLAYBACK_URL",            &PlaybackBox::doMythEventSetPlaybackURL },
     { "FOUND_ARTWORK",               &PlaybackBox::doMythEventFoundArtwork },
-    { "EXIT_TO_MENU",                &PlaybackBox::doMythEventExit }
+    { "EXIT_TO_MENU",                &PlaybackBox::doMythEventExit },
+    { "CANCEL_PLAYLIST",             &PlaybackBox::doMythEventExit }
 };
 static int pbbmeActionCount = NELEMS(pbbmeActions);
 
@@ -4001,7 +4002,7 @@ bool PlaybackBox::doRecListAdd(const QString &action)
         return false;
 
     uint chanid = tokens[1].toUInt();
-    QDateTime recstartts = QDateTime::fromString(tokens[2], Qt::ISODate);
+    QDateTime recstartts = MythDate::fromString(tokens[2]);
 
     if (!chanid || !recstartts.isValid())
         return false;
@@ -4022,7 +4023,7 @@ bool PlaybackBox::doRecListDelete(const QString &action)
         return false;
 
     uint chanid = tokens[1].toUInt();
-    QDateTime recstartts = QDateTime::fromString(tokens[2], Qt::ISODate);
+    QDateTime recstartts = MythDate::fromString(tokens[2]);
 
     if (!chanid || !recstartts.isValid())
         return false;
@@ -4097,7 +4098,7 @@ bool PlaybackBox::doMythEventUpdateFileSize(const QString &action)
     if (tokens.size() >= 4)
     {
         chanid     = tokens[1].toUInt();
-        recstartts = QDateTime::fromString(tokens[2], Qt::ISODate);
+        recstartts = MythDate::fromString(tokens[2]);
         filesize   = tokens[3].toLongLong(&ok);
     }
     if (chanid && recstartts.isValid() && ok)
@@ -4139,7 +4140,7 @@ bool PlaybackBox::doMythEventLocalDelete(const QString &action)
     {
         ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(
                 m_actionMythEventArgs[i].toUInt(),
-                QDateTime::fromString(m_actionMythEventArgs[i+1], Qt::ISODate));
+                MythDate::fromString(m_actionMythEventArgs[i+1]));
 
         if (!pginfo)
             continue;
@@ -4182,7 +4183,7 @@ bool PlaybackBox::doMythEventDeleteFailure(const QString &action)
     {
         ProgramInfo *pginfo = m_programInfoCache.GetProgramInfo(
                 m_actionMythEventArgs[i].toUInt(),
-                QDateTime::fromString(m_actionMythEventArgs[i+1], Qt::ISODate));
+                MythDate::fromString(m_actionMythEventArgs[i+1]));
 
         if (pginfo)
         {

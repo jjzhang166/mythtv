@@ -25,7 +25,8 @@
 #include "mythactions.h"
 
 static struct ActionDefStruct<CustomEdit> ceActions[] = {
-    { "DELETE", &CustomEdit::doDelete }
+    { "DELETE", &CustomEdit::doDelete },
+    { "EDIT",   &CustomEdit::doEdit }
 };
 static int ceActionCount = NELEMS(ceActions);
 
@@ -922,6 +923,16 @@ bool CustomEdit::doDelete(const QString &action)
         deleteRule();
     // else if (GetFocusWidget() == m_ruleList)
     //     deleteRecordingRule();
+
+    return true;
+}
+
+bool CustomEdit::doEdit(const QString &action)
+{
+    // toggle evaluated/unevaluated sample view
+    m_evaluate = !m_evaluate;
+    MythUIButtonListItem* item = m_clauseList->GetItemCurrent();
+    clauseChanged(item);
 
     return true;
 }

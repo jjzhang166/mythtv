@@ -490,7 +490,14 @@ static struct ActionDefStruct<MusicCommon> mcActions[] = {
     { "DELETE",      &MusicCommon::doDelete },
     { "MENU",        &MusicCommon::doMenu },
     { "REFRESH",     &MusicCommon::doRefresh },
-    { "MARK",        &MusicCommon::doMark }
+    { "MARK",        &MusicCommon::doMark },
+    { "SWITCHTOPLAYLIST", &MusicCommon::doSwitchToPlaylist },
+    { "SWITCHTOPLAYLISTEDITORTREE", &MusicCommon::doSwitchToEditorTree },
+    { "SWITCHTOPLAYLISTEDITORGALLERY", &MusicCommon::doSwitchToEditorGallery },
+    { "SWITCHTOSEARCH", &MusicCommon::doSwitchToSearch },
+    { "SWITCHTOVISUALISER", &MusicCommon::doSwitchToVisualiser },
+    { "TOGGLESHUFFLE", &MusicCommon::doToggleShuffle },
+    { "TOGGLEREPEAT", &MusicCommon::doToggleRepeat }
 };
 static int mcActionCount = NELEMS(mcActions);
 
@@ -910,6 +917,66 @@ bool MusicCommon::doMark(const QString &action)
     }
     return true;
 }
+
+bool MusicCommon::doSwitchToPlaylist(const QString &action)
+{
+    if (m_currentView == MV_PLAYLIST)
+        return false;
+
+    switchView(MV_PLAYLIST);
+    return true;
+}
+
+bool MusicCommon::doSwitchToEditorTree(const QString &action)
+{
+    if (m_currentView == MV_PLAYLISTEDITORTREE)
+        return false;
+
+    switchView(MV_PLAYLISTEDITORTREE);
+    return true;
+}
+
+bool MusicCommon::doSwitchToEditorGallery(const QString &action)
+{
+    if (m_currentView == MV_PLAYLISTEDITORGALLERY)
+        return false;
+
+    switchView(MV_PLAYLISTEDITORGALLERY);
+    return true;
+}
+
+bool MusicCommon::doSwitchToSearch(const QString &action)
+{
+    if (m_currentView == MV_SEARCH)
+        return false;
+
+    switchView(MV_SEARCH);
+    return true;
+}
+
+bool MusicCommon::doSwitchToVisualiser(const QString &action)
+{
+    if (m_currentView == MV_VISUALIZER)
+        return false;
+
+    switchView(MV_VISUALIZER);
+    return true;
+}
+
+bool MusicCommon::doToggleShuffle(const QString &action)
+{
+    gPlayer->toggleShuffleMode();
+    updateShuffleMode(true);
+    return true;
+}
+
+bool MusicCommon::doToggleRepeat(const QString &action)
+{
+    gPlayer->toggleRepeatMode();
+    updateRepeatMode();
+    return true;
+}
+
 
 bool MusicCommon::keyPressEvent(QKeyEvent *e)
 {

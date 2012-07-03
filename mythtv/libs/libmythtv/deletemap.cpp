@@ -70,6 +70,7 @@ QString DeleteMap::GetRedoMessage(void) const
             tr("(Nothing to redo)"));
 }
 
+// TODO: GJH - action-redo this
 bool DeleteMap::HandleAction(QString &action, uint64_t frame,
                              uint64_t played, uint64_t total, double rate)
 {
