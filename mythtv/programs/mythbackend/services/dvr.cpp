@@ -471,7 +471,7 @@ int Dvr::AddRecordSchedule   ( int       chanid,
     if (sDupIn.isEmpty())
         sDupIn = "all";
 
-    rule->m_title = info->GetTitle();
+    rule->m_title = info.GetTitle();
     rule->m_type = RecordingType(sType);
     rule->m_searchType = RecSearchType(sSearchType);
     rule->m_dupMethod = RecordingDupMethodType(sDupMethod);

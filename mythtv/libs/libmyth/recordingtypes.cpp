@@ -30,7 +30,9 @@ template <> struct RecTypeItem<RecordingEnumType> RecordingBaseType::m_items[] =
     REC_ITEM(kFindDailyRecord,
              QT_TRANSLATE_NOOP("RecType", "Find Daily"), "finddaily"),
     REC_ITEM(kFindWeeklyRecord,
-             QT_TRANSLATE_NOOP("RecType", "Find Weekly"), "findweekly")
+             QT_TRANSLATE_NOOP("RecType", "Find Weekly"), "findweekly"),
+    REC_ITEM(kTemplateRecord,
+             QT_TRANSLATE_NOOP("RecType", "Template Recording"), "template")
 };
 template <> int RecordingBaseType::m_itemCount =
             NELEMS(RecordingBaseType::m_items);
@@ -69,6 +71,9 @@ template <> RecordingPrivItem RecordingType::m_privItems[] = {
     REC_TYPE_PRIV_ITEM(kFindWeeklyRecord, 6, 
                        QT_TRANSLATE_NOOP3("RecType", "w",
                                           "RecTypeChar kFindWeeklyRecord")),
+    REC_TYPE_PRIV_ITEM(kTemplateRecord, 0, 
+                       QT_TRANSLATE_NOOP3("RecType", "t",
+                                          "RecTypeChar kTemplateRecord")),
 };
 template <> int RecordingType::m_privItemCount =
             NELEMS(RecordingType::m_privItems);

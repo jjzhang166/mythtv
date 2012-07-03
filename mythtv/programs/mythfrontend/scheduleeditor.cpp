@@ -239,13 +239,13 @@ void ScheduleEditor::Load()
     StoreOptMixin::Load();
     PostProcMixin::Load();
 
+    // Copy this now, it will change briefly after the first item
+    // is inserted into the list by design of
+    // MythUIButtonList::itemSelected()
+    RecordingType type = m_recordingRule->m_type;
+
     if (!m_loaded)
     {
-        // Copy this now, it will change briefly after the first item
-        // is inserted into the list by design of
-        // MythUIButtonList::itemSelected()
-        RecordingType type = m_recordingRule->m_type;
-
         // Rules List
         if (m_recordingRule->m_isTemplate)
         {
@@ -804,7 +804,7 @@ void ScheduleEditor::showMenu(void)
         new MythDialogBox(label, popupStack, "menuPopup");
 
     MythUIButtonListItem *item = m_rulesList->GetItemCurrent();
-    RecordingType type = static_cast<RecordingType>(item->GetData().toInt());
+    RecordingType type = RecordingType(item->GetData().toInt());
     bool isScheduled = (type != kNotRecording && type != kDontRecord);
 
     if (menuPopup->Create())
@@ -2078,10 +2078,10 @@ void SchedOptMixin::Load(void)
     // Duplicate Match Type
     if (m_dupmethodList)
     {
+        RecordingDupMethodType dupMethod = m_rule->m_dupMethod;
+
         if (!m_loaded)
         {
-            RecordingDupMethodType dupMethod = m_rule->m_dupMethod;
-
             new MythUIButtonListItem(m_dupmethodList,
                QObject::tr("Match duplicates using subtitle & description"),
                                      ENUM_TO_QVARIANT(kDupCheckSubDesc));
@@ -2100,12 +2100,13 @@ void SchedOptMixin::Load(void)
 
             m_rule->m_dupMethod = dupMethod;
         }
-        m_dupmethodList->SetValueByData(ENUM_TO_QVARIANT(m_rule->m_dupMethod));
+        m_dupmethodList->SetValueByData(ENUM_TO_QVARIANT(dupMethod.get()));
     }
 
     // Duplicate Matching Scope
     if (m_dupscopeList)
     {
+        RecordingDupInType dupIn = m_rule->m_dupIn;
         if (!m_loaded)
         {
             new MythUIButtonListItem(m_dupscopeList,
@@ -2125,7 +2126,7 @@ void SchedOptMixin::Load(void)
                                  ENUM_TO_QVARIANT(kDupsNewEpi|kDupsInAll));
             }
         }
-        m_dupscopeList->SetValueByData(ENUM_TO_QVARIANT(m_rule->m_dupIn));
+        m_dupscopeList->SetValueByData(ENUM_TO_QVARIANT(dupIn.get()));
     }
 
     // Preferred Input
@@ -2187,15 +2188,15 @@ void SchedOptMixin::Save(void)
     if (m_endoffsetSpin)
         m_rule->m_endOffset = m_endoffsetSpin->GetIntValue();
     if (m_dupmethodList)
-        m_rule->m_dupMethod = static_cast<RecordingDupMethodType>
-            (m_dupmethodList->GetDataValue().toInt());
+        m_rule->m_dupMethod =
+            RecordingDupMethodType(m_dupmethodList->GetDataValue().toInt());
     if (m_dupscopeList)
     {
         int mask = ((m_other && m_other->m_newrepeatList) ||
                     m_newrepeatList) ? kDupsInAll : ~0;
-        int val = ((m_rule->m_dupIn & ~mask) |
+        int val = ((m_rule->m_dupIn.get() & ~mask) |
                    m_dupscopeList->GetDataValue().toInt());
-        m_rule->m_dupIn = static_cast<RecordingDupInType>(val);
+        m_rule->m_dupIn = RecordingDupInType(val);
     }
     if (m_inputList)
         m_rule->m_prefInput = m_inputList->GetDataValue().toInt();
@@ -2203,9 +2204,9 @@ void SchedOptMixin::Save(void)
         m_rule->m_isInactive = !m_ruleactiveCheck->GetBooleanCheckState();
     if (m_newrepeatList)
     {
-        int val = ((m_rule->m_dupIn & ~kDupsNewEpi) |
+        int val = ((m_rule->m_dupIn.get() & ~kDupsNewEpi) |
                    m_newrepeatList->GetDataValue().toInt());
-        m_rule->m_dupIn = static_cast<RecordingDupInType>(val);
+        m_rule->m_dupIn = RecordingDupInType(val);
     }
 }
 
@@ -2243,8 +2244,7 @@ void SchedOptMixin::DupMethodChanged(MythUIButtonListItem *item)
     if (!item || !m_rule)
         return;
 
-    m_rule->m_dupMethod = static_cast<RecordingDupMethodType>
-        (item->GetData().toInt());
+    m_rule->m_dupMethod = RecordingDupMethodType(item->GetData().toInt());
 
     if (m_dupscopeList)
         m_dupscopeList->SetEnabled(m_rule->m_dupMethod != kDupCheckNone);

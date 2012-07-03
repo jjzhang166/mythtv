@@ -994,15 +994,15 @@ TV::TV(void)
       m_browseActions(NULL), m_browsePassActions(NULL),
       m_manualZoomActions(NULL), m_manualZoomPassActions(NULL),
       m_picAttrActions(NULL), m_timeStretchActions(NULL),
-      m_audioSyncActions(NULL), m_3dActions(NULL), m_activeActions(NULL),
-      m_jumpProgramActions(NULL), m_seekActions(NULL), m_trackActions(NULL),
-      m_ffrwndActions(NULL), m_toggleActions(NULL), m_pipActions(NULL),
-      m_activePostQActions(NULL), m_osdActions(NULL), m_osdExitActions(NULL),
-      m_osdLiveTVActions(NULL), m_osdPlayingActions(NULL),
-      m_osdDialogActions(NULL), m_osdAskAllowActions(NULL),
-      m_osdVideoExitActions(NULL), m_osdChanEditActions(NULL),
-      m_networkControlActions(NULL), m_mythEventActions(NULL),
-      m_actionContext(NULL)
+      m_audioSyncActions(NULL), m_subtitleZoomActions(NULL), m_3dActions(NULL),
+      m_activeActions(NULL), m_jumpProgramActions(NULL), m_seekActions(NULL),
+      m_trackActions(NULL), m_ffrwndActions(NULL), m_toggleActions(NULL),
+      m_pipActions(NULL), m_activePostQActions(NULL), m_osdActions(NULL),
+      m_osdExitActions(NULL), m_osdLiveTVActions(NULL),
+      m_osdPlayingActions(NULL), m_osdDialogActions(NULL),
+      m_osdAskAllowActions(NULL), m_osdVideoExitActions(NULL),
+      m_osdChanEditActions(NULL), m_networkControlActions(NULL),
+      m_mythEventActions(NULL), m_actionContext(NULL)
 {
     LOG(VB_GENERAL, LOG_INFO, LOC + "Creating TV object");
     ctorTime.start();
@@ -1373,6 +1373,9 @@ TV::~TV(void)
 
     if (m_audioSyncActions)
         delete m_audioSyncActions;
+
+    if (m_subtitleZoomActions)
+        delete m_subtitleZoomActions;
 
     if (m_3dActions)
         delete m_3dActions;
@@ -4437,26 +4440,58 @@ bool TV::AudioSyncHandleAction(PlayerContext *ctx,
     return handled;
 }
 
+static struct ActionDefStruct<TV> tszhActions[] = {
+    { ACTION_LEFT,               &TV::doSubtitleZoomLeft },
+    { ACTION_RIGHT,              &TV::doSubtitleZoomRight },
+    { ACTION_DOWN,               &TV::doSubtitleZoomDown },
+    { ACTION_UP,                 &TV::doSubtitleZoomUp },
+    { ACTION_TOGGLESUBTITLEZOOM, &TV::doSubtitleZoomToggle },
+};
+static int tszhActionCount = NELEMS(tszhActions);
+
+bool TV::doSubtitleZoomLeft(const QString &action)
+{
+    ChangeSubtitleZoom(m_actionContext, -1);
+    return true;
+}
+
+bool TV::doSubtitleZoomRight(const QString &action)
+{
+    ChangeSubtitleZoom(m_actionContext, 1);
+    return true;
+}
+
+bool TV::doSubtitleZoomUp(const QString &action)
+{
+    ChangeSubtitleZoom(m_actionContext, -10);
+    return true;
+}
+
+bool TV::doSubtitleZoomDown(const QString &action)
+{
+    ChangeSubtitleZoom(m_actionContext, 10);
+    return true;
+}
+
+bool TV::doSubtitleZoomToggle(const QString &action)
+{
+    ClearOSD(m_actionContext);
+    return true;
+}
+
+
 bool TV::SubtitleZoomHandleAction(PlayerContext *ctx,
                                   const QStringList &actions)
 {
     if (!subtitleZoomAdjustment)
         return false;
 
-    bool handled = true;
+    if (!m_subtitleZoomActions)
+        m_subtitleZoomActions = new MythActions<TV>(this, tszhActions,
+                                                    tszhActionCount);
 
-    if (has_action(ACTION_LEFT, actions))
-        ChangeSubtitleZoom(ctx, -1);
-    else if (has_action(ACTION_RIGHT, actions))
-        ChangeSubtitleZoom(ctx, 1);
-    else if (has_action(ACTION_UP, actions))
-        ChangeSubtitleZoom(ctx, -10);
-    else if (has_action(ACTION_DOWN, actions))
-        ChangeSubtitleZoom(ctx, 10);
-    else if (has_action(ACTION_TOGGLESUBTITLEZOOM, actions))
-        ClearOSD(ctx);
-    else
-        handled = false;
+    m_actionContext = ctx;
+    bool handled = m_subtitleZoomActions->handleActions(actions);
 
     return handled;
 }
@@ -5799,7 +5834,7 @@ bool TV::doNCQuery(const QString &action)
         osdInfo info;
         m_actionNCContext->CalcPlayerSliderPosition(info, true);
 
-        QDateTime respDate = mythCurrentDateTime();
+        QDateTime respDate = MythDate::current(true);
         QString infoStr = "";
 
         m_actionNCContext->LockDeletePlayer(__FILE__, __LINE__);
@@ -8472,12 +8507,11 @@ void TV::UpdateOSDStatus(const PlayerContext *ctx, osdInfo &info,
 
 void TV::UpdateOSDStatus(const PlayerContext *ctx, QString title, QString desc,
                          QString value, int type, QString units,
-                         int position, int prev, int next, OSDTimeout timeout)
+                         int position, OSDTimeout timeout)
 {
     osdInfo info;
     info.values.insert("position", position);
-    info.values.insert("previous", prev);
-    info.values.insert("next",     next);
+    info.values.insert("relposition", position);
     info.text.insert("title", title);
     info.text.insert("description", desc);
     info.text.insert("value", value);
@@ -9353,6 +9387,39 @@ void TV::EnableUpmix(PlayerContext *ctx, bool enable, bool toggle)
 
     if (!browsehelper->IsBrowsing())
         SetOSDMessage(ctx, enabled ? tr("Upmixer On") : tr("Upmixer Off"));
+}
+
+void TV::ChangeSubtitleZoom(PlayerContext *ctx, int dir)
+{
+    ctx->LockDeletePlayer(__FILE__, __LINE__);
+    if (!ctx->player)
+    {
+        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+        return;
+    }
+
+    OSD *osd = GetOSDLock(ctx);
+    SubtitleScreen *subs = NULL;
+    if (osd)
+        subs = osd->InitSubtitles();
+    ReturnOSDLock(ctx, osd);
+    subtitleZoomAdjustment = true;
+    bool showing = ctx->player->GetCaptionsEnabled();
+    int newval = (subs ? subs->GetZoom() : 100) + dir;
+    newval = max(50, newval);
+    newval = min(200, newval);
+    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+
+    if (showing && !browsehelper->IsBrowsing())
+    {
+        UpdateOSDStatus(ctx, tr("Adjust Subtitle Zoom"), tr("Subtitle Zoom"),
+                        QString::number(newval),
+                        kOSDFunctionalType_SubtitleZoomAdjust,
+                        "%", newval * 1000 / 200, kOSDTimeout_Long);
+        SetUpdateOSDPosition(false);
+        if (subs)
+            subs->SetZoom(newval);
+    }
 }
 
 // dir in 10ms jumps

@@ -328,6 +328,7 @@ void SendMythSystemRecEvent(const QString msg, const RecordingInfo *pginfo)
             .arg(pginfo->GetChanID())
             .arg(pginfo->GetRecordingStartTime(MythDate::ISODate))
             .arg(pginfo->GetRecordingStatus().toInt8()));
+    }
     else
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +

@@ -241,6 +241,12 @@ class MTV_PUBLIC TV : public QObject
     bool doAudioSyncDown(const QString &action);
     bool doAudioSyncToggle(const QString &action);
 
+    bool doSubtitleZoomLeft(const QString &action);
+    bool doSubtitleZoomRight(const QString &action);
+    bool doSubtitleZoomUp(const QString &action);
+    bool doSubtitleZoomDown(const QString &action);
+    bool doSubtitleZoomToggle(const QString &action);
+
     bool do3dSideBySide(const QString &action);
     bool do3dSideBySideDiscard(const QString &action);
     bool do3dTopAndBottom(const QString &action);
@@ -1144,6 +1150,7 @@ class MTV_PUBLIC TV : public QObject
     MythActions<TV> *m_picAttrActions;
     MythActions<TV> *m_timeStretchActions;
     MythActions<TV> *m_audioSyncActions;
+    MythActions<TV> *m_subtitleZoomActions;
     MythActions<TV> *m_3dActions;
     MythActions<TV> *m_activeActions;
     MythActions<TV> *m_jumpProgramActions;

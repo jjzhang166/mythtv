@@ -1565,7 +1565,7 @@ void ProgLister::HandleVisible(MythUIButtonListItem *item)
         InfoMap infoMap;
         pginfo->ToMap(infoMap);
 
-        QString state = (**it).GetRecordingStatus().toUIState();
+        QString state = pginfo->GetRecordingStatus().toUIState();
         if ((state == "warning") && (m_type == plPreviouslyRecorded))
             state = "disabled";
 

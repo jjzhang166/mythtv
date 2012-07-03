@@ -4148,7 +4148,7 @@ bool PlaybackBox::doMythEventLocalDelete(const QString &action)
         QString forgetHistoryStr = m_actionMythEventArgs[i+3];
 
         list.push_back(QString::number(pginfo->GetChanID()));
-        list.push_back(pginfo->GetRecordingStartTime(ISODate));
+        list.push_back(pginfo->GetRecordingStartTime(MythDate::ISODate));
         list.push_back(forceDeleteStr);
         list.push_back(forgetHistoryStr);
         pginfo->SetAvailableStatus(asPendingDelete,

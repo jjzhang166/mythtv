@@ -151,9 +151,9 @@ class TitleSort
         }
 
         int finalA = a->GetRecordingPriority() +
-            a->recTypeRecPriority;
+                     a->recTypeRecPriority;
         int finalB = b->GetRecordingPriority() +
-            b->recTypeRecPriority;
+                     b->recTypeRecPriority;
         if (finalA != finalB)
         {
             if (m_reverse)
@@ -162,8 +162,8 @@ class TitleSort
                 return finalA > finalB;
         }
 
-        int typeA = a.prog->recType.toPriority();
-        int typeB = b.prog->recType.toPriority();
+        int typeA = ((ProgramRecPriorityInfo *)a)->recType.toPriority();
+        int typeB = ((ProgramRecPriorityInfo *)b)->recType.toPriority();
 
         if (typeA != typeB)
         {
@@ -208,8 +208,8 @@ class ProgramRecPrioritySort
                 return finalA > finalB;
         }
 
-        int typeA = a.prog->recType.toPriority();
-        int typeB = b.prog->recType.toPriority();
+        int typeA = ((ProgramRecPriorityInfo *)a)->recType.toPriority();
+        int typeB = ((ProgramRecPriorityInfo *)b)->recType.toPriority();
 
         if (typeA != typeB)
         {
@@ -239,8 +239,8 @@ class ProgramRecTypeSort
     bool operator()(const ProgramRecPriorityInfo *a, 
                     const ProgramRecPriorityInfo *b) const
     {
-        int typeA = a.prog->recType.toPriority();
-        int typeB = b.prog->recType.toPriority();
+        int typeA = ((ProgramRecPriorityInfo *)a)->recType.toPriority();
+        int typeB = ((ProgramRecPriorityInfo *)b)->recType.toPriority();
 
         if (typeA != typeB)
         {
@@ -1052,7 +1052,7 @@ void ProgramRecPriority::scheduleChanged(int recid)
         progInfo.SetRecordingPriority(record.m_recPriority);
         progInfo.recType = record.m_type;
         progInfo.sortTitle = record.m_title;
-        progInfo.recTypeRecPriority = rtRecPriors[progInfo.recType];
+        progInfo.recTypeRecPriority = rtRecPriors[progInfo.recType.get()];
         progInfo.recstatus = record.m_isInactive ? 
             rsInactive : rsUnknown;
         progInfo.profile = record.m_recProfile;
