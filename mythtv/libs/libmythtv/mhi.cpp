@@ -18,9 +18,10 @@
 static bool       ft_loaded = false;
 static FT_Library ft_library;
 
-#define FONT_WIDTHRES   48
-#define FONT_HEIGHTRES  72
-#define FONT_TO_USE "FreeSans.ttf"
+#define FONT_WIDTHRES   54
+#define FONT_HEIGHTRES  72 // 1 pixel per point
+#define FONT_TO_USE "FreeSans.ttf" // Tiresias Screenfont.ttf is mandated
+
 
 #define SCALED_X(arg1) (int)(((float)arg1 * m_xScale) + 0.5f)
 #define SCALED_Y(arg1) (int)(((float)arg1 * m_yScale) + 0.5f)
@@ -109,7 +110,7 @@ bool MHIContext::LoadFont(QString name)
     if (!errorD)
         return true;
 
-    LOG(VB_GENERAL, LOG_ERR, QString("Unable to find font: %1").arg(name));
+    LOG(VB_GENERAL, LOG_ERR, QString("[mhi] Unable to find font: %1").arg(name));
     return false;
 }
 
@@ -1029,6 +1030,18 @@ void MHIText::SetFont(int size, bool isBold, bool isItalic)
     // Bold and Italic are currently ignored.
 }
 
+// FT sizes are in 26.6 fixed point form
+const int kShift = 6;
+static inline FT_F26Dot6 Point2FT(int pt)
+{
+    return pt << kShift;
+}
+
+static inline int FT2Point(FT_F26Dot6 fp)
+{
+    return (fp + (1<<(kShift-1))) >> kShift;
+}
+
 // Return the bounding rectangle for a piece of text drawn in the
 // current font. If maxSize is non-negative it sets strLen to the
 // number of characters that will fit in the space and returns the
@@ -1042,12 +1055,10 @@ QRect MHIText::GetBounds(const QString &str, int &strLen, int maxSize)
         return QRect(0,0,0,0);
 
     FT_Face face = m_parent->GetFontFace();
-    FT_Error error = FT_Set_Char_Size(face, 0, m_fontsize*64,
+    FT_Error error = FT_Set_Char_Size(face, 0, Point2FT(m_fontsize),
                                       FONT_WIDTHRES, FONT_HEIGHTRES);
     if (error)
         return QRect(0,0,0,0);
-
-    FT_GlyphSlot slot = face->glyph; /* a small shortcut */
 
     int maxAscent = 0, maxDescent = 0, width = 0;
     FT_Bool useKerning = FT_HAS_KERNING(face);
@@ -1055,11 +1066,20 @@ QRect MHIText::GetBounds(const QString &str, int &strLen, int maxSize)
 
     for (int n = 0; n < strLen; n++)
     {
-        QChar ch = str[n];
+        QChar ch = str.at(n);
         FT_UInt glyphIndex = FT_Get_Char_Index(face, ch.unicode());
+
+        if (glyphIndex == 0)
+        {
+            LOG(VB_MHEG, LOG_INFO, QString("[mhi] Unknown glyph 0x%1")
+                .arg(ch.unicode(),0,16));
+            previous = 0;
+            continue;
+        }
+
         int kerning = 0;
 
-        if (useKerning && previous != 0 && glyphIndex != 0)
+        if (useKerning && previous != 0)
         {
             FT_Vector delta;
             FT_Get_Kerning(face, previous, glyphIndex,
@@ -1072,9 +1092,12 @@ QRect MHIText::GetBounds(const QString &str, int &strLen, int maxSize)
         if (error)
             continue; // ignore errors.
 
+        FT_GlyphSlot slot = face->glyph; /* a small shortcut */
+        FT_Pos advance = slot->metrics.horiAdvance + kerning;
+
         if (maxSize >= 0)
         {
-            if ((width + slot->advance.x + kerning + (1<<6)-1) >> 6 > maxSize)
+            if (FT2Point(width + advance) > maxSize)
             {
                 // There isn't enough space for this character.
                 strLen = n;
@@ -1090,15 +1113,11 @@ QRect MHIText::GetBounds(const QString &str, int &strLen, int maxSize)
         if (descent > maxDescent)
             maxDescent = descent;
 
-        width += slot->advance.x + kerning;
+        width += advance;
         previous = glyphIndex;
     }
 
-    maxAscent = (maxAscent + (1<<6)-1) >> 6;
-    maxDescent = (maxDescent + (1<<6)-1) >> 6;
-
-    return QRect(0, -maxAscent,
-                 (width+(1<<6)-1) >> 6, maxAscent + maxDescent);
+    return QRect(0, -FT2Point(maxAscent), FT2Point(width), FT2Point(maxAscent + maxDescent));
 }
 
 // Reset the image and fill it with transparent ink.
@@ -1125,13 +1144,12 @@ void MHIText::AddText(int x, int y, const QString &str, MHRgba colour)
 {
     if (!m_parent->IsFaceLoaded()) return;
     FT_Face face = m_parent->GetFontFace();
-    FT_GlyphSlot slot = face->glyph;
-    FT_Error error = FT_Set_Char_Size(face, 0, m_fontsize*64,
+    FT_Error error = FT_Set_Char_Size(face, 0, Point2FT(m_fontsize),
                                       FONT_WIDTHRES, FONT_HEIGHTRES);
 
     // X positions are computed to 64ths and rounded.
     // Y positions are in pixels
-    int posX = x << 6;
+    int posX = Point2FT(x);
     int pixelY = y;
     FT_Bool useKerning = FT_HAS_KERNING(face);
     FT_UInt previous = 0;
@@ -1142,7 +1160,13 @@ void MHIText::AddText(int x, int y, const QString &str, MHRgba colour)
         // Load the glyph.
         QChar ch = str[n];
         FT_UInt glyphIndex = FT_Get_Char_Index(face, ch.unicode());
-        if (useKerning && previous != 0 && glyphIndex != 0)
+        if (glyphIndex == 0)
+        {
+            previous = 0;
+            continue;
+        }
+
+        if (useKerning && previous != 0)
         {
             FT_Vector delta;
             FT_Get_Kerning(face, previous, glyphIndex,
@@ -1154,6 +1178,7 @@ void MHIText::AddText(int x, int y, const QString &str, MHRgba colour)
         if (error)
             continue; // ignore errors
 
+        FT_GlyphSlot slot = face->glyph;
         if (slot->format != FT_GLYPH_FORMAT_BITMAP)
             continue; // Problem
 
@@ -1162,7 +1187,7 @@ void MHIText::AddText(int x, int y, const QString &str, MHRgba colour)
 
         unsigned char *source = slot->bitmap.buffer;
         // Get the origin for the bitmap
-        int baseX = ((posX + (1 << 5)) >> 6) + slot->bitmap_left;
+        int baseX = FT2Point(posX) + slot->bitmap_left;
         int baseY = pixelY - slot->bitmap_top;
         // Copy the bitmap into the image.
         for (int i = 0; i < slot->bitmap.rows; i++)
@@ -1568,6 +1593,22 @@ void MHIBitmap::CreateFromPNG(const unsigned char *data, int length)
     m_image = QImage();
 
     if (!m_image.loadFromData(data, length, "PNG"))
+    {
+        m_image = QImage();
+        return;
+    }
+
+    // Assume that if it has an alpha buffer then it's partly transparent.
+    m_opaque = ! m_image.hasAlphaChannel();
+}
+
+// Create a bitmap from JPEG.
+//virtual
+void MHIBitmap::CreateFromJPEG(const unsigned char *data, int length)
+{
+    m_image = QImage();
+
+    if (!m_image.loadFromData(data, length, "JPG"))
     {
         m_image = QImage();
         return;
