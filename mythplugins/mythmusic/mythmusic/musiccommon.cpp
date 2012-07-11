@@ -173,20 +173,22 @@ bool MusicCommon::CreateCommon(void)
     }
     else
     {
-        // if we are playing but we are switching to a view from a different playmode
-        // we need to restart playback in the new mode
+        // if we are playing but we are switching to a view from a different
+        // playmode we need to restart playback in the new mode
         if (m_currentView == MV_VISUALIZER || m_currentView == MV_MINIPLAYER)
         {
             // this view can be used in both play modes
         }
-        else if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_RADIO && m_currentView != MV_RADIO)
+        else if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_RADIO &&
+                 m_currentView != MV_RADIO)
         {
             //gPlayer->savePosition();
             gPlayer->stop(true);
             gPlayer->setPlayMode(MusicPlayer::PLAYMODE_TRACKS);
             gPlayer->restorePosition();
         }
-        else if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_TRACKS && m_currentView == MV_RADIO)
+        else if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_TRACKS &&
+                 m_currentView == MV_RADIO)
         {
             //gPlayer->savePosition();
             gPlayer->stop(true);
@@ -407,11 +409,13 @@ void MusicCommon::switchView(MusicView view)
             // if we are switching playlist editor views save and restore
             // the current position in the tree
             bool restorePos = (m_currentView == MV_PLAYLISTEDITORGALLERY);
-            PlaylistEditorView *oldView = dynamic_cast<PlaylistEditorView *>(this);
+            PlaylistEditorView *oldView =
+                dynamic_cast<PlaylistEditorView *>(this);
             if (oldView)
                 oldView->saveTreePosition();
 
-            PlaylistEditorView *view = new PlaylistEditorView(mainStack, "tree", restorePos);
+            PlaylistEditorView *view =
+                new PlaylistEditorView(mainStack, "tree", restorePos);
 
             if (view->Create())
                 mainStack->AddScreen(view);
@@ -426,11 +430,13 @@ void MusicCommon::switchView(MusicView view)
             // if we are switching playlist editor views save and restore
             // the current position in the tree
             bool restorePos = (m_currentView == MV_PLAYLISTEDITORTREE);
-            PlaylistEditorView *oldView = dynamic_cast<PlaylistEditorView *>(this);
+            PlaylistEditorView *oldView =
+                dynamic_cast<PlaylistEditorView *>(this);
             if (oldView)
                 oldView->saveTreePosition();
 
-            PlaylistEditorView *view = new PlaylistEditorView(mainStack, "gallery", restorePos);
+            PlaylistEditorView *view =
+                new PlaylistEditorView(mainStack, "gallery", restorePos);
 
             if (view->Create())
                 mainStack->AddScreen(view);
@@ -1062,7 +1068,8 @@ void MusicCommon::changeVolume(bool up)
 
 void MusicCommon::changeSpeed(bool up)
 {
-    if (gPlayer->getOutput() && gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_TRACKS)
+    if (gPlayer->getOutput() &&
+        gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_TRACKS)
     {
         if (up)
             gPlayer->incSpeed();
@@ -1094,13 +1101,15 @@ void MusicCommon::updateProgressBar()
 
     if (gPlayer->getPlayMode() == MusicPlayer::PLAYMODE_RADIO)
     {
-        // radio mode so show the buffer fill level since we don't know the track length
+        // radio mode so show the buffer fill level since we don't know the
+        // track length
         int available, maxSize;
         gPlayer->getBufferStatus(&available, &maxSize);
 
         if (m_infoText)
         {
-            QString status = QString("%1%").arg((int)(100.0 / ((double)maxSize / (double)available)));
+            QString status = QString("%1%")
+                .arg((int)(100.0 / ((double)maxSize / (double)available)));
             m_infoText->SetText(status);
         }
 
@@ -1115,7 +1124,8 @@ void MusicCommon::updateProgressBar()
         // show the track played time
         int percentplayed = 1;
         if (m_maxTime)
-            percentplayed = (int)(((double)m_currentTime / (double)m_maxTime) * 100);
+            percentplayed = (int)(((double)m_currentTime / (double)m_maxTime) *
+                                  100);
         m_trackProgress->SetTotal(100);
         m_trackProgress->SetUsed(percentplayed);
     }
@@ -1381,7 +1391,8 @@ void MusicCommon::customEvent(QEvent *event)
 
             if (m_currentPlaylist)
             {
-                MythUIButtonListItem *item = m_currentPlaylist->GetItemAt(m_currentTrack);
+                MythUIButtonListItem *item = 
+                    m_currentPlaylist->GetItemAt(m_currentTrack);
                 if (item)
                 {
                     item->SetFontState("running");
@@ -1413,7 +1424,8 @@ void MusicCommon::customEvent(QEvent *event)
 
         if (m_currentPlaylist)
         {
-            MythUIButtonListItem *item = m_currentPlaylist->GetItemAt(m_currentTrack);
+            MythUIButtonListItem *item =
+                m_currentPlaylist->GetItemAt(m_currentTrack);
             if (item)
             {
                 item->SetFontState("idle");
@@ -1423,7 +1435,6 @@ void MusicCommon::customEvent(QEvent *event)
     }
     else if (event->type() == OutputEvent::Info)
     {
-
         OutputEvent *oe = dynamic_cast<OutputEvent *>(event);
 
         if (!oe)
@@ -1450,12 +1461,12 @@ void MusicCommon::customEvent(QEvent *event)
         {
             if (LCD *lcd = LCD::Get())
             {
-                float percent_heard = m_maxTime <= 0 ?
-                    0.0:((float)rs / (float)curMeta->Length()) * 1000.0;
+                float percent_heard = m_maxTime <= 0 ? 0.0 :
+                    ((float)rs / (float)curMeta->Length()) * 1000.0;
 
                 QString lcd_time_string = time_string;
 
-                // if the string is longer than the LCD width, remove all spaces
+                // if string is longer than the LCD width, remove all spaces
                 if (time_string.length() > (int)lcd->getLCDWidth())
                     lcd_time_string.remove(' ');
 
@@ -1468,13 +1479,16 @@ void MusicCommon::customEvent(QEvent *event)
         //  Hack around for cd bitrates
         if (oe->bitrate() < 2000)
         {
-            info_string.sprintf(QString("%d "+tr("kbps")+ "   %.1f "+ tr("kHz")+ "   %s "+ tr("ch")).toUtf8().data(),
+            info_string.sprintf(QString("%d " + tr("kbps") + "   %.1f " +
+                                        tr("kHz") + "   %s " + tr("ch"))
+                                    .toUtf8().data(),
                                 oe->bitrate(), float(oe->frequency()) / 1000.0,
                                 oe->channels() > 1 ? "2" : "1");
         }
         else
         {
-            info_string.sprintf(QString("%.1f "+ tr("kHz")+ "   %s "+ tr("ch")).toUtf8().data(),
+            info_string.sprintf(QString("%.1f " + tr("kHz") + "   %s " +
+                                        tr("ch")).toUtf8().data(),
                                 float(oe->frequency()) / 1000.0,
                                 oe->channels() > 1 ? "2" : "1");
         }
@@ -1501,7 +1515,8 @@ void MusicCommon::customEvent(QEvent *event)
 
         LOG(VB_GENERAL, LOG_ERR, QString("%1 %2").arg(statusString)
             .arg(*aoe->errorMessage()));
-        ShowOkPopup(QString(tr("MythMusic has encountered the following error:\n%1"))
+        ShowOkPopup(QString(
+                       tr("MythMusic has encountered the following error:\n%1"))
                     .arg(*aoe->errorMessage()));
         stopAll();
     }
@@ -1519,7 +1534,8 @@ void MusicCommon::customEvent(QEvent *event)
 
         if (m_currentPlaylist)
         {
-            MythUIButtonListItem *item = m_currentPlaylist->GetItemAt(m_currentTrack);
+            MythUIButtonListItem *item =
+                m_currentPlaylist->GetItemAt(m_currentTrack);
             if (item)
             {
                 item->SetFontState("normal");
@@ -1543,7 +1559,8 @@ void MusicCommon::customEvent(QEvent *event)
         LOG(VB_GENERAL, LOG_ERR, QString("%1 %2").arg(statusString)
             .arg(*dxe->errorMessage()));
 
-        ShowOkPopup(QString(tr("MythMusic has encountered the following error:\n%1"))
+        ShowOkPopup(QString(
+                       tr("MythMusic has encountered the following error:\n%1"))
                     .arg(*dxe->errorMessage()));
     }
     else if (event->type() == DecoderHandlerEvent::Error)
@@ -1559,7 +1576,8 @@ void MusicCommon::customEvent(QEvent *event)
         LOG(VB_GENERAL, LOG_ERR, QString("Decoder Handler Error - %1")
                 .arg(*dhe->getMessage()));
 
-        ShowOkPopup(QString("MythMusic has encountered the following error:\n%1")
+        ShowOkPopup(QString(
+                       tr("MythMusic has encountered the following error:\n%1"))
                 .arg(*dhe->getMessage()));
     }
     else if (event->type() == DialogCompletionEvent::kEventType)
@@ -1595,10 +1613,11 @@ void MusicCommon::customEvent(QEvent *event)
             }
             else if (resulttext == tr("Remove Selected Track"))
             {
-                MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
+                MythUIButtonListItem *item =
+                    m_currentPlaylist->GetItemCurrent();
                 if (item)
                 {
-                    Metadata *mdata = qVariantValue<Metadata*> (item->GetData());
+                    Metadata *mdata = qVariantValue<Metadata*>(item->GetData());
                     if (mdata)
                         gPlayer->removeTrack(mdata->ID());
                 }
@@ -1612,9 +1631,11 @@ void MusicCommon::customEvent(QEvent *event)
             {
                 QString message = tr("Enter new playlist name");
 
-                MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
+                MythScreenStack *popupStack =
+                    GetMythMainWindow()->GetStack("popup stack");
 
-                MythTextInputDialog *inputdialog = new MythTextInputDialog(popupStack, message);
+                MythTextInputDialog *inputdialog =
+                    new MythTextInputDialog(popupStack, message);
 
                 if (inputdialog->Create())
                 {
@@ -1627,11 +1648,14 @@ void MusicCommon::customEvent(QEvent *event)
             else if (resulttext == tr("Save To Existing Playlist"))
             {
                 QString message = tr("Select the playlist to save to");
-                QStringList playlists = gMusicData->all_playlists->getPlaylistNames();
+                QStringList playlists =
+                    gMusicData->all_playlists->getPlaylistNames();
 
-                MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
+                MythScreenStack *popupStack =
+                    GetMythMainWindow()->GetStack("popup stack");
 
-                MythUISearchDialog *searchdialog = new MythUISearchDialog(popupStack, message, playlists);
+                MythUISearchDialog *searchdialog =
+                    new MythUISearchDialog(popupStack, message, playlists);
 
                 if (searchdialog->Create())
                 {
@@ -1645,7 +1669,8 @@ void MusicCommon::customEvent(QEvent *event)
                 m_movingTrack = false;
 
                 if (m_movingTracksState)
-                    m_movingTracksState->DisplayState((m_moveTrackMode ? "on" : "off"));
+                    m_movingTracksState->DisplayState(m_moveTrackMode ? "on" :
+                                                      "off");
             }
             else if (resulttext == tr("Switch To Select Mode"))
             {
@@ -1653,7 +1678,8 @@ void MusicCommon::customEvent(QEvent *event)
 
                 if (m_currentPlaylist && m_movingTrack)
                 {
-                    MythUIButtonListItem *item = m_currentPlaylist->GetItemCurrent();
+                    MythUIButtonListItem *item =
+                        m_currentPlaylist->GetItemCurrent();
                     if (item)
                         item->DisplayState("off", "movestate");
 
@@ -1661,7 +1687,8 @@ void MusicCommon::customEvent(QEvent *event)
                 }
 
                 if (m_movingTracksState)
-                    m_movingTracksState->DisplayState((m_moveTrackMode ? "on" : "off"));
+                    m_movingTracksState->DisplayState(m_moveTrackMode ? "on" :
+                                                      "off");
             }
         }
         else if (resultid == "repeatmenu")
