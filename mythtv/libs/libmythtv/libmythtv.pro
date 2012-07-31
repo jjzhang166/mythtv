@@ -259,6 +259,8 @@ LIBS += -lmythbluray-$$LIBVERSION
 #HLS stuff
 HEADERS += HLS/httplivestream.h
 SOURCES += HLS/httplivestream.cpp
+HEADERS += HLS/hlssegment.h
+SOURCES += HLS/hlssegment.cpp
 HEADERS += HLS/httplivestreambuffer.h
 SOURCES += HLS/httplivestreambuffer.cpp
 using_libcrypto:DEFINES += USING_LIBCRYPTO
