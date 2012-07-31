@@ -30,6 +30,14 @@
 #include <QMutex>
 #include <QMap>
 
+#ifdef USING_LIBCRYPTO
+// encryption related stuff
+#include <openssl/aes.h>
+#define AES_BLOCK_SIZE 16       // HLS only support AES-128
+#endif
+
+class HLSSegment;
+
 /* stream container */
 
 class HLSStream
@@ -197,6 +205,70 @@ private:
     QString     m_url;                  // uri to m3u8
     QMutex      m_lock;
     bool        m_cache;                // allow caching
+};
+
+struct StreamsList : public QList<HLSStream*>
+{
+    ~StreamsList() { Clear(); }
+
+    void Clear(void)
+    {
+        /* Free hls streams */
+        for (int i = 0; i < size(); i++)
+        {
+            HLSStream *hls;
+            hls = GetStream(i);
+            if (hls)
+            {
+                delete hls;
+            }
+        }
+        QList<HLSStream*>::clear();
+    }
+
+    HLSStream *GetStream(const int wanted) const
+    {
+        int count = size();
+        if (count <= 0)
+            return NULL;
+        if ((wanted < 0) || (wanted >= count))
+            return NULL;
+        return at(wanted);
+    }
+
+    HLSStream *GetFirstStream(void) const
+    {
+        return GetStream(0);
+    }
+
+    HLSStream *GetLastStream(void) const
+    {
+        int count = size();
+        if (count <= 0)
+            return NULL;
+        count--;
+        return GetStream(count);
+    }
+
+    HLSStream *FindStream(const HLSStream *hls_new) const
+    {
+        int count = size();
+        for (int n = 0; n < count; n++)
+        {
+            HLSStream *hls = GetStream(n);
+            if (hls)
+            {
+                /* compare */
+                if ((hls->Id() == hls_new->Id()) &&
+                    ((hls->Bitrate() == hls_new->Bitrate()) ||
+                     (hls_new->Bitrate() == 0)))
+                {
+                    return hls;
+                }
+            }
+        }
+        return NULL;
+    }
 };
 
 #endif // MythXCode_hlsstream_h

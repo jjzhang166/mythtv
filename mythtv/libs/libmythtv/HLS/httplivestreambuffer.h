@@ -25,6 +25,7 @@
 
 #include "mythcorecontext.h"
 #include "ringbuffer.h"
+#include "hlsstream.h"
 
 extern "C" {
 #include "libavformat/avformat.h"
@@ -37,8 +38,6 @@ class HLSSegment;
 class StreamWorker;
 class PlaylistWorker;
 class HLSPlayback;
-
-typedef QList<HLSStream*> StreamsList;
 
 class HLSRingBuffer : public RingBuffer
 {
@@ -55,7 +54,6 @@ public:
     virtual bool IsStreamed(void)           { return false;   }
     virtual bool IsSeekingAllowed(void)     { return !m_error; }
     virtual bool IsBookmarkAllowed(void)    { return true; }
-    static bool IsHTTPLiveStreaming(QByteArray *s);
     static bool TestForHTTPLiveStreaming(QString &filename);
     bool SaveToDisk(QString filename, int segstart = 0, int segend = -1);
     int NumStreams(void) const;
@@ -67,26 +65,13 @@ protected:
     virtual int safe_read(void *data, uint i_read);
 
 private:
-    void FreeStreamsList(QList<HLSStream*> *streams);
+    void FreeStreamsList(StreamsList *streams);
     HLSStream *GetStreamForSegment(int segid);
     HLSStream *GetStream(const int wanted, const StreamsList *streams = NULL) const;
     HLSStream *GetFirstStream(const StreamsList *streams = NULL);
     HLSStream *GetLastStream(const StreamsList *streams = NULL);
     HLSStream *FindStream(const HLSStream *hls_new, const StreamsList *streams = NULL);
     HLSStream *GetCurrentStream(void) const;
-    QString ParseAttributes(QString &line, const char *attr);
-    int ParseDecimalValue(QString &line, int &target);
-    int ParseSegmentInformation(HLSStream *hls, QString &line,
-                                int &duration, QString &title);
-    int ParseTargetDuration(HLSStream *hls, QString &line);
-    HLSStream *ParseStreamInformation(QString &line, QString &uri);
-    int ParseMediaSequence(HLSStream *hls, QString &line);
-    int ParseKey(HLSStream *hls, QString &line);
-    int ParseProgramDateTime(HLSStream *hls, QString &line);
-    int ParseAllowCache(HLSStream *hls, QString &line);
-    int ParseVersion(QString &line, int &version);
-    int ParseEndList(HLSStream *hls);
-    int ParseDiscontinuity(HLSStream *hls, QString &line);
     int ParseM3U8(const QByteArray *buffer, StreamsList *streams = NULL);
     int Prefetch(int count);
     void SanityCheck(HLSStream *hls, HLSSegment *segment);
