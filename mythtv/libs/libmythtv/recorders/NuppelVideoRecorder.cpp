@@ -2507,6 +2507,8 @@ void NuppelVideoRecorder::FormatTT(struct VBIData *vbidata)
         int hid = 0;
         int gfx = 0;
         int dbl = 0;
+        int box = 0;
+        int sep = 0;
         int hold = 0;
         int visible = 0;
         int fg = 7;
