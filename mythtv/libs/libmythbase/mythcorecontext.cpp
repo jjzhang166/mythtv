@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QRunnable>
 #include <QUrl>
 #include <QDir>
 #include <QFileInfo>
@@ -36,7 +37,6 @@ using namespace std;
 #include "exitcodes.h"
 #include "mythlogging.h"
 #include "mythversion.h"
-#include "logging.h"
 #include "mthread.h"
 #include "serverpool.h"
 #include "mythdate.h"
