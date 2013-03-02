@@ -6217,17 +6217,6 @@ cp_if_changed $TMPH external/FFmpeg/libavutil/avconfig.h
 echo "config:$arch:$subarch:$cpu:$target_os:$cc_ident:$FFMPEG_CONFIGURATION" >config.fate
 BLOCKQUOTE
 
-# configure zeromq
-echo "Configuring zeromq..."
-(cd external/zeromq ; \
-         ./configure --quiet --without-documentation --prefix=${prefix} \
-                     --includedir=${prefix}/include/mythtv/zeromq)
-echo "Configuring nzmqt..."
-(cd external/nzmqt/src ; \
-       ${qmakeconf} -o Makefile)
-echo "Configuring qjson..."
-(cd external/qjson ; \
-       ${qmakeconf} -o Makefile)
 if ! disabled hdhomerun ; then
     echo "Configuring libhdhomerun..."
     (cd external/libhdhomerun; \
