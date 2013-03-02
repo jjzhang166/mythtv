@@ -34,7 +34,6 @@ using namespace std;
 #include "mythdbcon.h"
 #include "mythtimer.h"
 #include "mythdate.h"
-#include "logging.h"
 #include "mthread.h"
 #include "mythdb.h"
 

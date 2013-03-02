@@ -64,7 +64,6 @@ using namespace std;
 #include "mythconfig.h"
 #include "mythlogging.h"
 #include "mythversion.h"
-#include "logging.h"
 #include "mythmiscutil.h"
 #include "mythdate.h"
 

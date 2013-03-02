@@ -38,7 +38,6 @@ using namespace std;
 #include "mthreadpool.h"
 #include "mythlogging.h"
 #include "mythtimer.h"
-#include "logging.h"
 #include "mthread.h"
 #include "mythdb.h"
 
