@@ -1275,7 +1275,7 @@ bool ProgramData::IsUnchanged(
 bool ProgramData::DeleteOverlaps(
     MSqlQuery &query, uint chanid, const ProgInfo &pi)
 {
-    if (VERBOSE_LEVEL_CHECK(VB_XMLTV, LOG_INFO))
+    if (LOG_WILL_USE(VB_XMLTV, LOG_INFO))
     {
         // Get overlaps..
         query.prepare(

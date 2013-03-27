@@ -215,11 +215,11 @@ int main(int argc, char *argv[])
 
     bool showprogress = cmdline.toBool("showprogress");
 
-    int retval;
-    QString mask("general");
-    bool quiet = (outfile == "-") || showprogress;
-    if ((retval = cmdline.ConfigureLogging(mask, quiet)) != GENERIC_EXIT_OK)
-        return retval;
+    if ((outfile == "-") || showprogress)
+        cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, -1);
+
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
     if (cmdline.toBool("starttime"))
     {

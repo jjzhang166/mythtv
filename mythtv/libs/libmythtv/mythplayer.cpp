@@ -2233,7 +2233,7 @@ void MythPlayer::EnableFrameRateMonitor(bool enable)
     if (!output_jmeter)
         return;
     int rate = enable ? video_frame_rate :
-               VERBOSE_LEVEL_CHECK(VB_PLAYBACK, LOG_ANY) ?
+               LOG_WILL_USE(VB_PLAYBACK, LOG_ANY) ?
                (video_frame_rate * 4) : 0;
     output_jmeter->SetNumCycles(rate);
 }

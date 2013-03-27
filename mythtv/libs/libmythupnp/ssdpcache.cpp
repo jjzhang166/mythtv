@@ -555,7 +555,7 @@ QTextStream &SSDPCache::OutputXML(
 /// Prints this device to the console in a human readable form
 void SSDPCache::Dump(void)
 {
-    if (!VERBOSE_LEVEL_CHECK(VB_UPNP, LOG_DEBUG))
+    if (!LOG_WILL_USE(VB_UPNP, LOG_DEBUG))
         return;
 
     QMutexLocker locker(&m_mutex);

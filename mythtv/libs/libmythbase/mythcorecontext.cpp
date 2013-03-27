@@ -27,6 +27,7 @@ using namespace std;
 #include <locale.h>
 #endif
 
+#include "mythlogging_extra.h"
 #include "compat.h"
 #include "mythconfig.h"       // for CONFIG_DARWIN
 #include "mythdownloadmanager.h"
@@ -35,7 +36,6 @@ using namespace std;
 #include "mythsystem.h"
 #include "mthreadpool.h"
 #include "exitcodes.h"
-#include "mythlogging.h"
 #include "mythversion.h"
 #include "mthread.h"
 #include "serverpool.h"
@@ -146,11 +146,7 @@ MythCoreContextPrivate::~MythCoreContextPrivate()
 
     ShutdownMythDownloadManager();
 
-    // This has already been run in the MythContext dtor.  Do we need it here
-    // too?
-#if 0
-    logStop(); // need to shutdown db logger before we kill db
-#endif
+    myth_logging::thread_shutdown();
 
     MThread::Cleanup();
 
@@ -161,7 +157,7 @@ MythCoreContextPrivate::~MythCoreContextPrivate()
         m_database = NULL;
     }
 
-    loggingDeregisterThread();
+    myth_logging::deregister_thread();
 }
 
 /// If another thread has already started WOL process, wait on them...

@@ -267,10 +267,10 @@ int main(int argc, char *argv[])
         return GENERIC_EXIT_OK;
     }
 
-    bool quiet = false, use_display = true;
+    bool use_display = true;
     if (cmdline.toBool("scan"))
     {
-        quiet = true;
+        cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, -1);
         use_display = false;
     }
 
@@ -283,6 +283,9 @@ int main(int argc, char *argv[])
 #endif
     new QApplication(argc, argv, use_display);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHTV_SETUP);
+
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
 #ifndef _WIN32
     QList<int> signallist;
@@ -299,12 +302,6 @@ int main(int argc, char *argv[])
         display = cmdline.toString("display");
     if (cmdline.toBool("geometry"))
         geometry = cmdline.toString("geometry");
-
-    int retval;
-    QString mask("general");
-    if ((retval = cmdline.ConfigureLogging(mask, quiet)) != GENERIC_EXIT_OK)
-        return retval;
-
     if (cmdline.toBool("expert"))
         expertMode = true;
     if (cmdline.toBool("scanlist"))
@@ -313,7 +310,6 @@ int main(int argc, char *argv[])
         doScanSaveOnly = true;
     if (cmdline.toBool("scannoninteractive"))
         scanInteractive = false;
-
     if (cmdline.toBool("importscan"))
         scanImport = cmdline.toUInt("importscan");
     if (cmdline.toBool("ftaonly"))

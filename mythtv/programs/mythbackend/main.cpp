@@ -84,21 +84,25 @@ int main(int argc, char **argv)
 #endif
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHBACKEND);
 
+    if (!cmdline.ConfigureLogging(kMultiThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
+
     pidfile = cmdline.toString("pidfile");
-    int retval = cmdline.Daemonize();
-    if (retval != GENERIC_EXIT_OK)
-        return retval;
 
-    bool daemonize = cmdline.toBool("daemon");
-    QString mask("general");
-    if ((retval = cmdline.ConfigureLogging(mask, daemonize)) != GENERIC_EXIT_OK)
-        return retval;
-
-    if (daemonize)
-        // Don't listen to console input if daemonized
-        close(0);
+    if (cmdline.toBool("daemon"))
+    {
+        int retval = cmdline.Daemonize();
+        if (retval != GENERIC_EXIT_OK)
+            return retval;
+    }
 
     CleanupGuard callCleanup(cleanup);
+
+    if (cmdline.toBool("daemon"))
+    {
+        // Don't listen to console input if daemonized
+        close(0);
+    }
 
 #ifndef _WIN32
     QList<int> signallist;
@@ -133,8 +137,8 @@ int main(int argc, char **argv)
     }
 
     gCoreContext->SetBackend(true);
-    retval = run_backend(cmdline);
-    return retval;
+
+    return run_backend(cmdline);
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

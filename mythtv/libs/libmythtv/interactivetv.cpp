@@ -18,8 +18,8 @@ InteractiveTV::InteractiveTV(MythPlayer *nvp)
     Restart(0, 0, false);
 
     MHSetLogging(stdout,
-        VERBOSE_LEVEL_CHECK(VB_MHEG, LOG_DEBUG) ? MHLogAll :
-        VERBOSE_LEVEL_CHECK(VB_MHEG, LOG_ANY) ?
+        LOG_WILL_USE(VB_MHEG, LOG_DEBUG) ? MHLogAll :
+        LOG_WILL_USE(VB_MHEG, LOG_ANY) ?
             MHLogError | MHLogWarning | MHLogNotifications /*| MHLogLinks | MHLogActions | MHLogDetail*/ :
         MHLogError | MHLogWarning );
 }

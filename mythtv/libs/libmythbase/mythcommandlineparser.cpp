@@ -59,10 +59,10 @@ using namespace std;
 #include <QDateTime>
 
 #include "mythcommandlineparser.h"
+#include "mythlogging_extra.h"
 #include "mythcorecontext.h"
 #include "exitcodes.h"
 #include "mythconfig.h"
-#include "mythlogging.h"
 #include "mythversion.h"
 #include "mythmiscutil.h"
 #include "mythdate.h"
@@ -2357,21 +2357,34 @@ void MythCommandLineParser::addUPnP(void)
     add("--noupnp", "noupnp", false, "Disable use of UPnP.", "");
 }
 
+void MythCommandLineParser::SetLoggingDefaults(
+    uint64_t default_verbose_mask,
+    int default_log_level,
+    int default_syslog_facility)
+{
+    m_defaultVerboseMask = default_verbose_mask;
+    m_defaultLogLevel = default_log_level;
+    m_defaultSyslogFacility = default_syslog_facility;
+}
+
 /** \brief Canned argument definition for all logging options, including
  *  --verbose, --logpath, --quiet, --loglevel, --syslog
  *  and --nodblog
  */
 void MythCommandLineParser::addLogging(
-    const QString &defaultVerbosity, LogLevel_t defaultLogLevel)
+    uint64_t default_verbose_mask,
+    int default_log_level,
+    int default_syslog_facility)
 {
-    defaultLogLevel =
-        ((defaultLogLevel >= LOG_UNKNOWN) || (defaultLogLevel <= LOG_ANY)) ?
-        LOG_INFO : defaultLogLevel;
-
-    QString logLevelStr = logLevelGetName(defaultLogLevel);
+    SetLoggingDefaults(
+        default_verbose_mask, default_log_level, default_syslog_facility);
+    QString verbosityStr = myth_logging::format_verbose(default_verbose_mask);
+    QString logLevelStr = myth_logging::format_log_level(default_log_level);
+    QString syslogStr = myth_logging::format_syslog_facility(
+        default_syslog_facility);
 
     add(QStringList( QStringList() << "-v" << "--verbose" ), "verbose",
-        defaultVerbosity,
+        verbosityStr,
         "Specify log filtering. Use '-v help' for level info.", "")
                 ->SetGroup("Logging");
     add("-V", "verboseint", 0U, "",
@@ -2397,7 +2410,7 @@ void MythCommandLineParser::addLogging(
             "In descending order: emerg, alert, crit, err, warning, notice, "
             "info, debug\ndefaults to ") + logLevelStr, "")
                 ->SetGroup("Logging");
-    add("--syslog", "syslog", "none", 
+    add("--syslog", "syslog", syslogStr, 
         "Set the syslog logging facility.\nSet to \"none\" to disable, "
         "defaults to none.", "")
                 ->SetGroup("Logging");
@@ -2464,7 +2477,7 @@ QString MythCommandLineParser::GetLogFilePath(void)
         LOG(VB_GENERAL, LOG_ERR,
             QString("%1 is not a directory, disabling logfiles")
             .arg(logfile));
-	return QString();
+	       return QString();
     }
 
     logdir  = finfo.filePath();
@@ -2477,33 +2490,6 @@ QString MythCommandLineParser::GetLogFilePath(void)
     SetValue("filepath", QFileInfo(QDir(logdir), logfile).filePath());
 
     return toString("filepath");
-}
-
-/** \brief Helper utility for logging interface to return syslog facility
- */
-int MythCommandLineParser::GetSyslogFacility(void)
-{
-    QString setting = toString("syslog").toLower();
-    if (setting == "none")
-        return -2;
-
-    return syslogGetFacility(setting);
-}
-
-/** \brief Helper utility for logging interface to filtering level
- */
-LogLevel_t MythCommandLineParser::GetLogLevel(void)
-{
-    QString setting = toString("loglevel");
-    if (setting.isEmpty())
-        return LOG_INFO;
-
-    LogLevel_t level = logLevelGet(setting);
-    if (level == LOG_UNKNOWN)
-        cerr << "Unknown log level: " << setting.toLocal8Bit().constData() <<
-                endl;
-     
-    return level;
 }
 
 /** \brief Set a new stored value for an existing argument definition, or
@@ -2531,58 +2517,86 @@ bool MythCommandLineParser::SetValue(const QString &key, QVariant value)
     return true;
 }
 
-/** \brief Read in logging options and initialize the logging interface
+/** \brief Initialize the logging interface
+ *
+ *  \note QCoreApplication::setApplicationName() must be
+ *        called before this function is called.
  */
-int MythCommandLineParser::ConfigureLogging(QString mask, unsigned int progress)
+bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
 {
-    int err = 0;
+    bool ok = false;
 
-    // Setup the defaults
-    verboseString = "";
-    verboseMask   = 0;
-    verboseArgParse(mask);
-
-    if (toBool("verbose"))
+    if (QCoreApplication::applicationName().isEmpty())
     {
-        if ((err = verboseArgParse(toString("verbose"))))
-            return err;
+        cerr << "Programmer Error: "
+             << "QCoreApplication::setApplicationName() "
+             << "must be called before ConfigureLogging" << endl;
+        return false;
+    }
+
+    uint64_t mask = m_defaultVerboseMask;
+    if (toBool("quiet"))
+    {
+        mask = VB_NONE;
+    }
+    else if (toBool("verbose"))
+    {
+        mask = myth_logging::parse_verbose(toString("verbose"), &ok);
+        if (!ok)
+        {
+            cerr << "failed to parse verbose argument: "
+                 << qPrintable(toString("verbose")) << endl;
+            return false;
+        }
     }
     else if (toBool("verboseint"))
-        verboseMask = toUInt("verboseint");
-
-    verboseMask |= VB_STDIO|VB_FLUSH;
-
-    int quiet = toUInt("quiet");
-    if (max(quiet, (int)progress) > 1)
     {
-        verboseMask = VB_NONE|VB_FLUSH;
-        verboseArgParse("none");
+        mask = toUInt("verboseint");
     }
 
-    int facility = GetSyslogFacility();
-    bool dblog = !toBool("nodblog");
-    LogLevel_t level = GetLogLevel();
-    if (level == LOG_UNKNOWN)
-        return GENERIC_EXIT_INVALID_CMDLINE;
+    int level = m_defaultLogLevel;
+    if (toBool("loglevel"))
+    {
+        level = myth_logging::parse_log_level(toString("loglevel"), &ok);
+        if (!ok)
+        {
+            cerr << "failed to parse loglevel argument: "
+                 << qPrintable(toString("loglevel")) << endl;
+            return false;
+        }
+    }
 
-    LOG(VB_GENERAL, LOG_CRIT,
+    int facility = m_defaultSyslogFacility;
+    if (toBool("syslog"))
+    {
+        facility = myth_logging::parse_syslog_facility(toString("syslog"), &ok);
+        if (!ok)
+        {
+            cerr << "failed to parse syslog argument: "
+                 << qPrintable(toString("syslog")) << endl;
+            return false;
+        }
+    }
+
+    // TODO whole --logfile --logpath thing...
+
+    //////////////////////////
+    myth_logging::set_parameters(
+        mask, level, facility,
+        kMultiThreadedLogging == threading, toBool("dblog"));
+    //////////////////////////
+
+    LOG(VB_GENERAL, LOG_INFO,
         QString("%1 version: %2 [%3] www.mythtv.org")
         .arg(QCoreApplication::applicationName())
         .arg(MYTH_SOURCE_PATH).arg(MYTH_SOURCE_VERSION));
-    LOG(VB_GENERAL, LOG_CRIT, QString("Qt version: compile: %1, runtime: %2")
+    LOG(VB_GENERAL, LOG_INFO, QString("Qt version: compile: %1, runtime: %2")
         .arg(QT_VERSION_STR).arg(qVersion()));
-    LOG(VB_GENERAL, LOG_NOTICE,
-        QString("Enabled verbose msgs: %1").arg(verboseString));
+    LOG(VB_GENERAL, LOG_DEBUG,
+        QString("Enabled verbose msgs: %1")
+        .arg(myth_logging::format_verbose(myth_logging::get_verbose())));
 
-    QString logfile = GetLogFilePath();
-    bool propagate = !logfile.isEmpty();
-
-    if (toBool("daemon"))
-        quiet = max(quiet, 1);
-
-    logStart(logfile, progress, quiet, facility, level, dblog, propagate);
-
-    return GENERIC_EXIT_OK;
+    return true;
 }
 
 /** \brief Apply all overrides to the global context
@@ -2615,7 +2629,7 @@ bool openPidfile(ofstream &pidfs, const QString &pidfile)
         pidfs.open(pidfile.toLatin1().constData());
         if (!pidfs)
         {
-            cerr << "Could not open pid file: " << ENO_STR << endl;
+            cerr << "Could not open pid file: " << qPrintable(ENO) << endl;
             return false;
         }
     }
@@ -2704,7 +2718,7 @@ int MythCommandLineParser::Daemonize(void)
 
     if (toBool("daemon") && (daemon(0, 1) < 0))
     {
-        cerr << "Failed to daemonize: " << ENO_STR << endl;
+        cerr << "Failed to daemonize: " << qPrintable(ENO) << endl;
         return GENERIC_EXIT_DAEMONIZING_ERROR;
     }
 

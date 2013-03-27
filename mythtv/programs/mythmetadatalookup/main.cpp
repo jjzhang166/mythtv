@@ -78,9 +78,8 @@ int main(int argc, char *argv[])
     QCoreApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMETADATALOOKUP);
 
-    int retval;
-    if ((retval = cmdline.ConfigureLogging()) != GENERIC_EXIT_OK)
-        return retval;
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
     ///////////////////////////////////////////////////////////////////////
     // Don't listen to console input

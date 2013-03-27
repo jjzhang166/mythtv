@@ -15,6 +15,12 @@
 
 class MythCommandLineParser;
 
+typedef enum {
+    kSingleThreadedLogging,
+    kMultiThreadedLogging,
+} ThreadedLogging;
+
+
 class MBASE_PUBLIC CommandLineArg : public ReferenceCounter
 {
   public:
@@ -241,8 +247,6 @@ class MBASE_PUBLIC MythCommandLineParser
     QString                 GetPassthrough(void) const;
     QMap<QString,QString>   GetSettingsOverride(void);
     QString                 GetLogFilePath(void);
-    int                     GetSyslogFacility(void);
-    LogLevel_t              GetLogLevel(void);
 
     bool                    toBool(QString key) const;
     int                     toInt(QString key) const;
@@ -256,8 +260,11 @@ class MBASE_PUBLIC MythCommandLineParser
     QDateTime               toDateTime(QString key) const;
 
     bool                    SetValue(const QString &key, QVariant value);
-    int                     ConfigureLogging(QString mask = "general",
-                                             unsigned int progress = 0);
+
+    bool                    ConfigureLogging(ThreadedLogging);
+    void                    SetLoggingDefaults(uint64_t default_verbose_mask,
+                                               int default_log_level,
+                                               int default_syslog_facility);
     void                    ApplySettingsOverride(void);
     int                     Daemonize(void);
 
@@ -276,8 +283,9 @@ class MBASE_PUBLIC MythCommandLineParser
     void addGeometry(void);
     void addDisplay(void);
     void addUPnP(void);
-    void addLogging(const QString &defaultVerbosity = "general",
-                    LogLevel_t defaultLogLevel = LOG_INFO);
+    void addLogging(uint64_t default_verbose_mask,
+                    int default_log_level,
+                    int default_syslog_facility);
     void addPIDFile(void);
     void addJob(void);
     void addInFile(bool addOutFile = false);
@@ -293,5 +301,9 @@ class MBASE_PUBLIC MythCommandLineParser
     bool                            m_passthroughActive;
     bool                            m_overridesImported;
     bool                            m_verbose;
+
+    uint64_t                        m_defaultVerboseMask;
+    int                             m_defaultLogLevel;
+    int                             m_defaultSyslogFacility;
 };
 

@@ -103,10 +103,12 @@ int main(int argc, char *argv[])
     if (retval != GENERIC_EXIT_OK)
         return retval;
 
-    bool daemonize = cmdline.toBool("daemon");
-    QString mask("general");
-    if ((retval = cmdline.ConfigureLogging(mask, daemonize)) != GENERIC_EXIT_OK)
-        return retval;
+    // Ratcheting down logging here doesn't make sense to me.. dtk 2013-03-26
+    //if (cmdline.toBool("daemon"))
+    //    cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, -1);
+
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
     CleanupGuard callCleanup(cleanup);
 

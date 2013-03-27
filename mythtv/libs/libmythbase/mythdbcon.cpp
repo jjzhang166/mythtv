@@ -275,11 +275,12 @@ MDBManager::~MDBManager()
         LOG(VB_GENERAL, LOG_CRIT,
             "MDBManager exiting with connections still open");
     }
-#if 0 /* some post logStop() debugging... */
-    cout<<"m_connCount: "<<m_connCount<<endl;
-    cout<<"m_schedCon: "<<m_schedCon<<endl;
-    cout<<"m_DDCon: "<<m_DDCon<<endl;
-#endif
+
+    LOG(VB_DATABASE, LOG_INFO, QString("m_connCount: %1").arg(m_connCount));
+    LOG(VB_DATABASE, LOG_INFO, QString("m_schedCon: 0x%1")
+        .arg(reinterpret_cast<intptr_t>(m_schedCon),0,16));
+    LOG(VB_DATABASE, LOG_INFO, QString("m_DDCon: %1")
+        .arg(reinterpret_cast<intptr_t>(m_DDCon),0,16));
 }
 
 MSqlDatabase *MDBManager::popConnection(bool reuse)
@@ -663,7 +664,7 @@ bool MSqlQuery::exec()
         }
     }
 
-    if (VERBOSE_LEVEL_CHECK(VB_DATABASE, LOG_DEBUG))
+    if (LOG_WILL_USE(VB_DATABASE, LOG_DEBUG))
     {
         QString str = lastQuery();
 
@@ -729,7 +730,7 @@ bool MSqlQuery::exec(const QString &query)
 bool MSqlQuery::seekDebug(const char *type, bool result,
                           int where, bool relative) const
 {
-    if (result && VERBOSE_LEVEL_CHECK(VB_DATABASE, LOG_DEBUG))
+    if (result && LOG_WILL_USE(VB_DATABASE, LOG_DEBUG))
     {
         QString str;
         QSqlRecord rec = record();

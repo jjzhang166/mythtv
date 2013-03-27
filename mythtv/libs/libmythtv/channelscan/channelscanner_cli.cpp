@@ -95,7 +95,8 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
 
     //cout<<"HERE<"<<verboseMask<<">"<<endl;
     QString msg;
-    if (VERBOSE_LEVEL_NONE || VERBOSE_LEVEL_CHECK(VB_CHANSCAN, LOG_INFO))
+    if (!LOG_MIGHT_USE(VB_ALL, LOG_EMERG) ||
+        LOG_WILL_USE(VB_CHANSCAN, LOG_INFO))
     {
         msg.sprintf("%3i%% S/N %3.1f %s : %s (%s) %20s",
                     status_complete, status_snr,
@@ -105,7 +106,7 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
     }
     //cout<<msg.toLatin1().constData()<<endl;
 
-    if (VERBOSE_LEVEL_CHECK(VB_CHANSCAN, LOG_INFO))
+    if (LOG_WILL_USE(VB_CHANSCAN, LOG_INFO))
     {
         static QString old_msg;
         if (msg != old_msg)
@@ -114,7 +115,7 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
             old_msg = msg;
         }
     }
-    else if (VERBOSE_LEVEL_NONE)
+    else if (!LOG_MIGHT_USE(VB_ALL, LOG_EMERG))
     {
         if (msg.length() > 80)
             msg = msg.left(77) + "...";
@@ -125,7 +126,7 @@ void ChannelScannerCLI::HandleEvent(const ScannerEvent *scanEvent)
 
 void ChannelScannerCLI::InformUser(const QString &error)
 {
-    if (VERBOSE_LEVEL_NONE)
+    if (!LOG_MIGHT_USE(VB_ALL, LOG_EMERG))
     {
         cerr<<"ERROR: "<<error.toLatin1().constData()<<endl;
     }
@@ -146,6 +147,6 @@ void ChannelScannerCLI::Process(const ScanDTVTransportList &_transports)
 void ChannelScannerCLI::MonitorProgress(
     bool lock, bool strength, bool snr, bool rotor)
 {
-    if (VERBOSE_LEVEL_NONE)
+    if (!LOG_MIGHT_USE(VB_ALL, LOG_EMERG))
         cout<<"\r0%"<<flush;
 }

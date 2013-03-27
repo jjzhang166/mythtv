@@ -904,7 +904,7 @@ bool MHIContext::BeginStream(const QString &stream, MHStream *notify)
     int chan = GetChannelIndex(stream);
     if (chan < 0)
         return false;
-    if (VERBOSE_LEVEL_CHECK(VB_MHEG, LOG_ANY))
+    if (LOG_WILL_USE(VB_MHEG, LOG_ANY))
     {
         int netId, origNetId, transportId, serviceId;
         GetServiceInfo(chan, netId, origNetId, transportId, serviceId);

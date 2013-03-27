@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QRunnable>
 
+#include "mythlogging_extra.h"
 #include "mythcorecontext.h"
 #include "mthreadpool.h"
 #include "mythsystem.h"
@@ -10,7 +11,6 @@
 #include "programinfo.h"
 #include "remoteutil.h"
 #include "exitcodes.h"
-#include "mythlogging.h"
 
 #define LOC      QString("MythSystemEventHandler: ")
 
@@ -206,7 +206,8 @@ void MythSystemEventHandler::SubstituteMatches(const QStringList &tokens,
                         recstartts.toString(Qt::ISODate));
     }
 
-    command.replace(QString("%VERBOSELEVEL%"), QString("%1").arg(verboseMask));
+    command.replace(QString("%VERBOSELEVEL%"),
+                    QString("%1").arg(myth_logging::get_verbose()));
 
     LOG(VB_FILE, LOG_DEBUG, LOC + QString("SubstituteMatches: AFTER : %1")
                                             .arg(command));

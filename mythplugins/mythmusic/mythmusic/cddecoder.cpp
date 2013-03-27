@@ -216,9 +216,9 @@ bool CdDecoder::initialize()
     }
 
     cdio_cddap_verbose_set(m_device,
-        VERBOSE_LEVEL_CHECK(VB_MEDIA, LOG_ANY) ? CDDA_MESSAGE_PRINTIT :
+        LOG_WILL_USE(VB_MEDIA, LOG_ANY) ? CDDA_MESSAGE_PRINTIT :
             CDDA_MESSAGE_FORGETIT,
-        VERBOSE_LEVEL_CHECK(VB_MEDIA, LOG_DEBUG) ? CDDA_MESSAGE_PRINTIT :
+        LOG_WILL_USE(VB_MEDIA, LOG_DEBUG) ? CDDA_MESSAGE_PRINTIT :
             CDDA_MESSAGE_FORGETIT);
 
     if (DRIVER_OP_SUCCESS == cdio_cddap_open(m_device))

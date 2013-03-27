@@ -8,7 +8,7 @@
 #include "cardutil.h"
 #include "mythdb.h"
 #include "mythdirs.h"
-#include "mythlogging.h"
+#include "mythlogging_extra.h"
 #include "mythsystem.h"
 
 bool SourceUtil::HasDigitalChannel(uint sourceid)
@@ -392,7 +392,7 @@ bool SourceUtil::UpdateChannelsFromListings(uint sourceid, QString cardtype, boo
             cmd += QString(" --sourceid %1").arg(sourceid);
         if (!cardtype.isEmpty())
             cmd += QString(" --cardtype %1").arg(cardtype);
-        cmd += logPropagateArgs;
+        cmd += myth_logging::command_line_arguments();
 
         myth_system(cmd);
     }

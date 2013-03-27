@@ -1,93 +1,119 @@
 #ifndef MYTHLOGGING_H_
 #define MYTHLOGGING_H_
 
-#ifdef __cplusplus
-#include <QString>
-#include <QStringList>
-#endif
 #include <stdint.h>
 #include <errno.h>
 
 #include "mythbaseexp.h"  //  MBASE_PUBLIC , etc.
 #include "verbosedefs.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/** MythTV Logging.
+ *
+ * The functions and variables defined here are not intended to be
+ * used directly. They are only intended to be used by the macros
+ * and may change at any time.
+ *
+ * The LOG(MASK, LOG_LEVEL, MESSAGE) macro accepts three parameters:
+ *  * The verbose mask
+ *  * The log level
+ *  * The message
+ *
+ * LOG_WILL_USE(MASK, LOG_LEVEL)
+ * The main reason LOG() is a macro and not a function is that it
+ * allows us not to evaluate the message if we know it will not
+ * be logged. This means you can use a somewhat complicated
+ * expression as the message secure in the knowledge that it
+ * won't be evaluated unless needed. There are however times
+ * when it is difficult to express the message computation
+ * functionally. In that case you can check if the computation
+ * of the message will be needed with the LOG_WILL_USE() macro.
+ * 
+ * The ENO macro returns a QString containg a description of the
+ * thread local errno variable. This is only usable in C++ logging.
+ * This can be used to print a description of the errors returned
+ * from various C API calls.
+ *
+ * LOG_PRINT() and LOG_PRINT_FLUSH()
+ * The LOG() macro's console logging messages are sent to the standard
+ * error output so any messages sent to standard output can be
+ * disentangled fairly easily via piping. However to ensure the proper
+ * interleaving of console output and logging for command line programs
+ * these is also a LOG_PRINT() macro. This macro accepts a QString and
+ * will send this string to the standard output without interfering
+ * with any LOG() output. LOG_PRINT_FLUSH() is the same except it
+ * also flushes the standard output pipe so any message is displayed
+ * immediately.
+ *
+ * Additional logging functionality is exposed in the mythlogging_extra.h
+ * header, and resides in the myth_logging namespace.
+ *
+ */
 
-// Helper for checking verbose mask & level outside of LOG macro
-#define VERBOSE_LEVEL_NONE        (verboseMask == 0)
-#define VERBOSE_LEVEL_CHECK(_MASK_, _LEVEL_) \
-    (((verboseMask & (_MASK_)) == (_MASK_)) && logLevel >= (_LEVEL_))
 
+/// Old habits die hard, reminder to use LOG() instead of VERBOSE().
 #define VERBOSE please_use_LOG_instead_of_VERBOSE
 
-// There are two LOG macros now.  One for use with Qt/C++, one for use
-// without Qt.
-//
-// Neither of them will lock the calling thread other than momentarily to put
-// the log message onto a queue.
+/// Helper for checking verbose mask & level
+#define LOG_WILL_USE(_MASK_, _LEVEL_) \
+    (((g_myth_logging_verbose_mask & (_MASK_)) == (_MASK_)) && g_myth_logging_log_level >= (_LEVEL_))
+
+#define LOG_MIGHT_USE(_MASK_, _LEVEL_) \
+    ((g_myth_logging_verbose_mask & (_MASK_)) && g_myth_logging_log_level >= (_LEVEL_))
+
 #ifdef __cplusplus
 #define LOG(_MASK_, _LEVEL_, _STRING_)                                  \
     do {                                                                \
-        if (VERBOSE_LEVEL_CHECK((_MASK_), (_LEVEL_)) && ((_LEVEL_)>=0)) \
+        if (LOG_WILL_USE((_MASK_), (_LEVEL_)) && ((_LEVEL_)>=0))        \
         {                                                               \
-            LogPrintLine(_MASK_, (LogLevel_t)_LEVEL_,                   \
-                         __FILE__, __LINE__, __FUNCTION__, 1,           \
-                         QString(_STRING_).toLocal8Bit().constData());  \
+            log_line(_MASK_, _LEVEL_, __FILE__, __LINE__, __FUNCTION__, \
+                     _STRING_);                                         \
         }                                                               \
     } while (false)
-#else
-#define LOG(_MASK_, _LEVEL_, _FORMAT_, ...)                             \
-    do {                                                                \
-        if (VERBOSE_LEVEL_CHECK((_MASK_), (_LEVEL_)) && ((_LEVEL_)>=0)) \
-        {                                                               \
-            LogPrintLine(_MASK_, (LogLevel_t)_LEVEL_,                   \
-                         __FILE__, __LINE__, __FUNCTION__, 0,           \
-                         (const char *)_FORMAT_, ##__VA_ARGS__);        \
-        }                                                               \
-    } while (0)
-#endif
 
-/* Define the external prototype */
-MBASE_PUBLIC void LogPrintLine( uint64_t mask, LogLevel_t level, 
-                                const char *file, int line, 
-                                const char *function, int fromQString,
-                                const char *format, ... );
+#define LOG_PRINT(_STRING_) \
+    do { log_print(_STRING_, false); } while (false)
+#define LOG_PRINT_FLUSH(_STRING_) \
+    do { log_print(_STRING_, true); } while (false)
 
-extern MBASE_PUBLIC LogLevel_t logLevel;
-extern MBASE_PUBLIC uint64_t   verboseMask;
+#define ENO (QString("\neno: ") + errno_to_qstring(errno))
 
-#ifdef __cplusplus
-}
+class QString;
 
-extern MBASE_PUBLIC QStringList logPropagateArgList;
-extern MBASE_PUBLIC QString     logPropagateArgs;
-extern MBASE_PUBLIC QString     verboseString;
+MBASE_PUBLIC void log_line(
+    uint64_t mask, int level, const char *file, int line,
+    const char *function, const QString &msg);
 
-MBASE_PUBLIC void logStart(QString logfile, int progress = 0, int quiet = 0,
-                           int facility = 0, LogLevel_t level = LOG_INFO,
-                           bool dblog = true, bool propagate = false);
-MBASE_PUBLIC void logStop(void);
-MBASE_PUBLIC void logPropagateCalc(void);
-MBASE_PUBLIC bool logPropagateQuiet(void);
-
-MBASE_PUBLIC int  syslogGetFacility(QString facility);
-MBASE_PUBLIC LogLevel_t logLevelGet(QString level);
-MBASE_PUBLIC QString logLevelGetName(LogLevel_t level);
-MBASE_PUBLIC int verboseArgParse(QString arg);
+MBASE_PUBLIC void log_print(const QString &msg, bool flush);
 
 /// Verbose helper function for ENO macro
-MBASE_PUBLIC QString logStrerror(int errnum);
+MBASE_PUBLIC QString errno_to_qstring(int errnum);
 
-/// This can be appended to the LOG args with 
-/// "+".  Please do not use "<<".  It uses
-/// a thread safe version of strerror to produce the
-/// string representation of errno and puts it on the
-/// next line in the verbose output.
-#define ENO (QString("\n\t\t\teno: ") + logStrerror(errno))
-#define ENO_STR ENO.toLocal8Bit().constData()
-#endif // __cplusplus
+#endif
+
+#ifndef __cplusplus
+#define LOG(_MASK_, _LEVEL_, _FORMAT_, ...)                             \
+    do {                                                                \
+        if (LOG_WILL_USE((_MASK_), (_LEVEL_)) && ((_LEVEL_)>=0))        \
+        {                                                               \
+            log_line_c(_MASK_, _LEVEL_,                                 \
+                       __FILE__, __LINE__, __FUNCTION__, 0,             \
+                       (const char *)_FORMAT_, ##__VA_ARGS__);          \
+        }                                                               \
+    } while (0)
+#endif // end of C section
+
+#ifdef __cplusplus
+extern "C" MBASE_PUBLIC 
+#endif
+void log_line_c(
+    uint64_t mask, unsigned int level, const char *file, int line, 
+    const char *function, const char *format, ...);
+
+// common section
+/// Please don't use this directly, use myth_logging::get_log_level()
+extern MBASE_PUBLIC int g_myth_logging_log_level;
+/// Please don't use this directly, use myth_logging::get_verbose()
+extern MBASE_PUBLIC uint64_t g_myth_logging_verbose_mask;
 
 #endif
 

@@ -36,6 +36,7 @@ SOURCES += mythobservable.cpp mythevent.cpp
 SOURCES += mythtimer.cpp mythsignalingtimer.cpp mythdirs.cpp
 SOURCES += lcddevice.cpp mythstorage.cpp remotefile.cpp
 SOURCES += mythcorecontext.cpp mythsystem.cpp mythlocale.cpp storagegroup.cpp
+SOURCES += mythlogging.cpp
 SOURCES += mythcoreutil.cpp mythdownloadmanager.cpp mythtranslation.cpp
 SOURCES += unzip.cpp iso639.cpp iso3166.cpp mythmedia.cpp mythmiscutil.cpp
 SOURCES += mythhdd.cpp mythcdrom.cpp dbutil.cpp

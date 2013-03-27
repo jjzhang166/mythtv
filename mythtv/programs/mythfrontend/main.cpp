@@ -1464,6 +1464,9 @@ int main(int argc, char **argv)
     new QApplication(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFRONTEND);
 
+    if (!cmdline.ConfigureLogging(kMultiThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
+
 #ifndef _WIN32
     QList<int> signallist;
     signallist << SIGINT << SIGTERM << SIGSEGV << SIGABRT << SIGBUS << SIGFPE
@@ -1476,10 +1479,6 @@ int main(int argc, char **argv)
     SignalHandler::SetHandler(SIGUSR2, handleSIGUSR2);
     signal(SIGHUP, SIG_IGN);
 #endif
-
-    int retval;
-    if ((retval = cmdline.ConfigureLogging()) != GENERIC_EXIT_OK)
-        return retval;
 
     bool ResetSettings = false;
 

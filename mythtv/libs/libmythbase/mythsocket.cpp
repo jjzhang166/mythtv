@@ -24,8 +24,8 @@
 #include "mythtimer.h"
 #include "mythevent.h"
 #include "mythversion.h"
-#include "mythlogging.h"
 #include "mythcorecontext.h"
+#include "mythlogging_extra.h"
 
 #define SLOC(a) QString("MythSocket(%1:%2): ") \
     .arg((intptr_t)(a), 0, 16)                 \
@@ -685,12 +685,12 @@ void MythSocket::WriteStringListReal(const QStringList *list, bool *ret)
     payload += utf8;
     size = payload.length();
 
-    if (VERBOSE_LEVEL_CHECK(VB_NETWORK, LOG_INFO))
+    if (LOG_WILL_USE(VB_NETWORK, LOG_INFO))
     {
         QString msg = QString("write -> %1 %2")
             .arg(m_tcpSocket->socketDescriptor(), 2).arg(payload.data());
 
-        if (logLevel < LOG_DEBUG && msg.length() > 88)
+        if ((myth_logging::get_log_level <() LOG_DEBUG) && (msg.length() > 88))
         {
             msg.truncate(85);
             msg += "...";
@@ -885,13 +885,13 @@ void MythSocket::ReadStringListReal(
     payload.truncate(8);
     payload += str;
 
-    if (VERBOSE_LEVEL_CHECK(VB_NETWORK, LOG_INFO))
+    if (LOG_WILL_USE(VB_NETWORK, LOG_INFO))
     {
         QString msg = QString("read  <- %1 %2")
             .arg(m_tcpSocket->socketDescriptor(), 2)
             .arg(payload.data());
 
-        if (logLevel < LOG_DEBUG && msg.length() > 88)
+        if ((myth_logging::get_log_level() < LOG_DEBUG) && (msg.length() > 88))
         {
             msg.truncate(85);
             msg += "...";

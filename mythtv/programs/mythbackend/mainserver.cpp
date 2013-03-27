@@ -39,6 +39,7 @@ using namespace std;
 #include <QNetworkProxy>
 
 #include "previewgeneratorqueue.h"
+#include "mythlogging_extra.h"
 #include "mythmiscutil.h"
 #include "mythsystem.h"
 #include "exitcodes.h"
@@ -69,7 +70,6 @@ using namespace std;
 #include "mythdownloadmanager.h"
 #include "metadatafactory.h"
 #include "videoutils.h"
-#include "mythlogging.h"
 #include "filesysteminfo.h"
 
 /** Milliseconds to wait for an existing thread from
@@ -4692,7 +4692,7 @@ void MainServer::GetFilesystemInfos(QList<FileSystemInfo> &fsInfos)
     FileSystemInfo::Consolidate(fsInfos, false, maxWriteFiveSec);
 
     QList<FileSystemInfo>::iterator it1;
-    if (VERBOSE_LEVEL_CHECK(VB_FILE | VB_SCHEDULE, LOG_INFO))
+    if (LOG_WILL_USE(VB_FILE | VB_SCHEDULE, LOG_INFO))
     {
         LOG(VB_FILE | VB_SCHEDULE, LOG_INFO,
             "--- GetFilesystemInfos directory list start ---");
@@ -5309,20 +5309,23 @@ void MainServer::HandleSetVerbose(QStringList &slist, PlaybackSock *pbs)
     MythSocket *pbssock = pbs->getSocket();
     QStringList retlist;
 
+    bool ok = false;
     QString newverbose = slist[1];
     int len = newverbose.length();
     if (len > 12)
     {
-        verboseArgParse(newverbose.right(len-12));
-        logPropagateCalc();
+        using namespace myth_logging;
+        uint64_t newmask = parse_verbose(newverbose.right(len-12), &ok);
+        uint64_t oldmask = set_verbose(newmask);
 
         LOG(VB_GENERAL, LOG_NOTICE,
-            QString("Verbose mask changed, new mask is: %1")
-                 .arg(verboseString));
+            QString("Verbose mask changed: %1 -> %2")
+            .arg(format_verbose(oldmask)).arg(format_verbose(newmask)));
 
         retlist << "OK";
     }
-    else
+
+    if (!ok)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Invalid SET_VERBOSE string: '%1'")
                                       .arg(newverbose));
@@ -5337,27 +5340,28 @@ void MainServer::HandleSetLogLevel(QStringList &slist, PlaybackSock *pbs)
     MythSocket *pbssock = pbs->getSocket();
     QStringList retlist;
     QString newstring = slist[1];
-    LogLevel_t newlevel = LOG_UNKNOWN;
-
+    bool ok = false;
     int len = newstring.length();
+
     if (len > 14)
     {
-        newlevel = logLevelGet(newstring.right(len-14));
+        using namespace myth_logging;
+        int newlevel = parse_log_level(newstring.right(len-14), &ok);
         if (newlevel != LOG_UNKNOWN)
         {
-            logLevel = newlevel;
-            logPropagateCalc();
+            int oldlevel = set_log_level(newlevel);
             LOG(VB_GENERAL, LOG_NOTICE,
-                QString("Log level changed, new level is: %1")
-                    .arg(logLevelGetName(logLevel)));
+                QString("Log level changed, level %1 -> %2")
+                .arg(format_log_level(oldlevel))
+                .arg(format_log_level(newlevel)));
 
             retlist << "OK";
         }
     }
 
-    if (newlevel == LOG_UNKNOWN)
+    if (!ok)
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Invalid SET_VERBOSE string: '%1'")
+        LOG(VB_GENERAL, LOG_ERR, QString("Invalid SET_LOG_LEVEL string: '%1'")
                                       .arg(newstring));
         retlist << "Failed";
     }

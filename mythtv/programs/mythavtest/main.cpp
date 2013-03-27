@@ -167,9 +167,8 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHAVTEST);
 
-    int retval;
-    if ((retval = cmdline.ConfigureLogging()) != GENERIC_EXIT_OK)
-        return retval;
+    if (!cmdline.ConfigureLogging(kMultiThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
     if (!cmdline.toString("display").isEmpty())
     {

@@ -762,7 +762,7 @@ bool DVBChannel::Tune(const DTVMultiplex &tuning,
                 return false;
             }
 
-            if (VERBOSE_LEVEL_CHECK(VB_CHANNEL, LOG_DEBUG))
+            if (LOG_WILL_USE(VB_CHANNEL, LOG_DEBUG))
             {
                 for (uint i = 0; i < cmds->num; i++)
                 {

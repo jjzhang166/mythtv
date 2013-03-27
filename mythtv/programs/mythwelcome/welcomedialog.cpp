@@ -22,6 +22,7 @@
 
 #include "welcomedialog.h"
 #include "welcomesettings.h"
+#include "mythlogging_extra.h"
 
 #define UPDATE_STATUS_INTERVAL   30000
 #define UPDATE_SCREEN_INTERVAL   15000
@@ -128,7 +129,7 @@ void WelcomeDialog::checkAutoStart(void)
     // mythshutdown --startup returns 0 for automatic startup
     //                                1 for manual startup
     QString command = m_installDir + "/bin/mythshutdown --startup";
-    command += logPropagateArgs;
+    command += myth_logging::command_line_arguments();
     uint state = myth_system(command);
 
     LOG(VB_GENERAL, LOG_NOTICE,
@@ -274,16 +275,19 @@ bool WelcomeDialog::keyPressEvent(QKeyEvent *event)
                 m_installDir + "/bin/mythshutdown --lock";
 
             uint statusCode;
-            statusCode = myth_system(mythshutdown_status + logPropagateArgs);
+            statusCode = myth_system(
+                mythshutdown_status + myth_logging::command_line_arguments());
 
             // is shutdown locked by a user
             if (!(statusCode & 0xFF00) && statusCode & 16)
             {
-                myth_system(mythshutdown_unlock + logPropagateArgs);
+                myth_system(
+                    mythshutdown_unlock + myth_logging::command_line_arguments());
             }
             else
             {
-                myth_system(mythshutdown_lock + logPropagateArgs);
+                myth_system(
+                    mythshutdown_lock + myth_logging::command_line_arguments());
             }
 
             updateStatusMessage();
@@ -298,7 +302,7 @@ bool WelcomeDialog::keyPressEvent(QKeyEvent *event)
         else if (action == "STARTSETUP")
         {
             QString mythtv_setup = m_installDir + "/bin/mythtv-setup";
-            myth_system(mythtv_setup + logPropagateArgs);
+            myth_system(mythtv_setup + myth_logging::command_line_arguments());
         }
         else
             handled = false;
@@ -448,7 +452,7 @@ void WelcomeDialog::runMythFillDatabase()
     QString mfarg = gCoreContext->GetSetting("MythFillDatabaseArgs", "");
 
     command = QString("%1 %2").arg(mfpath).arg(mfarg);
-    command += logPropagateArgs;
+    command += myth_logging::command_line_arguments();
 
     command += "&";
 
@@ -531,7 +535,8 @@ void WelcomeDialog::updateStatusMessage(void)
     }
 
     QString mythshutdown_status = m_installDir + "/bin/mythshutdown --status 0";
-    uint statusCode = myth_system(mythshutdown_status + logPropagateArgs);
+    uint statusCode = myth_system(
+        mythshutdown_status + myth_logging::command_line_arguments());
 
     if (!(statusCode & 0xFF00))
     {
@@ -602,7 +607,8 @@ void WelcomeDialog::showMenu(void)
     m_menuPopup->SetReturnEvent(this, "action");
 
     QString mythshutdown_status = m_installDir + "/bin/mythshutdown --status 0";
-    uint statusCode = myth_system(mythshutdown_status + logPropagateArgs);
+    uint statusCode = myth_system(
+        mythshutdown_status + myth_logging::command_line_arguments());
 
     if (!(statusCode & 0xFF00) && statusCode & 16)
         m_menuPopup->AddButton(tr("Unlock Shutdown"), SLOT(unlockShutdown()));
@@ -618,7 +624,7 @@ void WelcomeDialog::showMenu(void)
 void WelcomeDialog::lockShutdown(void)
 {
     QString command = m_installDir + "/bin/mythshutdown --lock";
-    command += logPropagateArgs;
+    command += myth_logging::command_line_arguments();
     myth_system(command);
     updateStatusMessage();
     updateScreen();
@@ -627,7 +633,7 @@ void WelcomeDialog::lockShutdown(void)
 void WelcomeDialog::unlockShutdown(void)
 {
     QString command = m_installDir + "/bin/mythshutdown --unlock";
-    command += logPropagateArgs;
+    command += myth_logging::command_line_arguments();
     myth_system(command);
     updateStatusMessage();
     updateScreen();
@@ -674,7 +680,7 @@ void WelcomeDialog::shutdownNow(void)
 
     // don't shutdown if we are about to start a wakeup/shutdown period
     QString command = m_installDir + "/bin/mythshutdown --status 0";
-    command += logPropagateArgs;
+    command += myth_logging::command_line_arguments();
 
     uint statusCode = myth_system(command);
     if (!(statusCode & 0xFF00) && statusCode & 128)
@@ -718,7 +724,7 @@ void WelcomeDialog::shutdownNow(void)
 
     // run command to set wakeuptime in bios and shutdown the system
     command = "sudo " + m_installDir + "/bin/mythshutdown --shutdown";
-    command += logPropagateArgs;
+    command += myth_logging::command_line_arguments();
 
     myth_system(command);
 }

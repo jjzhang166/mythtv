@@ -19,7 +19,7 @@ void MythScreenWizardCommandLineParser::LoadArguments(void)
     addHelp();
     addSettingsOverride();
     addVersion();
-    addLogging();
+    addLogging(VB_GENERAL, LOG_INFO, -1);
     addMouse();
     addDisplay();
 }

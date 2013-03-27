@@ -34,19 +34,8 @@ int main(int argc, char *argv[])
     }
 
     // default to quiet operation for pidcounter and pidfilter
-    QString defaultVerbose = "general";
-    LogLevel_t defaultLevel = LOG_INFO;
     if (cmdline.toBool("pidcounter") || cmdline.toBool("pidfilter"))
-    {
-        if (!cmdline.toBool("verbose"))
-        {
-            verboseString = defaultVerbose = "";
-            verboseMask = 0;
-        }
-        if (!cmdline.toBool("loglevel"))
-            logLevel = defaultLevel = LOG_ERR;
-    }
-
+        cmdline.SetLoggingDefaults(VB_NONE, LOG_ERR, -1);
 
     if (cmdline.toBool("showhelp"))
     {
@@ -70,12 +59,8 @@ int main(int argc, char *argv[])
 
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHUTIL);
 
-    int retval;
-    if ((retval = cmdline.ConfigureLogging(defaultVerbose)) != GENERIC_EXIT_OK)
-        return retval;
-
-    if (!cmdline.toBool("loglevel"))
-        logLevel = defaultLevel;
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
 #ifndef _WIN32
     QList<int> signallist;

@@ -35,8 +35,8 @@ using namespace std;
 #include <QSet>
 
 // MythTV headers
+#include "mythlogging_extra.h"
 #include "mthreadpool.h"
-#include "mythlogging.h"
 #include "mythtimer.h"
 #include "mthread.h"
 #include "mythdb.h"
@@ -80,7 +80,7 @@ class MPoolThread : public MThread
             }
 
             if (!m_runnable_name.isEmpty())
-                loggingRegisterThread(m_runnable_name);
+                myth_logging::register_thread(m_runnable_name);
 
             bool autodelete = m_runnable->autoDelete();
             m_runnable->run();
@@ -91,8 +91,8 @@ class MPoolThread : public MThread
             m_reserved = false;
             m_runnable = NULL;
 
-            loggingDeregisterThread();
-            loggingRegisterThread(objectName());
+            myth_logging::deregister_thread();
+            myth_logging::register_thread(objectName());
 
             GetMythDB()->GetDBManager()->PurgeIdleConnections(false);
             qApp->processEvents();

@@ -253,7 +253,7 @@ class ImageLoader
 
         if (image)
         {
-            if (VERBOSE_LEVEL_CHECK(VB_GUI | VB_FILE, LOG_INFO))
+            if (LOG_WILL_USE(VB_GUI | VB_FILE, LOG_INFO))
             {
                 image->IncrRef();
                 int cnt = image->DecrRef();

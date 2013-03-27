@@ -891,10 +891,12 @@ QString NetworkControl::processQuery(NetworkCommand *nc)
                 result = "ERROR: Timed out waiting for reply from player";
         }
     }
+/*
     else if (is_abbrev("verbose", nc->getArg(1)))
     {
         return verboseString;
     }
+*/
     else if (is_abbrev("liveTV", nc->getArg(1)))
     {
         if(nc->getArgCount() == 3) // has a channel ID
@@ -1011,6 +1013,7 @@ QString NetworkControl::processSet(NetworkCommand *nc)
 
     if (nc->getArg(1) == "verbose")
     {
+/*
         if (nc->getArgCount() > 3)
             return QString("ERROR: Separate filters with commas with no "
                            "space: playback,audio\r\n See 'help %1' for usage "
@@ -1021,7 +1024,7 @@ QString NetworkControl::processSet(NetworkCommand *nc)
 
         int pva_result = verboseArgParse(nc->getArg(2));
 
-        if (pva_result != 0 /*GENERIC_EXIT_OK */)
+        if (pva_result != 0) // 0 == GENERIC_EXIT_OK
             result = "Failed";
 
         result += "\r\n";
@@ -1033,6 +1036,7 @@ QString NetworkControl::processSet(NetworkCommand *nc)
                 .arg(verboseString));
 
         return result;
+*/
     }
 
     return QString("ERROR: See 'help %1' for usage information")

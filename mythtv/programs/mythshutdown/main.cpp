@@ -833,9 +833,8 @@ int main(int argc, char **argv)
     QCoreApplication a(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSHUTDOWN);
 
-    int retval = cmdline.ConfigureLogging("none");
-    if (retval != GENERIC_EXIT_OK)
-        return retval;
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
 #ifndef _WIN32
     QList<int> signallist;

@@ -633,7 +633,7 @@ void AutoExpire::SendDeleteMessages(pginfolist_t &deleteList)
     while (it != deleteList.end())
     {
         msg = QString("%1Expiring %2 MB for %3 => %4")
-            .arg(VERBOSE_LEVEL_CHECK(VB_FILE, LOG_ANY) ? "    " : "")
+            .arg(LOG_WILL_USE(VB_FILE, LOG_ANY) ? "    " : "")
             .arg(((*it)->GetFilesize() >> 20))
             .arg((*it)->toString(ProgramInfo::kRecordingKey))
             .arg((*it)->toString(ProgramInfo::kTitleSubtitle));
@@ -729,7 +729,7 @@ void AutoExpire::ExpireEpisodesOverMax(void)
                     QString msg =
                         QString("%1Expiring %2 MBytes for %3 at %4 => %5.  "
                                 "Too many episodes, we only want to keep %6.")
-                        .arg(VERBOSE_LEVEL_CHECK(VB_FILE, LOG_ANY) ?
+                        .arg(LOG_WILL_USE(VB_FILE, LOG_ANY) ?
                              "    " : "")
                         .arg(spaceFreed)
                         .arg(chanid).arg(startts.toString(Qt::ISODate))

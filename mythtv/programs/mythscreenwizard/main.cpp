@@ -144,7 +144,6 @@ int main(int argc, char **argv)
         return GENERIC_EXIT_OK;
     }
 
-
 #ifdef Q_OS_MAC
     // Without this, we can't set focus to any of the CheckBoxSetting, and most
     // of the MythPushButton widgets, and they don't use the themed background.
@@ -153,12 +152,10 @@ int main(int argc, char **argv)
     new QApplication(argc, argv);
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSCREENWIZARD);
 
-    int retval;
-    QString mask("general");
-    if ((retval = cmdline.ConfigureLogging(mask, false)) != GENERIC_EXIT_OK)
-        return retval;
-
     CleanupGuard callCleanup(cleanup);
+
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
 #ifndef _WIN32
     QList<int> signallist;
@@ -170,10 +167,6 @@ int main(int argc, char **argv)
     SignalHandler::Init(signallist);
     signal(SIGHUP, SIG_IGN);
 #endif
-
-
-    if ((retval = cmdline.ConfigureLogging()) != GENERIC_EXIT_OK)
-        return retval;
 
     if (!cmdline.toString("display").isEmpty())
     {

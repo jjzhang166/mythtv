@@ -21,6 +21,6 @@ void MythMediaServerCommandLineParser::LoadArguments(void)
     addSettingsOverride();
     addPIDFile();
     addDaemon();
-    addLogging();
+    addLogging(VB_GENERAL, LOG_INFO, -1);
 }
 

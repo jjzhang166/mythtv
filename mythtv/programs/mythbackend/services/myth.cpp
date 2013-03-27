@@ -34,7 +34,7 @@
 #include "mythversion.h"
 #include "mythcorecontext.h"
 #include "mythdbcon.h"
-#include "mythlogging.h"
+#include "mythlogging_extra.h"
 #include "storagegroup.h"
 #include "dbutil.h"
 #include "hardwareprofile.h"
@@ -470,8 +470,8 @@ DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
         query.bindValue(":FROMTIME", (FromTime.isValid()) ? FromTime : QDateTime());
         query.bindValue(":TOTIME", (ToTime.isValid()) ? ToTime : QDateTime());
         query.bindValue(":LEVEL", (Level.isEmpty()) ?
-                                        QVariant(QVariant::ULongLong) :
-                                        (qint64)logLevelGet(Level));
+                        QVariant(QVariant::ULongLong) :
+                        (qint64)myth_logging::parse_log_level(Level));
 
         if (!MsgContains.isEmpty())
         {
@@ -497,8 +497,8 @@ DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
             pLogMessage->setLine( query.value(6).toInt() );
             pLogMessage->setFunction( query.value(7).toString() );
             pLogMessage->setTime(MythDate::as_utc(query.value(8).toDateTime()));
-            pLogMessage->setLevel( logLevelGetName(
-                                       (LogLevel_t)query.value(9).toInt()) );
+            pLogMessage->setLevel(
+                myth_logging::format_log_level(query.value(9).toInt()));
             pLogMessage->setMessage( query.value(10).toString() );
         }
     }

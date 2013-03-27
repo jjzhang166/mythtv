@@ -17,7 +17,7 @@ void MythFrontendCommandLineParser::LoadArguments(void)
     addGeometry();
     addDisplay();
     addUPnP();
-    addLogging();
+    addLogging(VB_GENERAL, LOG_ERR, -1);
 
     add(QStringList( QStringList() << "-r" << "--reset" ), "reset", false,
         "Resets appearance, settings, and language.", "");

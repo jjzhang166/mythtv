@@ -183,7 +183,7 @@ static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
     if (silence_ffmpeg_logging)
         return;
 
-    if (VERBOSE_LEVEL_NONE)
+    if (!LOG_MIGHT_USE(VB_LIBAV|VB_GENERAL, LOG_EMERG))
         return;
 
     static QString full_line("");
@@ -218,7 +218,7 @@ static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
             return;
     }
 
-    if (!VERBOSE_LEVEL_CHECK(verbose_mask, verbose_level))
+    if (!LOG_WILL_USE(verbose_mask, verbose_level))
         return;
 
     string_lock.lock();
@@ -345,7 +345,7 @@ AvFormatDecoder::AvFormatDecoder(MythPlayer *parent,
                                          sizeof(int32_t));
     ccd608->SetIgnoreTimecode(true);
 
-    bool debug = VERBOSE_LEVEL_CHECK(VB_LIBAV, LOG_ANY);
+    bool debug = LOG_WILL_USE(VB_LIBAV, LOG_ANY);
     av_log_set_level((debug) ? AV_LOG_DEBUG : AV_LOG_ERROR);
     av_log_set_callback(myth_av_log);
 
@@ -910,7 +910,7 @@ int AvFormatDecoder::FindStreamInfo(void)
 {
     QMutexLocker lock(avcodeclock);
     // Suppress ffmpeg logging unless "-v libav --loglevel debug"
-    if (!VERBOSE_LEVEL_CHECK(VB_LIBAV, LOG_DEBUG))
+    if (!LOG_WILL_USE(VB_LIBAV, LOG_DEBUG))
         silence_ffmpeg_logging = true;
     avfRingBuffer->SetInInit(ringBuffer->IsStreamed());
     int retval = avformat_find_stream_info(ic, NULL);
@@ -1943,7 +1943,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
             // Nigel's bogus codec-debug. Dump the list of codecs & decoders,
             // and have one last attempt to find a decoder. This is usually
             // only caused by build problems, where libavcodec needs a rebuild
-            if (VERBOSE_LEVEL_CHECK(VB_LIBAV, LOG_ANY))
+            if (LOG_WILL_USE(VB_LIBAV, LOG_ANY))
             {
                 AVCodec *p = av_codec_next(NULL);
                 int      i = 1;

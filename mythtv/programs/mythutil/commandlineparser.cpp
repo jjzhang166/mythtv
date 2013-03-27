@@ -147,7 +147,7 @@ void MythUtilCommandLineParser::LoadArguments(void)
     addSettingsOverride();
     addHelp();
     addVersion();
-    addLogging();
+    addLogging(VB_GENERAL, LOG_INFO, -1);
     allowExtras();
 }
 

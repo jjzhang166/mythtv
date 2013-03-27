@@ -764,7 +764,7 @@ bool MPEG2fixup::InitAV(QString inputfile, const char *type, int64_t offset)
     }
 
     // Dump stream information
-    if (VERBOSE_LEVEL_CHECK(VB_GENERAL, LOG_INFO))
+    if (LOG_WILL_USE(VB_GENERAL, LOG_INFO))
         av_dump_format(inputFC, 0, ifname, 0);
 
     for (unsigned int i = 0; i < inputFC->nb_streams; i++)
@@ -824,7 +824,7 @@ void MPEG2fixup::AddSequence(MPEG2frame *frame1, MPEG2frame *frame2)
     frame1->pkt.size += head_size;
     ProcessVideo(frame1, header_decoder);
 #if 0
-    if (VERBOSE_LEVEL_CHECK(VB_PROCESS, LOG_ANY))
+    if (LOG_WILL_USE(VB_PROCESS, LOG_ANY))
     {
         static int count = 0;
         QString filename = QString("hdr%1.yuv").arg(count++);
@@ -914,7 +914,7 @@ int MPEG2fixup::ProcessVideo(MPEG2frame *vf, mpeg2dec_t *dec)
         }   
     }
 
-    if (VERBOSE_LEVEL_CHECK(VB_DECODE, LOG_INFO))
+    if (LOG_WILL_USE(VB_DECODE, LOG_INFO))
     {
         QString msg = QString("");
 #if 0
@@ -1686,7 +1686,7 @@ int MPEG2fixup::ConvertToI(FrameList *orderedFrames, int headPos)
             QString fname;
 
 #ifdef SPEW_FILES
-            if (VERBOSE_LEVEL_CHECK(VB_PROCESS, LOG_ANY))
+            if (LOG_WILL_USE(VB_PROCESS, LOG_ANY))
                 fname = QString("cnv%1").arg(ins_count++);
 #endif
 
@@ -1729,7 +1729,7 @@ int MPEG2fixup::InsertFrame(int frameNum, int64_t deltaPTS,
     {
         QString fname;
 #if SPEW_FILES
-        fname = (VERBOSE_LEVEL_CHECK(VB_PROCESS, LOG_ANY) ?
+        fname = (LOG_WILL_USE(VB_PROCESS, LOG_ANY) ?
                 (QString("ins%1").arg(ins_count++)) : QString());
 #endif
 

@@ -108,11 +108,12 @@ void MythSystem::SetCommand(const QString &command,
     ProcessFlags(flags);
 
     // add logging arguments
+/*
     if (GetSetting("PropagateLogs"))
     {
         if (GetSetting("UseShell") && m_args.isEmpty())
         {
-            m_command += logPropagateArgs;
+            m_command += myth_logging::command_line_arguments();
             if (!logPropagateQuiet())
                 m_command += " --quiet";
         }
@@ -123,6 +124,7 @@ void MythSystem::SetCommand(const QString &command,
                 m_args << "--quiet";
         }
     }
+*/
 
     // check for execute rights
     if (!GetSetting("UseShell") && access(command.toUtf8().constData(), X_OK))

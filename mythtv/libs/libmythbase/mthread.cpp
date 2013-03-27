@@ -30,7 +30,7 @@ using namespace std;
 #include <QSet>
 
 // MythTV headers
-#include "mythlogging.h"
+#include "mythlogging_extra.h"
 #include "mythdbcon.h"
 #include "mythtimer.h"
 #include "mythdate.h"
@@ -226,7 +226,7 @@ void MThread::RunEpilog(void)
 
 void MThread::ThreadSetup(const QString &name)
 {
-    loggingRegisterThread(name);
+    myth_logging::register_thread(name);
     qsrand(MythDate::current().toTime_t() ^ QTime::currentTime().msec());
 }
 
@@ -234,7 +234,7 @@ void MThread::ThreadCleanup(void)
 {
     if (GetMythDB() && GetMythDB()->GetDBManager())
         GetMythDB()->GetDBManager()->CloseDatabases();
-    loggingDeregisterThread();
+    myth_logging::deregister_thread();
 }
 
 QThread *MThread::qthread(void)

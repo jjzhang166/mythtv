@@ -1425,7 +1425,7 @@ int Transcode::TranscodeFile(const QString &inputname,
                 return REENCODE_CUTLIST_CHANGE;
             }
 
-            if ((jobID >= 0) || (VERBOSE_LEVEL_CHECK(VB_GENERAL, LOG_INFO)))
+            if ((jobID >= 0) || (LOG_WILL_USE(VB_GENERAL, LOG_INFO)))
             {
                 if (JobQueue::GetJobCmd(jobID) == JOB_STOP)
                 {

@@ -14,7 +14,7 @@ void MythCommFlagCommandLineParser::LoadArguments(void)
     addVersion();
     addJob();
     addRecording();
-    addLogging();
+    addLogging(VB_NONE, LOG_ERR, -1);
 
     CommandLineArg::AllowOneOf( QList<CommandLineArg*>()
          << new CommandLineArg("chanid")

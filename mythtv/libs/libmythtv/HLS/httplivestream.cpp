@@ -35,9 +35,9 @@
 #include "mthreadpool.h"
 #include "mythsystem.h"
 #include "exitcodes.h"
-#include "mythlogging.h"
 #include "storagegroup.h"
 #include "httplivestream.h"
+#include "mythlogging_extra.h"
 
 #define LOC QString("HLS(%1): ").arg(m_sourceFile)
 #define LOC_ERR QString("HLS(%1) Error: ").arg(m_sourceFile)
@@ -73,7 +73,7 @@ class HTTPLiveStreamThread : public QRunnable
 
         QString command = GetInstallPrefix() +
             QString("/bin/mythtranscode --hls --hlsstreamid %1")
-                    .arg(m_streamID) + logPropagateArgs;
+            .arg(m_streamID) + myth_logging::command_line_arguments();
 
         uint result = myth_system(command, flags);
 

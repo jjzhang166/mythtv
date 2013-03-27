@@ -45,7 +45,7 @@ static QHash<uint,bool> extract_pids(const QString &pidsStr, bool required)
     if (pidsStr.isEmpty())
     {
         if (required)
-            LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Missing --pids option\n");
+            LOG_PRINT_FLUSH("Missing --pids option\n");
     }
     else
     {
@@ -59,7 +59,7 @@ static QHash<uint,bool> extract_pids(const QString &pidsStr, bool required)
         }
         if (required && use_pid.empty())
         {
-            LOG(VB_STDIO|VB_FLUSH, LOG_ERR,
+            LOG_PRINT_FLUSH(
                 "At least one pid must be specified\n");
         }
     }
@@ -90,7 +90,7 @@ static int pid_counter(const MythUtilCommandLineParser &cmdline)
 {
     if (cmdline.toString("infile").isEmpty())
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Missing --infile option\n");
+        LOG_PRINT_FLUSH("Missing --infile option\n");
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
     QString src = cmdline.toString("infile");
@@ -98,7 +98,7 @@ static int pid_counter(const MythUtilCommandLineParser &cmdline)
     RingBuffer *srcRB = RingBuffer::Create(src, false);
     if (!srcRB)
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Couldn't open input URL\n");
+        LOG_PRINT_FLUSH("Couldn't open input URL\n");
         return GENERIC_EXIT_NOT_OK;
     }
 
@@ -111,7 +111,7 @@ static int pid_counter(const MythUtilCommandLineParser &cmdline)
              packet_size != (188+16) &&
              packet_size != (188+20))
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR,
+        LOG_PRINT_FLUSH(
             QString("Invalid packet size %1, must be 188, 204, or 208\n")
             .arg(packet_size));
         return GENERIC_EXIT_INVALID_CMDLINE;
@@ -157,12 +157,12 @@ static int pid_counter(const MythUtilCommandLineParser &cmdline)
         {
             offset = 0;
         }
-        LOG(VB_STDIO, logLevel,
+        LOG_PRINT(
             QString("\r                                            \r"
                     "Processed %1 packets")
             .arg(total_count));
     }
-    LOG(VB_STDIO|VB_FLUSH, logLevel, "\n");
+    LOG_PRINT_FLUSH("\n");
 
     delete[] buffer;
     delete srcRB;
@@ -185,14 +185,14 @@ static int pid_filter(const MythUtilCommandLineParser &cmdline)
 {
     if (cmdline.toString("infile").isEmpty())
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Missing --infile option\n");
+        LOG_PRINT_FLUSH("Missing --infile option\n");
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
     QString src = cmdline.toString("infile");
 
     if (cmdline.toString("outfile").isEmpty())
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Missing --outfile option\n");
+        LOG_PRINT_FLUSH("Missing --outfile option\n");
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
     QString dest = cmdline.toString("outfile");
@@ -206,7 +206,7 @@ static int pid_filter(const MythUtilCommandLineParser &cmdline)
              packet_size != (188+16) &&
              packet_size != (188+20))
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR,
+        LOG_PRINT_FLUSH(
             QString("Invalid packet size %1, must be 188, 204, or 208\n")
             .arg(packet_size));
         return GENERIC_EXIT_INVALID_CMDLINE;
@@ -219,14 +219,14 @@ static int pid_filter(const MythUtilCommandLineParser &cmdline)
     RingBuffer *srcRB = RingBuffer::Create(src, false);
     if (!srcRB)
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Couldn't open input URL\n");
+        LOG_PRINT_FLUSH("Couldn't open input URL\n");
         return GENERIC_EXIT_NOT_OK;
     }
 
     RingBuffer *destRB = RingBuffer::Create(dest, true);
     if (!destRB)
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Couldn't open output URL\n");
+        LOG_PRINT_FLUSH("Couldn't open output URL\n");
         delete srcRB;
         return GENERIC_EXIT_NOT_OK;
     }
@@ -274,18 +274,18 @@ static int pid_filter(const MythUtilCommandLineParser &cmdline)
         {
             offset = 0;
         }
-        LOG(VB_STDIO|VB_FLUSH, logLevel,
+        LOG_PRINT_FLUSH(
             QString("\r                                            \r"
                     "Processed %1 packets")
             .arg(total_count));
     }
-    LOG(VB_STDIO|VB_FLUSH, logLevel, "\n");
+    LOG_PRINT_FLUSH("\n");
 
     delete[] buffer;
     delete srcRB;
     delete destRB;
 
-    LOG(VB_STDIO|VB_FLUSH, logLevel, QString("Wrote %1 of %2 packets\n")
+    LOG_PRINT_FLUSH(QString("Wrote %1 of %2 packets\n")
         .arg(write_count).arg(total_count));
 
     return GENERIC_EXIT_OK;
@@ -424,7 +424,7 @@ class PrintOutput
         }
         else
         {
-            LOG(VB_STDIO|VB_FLUSH, logLevel, msg);
+            LOG_PRINT_FLUSH(msg);
         }
     }
 
@@ -715,7 +715,7 @@ static int pid_printer(const MythUtilCommandLineParser &cmdline)
 {
     if (cmdline.toString("infile").isEmpty())
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Missing --infile option\n");
+        LOG_PRINT_FLUSH("Missing --infile option\n");
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
     QString src = cmdline.toString("infile");
@@ -723,7 +723,7 @@ static int pid_printer(const MythUtilCommandLineParser &cmdline)
     RingBuffer *srcRB = RingBuffer::Create(src, false);
     if (!srcRB)
     {
-        LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Couldn't open input URL\n");
+        LOG_PRINT_FLUSH("Couldn't open input URL\n");
         return GENERIC_EXIT_NOT_OK;
     }
 
@@ -741,7 +741,7 @@ static int pid_printer(const MythUtilCommandLineParser &cmdline)
         out = RingBuffer::Create(dest, true);
         if (!out)
         {
-            LOG(VB_STDIO|VB_FLUSH, LOG_ERR, "Couldn't open output URL\n");
+            LOG_PRINT_FLUSH("Couldn't open output URL\n");
             delete srcRB;
             return GENERIC_EXIT_NOT_OK;
         }
@@ -807,18 +807,18 @@ static int pid_printer(const MythUtilCommandLineParser &cmdline)
         offset = sd->ProcessData((const unsigned char*)buffer, len);
 
         totalBytes += len - offset;
-        LOG(VB_STDIO|VB_FLUSH, logLevel,
+        LOG_PRINT_FLUSH(
             QString("\r                                            \r"
                     "Processed %1 bytes")
             .arg(totalBytes));
     }
-    LOG(VB_STDIO|VB_FLUSH, logLevel, "\n");
+    LOG_PRINT_FLUSH("\n");
 
     if (ptsl->GetFirstPTS() >= 0)
     {
         QTime ot = QTime(0,0,0,0).addMSecs(ptsl->GetElapsedPTS()/90);
 
-        LOG(VB_STDIO|VB_FLUSH, logLevel,
+        LOG_PRINT_FLUSH(
             QString("First PTS %1, Last PTS %2, elapsed %3 %4\n")
             .arg(ptsl->GetFirstPTS()).arg(ptsl->GetLastPTS())
             .arg(ptsl->GetElapsedPTS())

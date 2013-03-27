@@ -117,9 +117,8 @@ int main(int argc, char *argv[])
         return GENERIC_EXIT_INVALID_CMDLINE;
     }
 
-    int retval = cmdline.ConfigureLogging("none");
-    if (retval != GENERIC_EXIT_OK)
-        return retval;
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
     if (cmdline.toBool("showhelp"))
     {

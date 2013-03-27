@@ -1,0 +1,37 @@
+/*
+ Logging primary goals:
+   Maintain the short-blocking logging when logging thread is running.
+   Logging thread is optional
+   Logging does not consume significant additional resources
+   No messages are printed until mask and level are initialized
+   Messages sent logging after logging thread is stopped are still captured
+   Database logging is disabled by default
+   Messages sent to stderr and stdout should be captured by logging
+     This is for third party library logging to be captured.
+       I'm not sure if this is always possible,
+       but it should be possible for the file log.
+   It should relatively easy to send text to the console stdin/stderr for
+     command line programs.
+   Logging messages should be sent to stderr, not stdout so they can
+     be seperated from program output with command line programs.
+ Logging secondary goals:
+   Allow log messages to be formatted.
+    i.e. "date | message | function | line | thread_id" might make sense if you
+    planned to parse the message later, while a more or less compact form might
+    make sense for human consumption.
+
+ Suggestions and Amendments:
+   Allow verbose mask to be printed in log message. (stichnot)
+   Bring back logfile. (stichnot)
+   Don't fail to log due to permissions of frontend and
+     backend being different (danielk)
+ */
+
+Can QCoreApplication::setApplicationName() be called earlier in
+programs so that we can initialize logging earlier?
+
+Document mythlogging{,_extra}.h
+
+Thread-safety strategy for g_myth_logging_log_level and
+g_myth_logging_verbose_mask, read write lock? other?
+

@@ -32,7 +32,7 @@ using namespace std;
 #include "mythdownloadmanager.h"
 #include "exitcodes.h"
 #include "mythversion.h"
-#include "mythlogging.h"
+#include "mythlogging_extra.h"
 
 void HouseKeepingThread::run(void)
 {
@@ -434,8 +434,8 @@ void HouseKeeper::RunMFD(void)
     if (mfpath == "mythfilldatabase")
         mfpath = GetInstallPrefix() + "/bin/mythfilldatabase";
 
-    QString command = QString("%1 %2 %3").arg(mfpath).arg(logPropagateArgs)
-                        .arg(mfarg);
+    QString command = QString("%1 %2 %3")
+        .arg(mfpath).arg(myth_logging::command_line_arguments()).arg(mfarg);
 
     {
         QMutexLocker locker(&fillDBLock);
@@ -813,7 +813,7 @@ void HouseKeeper::UpdateRecordedArtwork(void)
     QString command = GetInstallPrefix() + "/bin/mythmetadatalookup";
     QStringList args;
     args << "--refresh-all-artwork";
-    args << logPropagateArgs;
+    args << myth_logging::command_line_arguments();
 
     LOG(VB_GENERAL, LOG_INFO, QString("Performing Artwork Refresh: %1 %2")
         .arg(command).arg(args.join(" ")));
