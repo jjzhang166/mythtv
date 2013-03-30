@@ -122,6 +122,76 @@ class TestMythLogging : public QObject
         set_verbose(old_v_none);
     }
 
+    void FormatVerboseOne(void)
+    {
+        QVERIFY(format_verbose(VB_CHANNEL) == "channel");
+    }
+
+    void FormatVerboseMulti(void)
+    {
+        QVERIFY(format_verbose(VB_MHEG|VB_UPNP|VB_DECODE) ==
+                "mheg,upnp,decode");
+    }
+
+    void FormatVerboseNone(void)
+    {
+        QVERIFY(format_verbose(VB_NONE) == "none");
+    }
+
+    void ParseVerboseValidSingleAdditive(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_NONE);
+        QVERIFY(add == VB_DECODE);
+    }
+
+    void ParseVerboseValidMultiAdditive(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("mheg,upnp,decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_NONE);
+        QVERIFY(add == (VB_MHEG|VB_UPNP|VB_DECODE));
+    }
+
+    void ParseVerboseValidMixedCase(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("MHEG,UPnP,Decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_NONE);
+        QVERIFY(add == (VB_MHEG|VB_UPNP|VB_DECODE));
+    }
+
+    void ParseVerboseValidNonAdditive(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("none,mheg,upnp,decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_ALL);
+        QVERIFY(add == (VB_MHEG|VB_UPNP|VB_DECODE));
+    }
+
+    void ParseVerboseValidNonAdditiveInMiddle(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("general,mheg,none,upnp,decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_ALL);
+        QVERIFY(add == (VB_UPNP|VB_DECODE));
+    }
+
+    void ParseVerboseInvalid(void)
+    {
+        uint64_t sub = 0xDeadBeef, add = 0x31137;
+        bool ok = parse_verbose("decoder", sub, add);
+        QVERIFY(!ok);
+        QVERIFY(sub == 0xDeadBeef);
+        QVERIFY(add == 0x31137);
+    }
+
         //QVERIFY(args.contains(" --loglevel"));
         //QVERIFY(args.contains(" warning"));
 };
