@@ -126,7 +126,7 @@ MBASE_PUBLIC QString command_line_arguments(void)
     int level;
     bool init;
     LogDeque::Get().GetLogFilter(mask, level, init);
-    return QString(" --verbose %1 --logLevel %2 ")
+    return QString(" --verbose %1 --loglevel %2 ")
         .arg(format_verbose(mask))
         .arg(format_log_level(level));
 }
@@ -138,7 +138,7 @@ MBASE_PUBLIC QString format_verbose(uint64_t mask)
 
 MBASE_PUBLIC QString format_log_level(int level)
 {
-    return QString();
+    return LogDeque::Get().FormatLogLevel(level);
 }
 
 MBASE_PUBLIC QString format_syslog_facility(int facility)

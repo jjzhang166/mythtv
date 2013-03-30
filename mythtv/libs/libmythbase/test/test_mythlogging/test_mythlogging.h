@@ -121,6 +121,13 @@ class TestMythLogging : public QObject
         set_verbose(old_v_none);
     }
 
+    void CommandLineArgumentsSaneWithLogLevel(void)
+    {
+        QString args = command_line_arguments();
+        QVERIFY(args.contains(" --loglevel"));
+        QVERIFY(args.contains(" warning"));
+    }
+
     void FormatVerboseOne(void)
     {
         QVERIFY(format_verbose(VB_CHANNEL) == "channel");
@@ -135,6 +142,16 @@ class TestMythLogging : public QObject
     void FormatVerboseNone(void)
     {
         QVERIFY(format_verbose(VB_NONE) == "none");
+    }
+
+    void FormatLogLevelInfo(void)
+    {
+        QVERIFY(format_log_level(LOG_INFO) == "info");
+    }
+
+    void FormatLogLevelInvalid(void)
+    {
+        QVERIFY(format_log_level(LOG_DEBUG+99).isEmpty());
     }
 
     void ParseVerboseValidSingleAdditive(void)
@@ -191,6 +208,4 @@ class TestMythLogging : public QObject
         QVERIFY(add == 0x31137);
     }
 
-        //QVERIFY(args.contains(" --loglevel"));
-        //QVERIFY(args.contains(" warning"));
 };

@@ -137,6 +137,13 @@ class LogDeque
         return (it != m_logLevelParseInfo.end()) ? (*it) : LogLevelInfo();
     }
 
+    LogLevelInfo GetLogLevelInfo(int level) const
+    {
+        QHash<int, LogLevelInfo>::const_iterator it =
+            m_logLevelInfo.find(level);
+        return (it != m_logLevelInfo.end()) ? (*it) : LogLevelInfo();
+    }
+
     ThreadInfo LookupThreadInfo(Qt::HANDLE tid) const
     {
         QReadLocker locker(&m_hashLock);
@@ -149,6 +156,10 @@ class LogDeque
     void DeregisterThread(void);
 
     QString FormatVerbose(uint64_t mask);
+    QString FormatLogLevel(int level)
+    {
+        return GetLogLevelInfo(level).GetName().mid(4).toLower();
+    }
 
   private:
     LogDeque();
