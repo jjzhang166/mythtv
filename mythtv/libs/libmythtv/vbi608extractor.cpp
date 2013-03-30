@@ -21,6 +21,8 @@
 #define __STDC_LIMIT_MACROS
 #endif
 
+#include <QString>
+
 #include <stdint.h>
 
 #include <algorithm>

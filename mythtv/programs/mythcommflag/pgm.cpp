@@ -1,5 +1,7 @@
 #include <climits>
 
+#include <QString>
+
 #include "mythconfig.h"
 
 extern "C" {

@@ -28,8 +28,9 @@ extern "C" {
 #include "libswscale/swscale.h"
 }
 
-#include <QMutex>
 #include <QMutexLocker>
+#include <QString>
+#include <QMutex>
 
 #include "mythlogging.h"
 #include "myth_imgconvert.h"

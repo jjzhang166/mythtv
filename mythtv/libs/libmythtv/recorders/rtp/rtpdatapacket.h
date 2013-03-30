@@ -6,6 +6,8 @@
 #ifndef _RTP_DATA_PACKET_H_
 #define _RTP_DATA_PACKET_H_
 
+#include <QString>
+
 #include <arpa/inet.h> // for ntohs()/ntohl()
 
 #include "udppacket.h"
