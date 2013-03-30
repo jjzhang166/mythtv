@@ -118,6 +118,7 @@ MBASE_PUBLIC uint64_t get_verbose(void)
     return mask;
 }
 
+/// formats verbose, log level, and syslog facility for another mythtv program
 // TODO syslog??
 MBASE_PUBLIC QString command_line_arguments(void)
 {

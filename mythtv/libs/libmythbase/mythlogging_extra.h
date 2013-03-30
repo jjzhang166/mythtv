@@ -20,7 +20,6 @@ MBASE_PUBLIC int get_log_level(void);
 MBASE_PUBLIC uint64_t set_verbose(uint64_t mask);
 MBASE_PUBLIC uint64_t get_verbose(void);
 
-/// formats verbose, log level, and syslog facility for anther mythtv program
 MBASE_PUBLIC QString command_line_arguments(void);
 
 MBASE_PUBLIC QString format_verbose(uint64_t mask);
