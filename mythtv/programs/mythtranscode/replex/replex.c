@@ -2581,15 +2581,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
-void LogPrintLine( uint64_t mask, LogLevel_t level, const char *file, int line,
-                   const char *function, int fromQString, 
-                   const char *format, ... )
-{
-	va_list         arguments;
-
-	va_start(arguments, format);
-	vfprintf(stderr, format, arguments);
-	va_end(arguments);
-	fprintf(stderr, "\n");
-}
