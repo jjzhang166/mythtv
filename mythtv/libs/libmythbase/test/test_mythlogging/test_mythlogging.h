@@ -88,13 +88,18 @@ class TestMythLogging : public QObject
         QVERIFY(new_v_vbi_get == (VB_VBI|VB_DECODE));
     }
 
-    void CommandLineArgumentsSaneWithVerbose(void)
+    void CommandLineArgumentsSaneAboutEnds(void)
     {
         QString args = command_line_arguments();
         QVERIFY(args.length() > 2);
         QVERIFY(args[0] == QChar(' '));
         QVERIFY(args[args.length() - 1] == QChar(' '));
-        QVERIFY(args.contains(" --verbose"));
+    }
+
+    void CommandLineArgumentsSaneWithVerbose(void)
+    {
+        QString args = command_line_arguments();
+        QVERIFY(args.contains(" --verbose "));
         QVERIFY(args.contains(" channel "));
     }
 
@@ -102,10 +107,7 @@ class TestMythLogging : public QObject
     {
         quint64 old_v_mheg = set_verbose(VB_MHEG|VB_UPNP|VB_DECODE);
         QString args = command_line_arguments();
-        QVERIFY(args.length() > 2);
-        QVERIFY(args[0] == QChar(' '));
-        QVERIFY(args[args.length() - 1] == QChar(' '));
-        QVERIFY(args.contains(" --verbose"));
+        QVERIFY(args.contains(" --verbose "));
         QVERIFY(args.contains(" mheg,upnp,decode "));
         set_verbose(old_v_mheg);
     }
@@ -114,10 +116,7 @@ class TestMythLogging : public QObject
     {
         quint64 old_v_none = set_verbose(VB_NONE);
         QString args = command_line_arguments();
-        QVERIFY(args.length() > 2);
-        QVERIFY(args[0] == QChar(' '));
-        QVERIFY(args[args.length() - 1] == QChar(' '));
-        QVERIFY(args.contains(" --verbose"));
+        QVERIFY(args.contains(" --verbose "));
         QVERIFY(args.contains(" none "));
         set_verbose(old_v_none);
     }
