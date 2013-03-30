@@ -38,6 +38,68 @@ class TestMythLogging : public QObject
         QVERIFY(LOG_WARNING == get_log_level());
     }
 
+    void log_will_use_single_verbose(void)
+    {
+        QVERIFY(log_will_use(VB_CHANNEL, LOG_WARNING));
+    }
+
+    void log_will_use_single_verbose_fail(void)
+    {
+        QVERIFY(!log_will_use(VB_DECODE, LOG_WARNING));
+    }
+
+    void log_will_use_multi_verbose_fail(void)
+    {
+        QVERIFY(!log_will_use(VB_CHANNEL|VB_DECODE, LOG_WARNING));
+    }
+
+    void log_will_use_multi_verbose_pass(void)
+    {
+        quint64 old_v_dec = set_verbose(VB_CHANNEL|VB_DECODE);
+        QVERIFY(log_will_use(VB_CHANNEL|VB_DECODE, LOG_WARNING));
+        set_verbose(old_v_dec);
+    }
+
+    void log_will_use_lower_level_fail(void)
+    {
+        QVERIFY(!log_will_use(VB_CHANNEL, LOG_INFO));
+    }
+
+    void log_will_use_higher_level_pass(void)
+    {
+        QVERIFY(log_will_use(VB_CHANNEL, LOG_ERR));
+    }
+
+    void log_might_use_single_verbose(void)
+    {
+        QVERIFY(log_might_use(VB_CHANNEL, LOG_WARNING));
+    }
+
+    void log_might_use_single_verbose_fail(void)
+    {
+        QVERIFY(!log_might_use(VB_DECODE, LOG_WARNING));
+    }
+
+    void log_might_use_multi_verbose_fail(void)
+    {
+        QVERIFY(!log_might_use(VB_UPNP|VB_DECODE, LOG_WARNING));
+    }
+
+    void log_might_use_multi_verbose_pass(void)
+    {
+        QVERIFY(log_might_use(VB_CHANNEL|VB_DECODE, LOG_WARNING));
+    }
+
+    void log_might_use_lower_level_fail(void)
+    {
+        QVERIFY(!log_might_use(VB_CHANNEL, LOG_INFO));
+    }
+
+    void log_might_use_higher_level_pass(void)
+    {
+        QVERIFY(log_might_use(VB_CHANNEL, LOG_ERR));
+    }
+
     void SetLogLevelSets(void)
     {
         int old_level_i = set_log_level(LOG_INFO);
