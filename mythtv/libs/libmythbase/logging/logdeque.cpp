@@ -24,6 +24,7 @@
 #include <iostream>
 using namespace std;
 
+#include <QStringList>
 #include <QThread>
 
 #include "logdeque.h"
@@ -144,4 +145,31 @@ void LogDeque::DeregisterThread(void)
         m_threadInfoMap.find(QThread::currentThreadId());
     if (it != m_threadInfoMap.end())
         m_threadInfoMap.erase(it);
+}
+
+static QString get_verbose_format(
+    const QHash<uint64_t, VerboseInfo> &map, uint64_t flag)
+{
+    QHash<uint64_t, VerboseInfo>::const_iterator it;
+    it = map.find(flag);
+    if (it == map.end())
+        return QString();
+    return (*it).GetName().mid(3).toLower();
+}
+
+QString LogDeque::FormatVerbose(uint64_t mask)
+{
+    QStringList list;
+
+    for (uint i = 0; i < 64; i++)
+    {
+        uint64_t flag = mask & (1ULL<<i);
+        if (flag)
+            list += get_verbose_format(m_verboseInfo, flag);
+    }
+
+    if (list.empty()) // special case for 'none'
+        return get_verbose_format(m_verboseInfo, 0);
+
+    return list.join(",");
 }

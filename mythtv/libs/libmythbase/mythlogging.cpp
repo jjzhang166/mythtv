@@ -133,7 +133,7 @@ MBASE_PUBLIC QString command_line_arguments(void)
 
 MBASE_PUBLIC QString format_verbose(uint64_t mask)
 {
-    return QString();
+    return LogDeque::Get().FormatVerbose(mask);
 }
 
 MBASE_PUBLIC QString format_log_level(int level)

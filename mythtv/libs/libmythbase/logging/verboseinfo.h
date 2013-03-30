@@ -42,6 +42,7 @@ class VerboseInfo
     bool IsValid(void) const { return !m_name.isNull(); }
 
     uint64_t GetMask(void) const { return m_mask; }
+    QString GetName(void) const { return m_name; }
     bool IsAdditive(void) const { return m_additive; }
     QString GetHelp(void) const { return m_help; }
 

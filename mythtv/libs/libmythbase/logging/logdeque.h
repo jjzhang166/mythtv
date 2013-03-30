@@ -148,6 +148,8 @@ class LogDeque
     void RegisterThread(const QString &name);
     void DeregisterThread(void);
 
+    QString FormatVerbose(uint64_t mask);
+
   private:
     LogDeque();
 
