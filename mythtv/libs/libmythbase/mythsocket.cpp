@@ -690,7 +690,7 @@ void MythSocket::WriteStringListReal(const QStringList *list, bool *ret)
         QString msg = QString("write -> %1 %2")
             .arg(m_tcpSocket->socketDescriptor(), 2).arg(payload.data());
 
-        if ((myth_logging::get_log_level <() LOG_DEBUG) && (msg.length() > 88))
+        if ((myth_logging::get_log_level() < LOG_DEBUG) && (msg.length() > 88))
         {
             msg.truncate(85);
             msg += "...";

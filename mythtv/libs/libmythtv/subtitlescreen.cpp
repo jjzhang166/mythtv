@@ -2122,7 +2122,7 @@ static void myth_libass_log(int level, const char *fmt, va_list vl, void *ctx)
     static const int msg_len = 255;
     static QMutex string_lock;
     uint64_t verbose_mask = VB_GENERAL;
-    LogLevel_t verbose_level = LOG_INFO;
+    int verbose_level = LOG_INFO;
 
     switch (level)
     {

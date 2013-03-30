@@ -648,7 +648,8 @@ int run_backend(MythBackendCommandLineParser &cmdline)
     }
 
     mainServer = new MainServer(
-        ismaster, port, &tvList, sched, expirer);
+        ismaster, port, &tvList, sched, expirer,
+        cmdline.GetDefaultVerboseMask());
 
     int exitCode = mainServer->GetExitCode();
     if (exitCode != GENERIC_EXIT_OK)

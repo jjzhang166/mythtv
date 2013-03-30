@@ -469,9 +469,12 @@ DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
         query.bindValue(":FUNCTION", (Function.isEmpty()) ? QString() : Function);
         query.bindValue(":FROMTIME", (FromTime.isValid()) ? FromTime : QDateTime());
         query.bindValue(":TOTIME", (ToTime.isValid()) ? ToTime : QDateTime());
-        query.bindValue(":LEVEL", (Level.isEmpty()) ?
-                        QVariant(QVariant::ULongLong) :
-                        (qint64)myth_logging::parse_log_level(Level));
+
+        int parsedLevel;
+        if (myth_logging::parse_log_level(Level, parsedLevel))
+            query.bindValue(":LEVEL", qint64(parsedLevel));
+        else
+            query.bindValue(":LEVEL", QVariant(QVariant::ULongLong));
 
         if (!MsgContains.isEmpty())
         {

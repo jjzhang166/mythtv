@@ -190,7 +190,7 @@ static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
     static const int msg_len = 255;
     static QMutex string_lock;
     uint64_t   verbose_mask  = VB_GENERAL;
-    LogLevel_t verbose_level = LOG_DEBUG;
+    int        verbose_level = LOG_DEBUG;
 
     // determine mythtv debug level from av log level
     switch (level)

@@ -54,16 +54,14 @@
 #define VERBOSE please_use_LOG_instead_of_VERBOSE
 
 /// Helper for checking verbose mask & level
-#define LOG_WILL_USE(_MASK_, _LEVEL_) \
-    (((g_myth_logging_verbose_mask & (_MASK_)) == (_MASK_)) && g_myth_logging_log_level >= (_LEVEL_))
-
-#define LOG_MIGHT_USE(_MASK_, _LEVEL_) \
-    ((g_myth_logging_verbose_mask & (_MASK_)) && g_myth_logging_log_level >= (_LEVEL_))
+#define LOG_WILL_USE(_MASK_, _LEVEL_) log_will_use(_MASK_, _LEVEL_)
+/// Helper for checking verbose mask & level
+#define LOG_MIGHT_USE(_MASK_, _LEVEL_) log_might_use(_MASK_, _LEVEL_)
 
 #ifdef __cplusplus
 #define LOG(_MASK_, _LEVEL_, _STRING_)                                  \
     do {                                                                \
-        if (LOG_WILL_USE((_MASK_), (_LEVEL_)) && ((_LEVEL_)>=0))        \
+        if (log_will_use(_MASK_, _LEVEL_))                              \
         {                                                               \
             log_line(_MASK_, _LEVEL_, __FILE__, __LINE__, __FUNCTION__, \
                      _STRING_);                                         \
@@ -93,7 +91,7 @@ MBASE_PUBLIC QString errno_to_qstring(int errnum);
 #ifndef __cplusplus
 #define LOG(_MASK_, _LEVEL_, _FORMAT_, ...)                             \
     do {                                                                \
-        if (LOG_WILL_USE((_MASK_), (_LEVEL_)) && ((_LEVEL_)>=0))        \
+        if (log_will_use(_MASK_, _LEVEL_))                              \
         {                                                               \
             log_line_c(_MASK_, _LEVEL_,                                 \
                        __FILE__, __LINE__, __FUNCTION__, 0,             \
@@ -109,11 +107,17 @@ void log_line_c(
     uint64_t mask, unsigned int level, const char *file, int line, 
     const char *function, const char *format, ...);
 
-// common section
-/// Please don't use this directly, use myth_logging::get_log_level()
-extern MBASE_PUBLIC int g_myth_logging_log_level;
-/// Please don't use this directly, use myth_logging::get_verbose()
-extern MBASE_PUBLIC uint64_t g_myth_logging_verbose_mask;
+/// Please don't use this directly, use LOG_WILL_USE()
+#ifdef __cplusplus
+extern "C"
+#endif
+MBASE_PUBLIC int log_will_use(uint64_t mask, int level);
+
+/// Please don't use this directly, use LOG_MIGHT_USE()
+#ifdef __cplusplus
+extern "C"
+#endif
+MBASE_PUBLIC int log_might_use(uint64_t mask, int level);
 
 #endif
 

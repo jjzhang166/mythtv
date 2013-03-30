@@ -2367,6 +2367,11 @@ void MythCommandLineParser::SetLoggingDefaults(
     m_defaultSyslogFacility = default_syslog_facility;
 }
 
+uint64_t MythCommandLineParser::GetDefaultVerboseMask(void) const
+{
+    return m_defaultVerboseMask;
+}
+
 /** \brief Canned argument definition for all logging options, including
  *  --verbose, --logpath, --quiet, --loglevel, --syslog
  *  and --nodblog
@@ -2541,12 +2546,17 @@ bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
     }
     else if (toBool("verbose"))
     {
-        mask = myth_logging::parse_verbose(toString("verbose"), &ok);
-        if (!ok)
+        uint64_t sub, add;
+        if (!myth_logging::parse_verbose(toString("verbose"), sub, add))
         {
-            cerr << "failed to parse verbose argument: "
+            cerr << "Failed to parse verbose argument: "
                  << qPrintable(toString("verbose")) << endl;
             return false;
+        }
+        else
+        {
+            mask &= ~sub;
+            mask |= add;
         }
     }
     else if (toBool("verboseint"))
@@ -2557,10 +2567,9 @@ bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
     int level = m_defaultLogLevel;
     if (toBool("loglevel"))
     {
-        level = myth_logging::parse_log_level(toString("loglevel"), &ok);
-        if (!ok)
+        if (!myth_logging::parse_log_level(toString("loglevel"), level))
         {
-            cerr << "failed to parse loglevel argument: "
+            cerr << "Failed to parse loglevel argument: "
                  << qPrintable(toString("loglevel")) << endl;
             return false;
         }
@@ -2569,8 +2578,7 @@ bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
     int facility = m_defaultSyslogFacility;
     if (toBool("syslog"))
     {
-        facility = myth_logging::parse_syslog_facility(toString("syslog"), &ok);
-        if (!ok)
+        if (!myth_logging::parse_syslog_facility(toString("syslog"), facility))
         {
             cerr << "failed to parse syslog argument: "
                  << qPrintable(toString("syslog")) << endl;

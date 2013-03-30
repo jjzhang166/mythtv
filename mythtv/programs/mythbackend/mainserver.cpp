@@ -225,8 +225,11 @@ const int FreeSpaceUpdater::kExitTimeout = 61000;
 
 MainServer::MainServer(bool master, int port,
                        QMap<int, EncoderLink *> *tvList,
-                       Scheduler *sched, AutoExpire *expirer) :
-    encoderList(tvList), mythserver(NULL),
+                       Scheduler *sched, AutoExpire *expirer,
+                       uint64_t defaultVerboseMask) :
+    encoderList(tvList),
+    m_defaultVerboseMask(defaultVerboseMask),
+    mythserver(NULL),
     masterFreeSpaceListUpdater(NULL),
     masterServerReconnect(NULL),
     masterServer(NULL), ismaster(master), threadPool("ProcessRequestPool"),
@@ -5307,7 +5310,6 @@ void MainServer::HandleMessage(QStringList &slist, PlaybackSock *pbs)
 void MainServer::HandleSetVerbose(QStringList &slist, PlaybackSock *pbs)
 {
     MythSocket *pbssock = pbs->getSocket();
-    QStringList retlist;
 
     bool ok = false;
     QString newverbose = slist[1];
@@ -5315,57 +5317,64 @@ void MainServer::HandleSetVerbose(QStringList &slist, PlaybackSock *pbs)
     if (len > 12)
     {
         using namespace myth_logging;
-        uint64_t newmask = parse_verbose(newverbose.right(len-12), &ok);
-        uint64_t oldmask = set_verbose(newmask);
+        uint64_t sub, add;
+        if (parse_verbose(newverbose.right(len-12), sub, add))
+        {
+            uint64_t newmask = m_defaultVerboseMask;
+            newmask &= ~sub;
+            newmask |= add;
+            uint64_t oldmask = set_verbose(newmask);
+            
+            LOG(VB_GENERAL, LOG_NOTICE,
+                QString("Verbose mask changed: %1 -> %2")
+                .arg(format_verbose(oldmask)).arg(format_verbose(newmask)));
 
-        LOG(VB_GENERAL, LOG_NOTICE,
-            QString("Verbose mask changed: %1 -> %2")
-            .arg(format_verbose(oldmask)).arg(format_verbose(newmask)));
-
-        retlist << "OK";
+            ok = true;
+        }
     }
 
     if (!ok)
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Invalid SET_VERBOSE string: '%1'")
-                                      .arg(newverbose));
-        retlist << "Failed";
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("Invalid SET_VERBOSE string: '%1'").arg(newverbose));
     }
 
+    QStringList retlist = QStringList((ok) ? "OK" : "Failed");
     SendResponse(pbssock, retlist);
 }
 
 void MainServer::HandleSetLogLevel(QStringList &slist, PlaybackSock *pbs)
 {
     MythSocket *pbssock = pbs->getSocket();
-    QStringList retlist;
-    QString newstring = slist[1];
+
     bool ok = false;
+    QString newstring = slist[1];
     int len = newstring.length();
 
     if (len > 14)
     {
         using namespace myth_logging;
-        int newlevel = parse_log_level(newstring.right(len-14), &ok);
-        if (newlevel != LOG_UNKNOWN)
+        int newlevel;
+        if (parse_log_level(newstring.right(len-14), newlevel))
         {
             int oldlevel = set_log_level(newlevel);
+
             LOG(VB_GENERAL, LOG_NOTICE,
                 QString("Log level changed, level %1 -> %2")
                 .arg(format_log_level(oldlevel))
                 .arg(format_log_level(newlevel)));
 
-            retlist << "OK";
+            ok = true;
         }
     }
 
     if (!ok)
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Invalid SET_LOG_LEVEL string: '%1'")
-                                      .arg(newstring));
-        retlist << "Failed";
+        LOG(VB_GENERAL, LOG_ERR,
+            QString("Invalid SET_LOG_LEVEL string: '%1'").arg(newstring));
     }
 
+    QStringList retlist = QStringList((ok) ? "OK" : "Failed");
     SendResponse(pbssock, retlist);
 }
 

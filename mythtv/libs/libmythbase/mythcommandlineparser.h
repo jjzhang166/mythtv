@@ -247,6 +247,7 @@ class MBASE_PUBLIC MythCommandLineParser
     QString                 GetPassthrough(void) const;
     QMap<QString,QString>   GetSettingsOverride(void);
     QString                 GetLogFilePath(void);
+    uint64_t                GetDefaultVerboseMask(void) const;
 
     bool                    toBool(QString key) const;
     int                     toInt(QString key) const;

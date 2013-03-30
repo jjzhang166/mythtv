@@ -100,7 +100,8 @@ class MainServer : public QObject, public MythSocketCBs
   public:
     MainServer(bool master, int port,
                QMap<int, EncoderLink *> *tvList,
-               Scheduler *sched, AutoExpire *expirer);
+               Scheduler *sched, AutoExpire *expirer,
+               uint64_t defaultVerboseMask);
 
     ~MainServer();
 
@@ -267,6 +268,8 @@ class MainServer : public QObject, public MythSocketCBs
     QMutex liveTVChainsLock;
 
     QMap<int, EncoderLink *> *encoderList;
+
+    uint64_t m_defaultVerboseMask;
 
     MythServer *mythserver;
     MetadataFactory *metadatafactory;

@@ -1,82 +1,36 @@
 #ifndef VERBOSEDEFS_H_
 #define VERBOSEDEFS_H_
 
-#ifdef __cplusplus
-#include <QMap>
-#include <QString>
-#include <QMutex>
-#endif
+/** This file gets included in two different ways:
+ * 1) from mythlogging.h from nearly every file.  This will define the 
+ *    VB_... to number mapping
+ * 2) in mythlogging.cpp
+ * 
+ *      name (expected to start with VB_)
+ *      value (will be used as a 64-bit unsigned int)
+ *      additive flag (explicit = false, additive = true)
+ *      help text for "-v help"
+ * 
+ *  To create a new VB_* flag, this is the only piece of code you need to
+ *  modify, then you can start using the new flag and it will automatically be
+ *  processed by the verboseArgParse() function and help info printed when
+ *  "-v help" is used.
+ */
+
+/*********************************************************************
+ ** VERBOSE_MAP                                                     **
+ *********************************************************************/
+
+#ifndef _IMPLEMENT_VERBOSE
 #include <stdint.h>
-
-/// This file gets included in two different ways:
-/// 1) from mythlogging.h from nearly every file.  This will define the 
-///    VerboseMask enum
-/// 2) specifically (and a second include with _IMPLEMENT_VERBOSE defined) from
-///    mythlogging.cpp.  This is done in verboseInit (in the middle of the
-///    function) as it will expand out to a series of calls to verboseAdd()
-///    to fill the verboseMap.
-///
-/// The 4 fields are:
-///     enum name (expected to start with VB_)
-///     enum value (will be used as a 64-bit unsigned int)
-///     additive flag (explicit = false, additive = true)
-///     help text for "-v help"
-///
-/// To create a new VB_* flag, this is the only piece of code you need to
-/// modify, then you can start using the new flag and it will automatically be
-/// processed by the verboseArgParse() function and help info printed when
-/// "-v help" is used.
-
-#undef VERBOSE_PREAMBLE
-#undef VERBOSE_POSTAMBLE
-#undef VERBOSE_MAP
-
-#undef LOGLEVEL_PREAMBLE
-#undef LOGLEVEL_POSTAMBLE
-#undef LOGLEVEL_MAP
-
-#ifdef _IMPLEMENT_VERBOSE
-
-// This is used to actually implement the mask in mythlogging.cpp
-#define VERBOSE_PREAMBLE
-#define VERBOSE_POSTAMBLE
-#define VERBOSE_MAP(name,mask,additive,help) \
-    verboseAdd((uint64_t)(mask),QString(#name),(bool)(additive),QString(help));
-
-#define LOGLEVEL_PREAMBLE
-#define LOGLEVEL_POSTAMBLE
-#define LOGLEVEL_MAP(name,value,shortname) \
-    loglevelAdd((int)(value),QString(#name),(char)(shortname));
-
-#else // !defined(_IMPLEMENT_VERBOSE)
-
-// This is used to define the enumerated type (used by all files)
-#define VERBOSE_PREAMBLE \
-    enum VerboseMask {
-#define VERBOSE_POSTAMBLE \
-        VB_LAST_ITEM \
-    };
-#define VERBOSE_MAP(name,mask,additive,help) \
-    name = (uint64_t)(mask),
-
-#define LOGLEVEL_PREAMBLE \
-    typedef enum {
-#define LOGLEVEL_POSTAMBLE \
-    } LogLevel_t;
-#define LOGLEVEL_MAP(name,value,shortname) \
-    name = (int)(value),
-
+#define VERBOSE_MAP(NAME, MASK, ADDITIVE, HELP) \
+    static const uint64_t NAME = MASK;
 #endif
 
-VERBOSE_PREAMBLE
 VERBOSE_MAP(VB_ALL,       ~0ULL, false,
             "ALL available debug output")
 VERBOSE_MAP(VB_MOST,      0xffffffff3ffeffffULL, false,
             "Most debug (nodatabase,notimestamp,noextra)")
-#if 0
-VERBOSE_MAP(VB_IMPORTANT, 0x00000001, false,
-            "Errors or other very important messages")
-#endif
 VERBOSE_MAP(VB_GENERAL,   0x00000002, true,
             "General info")
 VERBOSE_MAP(VB_RECORD,    0x00000004, true,
@@ -131,10 +85,6 @@ VERBOSE_MAP(VB_GUI,       0x04000000, true,
             "GUI related messages")
 VERBOSE_MAP(VB_SYSTEM,    0x08000000, true,
             "External executable related messages")
-#if 0
-VERBOSE_MAP(VB_EXTRA,     0x40000000, true,
-            "More detailed messages in selected levels")
-#endif
 VERBOSE_MAP(VB_TIMESTAMP, 0x80000000, true,
             "Conditional data driven messages")
 VERBOSE_MAP(VB_PROCESS,   0x100000000ULL, true,
@@ -169,11 +119,21 @@ VERBOSE_MAP(VB_REFCOUNT,  0x20000000000ULL, true,
             "Reference Count messages")
 VERBOSE_MAP(VB_NONE,      0x00000000, false,
             "NO debug output")
-VERBOSE_POSTAMBLE
 
+/*********************************************************************
+ ** LOGLEVEL_MAP                                                    **
+ *********************************************************************/
 
-LOGLEVEL_PREAMBLE
-LOGLEVEL_MAP(LOG_ANY,    -1, ' ')
+#ifdef LOG_EMERG
+#error "Do not include sys/syslog.h and verbosedefs.h in the same cpp."
+#endif
+
+#ifndef _IMPLEMENT_VERBOSE
+#define LOGLEVEL_MAP(NAME, VALUE, CHAR_NAME) \
+    static const int NAME = VALUE;
+#endif
+
+LOGLEVEL_MAP(LOG_ANY,    -1, ' ') /* not in sys/syslog.h */
 LOGLEVEL_MAP(LOG_EMERG,   0, '!')
 LOGLEVEL_MAP(LOG_ALERT,   1, 'A')
 LOGLEVEL_MAP(LOG_CRIT,    2, 'C')
@@ -182,32 +142,6 @@ LOGLEVEL_MAP(LOG_WARNING, 4, 'W')
 LOGLEVEL_MAP(LOG_NOTICE,  5, 'N')
 LOGLEVEL_MAP(LOG_INFO,    6, 'I')
 LOGLEVEL_MAP(LOG_DEBUG,   7, 'D')
-LOGLEVEL_MAP(LOG_UNKNOWN, 8, '-')
-LOGLEVEL_POSTAMBLE
+LOGLEVEL_MAP(LOG_UNKNOWN, 8, '-') /* not in sys/syslog.h */
 
-#ifndef _IMPLEMENT_VERBOSE
-#ifdef __cplusplus
-typedef struct {
-    uint64_t    mask;
-    QString     name;
-    bool        additive;
-    QString     helpText;
-} VerboseDef;
-typedef QMap<QString, VerboseDef *> VerboseMap;
-
-typedef struct {
-    int         value;
-    QString     name;
-    char        shortname;
-} LoglevelDef;
-typedef QMap<int, LoglevelDef *> LoglevelMap;
-
-extern VerboseMap verboseMap;
-extern QMutex verboseMapMutex;
-
-extern LoglevelMap loglevelMap;
-extern QMutex loglevelMapMutex;
-#endif
-#endif
-
-#endif
+#endif /* VERBOSEDEFS_H_ */

@@ -112,7 +112,7 @@ MythCoreContextPrivate::MythCoreContextPrivate(MythCoreContext *lparent,
       m_scheduler(NULL),
       m_blockingClient(false)
 {
-    MThread::ThreadSetup("CoreContext");
+    MThread::ThreadSetup("UI");
     srandom(MythDate::current().toTime_t() ^ QTime::currentTime().msec());
 }
 
@@ -156,8 +156,6 @@ MythCoreContextPrivate::~MythCoreContextPrivate()
         DestroyMythDB();
         m_database = NULL;
     }
-
-    myth_logging::deregister_thread();
 }
 
 /// If another thread has already started WOL process, wait on them...
