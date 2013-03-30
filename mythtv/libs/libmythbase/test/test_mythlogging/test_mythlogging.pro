@@ -9,8 +9,8 @@ QT += testlib
 
 TEMPLATE = app
 TARGET = test_mythlogging
-DEPENDPATH += . ../..
-INCLUDEPATH += . ../..
+DEPENDPATH += . ../.. ../../logger
+INCLUDEPATH += . ../.. ../../logger
 
 contains(QMAKE_CXX, "g++") {
   QMAKE_CXXFLAGS += -O0 -fprofile-arcs -ftest-coverage 
@@ -23,6 +23,7 @@ SOURCES += test_mythlogging.cpp
 
 HEADERS += ../../mythlogging.h ../../mythlogging_extra.h
 SOURCES += ../../mythlogging.cpp
+SOURCES += ../../logging/logdeque.cpp ../../logging/logentry.cpp
 
 QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 QMAKE_CLEAN += ; rm -f *.gcov *.gcda *.gcno

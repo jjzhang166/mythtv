@@ -2,9 +2,9 @@
 #define VERBOSEDEFS_H_
 
 /** This file gets included in two different ways:
- * 1) from mythlogging.h from nearly every file.  This will define the 
- *    VB_... to number mapping
- * 2) in mythlogging.cpp
+ * 1) From mythlogging.h in every file using logging.
+ *    In these includes this will define the VB_... to number mapping.
+ * 2) In logdeque.cpp to generate some additional data.
  * 
  *      name (expected to start with VB_)
  *      value (will be used as a 64-bit unsigned int)

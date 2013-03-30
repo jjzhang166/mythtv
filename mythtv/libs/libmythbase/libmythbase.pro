@@ -10,6 +10,9 @@ INSTALLS = target
 
 QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 
+DEPENDPATH += ./logging
+INCLUDEPATH += ./logging
+
 # Input
 HEADERS += mthread.h mthreadpool.h
 HEADERS += mythsocket.h mythsocket_cb.h
@@ -22,12 +25,16 @@ HEADERS += mythcorecontext.h mythsystem.h mythlocale.h storagegroup.h
 HEADERS += mythcoreutil.h mythdownloadmanager.h mythtranslation.h
 HEADERS += unzip.h unzip_p.h zipentry_p.h iso639.h iso3166.h mythmedia.h
 HEADERS += mythmiscutil.h mythhdd.h mythcdrom.h autodeletedeque.h dbutil.h
-HEADERS += mythdeque.h mythlogging.h
+HEADERS += mythdeque.h
 HEADERS += mythbaseutil.h referencecounter.h version.h mythcommandlineparser.h
 HEADERS += mythscheduler.h filesysteminfo.h hardwareprofile.h serverpool.h
 HEADERS += plist.h bswap.h signalhandling.h mythtimezone.h mythdate.h
 HEADERS += mythplugin.h mythpluginapi.h
 HEADERS += ffmpeg-mmx.h
+HEADERS += mythlogging.h mythlogging_extra.h
+HEADERS += logging/logdeque.h logging/logentry.h
+HEADERS += logging/loglevelinfo.h logging/verboseinfo.h
+HEADERS += logging/threadinfo.h
 
 SOURCES += mthread.cpp mthreadpool.cpp
 SOURCES += mythsocket.cpp
@@ -36,7 +43,6 @@ SOURCES += mythobservable.cpp mythevent.cpp
 SOURCES += mythtimer.cpp mythsignalingtimer.cpp mythdirs.cpp
 SOURCES += lcddevice.cpp mythstorage.cpp remotefile.cpp
 SOURCES += mythcorecontext.cpp mythsystem.cpp mythlocale.cpp storagegroup.cpp
-SOURCES += mythlogging.cpp
 SOURCES += mythcoreutil.cpp mythdownloadmanager.cpp mythtranslation.cpp
 SOURCES += unzip.cpp iso639.cpp iso3166.cpp mythmedia.cpp mythmiscutil.cpp
 SOURCES += mythhdd.cpp mythcdrom.cpp dbutil.cpp
@@ -44,6 +50,7 @@ SOURCES += referencecounter.cpp mythcommandlineparser.cpp
 SOURCES += filesysteminfo.cpp hardwareprofile.cpp serverpool.cpp
 SOURCES += plist.cpp signalhandling.cpp mythtimezone.cpp mythdate.cpp
 SOURCES += mythplugin.cpp
+SOURCES += mythlogging.cpp logging/logdeque.cpp logging/logentry.cpp
 
 # This stuff is not Qt5 compatible..
 contains(QT_VERSION, ^4\\.[0-9]\\..*) {
