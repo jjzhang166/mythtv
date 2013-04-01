@@ -16,6 +16,8 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <errno.h>
+
 #include <QStringList>
 #include <QDateTime>
 #include <QString>
@@ -58,10 +60,15 @@ MBASE_PUBLIC void log_print(const QString &msg, bool flush)
     // TODO
 }
 
-/// Verbose helper function for ENO macro
 MBASE_PUBLIC QString errno_to_qstring(int errnum)
 {
-    return QString();
+    return QString("%1 (%2)").arg(strerror(errnum)).arg(errnum);
+}
+
+/// Verbose helper function for ENO macro
+MBASE_PUBLIC QString errno_to_qstring(void)
+{
+    return errno_to_qstring(errno);
 }
 
 MBASE_PUBLIC void log_line_c(

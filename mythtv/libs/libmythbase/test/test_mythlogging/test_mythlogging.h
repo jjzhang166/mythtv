@@ -18,11 +18,17 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+// POSIX
+#include <errno.h>
+
+// C++
 #include <iostream>
 using namespace std;
 
+// Qt
 #include <QtTest/QtTest>
 
+// MythTV
 #include "mythlogging_extra.h"
 using namespace myth_logging;
 
@@ -98,6 +104,22 @@ class TestMythLogging : public QObject
     void log_might_use_higher_level_pass(void)
     {
         QVERIFY(log_might_use(VB_CHANNEL, LOG_ERR));
+    }
+
+    void log_errno_to_qstring_void_extracts_from_errno(void)
+    {
+        errno = EACCES;
+        QVERIFY(errno_to_qstring() == errno_to_qstring(EACCES));
+    }
+
+    void log_errno_to_qstring_int_contains_error_number(void)
+    {
+        QVERIFY(errno_to_qstring(EACCES).contains(QString::number(EACCES)));
+    }
+
+    void log_errno_to_qstring_int_contains_strerror_output(void)
+    {
+        QVERIFY(errno_to_qstring(EACCES).contains(strerror(EACCES)));
     }
 
     void SetLogLevelSets(void)

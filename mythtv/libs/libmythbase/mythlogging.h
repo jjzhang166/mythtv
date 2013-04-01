@@ -2,7 +2,6 @@
 #define MYTHLOGGING_H_
 
 #include <stdint.h>
-#include <errno.h>
 
 #include "mythbaseexp.h"  //  MBASE_PUBLIC , etc.
 #include "verbosedefs.h"
@@ -73,7 +72,7 @@
 #define LOG_PRINT_FLUSH(_STRING_) \
     do { log_print(_STRING_, true); } while (false)
 
-#define ENO (QString("\neno: ") + errno_to_qstring(errno))
+#define ENO (QString("\neno: ") + errno_to_qstring())
 
 class QString;
 
@@ -84,6 +83,9 @@ MBASE_PUBLIC void log_line(
 MBASE_PUBLIC void log_print(const QString &msg, bool flush);
 
 /// Verbose helper function for ENO macro
+MBASE_PUBLIC QString errno_to_qstring(void);
+
+/// Helper function to generate output like from ENO but with saved errno
 MBASE_PUBLIC QString errno_to_qstring(int errnum);
 
 #endif
