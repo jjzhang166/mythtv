@@ -221,4 +221,9 @@ MBASE_PUBLIC void deregister_thread(void)
     LogDeque::Get().DeregisterThread();
 }
 
+MBASE_PUBLIC QString get_verbose_help(void)
+{
+    return LogDeque::Get().GetVerboseHelp();
+}
+
 } // end namespace myth_logging

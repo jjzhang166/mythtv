@@ -161,6 +161,8 @@ class LogDeque
         return GetLogLevelInfo(level).GetName().mid(4).toLower();
     }
 
+    QString GetVerboseHelp(void) const;
+
   private:
     LogDeque();
 
@@ -169,6 +171,16 @@ class LogDeque
         ProcessQueue(/*force*/ true);
     }
 
+    QList<VerboseInfo> GetVerboseInfos(void) const
+    {
+        QList<VerboseInfo> verboseInfoList;
+        QHash<uint64_t, VerboseInfo>::const_iterator it;
+        for (it = m_verboseInfo.begin(); it != m_verboseInfo.end(); ++it)
+            verboseInfoList.push_back(*it);
+        return verboseInfoList;
+    }
+
+  private:
     static LogDeque s_logDeque;
 
     // These four maps don't need to live under a lock because

@@ -2406,7 +2406,7 @@ void MythCommandLineParser::addLogging(
         "file", "")
                 ->SetGroup("Logging");
     add(QStringList( QStringList() << "-q" << "--quiet"), "quiet", 0,
-        "Don't log to the console (-q).  Don't log anywhere (-q -q)", "")
+        "Don't log anything, equivalent to -v none", "")
                 ->SetGroup("Logging");
     add("--loglevel", "loglevel", logLevelStr, 
         QString(
@@ -2419,17 +2419,12 @@ void MythCommandLineParser::addLogging(
         "Set the syslog logging facility.\nSet to \"none\" to disable, "
         "defaults to none.", "")
                 ->SetGroup("Logging");
-    add("--nodblog", "nodblog", false, "Disable database logging.", "")
-                ->SetGroup("Logging");
+    add("--dblog", "dblog", false, "Enable database logging.", "")
+        ->SetGroup("Logging");
 
     add(QStringList( QStringList() << "-l" << "--logfile" ),
-        "logfile", "", "", "")
-                ->SetGroup("Logging")
-                ->SetRemoved("This option has been removed as part of "
-            "rewrite of the logging interface. Please update your init "
-            "scripts to use --syslog to interface with your system's "
-            "existing system logging daemon, or --logpath to specify a "
-            "dirctory for MythTV to write its logs to.", "0.25");
+        "logfile", "File to log to.", "file", "")
+        ->SetGroup("Logging");
 }
 
 /** \brief Canned argument definition for --pidfile
@@ -2529,13 +2524,17 @@ bool MythCommandLineParser::SetValue(const QString &key, QVariant value)
  */
 bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
 {
-    bool ok = false;
-
     if (QCoreApplication::applicationName().isEmpty())
     {
         cerr << "Programmer Error: "
              << "QCoreApplication::setApplicationName() "
              << "must be called before ConfigureLogging" << endl;
+        return false;
+    }
+
+    if (toString("verbose").contains("help"))
+    {
+        cerr << qPrintable(myth_logging::get_verbose_help()) << endl;
         return false;
     }
 

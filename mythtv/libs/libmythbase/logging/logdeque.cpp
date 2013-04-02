@@ -173,3 +173,63 @@ QString LogDeque::FormatVerbose(uint64_t mask)
 
     return list.join(",");
 }
+
+static inline bool lt_vil(const VerboseInfo &a, const VerboseInfo &b)
+{
+    if (a.IsAdditive() != b.IsAdditive())
+        return b.IsAdditive();
+
+    if (a.GetName() != b.GetName())
+        return a.GetName() < b.GetName();
+
+    if (a.GetMask() != b.GetMask())
+        return a.GetMask() < b.GetMask();
+
+    return a.GetHelp() < b.GetHelp();
+}
+
+static inline QString format_help_line(const VerboseInfo &vi)
+{
+    return vi.GetHelp().isEmpty() ? QString() :
+        QString("  %1 - %2\n")
+        .arg(vi.GetName().mid(3).toLower(), -15, ' ').arg(vi.GetHelp());
+}
+
+QString LogDeque::GetVerboseHelp(void) const
+{
+    QString msg =
+        "The -v/--verbose option accepts a number of flags as detailed below.\n"
+        "The additive options are:\n\n";
+    QList<VerboseInfo> vil = GetVerboseInfos();
+    stable_sort(vil.begin(), vil.end(), lt_vil);
+    QList<VerboseInfo>::const_iterator it = vil.begin();
+    for (; it != vil.end(); ++it)
+    {
+        if ((*it).IsAdditive())
+            msg += format_help_line(*it);
+    }
+
+    msg += "\n";
+    msg += "These options can be combined, like so: ";
+    msg += " -v upnp,channel,network\n";
+    msg += "and they will be added to any previous mask such as 'general'.\n";
+    msg += "\n";
+    msg += "There are also a few options that clear "
+        "any previous verbose masking:\n";
+    for (it = vil.begin(); it != vil.end(); ++it)
+    {
+        if (!(*it).IsAdditive())
+            msg += format_help_line(*it);
+    }
+
+    msg += "\n";
+    msg += "To suppress all but file related messages you could use:"
+        "  -v none,file\n";
+    msg += "\n";
+    msg += "Note: The additive flags can also be used subtractively by\n";
+    msg += "prepending 'no'. For example:  -v most,norefcount,nodatabase\n";
+    msg += "would print most debugging, but would exclude reference counting\n";
+    msg += "and database messages as these can be particularly verbose.\n";
+
+    return msg;
+}

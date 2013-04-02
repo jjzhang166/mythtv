@@ -32,6 +32,9 @@ MBASE_PUBLIC bool parse_syslog_facility(const QString&, int &facility);
 
 MBASE_PUBLIC void register_thread(const QString &name);
 MBASE_PUBLIC void deregister_thread(void);
+
+MBASE_PUBLIC QString get_verbose_help(void);
+
 };
 
 #endif // MYTHLOGGING_EXTRA_H_
