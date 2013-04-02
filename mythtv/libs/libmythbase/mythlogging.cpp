@@ -169,6 +169,18 @@ MBASE_PUBLIC bool parse_verbose(
         VerboseInfo vi = LogDeque::Get().GetVerboseInfo(name);
         if (!vi.IsValid())
         {
+            if (name.left(5) == "VB_NO")
+            {
+                vi = LogDeque::Get().GetVerboseInfo(
+                    QString("VB_%1").arg(name.mid(5)));
+                if (vi.IsValid() && vi.IsAdditive())
+                {
+                    add &= ~vi.GetMask();
+                    sub |= vi.GetMask();
+                    continue;
+                }
+            }
+
             ok = false;
             sub = add = 0;
             break;
@@ -176,6 +188,7 @@ MBASE_PUBLIC bool parse_verbose(
         if (vi.IsAdditive())
         {
             add |= vi.GetMask();
+            sub &= ~vi.GetMask();
         }
         else
         {

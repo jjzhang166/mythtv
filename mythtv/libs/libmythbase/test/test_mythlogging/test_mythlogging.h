@@ -270,7 +270,7 @@ class TestMythLogging : public QObject
         uint64_t sub, add;
         bool ok = parse_verbose("none,mheg,upnp,decode", sub, add);
         QVERIFY(ok);
-        QVERIFY(sub == VB_ALL);
+        QVERIFY((sub | add) == VB_ALL);
         QVERIFY(add == (VB_MHEG|VB_UPNP|VB_DECODE));
     }
 
@@ -279,7 +279,7 @@ class TestMythLogging : public QObject
         uint64_t sub, add;
         bool ok = parse_verbose("general,mheg,none,upnp,decode", sub, add);
         QVERIFY(ok);
-        QVERIFY(sub == VB_ALL);
+        QVERIFY((sub | add) == VB_ALL);
         QVERIFY(add == (VB_UPNP|VB_DECODE));
     }
 
@@ -290,6 +290,33 @@ class TestMythLogging : public QObject
         QVERIFY(!ok);
         QVERIFY(sub == 0xDeadBeef);
         QVERIFY(add == 0x31137);
+    }
+
+    void ParseVerboseValidLateSubtractive(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("mheg,upnp,nomheg,decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_MHEG);
+        QVERIFY(add == (VB_UPNP|VB_DECODE));
+    }
+
+    void ParseVerboseValidEarlySubtractive(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("nomheg,upnp,mheg,decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_NONE);
+        QVERIFY(add == (VB_MHEG|VB_UPNP|VB_DECODE));
+    }
+
+    void ParseVerboseValidSimpleSubtractive(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("nomheg,upnp,decode", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_MHEG);
+        QVERIFY(add == (VB_UPNP|VB_DECODE));
     }
 
 };
