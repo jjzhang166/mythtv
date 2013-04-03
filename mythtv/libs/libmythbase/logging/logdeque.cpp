@@ -80,6 +80,10 @@ void LogDeque::ProcessQueue(bool force)
             {
                 cerr << qPrintable((*it).toString()) << endl;
             }
+            else if ((*it).IsPrint())
+            {
+                cerr << qPrintable((*it).GetMessage()) << endl;
+            }
         }
     }
     while (!first_few.empty());

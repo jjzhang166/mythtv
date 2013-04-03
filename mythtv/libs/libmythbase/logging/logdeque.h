@@ -40,10 +40,15 @@ class LogDeque
         return s_logDeque;
     }
 
-    void Append(const LogEntry &logEntry)
+    void LogLine(const LogEntry &logEntry)
     {
         QMutexLocker locker(&m_messagesLock);
         m_messages.push_back(logEntry);
+        if (IsSingleThreaded())
+        {
+            locker.unlock();
+            ProcessQueue();
+        }
     }
 
     uint32_t HashString(const char *c_str);
@@ -57,14 +62,6 @@ class LogDeque
         return QString();
     }
 
-    void ProcessQueue(bool force = false);
-
-    bool IsSingleThreaded(void) const
-    {
-        // TODO implement properly
-        return true;
-    }
-
     void InitializeLogging(
         uint64_t verbose_mask,
         int log_level,
@@ -76,7 +73,8 @@ class LogDeque
         m_loggingInitialized = true;
         m_verboseMask = verbose_mask;
         m_logLevel = log_level;
-        /* use_threads */
+        m_singleThreaded = true; // for now always single threaded... TODO FIXME
+        //m_singleThreaded = !use_threads;
         /* enable_database_logging */
     }
 
@@ -180,6 +178,13 @@ class LogDeque
         return verboseInfoList;
     }
 
+    bool IsSingleThreaded(void) const
+    {
+        return m_singleThreaded;
+    }
+
+    void ProcessQueue(bool force = false);
+
   private:
     static LogDeque s_logDeque;
 
@@ -201,6 +206,7 @@ class LogDeque
     bool m_loggingInitialized; // m_filterLock
     int m_logLevel; // m_filterLock
     uint64_t m_verboseMask; // m_filterLock
+    bool m_singleThreaded;
 };
 
 #endif // _LOG_DEQUE_H_

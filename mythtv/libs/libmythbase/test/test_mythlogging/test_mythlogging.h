@@ -28,8 +28,12 @@ using namespace std;
 // Qt
 #include <QtTest/QtTest>
 
+// Enable whitebox testing
+#define private public
+
 // MythTV
 #include "mythlogging_extra.h"
+#include "logdeque.h"
 using namespace myth_logging;
 
 class TestMythLogging : public QObject
@@ -39,7 +43,15 @@ class TestMythLogging : public QObject
   private slots:
     void init(void)
     {
-        set_parameters(VB_CHANNEL, LOG_WARNING, -1, false, false);            
+        // we set use_threads to true so we can examine the log queue.
+        bool use_threads = true;
+        set_parameters(VB_CHANNEL, LOG_WARNING, -1,
+                       use_threads, false);
+
+        // HACK HACK HACK - begin
+        LogDeque::Get().m_singleThreaded = false;// force single threading off
+        // HACK HACK HACK - end
+
         QVERIFY(VB_CHANNEL == get_verbose());
         QVERIFY(LOG_WARNING == get_log_level());
     }
@@ -120,6 +132,68 @@ class TestMythLogging : public QObject
     void log_errno_to_qstring_int_contains_strerror_output(void)
     {
         QVERIFY(errno_to_qstring(EACCES).contains(strerror(EACCES)));
+    }
+
+    void LOG_logs_if_it_should(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
+        QVERIFY(!LogDeque::Get().m_messages.empty());
+        LogDeque::Get().m_messages.clear();
+    }
+
+    void LOG_logs_on_higher_log_level(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        LOG(VB_CHANNEL, LOG_ERR, QString(__FUNCTION__));
+        QVERIFY(!LogDeque::Get().m_messages.empty());
+        LogDeque::Get().m_messages.clear();
+    }
+
+    void LOG_does_not_log_on_mask_missmatch(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        LOG(VB_GENERAL, LOG_WARNING, QString(__FUNCTION__));
+        QVERIFY(LogDeque::Get().m_messages.empty());
+        LogDeque::Get().m_messages.clear();
+    }
+
+    void LOG_does_not_log_on_lower_log_level(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        LOG(VB_CHANNEL, LOG_INFO, QString(__FUNCTION__));
+        QVERIFY(LogDeque::Get().m_messages.empty());
+        LogDeque::Get().m_messages.clear();
+    }
+
+    void LOG_PRINT_logs_with_flush(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        LOG_PRINT_FLUSH(QString(__FUNCTION__));
+        QVERIFY(!LogDeque::Get().m_messages.empty());
+        if (!LogDeque::Get().m_messages.empty())
+        {
+            QVERIFY(LogDeque::Get().m_messages[0].IsPrint());
+            QVERIFY(LogDeque::Get().m_messages[0].IsFlush());
+            QCOMPARE(LogDeque::Get().m_messages[0].GetMessage(),
+                     QString(__FUNCTION__));
+        }
+        LogDeque::Get().m_messages.clear();
+    }
+
+    void LOG_PRINT_logs_without_flush(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        LOG_PRINT(QString(__FUNCTION__));
+        QVERIFY(!LogDeque::Get().m_messages.empty());
+        if (!LogDeque::Get().m_messages.empty())
+        {
+            QVERIFY(LogDeque::Get().m_messages[0].IsPrint());
+            QVERIFY(!LogDeque::Get().m_messages[0].IsFlush());
+            QCOMPARE(LogDeque::Get().m_messages[0].GetMessage(),
+                     QString(__FUNCTION__));
+        }
+        LogDeque::Get().m_messages.clear();
     }
 
     void SetLogLevelSets(void)

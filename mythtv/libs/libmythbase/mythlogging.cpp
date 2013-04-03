@@ -45,19 +45,17 @@ MBASE_PUBLIC void log_line(
     const char *function, const QString &msg)
 {
     LogDeque &ldq = LogDeque::Get();
-    // TODO optimize the ldw lookups under a single locking/unlocking
+    // TODO optimize the ldq lookups under a single locking/unlocking
     ThreadInfo ti = ldq.LookupThreadInfo(QThread::currentThreadId());
-    ldq.Append(LogEntry(QDateTime::currentDateTimeUtc(),
-                        ti.GetProcessId(), ti.GetThreadId(), ti.GetName(),
-                        mask, level, ldq.HashString(file), line,
-                        ldq.HashString(function), msg));
-    if (ldq.IsSingleThreaded())
-        ldq.ProcessQueue();
+    ldq.LogLine(LogEntry(QDateTime::currentDateTimeUtc(),
+                         ti.GetProcessId(), ti.GetThreadId(), ti.GetName(),
+                         mask, level, ldq.HashString(file), line,
+                         ldq.HashString(function), msg));
 }
 
 MBASE_PUBLIC void log_print(const QString &msg, bool flush)
 {
-    // TODO
+    LogDeque::Get().LogLine(LogEntry(msg, flush));
 }
 
 MBASE_PUBLIC QString errno_to_qstring(int errnum)

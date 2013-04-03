@@ -9,8 +9,8 @@ QT += testlib
 
 TEMPLATE = app
 TARGET = test_mythlogging
-DEPENDPATH += . ../.. ../../logger
-INCLUDEPATH += . ../.. ../../logger
+DEPENDPATH += . ../.. ../../logging
+INCLUDEPATH += . ../.. ../../logging
 
 contains(QMAKE_CXX, "g++") {
   QMAKE_CXXFLAGS += -O0 -fprofile-arcs -ftest-coverage 
