@@ -150,8 +150,8 @@ class LogDeque
         return (it != m_threadInfoMap.end()) ? (*it) : ThreadInfo();
     }
 
-    void RegisterThread(const QString &name);
-    void DeregisterThread(void);
+    QString RegisterThread(const QString &name);
+    QString DeregisterThread(void);
 
     QString FormatVerbose(uint64_t mask);
     QString FormatLogLevel(int level)

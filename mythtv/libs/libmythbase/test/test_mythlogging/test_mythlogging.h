@@ -414,4 +414,35 @@ class TestMythLogging : public QObject
         QVERIFY(help.contains("upnp"));
         QVERIFY(help.contains("decode"));
     }
+
+    void test_register_thread(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        QString old_name = register_thread("SillyNameRegister");
+        LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
+        QVERIFY(
+            !LogDeque::Get().m_messages.empty() &&
+            LogDeque::Get().m_messages[0].toString()
+            .contains("SillyNameRegister"));
+        register_thread(old_name);
+        LogDeque::Get().m_messages.clear();
+    }
+
+    void test_unregister_thread(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        QString old_name = register_thread("SillyNameUnregister");
+        QString new_name = deregister_thread();
+        LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
+        QVERIFY(!LogDeque::Get().m_messages.empty() &&
+                !LogDeque::Get().m_messages[0].toString()
+                .contains("SillyNameUnregister"));
+        QVERIFY(!LogDeque::Get().m_messages.empty() &&
+                LogDeque::Get().m_messages[0].toString()
+                .contains("Unknown"));
+        register_thread(old_name);
+        LogDeque::Get().m_messages.clear();
+    }
+
+
 };

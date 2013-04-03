@@ -132,7 +132,7 @@ LogDeque::LogDeque() :
     RegisterThread("UI");
 }
 
-void LogDeque::RegisterThread(const QString &name)
+QString LogDeque::RegisterThread(const QString &name)
 {
     Qt::HANDLE handle = QThread::currentThreadId();
     int process_id = 0; // TODO lookup
@@ -140,16 +140,23 @@ void LogDeque::RegisterThread(const QString &name)
     ThreadInfo ti(name, handle, process_id);
 
     QWriteLocker locker(&m_hashLock);
+    ThreadInfo old = m_threadInfoMap[handle];
     m_threadInfoMap[handle] = ti;
+    return old.GetName();
 }
 
-void LogDeque::DeregisterThread(void)
+QString LogDeque::DeregisterThread(void)
 {
     QWriteLocker locker(&m_hashLock);
     QHash<Qt::HANDLE, ThreadInfo>::iterator it =
         m_threadInfoMap.find(QThread::currentThreadId());
     if (it != m_threadInfoMap.end())
+    {
+        QString name = (*it).GetName();
         m_threadInfoMap.erase(it);
+        return name;
+    }
+    return QString();
 }
 
 static QString get_verbose_format(

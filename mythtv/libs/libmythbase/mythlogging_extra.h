@@ -30,8 +30,8 @@ MBASE_PUBLIC bool parse_verbose(const QString &, uint64_t &sub, uint64_t &add);
 MBASE_PUBLIC bool parse_log_level(const QString&, int &level);
 MBASE_PUBLIC bool parse_syslog_facility(const QString&, int &facility);
 
-MBASE_PUBLIC void register_thread(const QString &name);
-MBASE_PUBLIC void deregister_thread(void);
+MBASE_PUBLIC QString register_thread(const QString &name);
+MBASE_PUBLIC QString deregister_thread(void);
 
 MBASE_PUBLIC QString get_verbose_help(void);
 
