@@ -196,6 +196,20 @@ class TestMythLogging : public QObject
         LogDeque::Get().m_messages.clear();
     }
 
+    void log_line_c_accepts_var_args(void)
+    {
+        LogDeque::Get().m_messages.clear();
+        log_line_c(VB_CHANNEL, LOG_WARNING, __FILE__, __LINE__,
+                   __FUNCTION__, "%5.2f", 55.55555f);
+        QVERIFY(!LogDeque::Get().m_messages.empty());
+        if (!LogDeque::Get().m_messages.empty())
+        {
+            QVERIFY(LogDeque::Get().m_messages[0]
+                    .GetMessage().contains("55.56"));
+        }
+        LogDeque::Get().m_messages.clear();
+    }
+
     void SetLogLevelSets(void)
     {
         int old_level_i = set_log_level(LOG_INFO);

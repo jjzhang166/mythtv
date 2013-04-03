@@ -16,13 +16,20 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+// POSIX headers
 #include <errno.h>
 
+// C headers
+#include <cstdio> // for vsprintf() on Ubuntu 12.04 (yes it should be in cstdarg).
+#include <cstdarg> // for va_list(), va_start(), va_arg(), va_end()
+
+// Qt headers
 #include <QStringList>
 #include <QDateTime>
 #include <QString>
 #include <QThread>
 
+// MythTV headers
 #include "mythlogging_extra.h"
 #include "logging/logentry.h"
 #include "logging/verboseinfo.h"
@@ -73,6 +80,21 @@ MBASE_PUBLIC void log_line_c(
     uint64_t mask, unsigned int level, const char *file, int line,
     const char *function, const char *format, ...)
 {
+    va_list arguments;
+
+    // C adaptation code.
+    static const int logLineMaxLen = 4096;
+    char buffer[logLineMaxLen];
+    va_start(arguments, format);
+    vsnprintf(buffer, logLineMaxLen - 1, format, arguments);
+    va_end(arguments);
+    buffer[logLineMaxLen] = '\0'; // make sure the string is null terminated.
+
+    // Create the QString
+    QString msg = QString::fromLocal8Bit(buffer);
+
+    // Call regular C++ log line function
+    log_line(mask, level, file, line, function, msg);
 }
 
 namespace myth_logging
