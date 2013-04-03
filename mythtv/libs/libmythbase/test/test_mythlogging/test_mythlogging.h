@@ -407,4 +407,11 @@ class TestMythLogging : public QObject
         QVERIFY(add == (VB_UPNP|VB_DECODE));
     }
 
+    void get_verbose_help_contains_generated_info(void)
+    {
+        QString help = get_verbose_help();
+        QVERIFY(help.contains("general"));
+        QVERIFY(help.contains("upnp"));
+        QVERIFY(help.contains("decode"));
+    }
 };
