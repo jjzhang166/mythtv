@@ -1,4 +1,4 @@
 #include "test_mythlogging.h"
 
-QTEST_MAIN(TestMythLogging)
+QTEST_APPLESS_MAIN(TestMythLogging)
 
