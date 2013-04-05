@@ -228,7 +228,6 @@ MBASE_PUBLIC bool parse_verbose(
 
 MBASE_PUBLIC bool parse_log_level(const QString &levelStr, int &logLevel)
 {
-    // TODO FIXME This will parse 'any' and 'unknown'
     QString name = QString("LOG_%1").arg(levelStr.trimmed().toUpper());
     LogLevelInfo lli = LogDeque::Get().GetLogLevelInfo(name);
     if (lli.IsValid())

@@ -344,6 +344,15 @@ class TestMythLogging : public QObject
         QVERIFY(add == (VB_MHEG|VB_UPNP|VB_DECODE));
     }
 
+    void ParseVerboseTrims(void)
+    {
+        uint64_t sub, add;
+        bool ok = parse_verbose("\n\t mheg,upnp,decode \t\n", sub, add);
+        QVERIFY(ok);
+        QVERIFY(sub == VB_NONE);
+        QVERIFY(add == (VB_MHEG|VB_UPNP|VB_DECODE));
+    }
+
     void ParseVerboseValidMixedCase(void)
     {
         uint64_t sub, add;
@@ -407,6 +416,45 @@ class TestMythLogging : public QObject
         QVERIFY(add == (VB_UPNP|VB_DECODE));
     }
 
+    void parse_log_level_recognizes_real_levels(void)
+    {
+        int level;
+        bool ok = parse_log_level("err", level);
+        QVERIFY(ok);
+        QVERIFY(LOG_ERR == level);
+    }
+
+    void parse_log_level_case_insensitive(void)
+    {
+        int level;
+        bool ok = parse_log_level("eRr", level);
+        QVERIFY(ok);
+        QVERIFY(LOG_ERR == level);
+    }
+
+    void parse_log_level_trims(void)
+    {
+        int level;
+        bool ok = parse_log_level("\t\n err \t\n", level);
+        QVERIFY(ok);
+        QVERIFY(LOG_ERR == level);
+    }
+
+    void parse_log_level_rejects_non_parseable(void)
+    {
+        int level;
+        bool uok = parse_log_level("unknown", level);
+        bool aok = parse_log_level("any", level);
+        QVERIFY(!uok && !aok);
+    }
+
+    void parse_log_level_rejects_random_strings(void)
+    {
+        int level;
+        bool rok = parse_log_level("random", level);
+        QVERIFY(!rok);
+    }
+
     void get_verbose_help_contains_generated_info(void)
     {
         QString help = get_verbose_help();
@@ -443,6 +491,4 @@ class TestMythLogging : public QObject
         register_thread(old_name);
         LogDeque::Get().m_messages.clear();
     }
-
-
 };

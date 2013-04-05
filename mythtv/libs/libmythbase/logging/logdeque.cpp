@@ -106,9 +106,12 @@ LogDeque::LogDeque() :
 #define VERBOSE_MAP(NAME, MASK, ADDITIVE, HELP)                     \
     m_verboseParseInfo[QString(#NAME)] = m_verboseInfo[MASK] =      \
         VerboseInfo(MASK, QString(#NAME), ADDITIVE, QString(HELP));
-#define LOGLEVEL_MAP(NAME, VALUE, CHAR_NAME)                      \
-    m_logLevelParseInfo[QString(#NAME)] = m_logLevelInfo[VALUE] = \
-        LogLevelInfo(VALUE, QString(#NAME), QChar(CHAR_NAME));
+#define LOGLEVEL_MAP(NAME, VALUE, CHAR_NAME, PARSE)                 \
+    m_logLevelInfo[VALUE] =                                         \
+        LogLevelInfo(VALUE, QString(#NAME), QChar(CHAR_NAME));      \
+    if (PARSE)                                                      \
+        m_logLevelParseInfo[QString(#NAME)] =                       \
+            LogLevelInfo(VALUE, QString(#NAME), QChar(CHAR_NAME));
 #include "verbosedefs.h"
 #undef _IMPLEMENT_VERBOSE
 
