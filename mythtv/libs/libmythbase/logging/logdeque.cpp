@@ -32,18 +32,30 @@ using namespace std;
 
 LogDeque LogDeque::s_logDeque;
 
+// This is a version of Dan Bernstein's hash.
+//  * with xor rather than addition
+//  * with hash * 33 rather than (hash<<5 + hash)
+static uint32_t djb_hash(const char *c_str)
+{
+    uint32_t hash = 5381;
+    int c;
+
+    while ((c = *c_str++))
+        hash = (hash * 33) ^ c;
+
+    return hash;
+}
+
 uint32_t LogDeque::HashString(const char *c_str)
 {
-    // TODO eliminate alloc of byte array here
-    QByteArray ba(c_str);
-    int32_t hash = qHash(ba);
+    int32_t hash = static_cast<int32_t>(djb_hash(c_str));
     {
         QReadLocker read_locker(&m_hashLock);
         if (m_hashMap.contains(hash))
             return hash;
     }
     QWriteLocker write_locker(&m_hashLock);
-    m_hashMap[hash] = QString::fromUtf8(ba);
+    m_hashMap[hash] = QString::fromUtf8(c_str);
     return hash;
 }
 
