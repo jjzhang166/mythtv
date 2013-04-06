@@ -32,9 +32,15 @@ using namespace std;
 #define private public
 
 // MythTV
+#include "debugloghandler.h"
 #include "mythlogging_extra.h"
 #include "logdeque.h"
 using namespace myth_logging;
+
+static DebugLogHandler *console_dbg()
+{
+    return DebugLogHandler::Get("ConsoleLogHandler");
+}
 
 class TestMythLogging : public QObject
 {
@@ -43,14 +49,15 @@ class TestMythLogging : public QObject
   private slots:
     void init(void)
     {
-        // we set use_threads to true so we can examine the log queue.
-        bool use_threads = true;
-        set_parameters(VB_CHANNEL, LOG_WARNING, -1,
-                       use_threads, false);
+        DebugLogHandler::AddReplacement("ConsoleLogHandler");
+        DebugLogHandler::AddReplacement("FileLogHandler");
+        DebugLogHandler::AddReplacement("PathLogHandler");
 
-        // HACK HACK HACK - begin
-        LogDeque::Get().m_singleThreaded = false;// force single threading off
-        // HACK HACK HACK - end
+        bool use_threads = false;
+        QString logfile, logpath;
+        initialize_logging(
+            VB_CHANNEL, LOG_WARNING, -1, use_threads, false,
+            logfile, logpath);
 
         QVERIFY(VB_CHANNEL == get_verbose());
         QVERIFY(LOG_WARNING == get_log_level());
@@ -136,78 +143,69 @@ class TestMythLogging : public QObject
 
     void LOG_logs_if_it_should(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
-        QVERIFY(!LogDeque::Get().m_messages.empty());
-        LogDeque::Get().m_messages.clear();
+        QVERIFY(console_dbg()->Has(kHandleLog));
+        console_dbg()->Clear();
     }
 
     void LOG_logs_on_higher_log_level(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_ERR, QString(__FUNCTION__));
-        QVERIFY(!LogDeque::Get().m_messages.empty());
-        LogDeque::Get().m_messages.clear();
+        QVERIFY(console_dbg()->Has(kHandleLog));
+        console_dbg()->Clear();
     }
 
     void LOG_does_not_log_on_mask_missmatch(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         LOG(VB_GENERAL, LOG_WARNING, QString(__FUNCTION__));
-        QVERIFY(LogDeque::Get().m_messages.empty());
-        LogDeque::Get().m_messages.clear();
+        QVERIFY(!console_dbg()->Has(kHandleLog));
+        console_dbg()->Clear();
     }
 
     void LOG_does_not_log_on_lower_log_level(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_INFO, QString(__FUNCTION__));
-        QVERIFY(LogDeque::Get().m_messages.empty());
-        LogDeque::Get().m_messages.clear();
+        QVERIFY(!console_dbg()->Has(kHandleLog));
+        console_dbg()->Clear();
     }
 
     void LOG_PRINT_logs_with_flush(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         LOG_PRINT_FLUSH(QString(__FUNCTION__));
-        QVERIFY(!LogDeque::Get().m_messages.empty());
-        if (!LogDeque::Get().m_messages.empty())
-        {
-            QVERIFY(LogDeque::Get().m_messages[0].IsPrint());
-            QVERIFY(LogDeque::Get().m_messages[0].IsFlush());
-            QCOMPARE(LogDeque::Get().m_messages[0].GetMessage(),
-                     QString(__FUNCTION__));
-        }
-        LogDeque::Get().m_messages.clear();
+        QVERIFY(console_dbg()->Has(kHandlePrint));
+        DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandlePrint);
+        QVERIFY(l.entry().IsPrint());
+        QVERIFY(l.entry().IsFlush());
+        QCOMPARE(l.entry().GetMessage(), QString(__FUNCTION__));
+        console_dbg()->Clear();
     }
 
     void LOG_PRINT_logs_without_flush(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         LOG_PRINT(QString(__FUNCTION__));
-        QVERIFY(!LogDeque::Get().m_messages.empty());
-        if (!LogDeque::Get().m_messages.empty())
-        {
-            QVERIFY(LogDeque::Get().m_messages[0].IsPrint());
-            QVERIFY(!LogDeque::Get().m_messages[0].IsFlush());
-            QCOMPARE(LogDeque::Get().m_messages[0].GetMessage(),
-                     QString(__FUNCTION__));
-        }
-        LogDeque::Get().m_messages.clear();
+        QVERIFY(console_dbg()->Has(kHandlePrint));
+        DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandlePrint);
+        QVERIFY(l.entry().IsPrint());
+        QVERIFY(!l.entry().IsFlush());
+        QCOMPARE(l.entry().GetMessage(), QString(__FUNCTION__));
+        console_dbg()->Clear();
     }
 
     void log_line_c_accepts_var_args(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         log_line_c(VB_CHANNEL, LOG_WARNING, __FILE__, __LINE__,
                    __FUNCTION__, "%5.2f", 55.55555f);
-        QVERIFY(!LogDeque::Get().m_messages.empty());
-        if (!LogDeque::Get().m_messages.empty())
-        {
-            QVERIFY(LogDeque::Get().m_messages[0]
-                    .GetMessage().contains("55.56"));
-        }
-        LogDeque::Get().m_messages.clear();
+        QVERIFY(console_dbg()->Has(kHandleLog));
+        QVERIFY(console_dbg()->LastEntry(kHandleLog).entry().GetMessage()
+                .contains("55.56"));
+        console_dbg()->Clear();
     }
 
     void SetLogLevelSets(void)
@@ -465,30 +463,27 @@ class TestMythLogging : public QObject
 
     void test_register_thread(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         QString old_name = register_thread("SillyNameRegister");
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
-        QVERIFY(
-            !LogDeque::Get().m_messages.empty() &&
-            LogDeque::Get().m_messages[0].toString()
-            .contains("SillyNameRegister"));
+        QVERIFY(console_dbg()->Has(kHandleLog));
+        DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandleLog);
+        QVERIFY(l.entry().toString().contains("SillyNameRegister"));
         register_thread(old_name);
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
     }
 
-    void test_unregister_thread(void)
+    void test_deregister_thread(void)
     {
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
         QString old_name = register_thread("SillyNameUnregister");
         QString new_name = deregister_thread();
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
-        QVERIFY(!LogDeque::Get().m_messages.empty() &&
-                !LogDeque::Get().m_messages[0].toString()
-                .contains("SillyNameUnregister"));
-        QVERIFY(!LogDeque::Get().m_messages.empty() &&
-                LogDeque::Get().m_messages[0].toString()
-                .contains("Unknown"));
+        QVERIFY(console_dbg()->Has(kHandleLog));
+        DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandleLog);
+        QVERIFY(!l.entry().toString().contains("SillyNameRegister"));
+        QVERIFY(l.entry().toString().contains("Unknown"));
         register_thread(old_name);
-        LogDeque::Get().m_messages.clear();
+        console_dbg()->Clear();
     }
 };

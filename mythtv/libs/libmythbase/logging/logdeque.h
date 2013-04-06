@@ -32,6 +32,8 @@
 #include "threadinfo.h"
 #include "logentry.h"
 
+class LogHandler;
+
 class LogDeque
 {
   public:
@@ -67,16 +69,9 @@ class LogDeque
         int log_level,
         int syslog_facility,
         bool use_threads,
-        bool enable_database_logging)
-    {
-        QWriteLocker locker(&m_filterLock);
-        m_loggingInitialized = true;
-        m_verboseMask = verbose_mask;
-        m_logLevel = log_level;
-        m_singleThreaded = true; // for now always single threaded... TODO FIXME
-        //m_singleThreaded = !use_threads;
-        /* enable_database_logging */
-    }
+        bool enable_database_logging,
+        const QString &logfile,
+        const QString &logpath);
 
     bool IsLogged(uint64_t mask, int level) const
     {
@@ -163,11 +158,7 @@ class LogDeque
 
   private:
     LogDeque();
-
-    ~LogDeque()
-    {
-        ProcessQueue(/*force*/ true);
-    }
+    ~LogDeque();
 
     QList<VerboseInfo> GetVerboseInfos(void) const
     {
@@ -206,7 +197,11 @@ class LogDeque
     bool m_loggingInitialized; // m_filterLock
     int m_logLevel; // m_filterLock
     uint64_t m_verboseMask; // m_filterLock
-    bool m_singleThreaded;
+    bool m_singleThreaded; // m_filterLock
+
+
+    mutable QReadWriteLock m_handlerLock;
+    QList<LogHandler*> m_handlers;
 };
 
 #endif // _LOG_DEQUE_H_

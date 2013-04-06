@@ -100,16 +100,19 @@ MBASE_PUBLIC void log_line_c(
 namespace myth_logging
 {
 /// This should be called once by MythCommandLineParser::ConfigureLogging()
-MBASE_PUBLIC void set_parameters(
+MBASE_PUBLIC void initialize_logging(
     uint64_t verbose_mask,
     int log_level,
     int syslog_facility,
     bool use_threads,
-    bool enable_database_logging)
+    bool enable_database_logging,
+    const QString &logfile,
+    const QString &logpath)
 {
     LogDeque::Get().InitializeLogging(
         verbose_mask, log_level, syslog_facility,
-        use_threads, enable_database_logging);
+        use_threads, enable_database_logging,
+        logfile, logpath);
 }
 
 /// Shuts down logging threads, if there are any.

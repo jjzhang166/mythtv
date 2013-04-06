@@ -2579,18 +2579,43 @@ bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
     {
         if (!myth_logging::parse_syslog_facility(toString("syslog"), facility))
         {
-            cerr << "failed to parse syslog argument: "
+            cerr << "Failed to parse syslog argument: "
                  << qPrintable(toString("syslog")) << endl;
             return false;
         }
     }
 
-    // TODO whole --logfile --logpath thing...
+    QString logfile;
+    if (toBool("logfile"))
+    {
+        logfile = toString("logfile");
+        QFile f(logfile);
+        if (!f.open(QIODevice::WriteOnly|QIODevice::Append))
+        {
+            cerr << "Unable to open logfile for writing ("
+                 << qPrintable(logfile) << ")" << endl;
+            return false;
+        }
+    }
+
+    QString logpath;
+    if (toBool("logpath"))
+    {
+        logpath = toString("logpath");
+        QFileInfo fi(logpath);
+        if (!fi.isDir() || !fi.isWritable())
+        {
+            cerr << "The logpath is not a writable directory ("
+                 << qPrintable(logpath) << ")" << endl;
+            return false;
+        }
+    }
 
     //////////////////////////
-    myth_logging::set_parameters(
+    myth_logging::initialize_logging(
         mask, level, facility,
-        kMultiThreadedLogging == threading, toBool("dblog"));
+        kMultiThreadedLogging == threading, toBool("dblog"),
+        logfile, logpath);
     //////////////////////////
 
     LOG(VB_GENERAL, LOG_INFO,

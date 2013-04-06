@@ -34,6 +34,7 @@ HEADERS += ffmpeg-mmx.h
 HEADERS += mythlogging.h mythlogging_extra.h
 HEADERS += logging/logdeque.h logging/logentry.h
 HEADERS += logging/loglevelinfo.h logging/verboseinfo.h
+HEADERS += logging/loghandler.h logging/debugloghandler.h
 HEADERS += logging/threadinfo.h
 
 SOURCES += mthread.cpp mthreadpool.cpp
@@ -50,7 +51,9 @@ SOURCES += referencecounter.cpp mythcommandlineparser.cpp
 SOURCES += filesysteminfo.cpp hardwareprofile.cpp serverpool.cpp
 SOURCES += plist.cpp signalhandling.cpp mythtimezone.cpp mythdate.cpp
 SOURCES += mythplugin.cpp
-SOURCES += mythlogging.cpp logging/logdeque.cpp logging/logentry.cpp
+SOURCES += mythlogging.cpp
+SOURCES += logging/logdeque.cpp logging/logentry.cpp
+SOURCES += logging/loghandler.cpp logging/debugloghandler.cpp
 
 # This stuff is not Qt5 compatible..
 contains(QT_VERSION, ^4\\.[0-9]\\..*) {

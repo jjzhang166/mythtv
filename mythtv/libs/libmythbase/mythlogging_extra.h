@@ -5,12 +5,14 @@
 
 namespace myth_logging {
 
-MBASE_PUBLIC void set_parameters(
+MBASE_PUBLIC void initialize_logging(
     uint64_t default_verbose_mask,
     int default_log_level,
     int default_syslog_facility,
     bool use_threads,
-    bool enable_database_logging);
+    bool enable_database_logging,
+    const QString &logfile,
+    const QString &logpath);
 
 MBASE_PUBLIC void thread_shutdown(void);
 

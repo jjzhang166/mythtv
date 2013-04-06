@@ -22,15 +22,45 @@
 #define VERBOSEDEFS_H_
 
 #include <algorithm> // for stable_sort
-#include <iostream>
 using namespace std;
 
 #include <QStringList>
 #include <QThread>
 
 #include "logdeque.h"
+#include "loghandler.h"
 
 LogDeque LogDeque::s_logDeque;
+
+void LogDeque::InitializeLogging(
+    uint64_t verbose_mask,
+    int log_level,
+    int syslog_facility,
+    bool use_threads,
+    bool enable_database_logging,
+    const QString &logfile,
+    const QString &logprefix)
+{
+    QWriteLocker filter_locker(&m_filterLock);
+    m_loggingInitialized = true;
+    m_verboseMask = verbose_mask;
+    m_logLevel = log_level;
+    m_singleThreaded = true; // for now always single threaded... TODO FIXME
+    //m_singleThreaded = !use_threads;
+
+    filter_locker.unlock();
+    QWriteLocker handler_locker(&m_handlerLock);
+
+    m_handlers.push_back(LogHandler::GetConsoleHandler());
+
+    /* enable_database_logging */
+
+    if (!logfile.isEmpty())
+        m_handlers.push_back(LogHandler::GetFileHandler(logfile));
+
+    if (!logprefix.isEmpty())
+        m_handlers.push_back(LogHandler::GetPathHandler(logprefix));
+}
 
 // This is a version of Dan Bernstein's hash.
 //  * with xor rather than addition
@@ -84,19 +114,29 @@ void LogDeque::ProcessQueue(bool force)
             }
         }
 
-        QList<LogEntry>::const_iterator it = first_few.begin();
-        for (; it != first_few.end(); ++it)
+        QReadLocker locker(&m_handlerLock);
+        QList<LogEntry>::const_iterator mit = first_few.begin();
+        for (; mit != first_few.end(); ++mit)
         {
-            if (((verboseMask & (*it).GetMask()) == (*it).GetMask()) &&
-                (logLevel <= (*it).GetLevel()))
+            if (((verboseMask & (*mit).GetMask()) == (*mit).GetMask()) &&
+                (logLevel <= (*mit).GetLevel()))
             {
-                cerr << qPrintable((*it).toString()) << endl;
+                QList<LogHandler*>::iterator hit = m_handlers.begin();
+                for (; hit != m_handlers.end(); ++hit)
+                    (*hit)->HandleLog(*mit);
             }
-            else if ((*it).IsPrint())
+            else if ((*mit).IsPrint())
             {
-                cerr << qPrintable((*it).GetMessage()) << endl;
+                QList<LogHandler*>::iterator hit = m_handlers.begin();
+                for (; hit != m_handlers.end(); ++hit)
+                    (*hit)->HandlePrint(*mit);
             }
         }
+
+        // Periodically flush
+        QList<LogHandler*>::iterator hit = m_handlers.begin();
+        for (; hit != m_handlers.end(); ++hit)
+            (*hit)->Flush();
     }
     while (!first_few.empty());
 }
@@ -145,6 +185,18 @@ LogDeque::LogDeque() :
 */
 
     RegisterThread("UI");
+}
+
+LogDeque::~LogDeque()
+{
+    ProcessQueue(/*force*/ true);
+
+    QWriteLocker handler_locker(&m_handlerLock);
+    while (!m_handlers.empty())
+    {
+        delete m_handlers.back();
+        m_handlers.pop_back();
+    }
 }
 
 QString LogDeque::RegisterThread(const QString &name)

@@ -61,6 +61,16 @@ class LogEntry
     {
     }
 
+    /// Creates invalid log entry
+    LogEntry() :
+        m_when(), m_mask(0),
+        m_processId(0), m_threadId(0),
+        m_funcHash(0), m_fileHash(0),
+        m_line(-1), m_level(-1),
+        m_msg(), m_threadName()
+    {
+    }
+
     QString toString() const;
     bool IsPrint(void) const { return m_line < 0; }
     bool IsFlush(void) const { return m_processId == ~0ULL; }
