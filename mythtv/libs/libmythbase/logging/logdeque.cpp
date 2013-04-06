@@ -119,7 +119,7 @@ void LogDeque::ProcessQueue(bool force)
         for (; mit != first_few.end(); ++mit)
         {
             if (((verboseMask & (*mit).GetMask()) == (*mit).GetMask()) &&
-                (logLevel <= (*mit).GetLevel()))
+                (logLevel >= (*mit).GetLevel()))
             {
                 QList<LogHandler*>::iterator hit = m_handlers.begin();
                 for (; hit != m_handlers.end(); ++hit)

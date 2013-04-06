@@ -56,7 +56,7 @@ class LogEntry
         m_when(), m_mask(0),
         m_processId(flush ? ~0ULL : 0ULL), m_threadId(0),
         m_funcHash(0), m_fileHash(0),
-        m_line(-1), m_level(-1),
+        m_line(-1), m_level(99),
         m_msg(msg), m_threadName()
     {
     }
