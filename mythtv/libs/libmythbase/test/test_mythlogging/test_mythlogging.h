@@ -27,11 +27,16 @@ using namespace std;
 
 // Qt
 #include <QtTest/QtTest>
+#include <QTemporaryFile>
+#include <QByteArray>
+#include <QString>
+#include <QFile>
 
 // Enable whitebox testing
 #define private public
 
 // MythTV
+#include "compat.h" // for usleep
 #include "debugloghandler.h"
 #include "mythlogging_extra.h"
 #include "logdeque.h"
@@ -42,19 +47,34 @@ static DebugLogHandler *console_dbg()
     return DebugLogHandler::Get("ConsoleLogHandler");
 }
 
+static QString get_file_contents(const QString &file_name)
+{
+    QFile f(file_name);
+    f.open(QIODevice::ReadOnly);
+    QByteArray ba = f.readAll();
+    return QString::fromUtf8(ba.constData(), ba.size());
+}
+
 class TestMythLogging : public QObject
 {
     Q_OBJECT
+
+    QString logfile;
 
   private slots:
     void init(void)
     {
         DebugLogHandler::AddReplacement("ConsoleLogHandler");
-        DebugLogHandler::AddReplacement("FileLogHandler");
         DebugLogHandler::AddReplacement("PathLogHandler");
 
+        {
+            QTemporaryFile tf;
+            tf.open();
+            logfile = tf.fileName();
+        }
+
         bool use_threads = false;
-        QString logfile, logpath;
+        QString logpath;
         initialize_logging(
             VB_CHANNEL, LOG_WARNING, -1, use_threads, false,
             logfile, logpath);
@@ -170,6 +190,16 @@ class TestMythLogging : public QObject
         console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_INFO, QString(__FUNCTION__));
         QVERIFY(!console_dbg()->Has(kHandleLog));
+        console_dbg()->Clear();
+    }
+
+    void LOG_logs_to_file(void)
+    {
+        console_dbg()->Clear();
+        LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
+        usleep(500 * 1000);
+        QString s = get_file_contents(logfile);
+        QVERIFY(s.contains(QString(__FUNCTION__)));
         console_dbg()->Clear();
     }
 
