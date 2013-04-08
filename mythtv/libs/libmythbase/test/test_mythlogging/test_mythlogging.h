@@ -62,7 +62,9 @@ class TestMythLogging : public QObject
     QString logfile;
 
   private slots:
-    void init(void)
+
+    // called at the beginning of these sets of tests
+    void initTestCase(void)
     {
         DebugLogHandler::AddReplacement("ConsoleLogHandler");
         DebugLogHandler::AddReplacement("PathLogHandler");
@@ -81,6 +83,27 @@ class TestMythLogging : public QObject
 
         QVERIFY(VB_CHANNEL == get_verbose());
         QVERIFY(LOG_WARNING == get_log_level());
+    }
+
+    // called at the end of these sets of tests
+    void cleanupTestCase(void)
+    {
+        thread_shutdown();
+
+        QFile f(logfile);
+        f.remove();
+    }
+
+    // called before each test case
+    void init(void)
+    {
+        console_dbg()->Clear();
+    }
+
+    // called after each test case
+    void cleanup(void)
+    {
+        console_dbg()->Clear();
     }
 
     void log_will_use_single_verbose(void)
@@ -163,79 +186,63 @@ class TestMythLogging : public QObject
 
     void LOG_logs_if_it_should(void)
     {
-        console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
         QVERIFY(console_dbg()->Has(kHandleLog));
-        console_dbg()->Clear();
     }
 
     void LOG_logs_on_higher_log_level(void)
     {
-        console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_ERR, QString(__FUNCTION__));
         QVERIFY(console_dbg()->Has(kHandleLog));
-        console_dbg()->Clear();
     }
 
     void LOG_does_not_log_on_mask_missmatch(void)
     {
-        console_dbg()->Clear();
         LOG(VB_GENERAL, LOG_WARNING, QString(__FUNCTION__));
         QVERIFY(!console_dbg()->Has(kHandleLog));
-        console_dbg()->Clear();
     }
 
     void LOG_does_not_log_on_lower_log_level(void)
     {
-        console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_INFO, QString(__FUNCTION__));
         QVERIFY(!console_dbg()->Has(kHandleLog));
-        console_dbg()->Clear();
     }
 
     void LOG_logs_to_file(void)
     {
-        console_dbg()->Clear();
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
         usleep(500 * 1000);
         QString s = get_file_contents(logfile);
         QVERIFY(s.contains(QString(__FUNCTION__)));
-        console_dbg()->Clear();
     }
 
     void LOG_PRINT_logs_with_flush(void)
     {
-        console_dbg()->Clear();
         LOG_PRINT_FLUSH(QString(__FUNCTION__));
         QVERIFY(console_dbg()->Has(kHandlePrint));
         DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandlePrint);
         QVERIFY(l.entry().IsPrint());
         QVERIFY(l.entry().IsFlush());
         QCOMPARE(l.entry().GetMessage(), QString(__FUNCTION__));
-        console_dbg()->Clear();
     }
 
     void LOG_PRINT_logs_without_flush(void)
     {
-        console_dbg()->Clear();
         LOG_PRINT(QString(__FUNCTION__));
         QVERIFY(console_dbg()->Has(kHandlePrint));
         DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandlePrint);
         QVERIFY(l.entry().IsPrint());
         QVERIFY(!l.entry().IsFlush());
         QCOMPARE(l.entry().GetMessage(), QString(__FUNCTION__));
-        console_dbg()->Clear();
     }
 
     void log_line_c_accepts_var_args(void)
     {
-        console_dbg()->Clear();
         log_line_c(VB_CHANNEL, LOG_WARNING, __FILE__, __LINE__,
                    __FUNCTION__, "%5.2f", 55.55555f);
         QVERIFY(console_dbg()->Has(kHandleLog));
         QVERIFY(console_dbg()->LastEntry(kHandleLog).entry().GetMessage()
                 .contains("55.56"));
-        console_dbg()->Clear();
     }
 
     void SetLogLevelSets(void)
@@ -493,19 +500,16 @@ class TestMythLogging : public QObject
 
     void test_register_thread(void)
     {
-        console_dbg()->Clear();
         QString old_name = register_thread("SillyNameRegister");
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
         QVERIFY(console_dbg()->Has(kHandleLog));
         DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandleLog);
         QVERIFY(l.entry().toString().contains("SillyNameRegister"));
         register_thread(old_name);
-        console_dbg()->Clear();
     }
 
     void test_deregister_thread(void)
     {
-        console_dbg()->Clear();
         QString old_name = register_thread("SillyNameUnregister");
         QString new_name = deregister_thread();
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
@@ -514,6 +518,5 @@ class TestMythLogging : public QObject
         QVERIFY(!l.entry().toString().contains("SillyNameRegister"));
         QVERIFY(l.entry().toString().contains("Unknown"));
         register_thread(old_name);
-        console_dbg()->Clear();
     }
 };
