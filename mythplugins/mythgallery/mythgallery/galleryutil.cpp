@@ -16,6 +16,9 @@
  *
  * ============================================================ */
 
+// POSIX
+#include <errno.h>
+
 // qt
 #include <QDir>
 #include <QApplication>
