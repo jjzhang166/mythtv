@@ -5,10 +5,16 @@
     
     Starting point for the MythArchive module
 */
-#include <iostream>
-#include <cstdlib>
+
+// POSIX
+#include <errno.h>
 #include <signal.h>
 
+// C
+#include <cstdlib>
+
+// C++
+#include <iostream>
 using namespace std;
 
 // Qt
