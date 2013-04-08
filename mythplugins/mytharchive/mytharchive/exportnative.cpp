@@ -24,6 +24,7 @@
 #include <mythmainwindow.h>
 #include <mythsystem.h>
 #include <exitcodes.h>
+#include <mythlogging_extra.h>
 
 // mytharchive
 #include "exportnative.h"
@@ -487,9 +488,7 @@ void ExportNative::runScript()
     createConfigFile(configDir + "/mydata.xml");
     commandline = "mytharchivehelper --nativearchive --outfile " + configDir +
                   "/mydata.xml";  // job file
-    commandline += logPropagateArgs;
-    if (!logPropagateQuiet())
-        commandline += " --quiet";
+    commandline += myth_logging::command_line_arguments();
     commandline += " > "  + logDir + "/progress.log 2>&1 &";            // Logs
 
     uint flags = kMSRunBackground | kMSDontBlockInputDevs |

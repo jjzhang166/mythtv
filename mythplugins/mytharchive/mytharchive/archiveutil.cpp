@@ -22,7 +22,7 @@ using namespace std;
 #include <mythdate.h>
 #include <mythsystem.h>
 #include <exitcodes.h>
-#include <mythlogging.h>
+#include <mythlogging_extra.h>
 
 // mytharchive
 #include "archiveutil.h"
@@ -245,9 +245,7 @@ bool getFileDetails(ArchiveItem *a)
     QString command = QString("mytharchivehelper --getfileinfo --infile \"%1\" "
                               "--outfile \"%2\" --method %3")
             .arg(inFile).arg(outFile).arg(lenMethod);
-    command += logPropagateArgs;
-    if (!logPropagateQuiet())
-        command += " --quiet";
+    command += myth_logging::command_line_arguments();
 
     uint flags = kMSDontBlockInputDevs | kMSDontDisableDrawing;
     if (myth_system(command, flags) != GENERIC_EXIT_OK)

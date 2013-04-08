@@ -14,6 +14,7 @@
 #include <QTextStream>
 
 // myth
+#include <mythlogging_extra.h>
 #include <mythcontext.h>
 #include <mythdb.h>
 #include <mythdirs.h>
@@ -1219,9 +1220,7 @@ void BurnMenu::doBurn(int mode)
     commandline = "mytharchivehelper --burndvd --mediatype " + sArchiveFormat +
                   (bEraseDVDRW ? " --erasedvdrw" : "") + 
                   (bNativeFormat ? " --nativeformat" : "");
-    commandline += logPropagateArgs;
-    if (!logPropagateQuiet())
-        commandline += " --quiet";
+    commandline += myth_logging::command_line_arguments();
     commandline += " > "  + logDir + "/progress.log 2>&1 &";
 
     uint flags = kMSRunBackground | kMSDontBlockInputDevs | 

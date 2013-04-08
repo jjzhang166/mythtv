@@ -7,6 +7,7 @@
 #include <QDomDocument>
 
 // Myth
+#include <mythlogging_extra.h>
 #include <mythcontext.h>
 #include <mythdbcon.h>
 #include <mythuihelper.h>
@@ -455,9 +456,7 @@ void ImportNative::finishedPressed()
 
     commandline = "mytharchivehelper --importarchive --infile \"" + m_xmlFile +
                   "\" --chanid " + chanID;
-    commandline += logPropagateArgs;
-    if (!logPropagateQuiet())
-        commandline += " --quiet";
+    commandline += myth_logging::command_line_arguments();
     commandline += " > "  + logDir + "/progress.log 2>&1 &";
 
     uint flags = kMSRunBackground | kMSDontBlockInputDevs |

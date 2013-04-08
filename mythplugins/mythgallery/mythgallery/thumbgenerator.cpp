@@ -300,7 +300,8 @@ void ThumbGenerator::loadFile(QImage& image, const QFileInfo& fi)
 
             QString cmd = "mythpreviewgen";
             QStringList args;
-            args << logPropagateArgs.split(" ", QString::SkipEmptyParts);
+            args << myth_logging::command_line_arguments()
+                .split(" ", QString::SkipEmptyParts);
             args << "--infile" << '"' + fi.absoluteFilePath() + '"';
             args << "--outfile" << '"' + tmpDir.filePath(thumbFile) + '"';
 
