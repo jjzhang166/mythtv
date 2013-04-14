@@ -23,6 +23,10 @@
  Suggestions and Amendments:
    Allow verbose mask to be printed in log message. (stichnot)
    Bring back logfile. (stichnot)
+     This means we need to capture the stderr output of subcommands
+     and redirect them through logging. Might as well get rid of the
+     need to construct logging command line args everywhere we start
+     a mythtv subprocess. (danielk)
    Don't fail to log due to permissions of frontend and
      backend being different (danielk)
  */
