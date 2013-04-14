@@ -12,7 +12,7 @@ MBASE_PUBLIC void initialize_logging(
     bool use_threads,
     bool enable_database_logging,
     const QString &logfile,
-    const QString &logpath);
+    const QString &logprefix);
 
 MBASE_PUBLIC void thread_shutdown(void);
 

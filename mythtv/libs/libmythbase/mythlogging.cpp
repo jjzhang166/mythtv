@@ -99,7 +99,28 @@ MBASE_PUBLIC void log_line_c(
 
 namespace myth_logging
 {
-/// This should be called once by MythCommandLineParser::ConfigureLogging()
+/** \brief Initializes logging.
+ *
+ *  Before this called all messages sent to logging are saved for
+ *  processing after this has been called.
+ *
+ *  \note This should be called once by
+ *        MythCommandLineParser::ConfigureLogging()
+ *
+ * \param verbose_mask A mask specifying which logging messages should
+ *                     be processed, and which should be ignored assuming
+ *                     the log level is met. See verbosedefs.h for details.
+ * \param log_level    The starting log level, all messages of lesser severity
+ *                     are ignored.
+ * \param syslog_facility A syslog facility to send logging to.
+ * \param use_threads  Use multithreading.
+ * \param enabled_database_logging Write logging messages to a SQL database.
+ * \param logfile      File to send all logging to (including the logging of
+ *                     subprocesses.)
+ * \param logprefix    Path+'/'+prefix of where logger should create logging
+ *                     files. MythTV subprocesses will place their logging in
+ *                     the same directory as well. 
+ */
 MBASE_PUBLIC void initialize_logging(
     uint64_t verbose_mask,
     int log_level,
@@ -107,12 +128,12 @@ MBASE_PUBLIC void initialize_logging(
     bool use_threads,
     bool enable_database_logging,
     const QString &logfile,
-    const QString &logpath)
+    const QString &logprefix)
 {
     LogDeque::Get().InitializeLogging(
         verbose_mask, log_level, syslog_facility,
         use_threads, enable_database_logging,
-        logfile, logpath);
+        logfile, logprefix);
 }
 
 /// Shuts down logging threads, if there are any.
@@ -148,7 +169,9 @@ MBASE_PUBLIC uint64_t get_verbose(void)
     return mask;
 }
 
-/// formats verbose, log level, and syslog facility for another mythtv program
+/** Formats verbose, log level and log path for another mythtv program.
+ */
+// TODO log file
 // TODO syslog??
 MBASE_PUBLIC QString command_line_arguments(void)
 {
@@ -156,9 +179,14 @@ MBASE_PUBLIC QString command_line_arguments(void)
     int level;
     bool init;
     LogDeque::Get().GetLogFilter(mask, level, init);
-    return QString(" --verbose %1 --loglevel %2 ")
+    QString cmd_line = QString(" --verbose %1 --loglevel %2 ")
         .arg(format_verbose(mask))
         .arg(format_log_level(level));
+
+    if (!LogDeque::Get().GetLogPath().isEmpty())
+        cmd_line += QString("--logpath %1 ").arg(LogDeque::Get().GetLogPath());
+
+    return cmd_line;
 }
 
 MBASE_PUBLIC QString format_verbose(uint64_t mask)

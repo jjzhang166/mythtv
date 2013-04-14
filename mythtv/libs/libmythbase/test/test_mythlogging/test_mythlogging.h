@@ -29,8 +29,12 @@ using namespace std;
 #include <QtTest/QtTest>
 #include <QTemporaryFile>
 #include <QByteArray>
+#include <QDateTime>
+#include <QFileInfo>
 #include <QString>
 #include <QFile>
+#include <QList>
+#include <QDir>
 
 // Enable whitebox testing
 #define private public
@@ -55,11 +59,42 @@ static QString get_file_contents(const QString &file_name)
     return QString::fromUtf8(ba.constData(), ba.size());
 }
 
+static QString get_logpath_file_contents(const QString &logprefix)
+{
+    QString logpath = logprefix.mid(0,logprefix.lastIndexOf('/'));
+    QString prefix = logprefix.mid(logprefix.lastIndexOf('/')+1);
+    QFileInfoList fl = QDir(logpath).entryInfoList(QStringList(prefix+"*"));
+    return (fl.empty()) ? QString() : get_file_contents(fl[0].filePath());
+}
+
+static bool rmdir_rf(const QString &item)
+{
+    QFileInfo fi(item);
+    if (!fi.isDir())
+        return false;
+
+    bool ok = true;
+    QFileInfoList fl = QDir(item).entryInfoList(
+        QDir::Dirs|QDir::Files|QDir::System|QDir::Hidden|QDir::NoDotAndDotDot);
+    for (QFileInfoList::iterator it = fl.begin(); it != fl.end() && ok; ++it)
+    {
+        ok = (*it).isDir() ? rmdir_rf((*it).canonicalFilePath()):
+            QFile((*it).canonicalFilePath()).remove();
+    }
+    if (!ok)
+        return false;
+
+    return QDir(item.mid(0,item.lastIndexOf('/')))
+        .rmdir(item.mid(item.lastIndexOf('/')+1));
+}
+
 class TestMythLogging : public QObject
 {
     Q_OBJECT
 
     QString logfile;
+    QString logpath;
+    QString logprefix;
 
   private slots:
 
@@ -67,20 +102,37 @@ class TestMythLogging : public QObject
     void initTestCase(void)
     {
         DebugLogHandler::AddReplacement("ConsoleLogHandler");
-        DebugLogHandler::AddReplacement("PathLogHandler");
 
-        {
+        { // setup temporary log file
             QTemporaryFile tf;
             tf.open();
             logfile = tf.fileName();
         }
 
+        { // setup temporary log path
+            QDir temp_root = QDir::temp();
+            QString tmp_dir;
+            qsrand(QDateTime::currentDateTime().toTime_t());
+            for (uint i = 0; i < 10 && tmp_dir.isEmpty(); i++)
+            {
+                tmp_dir = QString("temp.dir.%1").arg(qrand()%1000000);
+                if (!temp_root.mkdir(tmp_dir))
+                    tmp_dir.clear();
+            }
+            if (!tmp_dir.isEmpty())
+            {
+                logpath = temp_root.path()+"/"+tmp_dir;
+                logprefix = logpath + "/test_mythlogging";
+            }
+        }
+
         bool use_threads = false;
-        QString logpath;
         initialize_logging(
             VB_CHANNEL, LOG_WARNING, -1, use_threads, false,
-            logfile, logpath);
+            logfile, logprefix);
 
+        QVERIFY(!logfile.isEmpty());
+        QVERIFY(!logpath.isEmpty());
         QVERIFY(VB_CHANNEL == get_verbose());
         QVERIFY(LOG_WARNING == get_log_level());
     }
@@ -90,8 +142,14 @@ class TestMythLogging : public QObject
     {
         thread_shutdown();
 
-        QFile f(logfile);
-        f.remove();
+        QFile qfile_logfile(logfile);
+        QVERIFY(qfile_logfile.remove());
+
+        if (!rmdir_rf(logpath))
+        {
+            cerr << "failed to delete" << qPrintable(logpath) << endl;
+            QVERIFY(false);
+        }
     }
 
     // called before each test case
@@ -216,6 +274,14 @@ class TestMythLogging : public QObject
         QVERIFY(s.contains(QString(__FUNCTION__)));
     }
 
+    void LOG_logs_to_file_in_logpath(void)
+    {
+        LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
+        usleep(500 * 1000);
+        QString s = get_logpath_file_contents(logprefix);
+        QVERIFY(s.contains(QString(__FUNCTION__)));
+    }
+
     void LOG_PRINT_logs_with_flush(void)
     {
         LOG_PRINT_FLUSH(QString(__FUNCTION__));
@@ -333,6 +399,13 @@ class TestMythLogging : public QObject
         QString args = command_line_arguments();
         QVERIFY(args.contains(" --loglevel"));
         QVERIFY(args.contains(" warning"));
+    }
+
+    void CommandLineArgumentsSaneWithLogPath(void)
+    {
+        QString args = command_line_arguments();
+        QVERIFY(args.contains(" --logpath"));
+        QVERIFY(args.contains(QString(" %1").arg(logpath)));
     }
 
     void FormatVerboseOne(void)

@@ -71,7 +71,7 @@ class LogDeque
         bool use_threads,
         bool enable_database_logging,
         const QString &logfile,
-        const QString &logpath);
+        const QString &logprefix);
 
     bool IsLogged(uint64_t mask, int level) const
     {
@@ -156,6 +156,18 @@ class LogDeque
 
     QString GetVerboseHelp(void) const;
 
+    QString GetLogFile(void) const
+    {
+        QReadLocker locker(&m_handlerLock);
+        return m_logFile;
+    }
+
+    QString GetLogPath(void) const
+    {
+        QReadLocker locker(&m_handlerLock);
+        return m_logPath;
+    }
+
   private:
     LogDeque();
     ~LogDeque();
@@ -201,7 +213,10 @@ class LogDeque
 
 
     mutable QReadWriteLock m_handlerLock;
-    QList<LogHandler*> m_handlers;
+    QList<LogHandler*> m_handlers; // m_handlerLock
+    QString m_logFile; // m_handlerLock
+    QString m_logPrefix; // m_handlerLock
+    QString m_logPath; // m_handlerLock
 };
 
 #endif // _LOG_DEQUE_H_

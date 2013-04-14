@@ -26,6 +26,7 @@ using namespace std;
 
 #include <QStringList>
 #include <QThread>
+#include <QDir>
 
 #include "logdeque.h"
 #include "loghandler.h"
@@ -56,10 +57,17 @@ void LogDeque::InitializeLogging(
     /* enable_database_logging */
 
     if (!logfile.isEmpty())
+    {
         m_handlers.push_back(LogHandler::GetFileHandler(logfile));
+        m_logFile = logfile;
+    }
 
     if (!logprefix.isEmpty())
+    {
         m_handlers.push_back(LogHandler::GetPathHandler(logprefix));
+        m_logPrefix = QDir::cleanPath(QDir::fromNativeSeparators(logprefix));
+        m_logPath = m_logPrefix.mid(0, m_logPrefix.lastIndexOf("/"));
+    }
 }
 
 // This is a version of Dan Bernstein's hash.
