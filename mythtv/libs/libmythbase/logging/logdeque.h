@@ -25,6 +25,7 @@
 
 #include <QReadWriteLock>
 #include <QMutex>
+#include <QHash>
 #include <QList>
 
 #include "loglevelinfo.h"

@@ -3,6 +3,7 @@
 // POSIX headers
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 #ifndef USING_MINGW
 #include <sys/select.h>
 #include <sys/ioctl.h>
