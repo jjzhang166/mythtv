@@ -28,8 +28,10 @@ using namespace std;
 #include <QThread>
 #include <QDir>
 
-#include "logdeque.h"
+#include "logeventhandler.h"
 #include "loghandler.h"
+#include "logdeque.h"
+#include "mthread.h"
 
 LogDeque LogDeque::s_logDeque;
 
@@ -46,10 +48,8 @@ void LogDeque::InitializeLogging(
     m_loggingInitialized = true;
     m_verboseMask = verbose_mask;
     m_logLevel = log_level;
-    m_singleThreaded = true; // for now always single threaded... TODO FIXME
-    //m_singleThreaded = !use_threads;
-
     filter_locker.unlock();
+
     QWriteLocker handler_locker(&m_handlerLock);
 
     m_handlers.push_back(LogHandler::GetConsoleHandler());
@@ -68,7 +68,55 @@ void LogDeque::InitializeLogging(
         m_logPrefix = QDir::cleanPath(QDir::fromNativeSeparators(logprefix));
         m_logPath = m_logPrefix.mid(0, m_logPrefix.lastIndexOf("/"));
     }
+
+    handler_locker.unlock();
+
+    QWriteLocker thread_locker(&m_threadLock);
+    if (use_threads)
+    {
+        m_singleThreaded = false;
+        m_thread = new MThread("Logging");
+        m_thread->start();
+        m_eventHandler = new LogEventHandler(*this);
+        m_eventHandler->moveToThread(m_thread->qthread());
+        m_eventHandler->Notify();
+    }
 }
+
+void LogDeque::ThreadShutdown(void)
+{
+    QWriteLocker thread_locker(&m_threadLock);
+
+    if (m_singleThreaded)
+        return;
+
+    m_singleThreaded = true;
+
+    m_thread->quit();
+    m_thread->wait();
+
+    delete m_thread;
+    delete m_eventHandler;
+
+    m_thread = NULL;
+    m_eventHandler = NULL;
+
+    ProcessQueue();
+}
+
+void LogDeque::LogLine(const LogEntry &logEntry)
+{
+    QMutexLocker locker(&m_messagesLock);
+    m_messages.push_back(logEntry);
+    locker.unlock();
+
+    QReadLocker thread_locker(&m_threadLock);
+    if (m_singleThreaded)
+        ProcessQueue();
+    else
+        m_eventHandler->Notify();
+}
+
 
 // This is a version of Dan Bernstein's hash.
 //  * with xor rather than addition
@@ -152,7 +200,10 @@ void LogDeque::ProcessQueue(bool force)
 LogDeque::LogDeque() :
     m_loggingInitialized(false),
     m_logLevel(INT_MAX),
-    m_verboseMask(~(uint64_t(0)))
+    m_verboseMask(~(uint64_t(0))),
+    m_singleThreaded(true),
+    m_thread(NULL),
+    m_eventHandler(NULL)
 {
 /* We initialize the log level and verbose mask so that before
  * logging is initialized all messages are are passed through to
@@ -197,6 +248,9 @@ LogDeque::LogDeque() :
 
 LogDeque::~LogDeque()
 {
+    // This should have already been called, but better safe than sorry.
+    ThreadShutdown();
+
     ProcessQueue(/*force*/ true);
 
     QWriteLocker handler_locker(&m_handlerLock);

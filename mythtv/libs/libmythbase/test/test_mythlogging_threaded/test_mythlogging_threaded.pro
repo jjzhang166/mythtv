@@ -8,9 +8,9 @@ QT += testlib
 }
 
 TEMPLATE = app
-TARGET = test_mythlogging
-DEPENDPATH += . ../.. ../../logging
-INCLUDEPATH += . ../.. ../../logging
+TARGET = test_mythlogging_threaded
+DEPENDPATH += . ../.. ../../logging ../test_mythlogging
+INCLUDEPATH += . ../.. ../../logging ../test_mythlogging
 LIBS += -L../.. -lmythbase-$$LIBVERSION
 LIBS += -Wl,-rpath,$${PWD}/../..
 
@@ -20,8 +20,9 @@ contains(QMAKE_CXX, "g++") {
 }
 
 # Input
-HEADERS += test_mythlogging.h   test_mythloggingbase.h
-SOURCES += test_mythlogging.cpp
+HEADERS += test_mythlogging_threaded.h
+HEADERS += ../test_mythlogging/test_mythloggingbase.h
+SOURCES += test_mythlogging_threaded.cpp
 
 QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 QMAKE_CLEAN += ; rm -f *.gcov *.gcda *.gcno

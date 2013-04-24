@@ -18,15 +18,25 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <QCoreApplication>
 #include "test_mythloggingbase.h"
 
-class TestMythLogging : public TestMythLoggingBase
+class TestMythLoggingThreaded : public TestMythLoggingBase
 {
     Q_OBJECT
+
+    TestMythLoggingThreaded() : my_app(argc, argv)
+    {
+    }
 
   private slots:
     void initTestCase(void)
     {
-        TestMythLoggingBase::initTestCase(false /*use_threads*/);
+        TestMythLoggingBase::initTestCase(true /*use_threads*/);
     }
+
+  public:
+    static int argc;
+    static char *argv[3];
+    QCoreApplication my_app;
 };

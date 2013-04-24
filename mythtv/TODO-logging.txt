@@ -29,6 +29,12 @@
      a mythtv subprocess. (danielk)
    Don't fail to log due to permissions of frontend and
      backend being different (danielk)
+   Make sure we don't consume unbounded amounts of memory if too much
+     logging is done. Either via feedback (slowing down LOG), or by
+     just dropping log messages.
+   Don't send a notify for every LOG event. These will cause the event
+     handling thread to be woken up more than it should. Instead adopt
+     something similar to the tickless kernel approach. 
  */
 
 Can QCoreApplication::setApplicationName() be called earlier in

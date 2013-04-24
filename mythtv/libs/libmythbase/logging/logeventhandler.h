@@ -1,7 +1,7 @@
 /*
- *  Class TestMythLogging
+ *  Class LogEventHandler
  *
- *  Copyright (C) Daniel Kristjansson 2013
+ *  Copyright (C) Daniel Thor Kristjansson 2013
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -18,15 +18,31 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "test_mythloggingbase.h"
+#ifndef _LOG_EVENT_HANDLER_H_
+#define _LOG_EVENT_HANDLER_H_
 
-class TestMythLogging : public TestMythLoggingBase
+#include <QObject>
+
+class LogDeque;
+class QEvent;
+
+class LogEventHandler : public QObject
 {
     Q_OBJECT
 
-  private slots:
-    void initTestCase(void)
+  public:
+    LogEventHandler(LogDeque &logDeque) : m_logDeque(logDeque)
     {
-        TestMythLoggingBase::initTestCase(false /*use_threads*/);
     }
+
+    /// Event handler -- calls LogDeque::ProcessQueue()
+    bool event(QEvent *e);
+
+    /// Notify event handler there might be logging items.
+    void Notify(void);
+
+  private:
+    LogDeque &m_logDeque;
 };
+
+#endif // _LOG_EVENT_HANDLER_H_

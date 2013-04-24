@@ -29,30 +29,26 @@
 #include <QList>
 
 #include "loglevelinfo.h"
+#include "mythbaseexp.h"
 #include "verboseinfo.h"
 #include "threadinfo.h"
 #include "logentry.h"
 
+class MThread;
 class LogHandler;
+class LogEventHandler;
 
-class LogDeque
+class MBASE_PUBLIC LogDeque
 {
+    friend class LogEventHandler;
+
   public:
     static LogDeque &Get(void)
     {
         return s_logDeque;
     }
 
-    void LogLine(const LogEntry &logEntry)
-    {
-        QMutexLocker locker(&m_messagesLock);
-        m_messages.push_back(logEntry);
-        if (IsSingleThreaded())
-        {
-            locker.unlock();
-            ProcessQueue();
-        }
-    }
+    void LogLine(const LogEntry &logEntry);
 
     uint32_t HashString(const char *c_str);
 
@@ -73,6 +69,8 @@ class LogDeque
         bool enable_database_logging,
         const QString &logfile,
         const QString &logprefix);
+
+    void ThreadShutdown(void);
 
     bool IsLogged(uint64_t mask, int level) const
     {
@@ -182,11 +180,6 @@ class LogDeque
         return verboseInfoList;
     }
 
-    bool IsSingleThreaded(void) const
-    {
-        return m_singleThreaded;
-    }
-
     void ProcessQueue(bool force = false);
 
   private:
@@ -210,7 +203,6 @@ class LogDeque
     bool m_loggingInitialized; // m_filterLock
     int m_logLevel; // m_filterLock
     uint64_t m_verboseMask; // m_filterLock
-    bool m_singleThreaded; // m_filterLock
 
 
     mutable QReadWriteLock m_handlerLock;
@@ -218,6 +210,11 @@ class LogDeque
     QString m_logFile; // m_handlerLock
     QString m_logPrefix; // m_handlerLock
     QString m_logPath; // m_handlerLock
+
+    mutable QReadWriteLock m_threadLock;
+    bool m_singleThreaded; // m_threadLock
+    MThread *m_thread; // m_threadLock
+    LogEventHandler *m_eventHandler; // m_threadLock
 };
 
 #endif // _LOG_DEQUE_H_

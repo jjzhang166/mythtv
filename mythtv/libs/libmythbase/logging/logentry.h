@@ -26,7 +26,9 @@
 #include <QDateTime>
 #include <QString>
 
-class LogEntry
+#include "mythbaseexp.h"
+
+class MBASE_PUBLIC LogEntry
 {
   public:
     /**

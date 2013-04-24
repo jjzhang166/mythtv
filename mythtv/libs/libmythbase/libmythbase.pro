@@ -35,7 +35,7 @@ HEADERS += mythlogging.h mythlogging_extra.h
 HEADERS += logging/logdeque.h logging/logentry.h
 HEADERS += logging/loglevelinfo.h logging/verboseinfo.h
 HEADERS += logging/loghandler.h logging/debugloghandler.h
-HEADERS += logging/threadinfo.h
+HEADERS += logging/threadinfo.h logging/logeventhandler.h
 
 SOURCES += mthread.cpp mthreadpool.cpp
 SOURCES += mythsocket.cpp
@@ -54,6 +54,7 @@ SOURCES += mythplugin.cpp
 SOURCES += mythlogging.cpp
 SOURCES += logging/logdeque.cpp logging/logentry.cpp
 SOURCES += logging/loghandler.cpp logging/debugloghandler.cpp
+SOURCES += logging/logeventhandler.cpp
 
 # This stuff is not Qt5 compatible..
 contains(QT_VERSION, ^4\\.[0-9]\\..*) {

@@ -139,6 +139,7 @@ MBASE_PUBLIC void initialize_logging(
 /// Shuts down logging threads, if there are any.
 MBASE_PUBLIC void thread_shutdown(void)
 {
+    LogDeque::Get().ThreadShutdown();
 }
 
 MBASE_PUBLIC int set_log_level(int log_level)

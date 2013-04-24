@@ -24,11 +24,13 @@
 #include <vector>
 using namespace std;
 
+#include <QReadWriteLock>
 #include <QDateTime>
 #include <QString>
 #include <QHash>
 #include <QSet>
 
+#include "mythbaseexp.h"
 #include "loghandler.h"
 #include "logentry.h"
 
@@ -41,7 +43,7 @@ typedef enum
     kNone,
 } Operator;
 
-class DebugLogHandlerEntry
+class MBASE_PUBLIC DebugLogHandlerEntry
 {
   public:
     DebugLogHandlerEntry(Operator o, const LogEntry &e) :
@@ -80,7 +82,7 @@ class DebugLogHandlerEntry
     LogEntry m_logEntry;
 };
 
-class DebugLogHandler : public LogHandler
+class MBASE_PUBLIC DebugLogHandler : public LogHandler
 {
     static QSet<QString> s_is_replacing;
     static QHash<QString, DebugLogHandler*> s_replacement;
@@ -122,26 +124,31 @@ class DebugLogHandler : public LogHandler
 
     virtual void HandleLog(const LogEntry &e)
     {
+        QWriteLocker locker(&m_lock);
         m_debugEntries.push_back(new DebugLogHandlerEntry(kHandleLog, e));
     }
 
     virtual void HandlePrint(const LogEntry &e)
     {
+        QWriteLocker locker(&m_lock);
         m_debugEntries.push_back(new DebugLogHandlerEntry(kHandlePrint, e));
     }
 
     virtual void RotateLogs(void)
     {
+        QWriteLocker locker(&m_lock);
         m_debugEntries.push_back(new DebugLogHandlerEntry(kRotateLogs));
     }
 
     virtual void Flush(void)
     {
+        QWriteLocker locker(&m_lock);
         m_debugEntries.push_back(new DebugLogHandlerEntry(kFlush));
     }
 
     DebugLogHandlerEntry LastEntry(void) const
     {
+        QReadLocker locker(&m_lock);
         if (m_debugEntries.empty())
             return DebugLogHandlerEntry();
         return *m_debugEntries.back();
@@ -149,6 +156,7 @@ class DebugLogHandler : public LogHandler
 
     DebugLogHandlerEntry LastEntry(Operator op) const
     {
+        QReadLocker locker(&m_lock);
         vector<DebugLogHandlerEntry*>::const_reverse_iterator it;
         for (it = m_debugEntries.rbegin(); it != m_debugEntries.rend(); ++it)
         {
@@ -160,6 +168,7 @@ class DebugLogHandler : public LogHandler
 
     void Clear(void)
     {
+        QWriteLocker locker(&m_lock);
         while (!m_debugEntries.empty())
         {
             delete m_debugEntries.back();
@@ -169,6 +178,7 @@ class DebugLogHandler : public LogHandler
 
     void Clear(Operator op)
     {
+        QWriteLocker locker(&m_lock);
         vector<DebugLogHandlerEntry*> new_list;
         for (uint i = 0; i < uint(m_debugEntries.size()); i++)
         {
@@ -182,21 +192,25 @@ class DebugLogHandler : public LogHandler
 
     bool IsEmpty(void) const
     {
+        QReadLocker locker(&m_lock);
         return m_debugEntries.empty();
     }
 
-    bool Size(void) const
+    uint64_t Size(void) const
     {
+        QReadLocker locker(&m_lock);
         return m_debugEntries.size();
     }
 
     bool Has(Operator op) const
     {
+        QReadLocker locker(&m_lock);
         if (kNone != op)
             return LastEntry(op).op() == op;
         return false;
     }
 
+    mutable QReadWriteLock m_lock;
     QString m_classReplaced;
     QString m_param;
     vector<DebugLogHandlerEntry*> m_debugEntries;
