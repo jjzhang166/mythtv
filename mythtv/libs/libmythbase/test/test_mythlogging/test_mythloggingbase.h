@@ -98,6 +98,18 @@ class TestMythLoggingBase : public QObject
     QString logfile;
     QString logpath;
     QString logprefix;
+    bool wasCalled;
+
+    void clearWasCalled(void)
+    {
+        wasCalled = false;
+    }
+
+    QString setWasCalled(void)
+    {
+        wasCalled = true;
+        return QString();
+    }
 
   private slots:
 
@@ -242,6 +254,13 @@ class TestMythLoggingBase : public QObject
     void log_errno_to_qstring_int_contains_strerror_output(void)
     {
         QVERIFY(errno_to_qstring(EACCES).contains(strerror(EACCES)));
+    }
+
+    void LOG_does_not_interpret_unlogged_message(void)
+    {
+        clearWasCalled();
+        LOG(VB_CHANNEL, LOG_DEBUG, QString(__FUNCTION__) + setWasCalled());
+        QVERIFY(!wasCalled);
     }
 
     void LOG_logs_if_it_should(void)
