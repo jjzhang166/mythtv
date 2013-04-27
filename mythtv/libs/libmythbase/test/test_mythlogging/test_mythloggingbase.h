@@ -91,6 +91,43 @@ static bool rmdir_rf(const QString &item)
         .rmdir(item.mid(item.lastIndexOf('/')+1));
 }
 
+static qint64 diff(const QDateTime &a, const QDateTime &b)
+{
+    qint64 e = a.toMSecsSinceEpoch() - b.toMSecsSinceEpoch();
+    return (e >= 0) ? e : -e;
+}
+
+/// Waits until the log stops being appended to
+/// and returns the time of the last appending.
+static QDateTime wait_for_log_thread_completion(void)
+{
+    quint64 old_sz = 0, new_sz = 0;
+    QDateTime last_append = QDateTime::currentDateTimeUtc();
+    while (true)
+    {
+        old_sz = new_sz;
+        new_sz = console_dbg()->Size();
+        QDateTime new_dt = QDateTime::currentDateTimeUtc();
+        if (old_sz != new_sz)
+        {
+            last_append = new_dt;
+        }
+        else if (diff(last_append, new_dt) > 15)
+        {
+            break;
+        }
+        usleep(5 * 1000);
+    }
+    return last_append;
+}
+
+static void log_many_times(uint how_many)
+{
+    QString what = QString(__FUNCTION__);
+    for (uint i = 0; i < how_many; i++)
+        LOG(VB_CHANNEL, LOG_WARNING, what);
+}
+
 class TestMythLoggingBase : public QObject
 {
     Q_OBJECT
@@ -175,6 +212,7 @@ class TestMythLoggingBase : public QObject
     // called after each test case
     void cleanup(void)
     {
+        wait_for_log_thread_completion();
         console_dbg()->Clear();
     }
 
@@ -266,28 +304,28 @@ class TestMythLoggingBase : public QObject
     void LOG_logs_if_it_should(void)
     {
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(console_dbg()->Has(kHandleLog));
     }
 
     void LOG_logs_on_higher_log_level(void)
     {
         LOG(VB_CHANNEL, LOG_ERR, QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(console_dbg()->Has(kHandleLog));
     }
 
     void LOG_does_not_log_on_mask_missmatch(void)
     {
         LOG(VB_GENERAL, LOG_WARNING, QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(!console_dbg()->Has(kHandleLog));
     }
 
     void LOG_does_not_log_on_lower_log_level(void)
     {
         LOG(VB_CHANNEL, LOG_INFO, QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(!console_dbg()->Has(kHandleLog));
     }
 
@@ -310,7 +348,7 @@ class TestMythLoggingBase : public QObject
     void LOG_PRINT_logs_with_flush(void)
     {
         LOG_PRINT_FLUSH(QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(console_dbg()->Has(kHandlePrint));
         DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandlePrint);
         QVERIFY(l.entry().IsPrint());
@@ -321,7 +359,7 @@ class TestMythLoggingBase : public QObject
     void LOG_PRINT_logs_without_flush(void)
     {
         LOG_PRINT(QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(console_dbg()->Has(kHandlePrint));
         DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandlePrint);
         QVERIFY(l.entry().IsPrint());
@@ -333,7 +371,7 @@ class TestMythLoggingBase : public QObject
     {
         log_line_c(VB_CHANNEL, LOG_WARNING, __FILE__, __LINE__,
                    __FUNCTION__, "%5.2f", 55.55555f);
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(console_dbg()->Has(kHandleLog));
         QVERIFY(console_dbg()->LastEntry(kHandleLog).entry().GetMessage()
                 .contains("55.56"));
@@ -603,7 +641,7 @@ class TestMythLoggingBase : public QObject
     {
         QString old_name = register_thread("SillyNameRegister");
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(console_dbg()->Has(kHandleLog));
         DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandleLog);
         QVERIFY(l.entry().toString().contains("SillyNameRegister"));
@@ -615,12 +653,29 @@ class TestMythLoggingBase : public QObject
         QString old_name = register_thread("SillyNameUnregister");
         QString new_name = deregister_thread();
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
-        usleep(25 * 1000);
+        wait_for_log_thread_completion();
         QVERIFY(console_dbg()->Has(kHandleLog));
         DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandleLog);
         QVERIFY(!l.entry().toString().contains("SillyNameRegister"));
         QVERIFY(l.entry().toString().contains("Unknown"));
         register_thread(old_name);
+    }
+
+    void benchmark_LOG_macro_10000(void)
+    {
+        QBENCHMARK
+        {
+            log_many_times(10000);
+        }
+    }
+
+    void benchmark_processing_10000(void)
+    {
+        QBENCHMARK
+        {
+            log_many_times(10000);
+            wait_for_log_thread_completion();
+        }
     }
 };
 
