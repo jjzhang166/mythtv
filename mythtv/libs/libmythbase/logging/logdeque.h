@@ -182,6 +182,12 @@ class MBASE_PUBLIC LogDeque
 
     void ProcessQueue(bool force = false);
 
+    uint MessageQueueSize(void) const
+    {
+        QMutexLocker locker(&m_messagesLock);
+        return m_messages.size();
+    }
+
   private:
     static LogDeque s_logDeque;
 

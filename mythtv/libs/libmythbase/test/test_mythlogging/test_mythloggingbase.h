@@ -91,34 +91,13 @@ static bool rmdir_rf(const QString &item)
         .rmdir(item.mid(item.lastIndexOf('/')+1));
 }
 
-static qint64 diff(const QDateTime &a, const QDateTime &b)
-{
-    qint64 e = a.toMSecsSinceEpoch() - b.toMSecsSinceEpoch();
-    return (e >= 0) ? e : -e;
-}
-
 /// Waits until the log stops being appended to
 /// and returns the time of the last appending.
 static QDateTime wait_for_log_thread_completion(void)
 {
-    quint64 old_sz = 0, new_sz = 0;
-    QDateTime last_append = QDateTime::currentDateTimeUtc();
-    while (true)
-    {
-        old_sz = new_sz;
-        new_sz = console_dbg()->Size();
-        QDateTime new_dt = QDateTime::currentDateTimeUtc();
-        if (old_sz != new_sz)
-        {
-            last_append = new_dt;
-        }
-        else if (diff(last_append, new_dt) > 15)
-        {
-            break;
-        }
-        usleep(5 * 1000);
-    }
-    return last_append;
+    while (LogDeque::Get().MessageQueueSize())
+        usleep(1000);
+    return QDateTime::currentDateTimeUtc();
 }
 
 static void log_many_times(uint how_many)
