@@ -1,10 +1,10 @@
 /*
  Logging primary goals:
-   Maintain the short-blocking logging when logging thread is running.
-   Logging thread is optional
+   Maintain the short-blocking logging when logging thread is running [DONE]
+   Logging thread is optional [DONE]
    Logging does not consume significant additional resources
    No messages are printed until mask and level are initialized
-   Messages sent logging after logging thread is stopped are still captured
+   Messages sent logging after logging thread is stopped are still captured [DONE]
    Database logging is disabled by default
    Messages sent to stderr and stdout should be captured by logging
      This is for third party library logging to be captured.

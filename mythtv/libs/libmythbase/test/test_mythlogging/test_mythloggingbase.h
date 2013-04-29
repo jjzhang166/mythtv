@@ -172,6 +172,10 @@ class TestMythLoggingBase : public QObject
     {
         thread_shutdown();
 
+        LOG(VB_CHANNEL, LOG_WARNING, "logs_after_thread_shutdown");
+        DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandleLog);
+        QVERIFY(l.entry().GetMessage().contains("logs_after_thread_shutdown"));
+
         QFile qfile_logfile(logfile);
         QVERIFY(qfile_logfile.remove());
 
