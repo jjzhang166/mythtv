@@ -13,7 +13,7 @@
    It should relatively easy to send text to the console stdin/stderr for
      command line programs.
    Logging messages should be sent to stderr, not stdout so they can
-     be seperated from program output with command line programs.
+     be seperated from program output with command line programs. [DONE]
  Logging secondary goals:
    Allow log messages to be formatted.
     i.e. "date | message | function | line | thread_id" might make sense if you
@@ -31,10 +31,10 @@
      backend being different (danielk)
    Make sure we don't consume unbounded amounts of memory if too much
      logging is done. Either via feedback (slowing down LOG), or by
-     just dropping log messages.
+     just dropping log messages. [feedback added + hard-threshold]
    Don't send a notify for every LOG event. These will cause the event
      handling thread to be woken up more than it should. Instead adopt
-     something similar to the tickless kernel approach. 
+     something similar to the tickless kernel approach.
  */
 
 Can QCoreApplication::setApplicationName() be called earlier in

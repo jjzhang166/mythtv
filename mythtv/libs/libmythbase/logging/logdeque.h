@@ -203,6 +203,10 @@ class MBASE_PUBLIC LogDeque
     QHash<Qt::HANDLE, ThreadInfo> m_threadInfoMap; // m_hashLock
 
     mutable QMutex m_messagesLock;
+    uint m_messagesSleep; // m_messagesLock
+    uint m_messagesFastThreshold; // m_messagesLock
+    uint m_messagesSlowThreshold; // m_messagesLock
+    uint m_messagesHardThreshold; // m_messagesLock
     QList<LogEntry> m_messages; // m_messagesLock
 
     mutable QReadWriteLock m_filterLock;

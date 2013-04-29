@@ -107,14 +107,39 @@ void LogDeque::ThreadShutdown(void)
 void LogDeque::LogLine(const LogEntry &logEntry)
 {
     QMutexLocker locker(&m_messagesLock);
-    m_messages.push_back(logEntry);
+    if (uint(m_messages.size()) < m_messagesHardThreshold)
+    {
+        m_messages.push_back(logEntry);
+        if (uint(m_messages.size()) >= m_messagesSlowThreshold)
+        {
+            if (!m_messagesSleep)
+                m_messagesSleep = 5;
+            else if (m_messagesSleep < 5000)
+                m_messagesSleep++;
+        }
+        else if (uint(m_messages.size()) <= m_messagesFastThreshold)
+        {
+            if (m_messagesSleep)
+                m_messagesSleep--;
+        }
+    }
+    else
+    {
+        m_messagesSleep = 0;
+    }
     locker.unlock();
 
     QReadLocker thread_locker(&m_threadLock);
     if (m_singleThreaded)
+    {
         ProcessQueue();
+    }
     else
+    {
         m_eventHandler->Notify();
+        if (m_messagesSleep)
+            usleep(m_messagesSleep);
+    }
 }
 
 
@@ -198,6 +223,10 @@ void LogDeque::ProcessQueue(bool force)
 }
 
 LogDeque::LogDeque() :
+    m_messagesSleep(0),
+    m_messagesFastThreshold(49000),
+    m_messagesSlowThreshold(50000),
+    m_messagesHardThreshold(100000),
     m_loggingInitialized(false),
     m_logLevel(INT_MAX),
     m_verboseMask(~(uint64_t(0))),
