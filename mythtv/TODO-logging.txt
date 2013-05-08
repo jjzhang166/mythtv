@@ -1,19 +1,32 @@
 /*
- Logging primary goals:
-   Maintain the short-blocking logging when logging thread is running [DONE]
-   Logging thread is optional [DONE]
-   Logging does not consume significant additional resources
-   No messages are printed until mask and level are initialized
-   Messages sent logging after logging thread is stopped are still captured [DONE]
-   Database logging is disabled by default
+ BUGS
+   Logging to logfile or logpath fails with --daemon param.
+
+ TODO Logging primary goals:
+   We can still optionally log to database tables
+   --nodblog option should be accepted and ignored.
    Messages sent to stderr and stdout should be captured by logging
      This is for third party library logging to be captured.
        I'm not sure if this is always possible,
        but it should be possible for the file log.
-   It should relatively easy to send text to the console stdin/stderr for
-     command line programs.
+
+ DONE Logging primary goals:
+   Maintain the short-blocking logging when logging thread is running [DONE]
+   Logging thread is optional [DONE]
+   Logging does not consume significant additional resources [DONE]
+   No messages are printed until mask and level are initialized [DONE]
+   Messages sent logging after logging thread is stopped are still captured [DONE]
+   Database logging is disabled by default [DONE]
+   It should relatively easy to send text to the console stdout for
+     command line programs. [DONE LOG_PRINT() macro]
    Logging messages should be sent to stderr, not stdout so they can
      be seperated from program output with command line programs. [DONE]
+   Don't fail to log due to permissions of frontend and
+     backend being different (danielk) [DONE]
+   Make sure we don't consume unbounded amounts of memory if too much
+     logging is done. Either via feedback (slowing down LOG), or by
+     just dropping log messages. [DONE feedback added + hard-threshold]
+
  Logging secondary goals:
    Allow log messages to be formatted.
     i.e. "date | message | function | line | thread_id" might make sense if you
@@ -27,11 +40,6 @@
      and redirect them through logging. Might as well get rid of the
      need to construct logging command line args everywhere we start
      a mythtv subprocess. (danielk)
-   Don't fail to log due to permissions of frontend and
-     backend being different (danielk)
-   Make sure we don't consume unbounded amounts of memory if too much
-     logging is done. Either via feedback (slowing down LOG), or by
-     just dropping log messages. [feedback added + hard-threshold]
    Don't send a notify for every LOG event. These will cause the event
      handling thread to be woken up more than it should. Instead adopt
      something similar to the tickless kernel approach.
