@@ -11,7 +11,7 @@ with it to get familiar with different aspects of the code base.
 
 If you are just looking for the code formatting standards,
 see the official %MythTV wiki article
-<a href="http://www.mythtv.org/wiki/index.php/Coding_Standards">
+<a href="http://www.mythtv.org/wiki/Coding_Standards">
 coding standards</a>. If you are looking for the
 <a href="http://code.mythtv.org/trac/wiki/TicketHowTo">bug tracker</a>,
 it can be found on the official pages.
@@ -62,7 +62,7 @@ There are also a few simple \ref testing "testing shortcuts".
 
 \section libs Libraries
 
-%MythTV is divided up into 20 libraries:
+%MythTV is divided up into over 20 libraries:
 <dl>
   <dt>\ref libmythbase "libmythbase"
   <dd>Lowest-level %MythTV library. Used by the Plugins.
@@ -180,6 +180,15 @@ There are also a few simple \ref testing "testing shortcuts".
 
       This library does not depend on any of our libraries.
 
+  <dt>libmythhdhomerun
+      <dd>Interface to the SiliconDust HDHomeRun EtherNet connected TV tuner
+      products.
+
+      <a href="http://www.silicondust.com/hdhomerun/hdhomerun_development.pdf">
+      Documented externally</a>.
+
+      This library does not depend on any of our libraries.
+
 </dl>
 Two libraries libmythmpeg2 and libmythsamplerate appear redundant, but
 libmpeg2 decodes MPEG-2 more quickly than ffmpeg on some systems, and
@@ -190,7 +199,7 @@ to match the hardware sample rate to the A/V streams audio sample rate.
 The database schema is documented \ref db_schema "here".
 
 \section apps Applications
-%MythTV contains 12 applications which are installed by make install
+%MythTV contains 13 applications which are installed by make install
 
 <dl>
   <dt>mythbackend      <dd>This is the backend server which runs the recorders.
@@ -238,6 +247,10 @@ The database schema is documented \ref db_schema "here".
   <dt>mythwelcome/mythshutdown
       <dd>These programs manage Power Saving (shutdown/wakeup) on your MythTV
           PCs.
+  <dt>mythlogserver
+      <dd>A tool that records log messages from a number of other myth
+          applications in one stream, storing them in any or all of;
+          a logfile, the Unix system log (if availale), and the MySQL database.
 </dl>
 
 \section fe_plugins Frontend Plugins
@@ -261,6 +274,9 @@ The database schema is documented \ref db_schema "here".
 \section spt_scripts Support Scripts
 These tools are in the packaging repository:
 <dl>
+  <dt>osx-packager-qtsdk.pl
+      <dd>Downloads and builds all dependencies, then the source, of %MythTV
+          and all the official plugins, on Mac OS 10.7 and 10.8
   <dt>osx-packager.pl   <dd>Downloads and builds all dependencies, then the
                             source, of %MythTV and all the official plugins,
                             on Mac OS (10.3?, 10.4?,) 10.5 and 10.6
@@ -570,7 +586,7 @@ any of the query or file streaming commands will silently fail.
 The following summarises some of these commands.
 For a full understanding of all the commands, either read the source code
 (programs/mythbackend/mainserver.cpp), or look on the Wiki
-(http://www.mythtv.org/wiki/index.php/Myth_Protocol_Command_List).
+(http://www.mythtv.org/wiki/Category:Myth_Protocol_Commands).
 
  */
 
@@ -667,7 +683,7 @@ so that the languages which contain accents and multi-byte strings
 are not corrupted.
 
 This page:
-http://www.mythtv.org/wiki/index.php/Translation
+http://www.mythtv.org/wiki/Translation
 on the Wiki explains how to update an existing translation.
 
 To add a new language, look up the ISO 639-1 language code,

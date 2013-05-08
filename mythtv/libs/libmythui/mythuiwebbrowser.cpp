@@ -78,7 +78,18 @@ static MimeType SupportedMimeTypes[] =
 static int SupportedMimeTypesCount = sizeof(SupportedMimeTypes) /
                                         sizeof(SupportedMimeTypes[0]);
 
-static QNetworkAccessManager *networkManager = NULL;
+MythNetworkAccessManager::MythNetworkAccessManager()
+{
+}
+
+QNetworkReply* MythNetworkAccessManager::createRequest(Operation op, const QNetworkRequest& req, QIODevice* outgoingData)
+{
+    QNetworkReply* reply = QNetworkAccessManager::createRequest(op, req, outgoingData);
+    reply->ignoreSslErrors();
+    return reply;
+}
+
+static MythNetworkAccessManager *networkManager = NULL;
 
 static void DestroyNetworkAccessManager(void)
 {
@@ -94,8 +105,9 @@ static QNetworkAccessManager *GetNetworkAccessManager(void)
     if (networkManager)
         return networkManager;
 
-    networkManager = new QNetworkAccessManager();
+    networkManager = new MythNetworkAccessManager();
     LOG(VB_GENERAL, LOG_DEBUG, "Copying DLManager's Cookie Jar");
+    GetMythDownloadManager()->loadCookieJar(GetConfDir() + "/MythBrowser/cookiejar.txt");
     networkManager->setCookieJar(GetMythDownloadManager()->copyCookieJar());
 
     atexit(DestroyNetworkAccessManager);
@@ -260,6 +272,7 @@ MythWebPage::~MythWebPage()
 {
     LOG(VB_GENERAL, LOG_DEBUG, "Refreshing DLManager's Cookie Jar");
     GetMythDownloadManager()->refreshCookieJar(networkManager->cookieJar());
+    GetMythDownloadManager()->saveCookieJar(GetConfDir() + "/MythBrowser/cookiejar.txt");
 }
 
 bool MythWebPage::supportsExtension(Extension extension) const
@@ -436,12 +449,6 @@ void MythWebView::keyPressEvent(QKeyEvent *event)
         // handled properly by the various mythui handlers
         QCoreApplication::postEvent(GetMythMainWindow(), new QKeyEvent(*event));
     }
-}
-
-void MythWebView::wheelEvent(QWheelEvent *event)
-{
-    event->accept();
-    QCoreApplication::postEvent(GetMythMainWindow(), new QWheelEvent(*event));
 }
 
 void MythWebView::handleUnsupportedContent(QNetworkReply *reply)
@@ -819,7 +826,8 @@ QWebView *MythWebView::createWindow(QWebPage::WebWindowType type)
 MythUIWebBrowser::MythUIWebBrowser(MythUIType *parent, const QString &name)
                  : MythUIType(parent, name),
       m_parentScreen(NULL),
-      m_browser(NULL),       m_image(NULL),
+      m_browser(NULL),       m_browserArea(MythRect()),
+      m_actualBrowserArea(MythRect()), m_image(NULL),
       m_active(false),       m_wasActive(false),
       m_initialized(false),  m_lastUpdateTime(QTime()),
       m_updateInterval(0),   m_zoom(1.0),
@@ -839,8 +847,9 @@ MythUIWebBrowser::MythUIWebBrowser(MythUIType *parent, const QString &name)
  */
 void MythUIWebBrowser::Finalize(void)
 {
-    Init();
     MythUIType::Finalize();
+
+    Init();
 }
 
 /** \fn MythUIWebBrowser::Init(void)
@@ -855,14 +864,18 @@ void MythUIWebBrowser::Init(void)
     if (m_initialized)
         return;
 
-    if (!m_browserArea.isValid())
-        m_browserArea = m_Area;
+    m_actualBrowserArea = m_browserArea;
+    m_actualBrowserArea.CalculateArea(m_Area);
+    m_actualBrowserArea.translate(m_Area.x(), m_Area.y());
+
+    if (!m_actualBrowserArea.isValid())
+        m_actualBrowserArea = m_Area;
 
     m_browser = new MythWebView(GetMythMainWindow()->GetPaintWindow(), this);
     m_browser->setPalette(qApp->style()->standardPalette());
-    m_browser->setGeometry(m_browserArea);
-    m_browser->setFixedSize(m_browserArea.size());
-    m_browser->move(m_browserArea.x(), m_browserArea.y());
+    m_browser->setGeometry(m_actualBrowserArea);
+    m_browser->setFixedSize(m_actualBrowserArea.size());
+    m_browser->move(m_actualBrowserArea.x(), m_actualBrowserArea.y());
     m_browser->page()->setLinkDelegationPolicy(QWebPage::DontDelegateLinks);
 
     bool err = false;
@@ -872,12 +885,20 @@ void MythUIWebBrowser::Init(void)
     {
         QWebFrame* frame = m_browser->page()->currentFrame();
         frame->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
+        connect(m_horizontalScrollbar, SIGNAL(Hiding()),
+                this, SLOT(slotScrollBarHiding()));
+        connect(m_horizontalScrollbar, SIGNAL(Showing()),
+                this, SLOT(slotScrollBarShowing()));
     }
 
     if (m_verticalScrollbar)
     {
         QWebFrame* frame = m_browser->page()->currentFrame();
         frame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
+        connect(m_verticalScrollbar, SIGNAL(Hiding()),
+                this, SLOT(slotScrollBarHiding()));
+        connect(m_verticalScrollbar, SIGNAL(Showing()),
+                this, SLOT(slotScrollBarShowing()));
     }
 
     // if we have a valid css URL use that ...
@@ -976,7 +997,7 @@ void MythUIWebBrowser::Init(void)
                                                      false);
     }
 
-    QImage image = QImage(m_browserArea.size(), QImage::Format_ARGB32);
+    QImage image = QImage(m_actualBrowserArea.size(), QImage::Format_ARGB32);
     m_image = GetPainter()->GetFormatImage();
     m_image->Assign(image);
 
@@ -1126,17 +1147,27 @@ void MythUIWebBrowser::ZoomOut(void)
 
 /** \fn MythUIWebBrowser::SetZoom(float)
  *  \brief Set the text size to specific size
- *  \param zoom The size to use. Useful values are between 0.2 and 5.0
+ *  \param zoom The size to use. Useful values are between 0.3 and 5.0
  */
 void MythUIWebBrowser::SetZoom(float zoom)
 {
     if (!m_browser)
         return;
 
+    if (zoom < 0.3)
+        zoom = 0.3;
+
+    if (zoom > 5.0)
+        zoom = 5.0;
+
     m_zoom = zoom;
     m_browser->setZoomFactor(m_zoom);
     ResetScrollBars();
     UpdateBuffer();
+
+    slotStatusBarMessage(tr("Zoom: %1%").arg(m_zoom * 100));
+
+    gCoreContext->SaveSetting("WebBrowserZoomLevel", QString("%1").arg(m_zoom));
 }
 
 void MythUIWebBrowser::SetDefaultSaveDirectory(const QString &saveDir)
@@ -1330,14 +1361,39 @@ void MythUIWebBrowser::slotIconChanged(void)
     emit iconChanged();
 }
 
+void MythUIWebBrowser::slotScrollBarShowing(void)
+{
+    bool wasActive = (m_wasActive | m_active);
+    SetActive(false);
+    m_wasActive = wasActive;
+}
+
+void MythUIWebBrowser::slotScrollBarHiding(void)
+{
+    SetActive(m_wasActive);
+    slotTopScreenChanged(NULL);
+}
+
 void MythUIWebBrowser::slotTopScreenChanged(MythScreenType *screen)
 {
     (void) screen;
 
-    if (!m_parentScreen)
-        return;
+    if (IsOnTopScreen())
+        SetActive(m_wasActive);
+    else
+    {
+        bool wasActive = (m_wasActive | m_active);
+        SetActive(false);
+        m_wasActive = wasActive;
+    }
+}
 
-    // is our containing screen the top screen?
+/// is our containing screen the top screen?
+bool MythUIWebBrowser::IsOnTopScreen(void)
+{
+     if (!m_parentScreen)
+        return false;
+
     for (int x = GetMythMainWindow()->GetStackCount() - 1; x >= 0; x--)
     {
         MythScreenStack *stack = GetMythMainWindow()->GetStackAt(x);
@@ -1346,19 +1402,10 @@ void MythUIWebBrowser::slotTopScreenChanged(MythScreenType *screen)
         if (!stack->GetTopScreen())
             continue;
 
-        if (stack->GetTopScreen() == m_parentScreen)
-        {
-            SetActive(m_wasActive);
-            break;
-        }
-        else
-        {
-            bool wasActive = (m_wasActive | m_active);
-            SetActive(false);
-            m_wasActive = wasActive;
-            break;
-        }
+        return (stack->GetTopScreen() == m_parentScreen);
     }
+
+    return false;
 }
 
 
@@ -1369,9 +1416,9 @@ void MythUIWebBrowser::UpdateScrollBars(void)
     {
         int maximum =
             m_browser->page()->currentFrame()->contentsSize().height() -
-            m_browserArea.height();
+            m_actualBrowserArea.height();
         m_verticalScrollbar->SetMaximum(maximum);
-        m_verticalScrollbar->SetPageStep(m_browserArea.height());
+        m_verticalScrollbar->SetPageStep(m_actualBrowserArea.height());
         m_verticalScrollbar->SetSliderPosition(position.y());
     }
 
@@ -1379,9 +1426,9 @@ void MythUIWebBrowser::UpdateScrollBars(void)
     {
         int maximum =
             m_browser->page()->currentFrame()->contentsSize().width() -
-            m_browserArea.width();
+            m_actualBrowserArea.width();
         m_horizontalScrollbar->SetMaximum(maximum);
-        m_horizontalScrollbar->SetPageStep(m_browserArea.width());
+        m_horizontalScrollbar->SetPageStep(m_actualBrowserArea.width());
         m_horizontalScrollbar->SetSliderPosition(position.x());
     }
 }
@@ -1439,7 +1486,7 @@ void MythUIWebBrowser::DrawSelf(MythPainter *p, int xoffset, int yoffset,
     if (!m_image || m_image->isNull() || !m_browser || m_browser->hasFocus())
         return;
 
-    QRect area = m_browserArea;
+    QRect area = m_actualBrowserArea;
     area.translate(xoffset, yoffset);
 
     p->DrawImage(area.x(), area.y(), m_image, alphaMod);
@@ -1479,7 +1526,7 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
 
             if (pos > 0)
             {
-                Scroll(0, -m_browserArea.height() / 10);
+                Scroll(0, -m_actualBrowserArea.height() / 10);
             }
             else
                 handled = false;
@@ -1487,11 +1534,11 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
         else if (action == "DOWN")
         {
             int pos = frame->scrollPosition().y();
-            QSize maximum = frame->contentsSize() - m_browserArea.size();
+            QSize maximum = frame->contentsSize() - m_actualBrowserArea.size();
 
             if (pos != maximum.height())
             {
-                Scroll(0, m_browserArea.height() / 10);
+                Scroll(0, m_actualBrowserArea.height() / 10);
             }
             else
                 handled = false;
@@ -1502,7 +1549,7 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
 
             if (pos > 0)
             {
-                Scroll(-m_browserArea.width() / 10, 0);
+                Scroll(-m_actualBrowserArea.width() / 10, 0);
             }
             else
                 handled = false;
@@ -1510,22 +1557,22 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
         else if (action == "RIGHT")
         {
             int pos = frame->scrollPosition().x();
-            QSize maximum = frame->contentsSize() - m_browserArea.size();
+            QSize maximum = frame->contentsSize() - m_actualBrowserArea.size();
 
             if (pos != maximum.width())
             {
-                Scroll(m_browserArea.width() / 10, 0);
+                Scroll(m_actualBrowserArea.width() / 10, 0);
             }
             else
                 handled = false;
         }
         else if (action == "PAGEUP")
         {
-            Scroll(0, -m_browserArea.height());
+            Scroll(0, -m_actualBrowserArea.height());
         }
         else if (action == "PAGEDOWN")
         {
-            Scroll(0, m_browserArea.height());
+            Scroll(0, m_actualBrowserArea.height());
         }
         else if (action == "ZOOMIN")
         {
@@ -1543,11 +1590,11 @@ bool MythUIWebBrowser::keyPressEvent(QKeyEvent *event)
         }
         else if (action == "PAGELEFT")
         {
-            Scroll(-m_browserArea.width(), 0);
+            Scroll(-m_actualBrowserArea.width(), 0);
         }
         else if (action == "PAGERIGHT")
         {
-            Scroll(m_browserArea.width(), 0);
+            Scroll(m_actualBrowserArea.width(), 0);
         }
         else if (action == "NEXTLINK")
         {
@@ -1719,6 +1766,7 @@ void MythUIWebBrowser::CopyFrom(MythUIType *base)
 
     MythUIType::CopyFrom(base);
 
+    m_browserArea = browser->m_browserArea;
     m_zoom = browser->m_zoom;
     m_bgColor = browser->m_bgColor;
     m_widgetUrl = browser->m_widgetUrl;
@@ -1727,8 +1775,6 @@ void MythUIWebBrowser::CopyFrom(MythUIType *base)
     m_defaultSaveDir = browser->m_defaultSaveDir;
     m_defaultSaveFilename = browser->m_defaultSaveFilename;
     m_scrollAnimation.setDuration(browser->m_scrollAnimation.duration());
-
-    Init();
 }
 
 /**

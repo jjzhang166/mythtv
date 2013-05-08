@@ -704,12 +704,19 @@ int AudioOutputUtil::DecodeAudio(AVCodecContext *ctx,
     data_size = 0;
     avcodec_get_frame_defaults(&frame);
     ret = avcodec_decode_audio4(ctx, &frame, &got_frame, pkt);
-    if (ret < 0 || !got_frame)
+    if (ret < 0)
     {
         LOG(VB_AUDIO, LOG_ERR, LOC +
             QString("audio decode error: %1 (%2)")
             .arg(av_make_error_string(error, sizeof(error), ret))
             .arg(got_frame));
+        return ret;
+    }
+
+    if (!got_frame)
+    {
+        LOG(VB_AUDIO, LOG_DEBUG, LOC +
+            QString("audio decode, no frame decoded (%1)").arg(ret));
         return ret;
     }
 
@@ -766,4 +773,46 @@ int AudioOutputUtil::DecodeAudio(AVCodecContext *ctx,
     data_size = ret2 * frame.channels * av_get_bytes_per_sample(format);
 
     return ret;
+}
+
+template <class AudioDataType>
+void _DeinterleaveSample(AudioDataType *out, AudioDataType *in, int channels, int frames)
+{
+    AudioDataType *outp[8];
+
+    for (int i = 0; i < channels; i++)
+    {
+        outp[i] = out + (i * channels * frames);
+    }
+
+    for (int i = 0; i < frames; i++)
+    {
+        for (int j = 0; j < channels; j++)
+        {
+            *(outp[j]++) = *(in++);
+        }
+    }
+}
+
+/**
+ * Deinterleave input samples
+ * Deinterleave audio samples and compact them
+ */
+void AudioOutputUtil::DeinterleaveSamples(AudioFormat format, int channels,
+                                          uint8_t *output, uint8_t *input,
+                                          int data_size)
+{
+    int bits = AudioOutputSettings::FormatToBits(format);
+    if (bits == 8)
+    {
+        _DeinterleaveSample((char *)output, (char *)input, channels, data_size/sizeof(char)/channels);
+    }
+    else if (bits == 16)
+    {
+        _DeinterleaveSample((short *)output, (short *)input, channels, data_size/sizeof(short)/channels);
+    }
+    else
+    {
+        _DeinterleaveSample((int *)output, (int *)input, channels, data_size/sizeof(int)/channels);
+    }
 }

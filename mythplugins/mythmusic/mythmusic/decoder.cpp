@@ -4,16 +4,22 @@
 // warranty, or liability of any kind.
 //
 
+// mythmusic
 #include "decoder.h"
 #include "constants.h"
-#include "metadata.h"
-#include "metaio.h"
+#include "musicplayer.h"
 
+// qt
 #include <QDir>
 
+// libmyth
 #include <mythcontext.h>
 #include <output.h>
 #include <visual.h>
+
+// libmythmetadata
+#include "musicmetadata.h"
+#include "metaio.h"
 
 QEvent::Type DecoderEvent::Decoding =
     (QEvent::Type) QEvent::registerEventType();
@@ -24,23 +30,20 @@ QEvent::Type DecoderEvent::Finished =
 QEvent::Type DecoderEvent::Error =
     (QEvent::Type) QEvent::registerEventType();
 
-Decoder::Decoder(DecoderFactory *d, QIODevice *i, AudioOutput *o) :
-    MThread("MythMusicDecoder"), fctry(d), in(i), out(o)
+Decoder::Decoder(DecoderFactory *d, AudioOutput *o) :
+    MThread("MythMusicDecoder"), fctry(d), out(o)
 {
 }
 
 Decoder::~Decoder()
 {
     fctry = 0;
-    in = 0;
     out = 0;
 }
 
-void Decoder::setInput(QIODevice *i)
+QIODevice *Decoder::input(void)
 {
-    lock();
-    in = i;
-    unlock();
+    return gPlayer->getDecoderHandler()->getIOFactory()->getInput();
 }
 
 void Decoder::setOutput(AudioOutput *o)
@@ -105,8 +108,7 @@ void Decoder::registerFactory(DecoderFactory *fact)
     factories->push_back(fact);
 }
 
-Decoder *Decoder::create(const QString &source, QIODevice *input,
-                         AudioOutput *output, bool deletable)
+Decoder *Decoder::create(const QString &source, AudioOutput *output, bool deletable)
 {
     checkFactories();
 
@@ -114,10 +116,8 @@ Decoder *Decoder::create(const QString &source, QIODevice *input,
     for (; it != factories->end(); ++it)
     {
         if ((*it)->supports(source))
-            return (*it)->create(source, input, output, deletable);
+            return (*it)->create(source, output, deletable);
     }
 
     return NULL;
 }
-
-

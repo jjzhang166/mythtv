@@ -2762,11 +2762,19 @@ int MythCommandLineParser::Daemonize(void)
     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
         LOG(VB_GENERAL, LOG_WARNING, "Unable to ignore SIGPIPE");
 
+#if CONFIG_DARWIN
+    if (toBool("daemon"))
+    {
+        cerr << "Daemonizing is unavaible in OSX" << ENO_STR << endl;
+        LOG(VB_GENERAL, LOG_WARNING, "Unable to daemonize");
+    }
+#else
     if (toBool("daemon") && (daemon(0, 1) < 0))
     {
         cerr << "Failed to daemonize: " << qPrintable(ENO) << endl;
         return GENERIC_EXIT_DAEMONIZING_ERROR;
     }
+#endif
 
     QString username = toString("username");
     if (!username.isEmpty() && !setUser(username))

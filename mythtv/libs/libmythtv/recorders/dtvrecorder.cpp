@@ -544,7 +544,7 @@ bool DTVRecorder::FindMPEG2Keyframes(const TSPacket* tspacket)
     }
 
     // _buffer_packets will only be true if a payload start has been seen
-    if (hasKeyFrame && _buffer_packets)
+    if (hasKeyFrame && (_buffer_packets || _first_keyframe >= 0))
     {
         LOG(VB_RECORD, LOG_DEBUG, LOC + QString
             ("Keyframe @ %1 + %2 = %3")
@@ -717,6 +717,7 @@ bool DTVRecorder::FindAudioKeyframes(const TSPacket*)
         if (!_frames_seen_count)
             _audio_timer.start();
 
+        _buffer_packets = false;
         _frames_seen_count++;
 
         if (1 == (_frames_seen_count & 0x7))
@@ -917,7 +918,7 @@ bool DTVRecorder::FindH264Keyframes(const TSPacket *tspacket)
     } // for (; i < TSPacket::kSize; ++i)
 
     // _buffer_packets will only be true if a payload start has been seen
-    if (hasKeyFrame && _buffer_packets)
+    if (hasKeyFrame && (_buffer_packets || _first_keyframe >= 0))
     {
         LOG(VB_RECORD, LOG_DEBUG, LOC + QString
             ("Keyframe @ %1 + %2 = %3 AU %4")
@@ -1335,8 +1336,6 @@ bool DTVRecorder::ProcessTSPacket(const TSPacket &tspacket)
         // if audio/video key-frames have been found
         if (_wait_for_keyframe_option && _first_keyframe < 0)
             return true;
-
-        _buffer_packets = true;
     }
 
     BufferedWrite(tspacket);

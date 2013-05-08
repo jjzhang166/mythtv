@@ -4105,6 +4105,8 @@ bool TV::TimeStretchHandleAction(PlayerContext *ctx,
     else if (has_action(ACTION_UP, actions))
         ChangeTimeStretch(ctx, 5);
     else if (has_action("ADJUSTSTRETCH", actions))
+        ToggleTimeStretch(ctx);
+    else if (has_action(ACTION_SELECT, actions))
         ClearOSD(ctx);
     else
         handled = false;
@@ -4169,13 +4171,13 @@ bool TV::SubtitleDelayHandleAction(PlayerContext *ctx,
     bool handled = true;
 
     if (has_action(ACTION_LEFT, actions))
-        ChangeSubtitleDelay(ctx, -1);
+        ChangeSubtitleDelay(ctx, -5);
     else if (has_action(ACTION_RIGHT, actions))
-        ChangeSubtitleDelay(ctx, 1);
+        ChangeSubtitleDelay(ctx, 5);
     else if (has_action(ACTION_UP, actions))
-        ChangeSubtitleDelay(ctx, -10);
+        ChangeSubtitleDelay(ctx, -25);
     else if (has_action(ACTION_DOWN, actions))
-        ChangeSubtitleDelay(ctx, 10);
+        ChangeSubtitleDelay(ctx, 25);
     else if (has_action(ACTION_TOGGLESUBTITLEDELAY, actions))
         ClearOSD(ctx);
     else
@@ -9299,11 +9301,21 @@ void TV::customEvent(QEvent *e)
     {
         int seconds = 0;
         //long long frames = 0;
-        if (tokens.size() >= 4)
+        int NUMTOKENS = 4; // Number of tokens expected
+        if (tokens.size() == NUMTOKENS)
         {
             cardnum = tokens[1].toUInt();
             seconds = tokens[2].toInt();
             //frames = tokens[3].toLongLong();
+        }
+        else
+        {
+            LOG(VB_GENERAL, LOG_ERR, QString("DONE_RECORDING event received "
+                                             "with invalid number of arguments, "
+                                             "%1 expected, %2 actual")
+                                                .arg(NUMTOKENS-1)
+                                                .arg(tokens.size()-1));
+            return;
         }
 
         PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
@@ -9318,7 +9330,8 @@ void TV::customEvent(QEvent *e)
                     if (ctx->player)
                     {
                         ctx->player->SetWatchingRecording(false);
-                        ctx->player->SetLength(seconds);
+                        if (seconds > 0)
+                            ctx->player->SetLength(seconds);
                     }
                     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
 
@@ -9335,7 +9348,8 @@ void TV::customEvent(QEvent *e)
                     if (ctx->player)
                     {
                         ctx->player->SetWatchingRecording(false);
-                        ctx->player->SetLength(seconds);
+                        if (seconds > 0)
+                            ctx->player->SetLength(seconds);
                     }
                     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
                 }

@@ -1375,10 +1375,10 @@ bool MPEG2fixup::FindStart()
                     if (pkt.pos != vFrame.first()->pkt.pos)
                         break;
 
-                    if ((uint64_t)pkt.pts != AV_NOPTS_VALUE ||
-                        (uint64_t)pkt.dts != AV_NOPTS_VALUE)
+                    if (pkt.pts != AV_NOPTS_VALUE ||
+                        pkt.dts != AV_NOPTS_VALUE)
                     {
-                        if ((uint64_t)pkt.pts == AV_NOPTS_VALUE)
+                        if (pkt.pts == AV_NOPTS_VALUE)
                             vFrame.first()->pkt.pts = pkt.dts;
 
                         LOG(VB_PROCESS, LOG_INFO,
@@ -1859,7 +1859,7 @@ void MPEG2fixup::InitialPTSFixup(MPEG2frame *curFrame, int64_t &origvPTS,
     int64_t tmpPTS = diff2x33(curFrame->pkt.pts,
                               origvPTS / 300);
 
-    if ((uint64_t)curFrame->pkt.pts == AV_NOPTS_VALUE)
+    if (curFrame->pkt.pts == AV_NOPTS_VALUE)
     {
         LOG(VB_PROCESS, LOG_INFO,
             QString("Found frame %1 with missing PTS at %2")
@@ -2097,7 +2097,7 @@ int MPEG2fixup::Start()
                                     PTSdiscrep = 0;
                                     break;
                                 }
-                                if (tmpPTSdiscrep != (int64_t)AV_NOPTS_VALUE &&
+                                if (tmpPTSdiscrep != AV_NOPTS_VALUE &&
                                     tmpPTSdiscrep != PTSdiscrep)
                                     PTSdiscrep = tmpPTSdiscrep;
                             }
@@ -2359,13 +2359,14 @@ int MPEG2fixup::Start()
         {
             FrameList *af = (*it);
             AVCodecContext *CC = getCodecContext(it.key());
+            AVCodecParserContext *CPC = getCodecParserContext(it.key());
             bool backwardsPTS = false;
 
             while (af->count())
             {
                 // What to do if the CC is corrupt?
                 // Just wait and hope it repairs itself
-                if (CC->sample_rate == 0 || CC->frame_size == 0)
+                if (CC->sample_rate == 0 || !CPC || CPC->duration == 0)
                     break;
 
                 // The order of processing frames is critical to making
@@ -2381,7 +2382,7 @@ int MPEG2fixup::Start()
                 //     the audio frame
                 int64_t nextPTS, tmpPTS;
                 int64_t incPTS =
-                         90000LL * (int64_t)CC->frame_size / CC->sample_rate;
+                         90000LL * (int64_t)CPC->duration / CC->sample_rate;
 
                 if (poq.UpdateOrigPTS(it.key(), origaPTS[it.key()],
                                                   af->first()->pkt) < 0)
@@ -2450,7 +2451,7 @@ int MPEG2fixup::Start()
                 }
 
                 nextPTS = add2x33(af->first()->pkt.pts,
-                           90000LL * (int64_t)CC->frame_size / CC->sample_rate);
+                           90000LL * (int64_t)CPC->duration / CC->sample_rate);
 
                 if ((cutState[it.key()] == 1 &&
                      cmp2x33(nextPTS, cutStartPTS) > 0) ||
@@ -2641,7 +2642,8 @@ int main(int argc, char **argv)
 #endif
 
 int MPEG2fixup::BuildKeyframeIndex(QString &file,
-                                   frm_pos_map_t &posMap)
+                                   frm_pos_map_t &posMap,
+                                   frm_pos_map_t &durMap)
 {
     LOG(VB_GENERAL, LOG_INFO, "Generating Keyframe Index");
 
@@ -2666,7 +2668,10 @@ int MPEG2fixup::BuildKeyframeIndex(QString &file,
         if (pkt.stream_index == vid_id)
         {
             if (pkt.flags & AV_PKT_FLAG_KEY)
+            {
                 posMap[count] = pkt.pos;
+                durMap[count] = totalDuration;
+            }
 
             // XXX totalDuration untested.  Results should be the same
             // as from mythcommflag --rebuild.
@@ -2675,8 +2680,7 @@ int MPEG2fixup::BuildKeyframeIndex(QString &file,
             // AvFormatDecoder::PreProcessVideoPacket()
             totalDuration +=
                 av_q2d(inputFC->streams[pkt.stream_index]->time_base) *
-                pkt.duration * 1000000; // usec
-            posMap.insertMulti(count, totalDuration);
+                pkt.duration * 1000; // msec
             count++;
         }
         av_free_packet(&pkt);

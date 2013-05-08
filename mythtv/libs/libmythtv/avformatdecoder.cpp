@@ -488,7 +488,7 @@ int64_t AvFormatDecoder::NormalizeVideoTimecode(AVStream *st,
 
 int AvFormatDecoder::GetNumChapters()
 {
-    if (ic->nb_chapters > 1)
+    if (ic && ic->nb_chapters > 1)
         return ic->nb_chapters;
     return 0;
 }
@@ -1790,7 +1790,6 @@ int AvFormatDecoder::ScanStreams(bool novideo)
     bool unknownbitrate = false;
     int scanerror = 0;
     bitrate       = 0;
-    fps           = 0;
 
     tracks[kTrackTypeAttachment].clear();
     tracks[kTrackTypeAudio].clear();
@@ -1803,6 +1802,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
         // we will rescan video streams
         tracks[kTrackTypeVideo].clear();
         selectedTrack[kTrackTypeVideo].av_stream_index = -1;
+        fps = 0;
     }
     map<int,uint> lang_sub_cnt;
     uint subtitleStreamCount = 0;
@@ -3019,6 +3019,9 @@ void AvFormatDecoder::MpegPreProcessPkt(AVStream *stream, AVPacket *pkt)
             uint  height = seq->height() >> context->lowres;
             current_aspect = seq->aspect(context->codec_id ==
                                          AV_CODEC_ID_MPEG1VIDEO);
+            if (stream->sample_aspect_ratio.num)
+                current_aspect = av_q2d(stream->sample_aspect_ratio) *
+                    width / height;
             if (aspect_override > 0.0f)
                 current_aspect = aspect_override;
             float seqFPS = seq->fps();
@@ -3126,11 +3129,9 @@ int AvFormatDecoder::H264PreProcessPkt(AVStream *stream, AVPacket *pkt)
         }
 
         current_aspect = get_aspect(*m_h264_parser);
-        uint  width  = m_h264_parser->pictureWidth();
-        uint  height = m_h264_parser->pictureHeight();
-        if (height == 1088 && current_height == 1080)
-            height = 1080;
-        float seqFPS = m_h264_parser->frameRate() * 0.001f;
+        uint  width  = m_h264_parser->pictureWidthCropped();
+        uint  height = m_h264_parser->pictureHeightCropped();
+        float seqFPS = m_h264_parser->frameRate();
 
         bool res_changed = ((width  != (uint)current_width) ||
                             (height != (uint)current_height));
@@ -3797,7 +3798,7 @@ int AvFormatDecoder::SetTrack(uint type, int trackNo)
 
 QString AvFormatDecoder::GetTrackDesc(uint type, uint trackNo) const
 {
-    if (trackNo >= tracks[type].size())
+    if (!ic || trackNo >= tracks[type].size())
         return "";
 
     bool forced = tracks[type][trackNo].forced;
@@ -4636,7 +4637,7 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype)
             }
 
             int retval = 0;
-            if (!ic || ((retval = av_read_frame(ic, pkt)) < 0))
+            if (!ic || ((retval = ReadPacket(ic, pkt)) < 0))
             {
                 if (retval == -EAGAIN)
                     continue;
@@ -4809,6 +4810,11 @@ bool AvFormatDecoder::GetFrame(DecodeType decodetype)
         delete pkt;
 
     return true;
+}
+
+int AvFormatDecoder::ReadPacket(AVFormatContext *ctx, AVPacket *pkt)
+{
+    return av_read_frame(ctx, pkt);
 }
 
 bool AvFormatDecoder::HasVideo(const AVFormatContext *ic)

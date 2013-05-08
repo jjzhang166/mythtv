@@ -587,7 +587,7 @@ bool GalleryUtil::CopyDirectory(const QFileInfo src, QFileInfo &dst)
 
     bool ok = true;
     QDir dstDir(dst.absoluteFilePath());
-    srcDir.setFilter(QDir::NoDotAndDotDot);
+    srcDir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList list = srcDir.entryInfoList();
     QFileInfoList::const_iterator it = list.begin();
     for (; it != list.end(); ++it)
@@ -616,7 +616,7 @@ bool GalleryUtil::MoveDirectory(const QFileInfo src, QFileInfo &dst)
 
     bool ok = true;
     QDir dstDir(dst.absoluteFilePath());
-    srcDir.setFilter(QDir::NoDotAndDotDot);
+    srcDir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList list = srcDir.entryInfoList();
     QFileInfoList::const_iterator it = list.begin();
     for (; it != list.end(); ++it)
@@ -635,7 +635,7 @@ bool GalleryUtil::DeleteDirectory(const QFileInfo &dir)
         return false;
 
     QDir srcDir(dir.absoluteFilePath());
-    srcDir.setFilter(QDir::NoDotAndDotDot);
+    srcDir.setFilter(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     QFileInfoList list = srcDir.entryInfoList();
     QFileInfoList::const_iterator it = list.begin();
     for (; it != list.end(); ++it)

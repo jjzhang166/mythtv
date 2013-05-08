@@ -352,7 +352,7 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
         QString subtitle      = QString("");
         QString description   = QString("");
         QString category      = QString("");
-        uint category_type = kCategoryNone;
+        ProgramInfo::CategoryType category_type = ProgramInfo::kCategoryNone;
         unsigned char subtitle_type=0, audio_props=0, video_props=0;
 
         // Parse descriptors
@@ -467,7 +467,20 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
             if ((EITFixUp::kFixDish & fix) || (EITFixUp::kFixBell & fix))
             {
                 DishContentDescriptor content(content_data);
-                category_type = content.GetTheme();
+                switch (content.GetTheme())
+                {
+                    case kThemeMovie :
+                        category_type = ProgramInfo::kCategoryMovie;
+                        break;
+                    case kThemeSeries :
+                        category_type = ProgramInfo::kCategorySeries;
+                        break;
+                    case kThemeSports :
+                        category_type = ProgramInfo::kCategorySports;
+                        break;
+                    default :
+                        category_type = ProgramInfo::kCategoryNone;
+                }
                 if (EITFixUp::kFixDish & fix)
                     category  = content.GetCategory();
             }
@@ -547,7 +560,7 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
                 else if (desc.ContentType() == 0x02 || desc.ContentType() == 0x32)
                 {
                     seriesId = desc.ContentId();
-                    category_type = kCategorySeries;
+                    category_type = ProgramInfo::kCategorySeries;
                 }
             }
         }
@@ -584,7 +597,7 @@ void EITHelper::AddEIT(const PremiereContentInformationTable *cit)
     QString subtitle      = QString("");
     QString description   = QString("");
     QString category      = QString("");
-    MythCategoryType category_type = kCategoryNone;
+    ProgramInfo::CategoryType category_type = ProgramInfo::kCategoryNone;
     unsigned char subtitle_type=0, audio_props=0, video_props=0;
 
     // Parse descriptors
@@ -607,11 +620,11 @@ void EITHelper::AddEIT(const PremiereContentInformationTable *cit)
         {
             if(content.UserNibble(0)==0x1)
             {
-                category_type = kCategoryMovie;
+                category_type = ProgramInfo::kCategoryMovie;
             }
             else if(content.UserNibble(0)==0x0)
             {
-                category_type = kCategorySports;
+                category_type = ProgramInfo::kCategorySports;
                 category = QObject::tr("Sports");
             }
         }
@@ -1164,6 +1177,19 @@ static void init_fixup(QMap<uint64_t,uint> &fix)
     // On transport 10008 only following channels need fixing:
     fix[    10008LL<<32 | 61441U << 16 | 53002] = // Tele 5
         EITFixUp::kEFixForceISO8859_15;
+
+    // DVB-C Unitymedia Germany
+    fix[ 9999 << 16 |   161LL << 32 | 12101 ] = // RTL Television
+    fix[ 9999 << 16 |   161LL << 32 | 12104 ] = // VOX
+    fix[ 9999 << 16 |   161LL << 32 | 12107 ] = // Super RTL
+    fix[ 9999 << 16 |   161LL << 32 | 12109 ] = // n-tv
+    fix[ 9999 << 16 |   301LL << 32 | 30114 ] = // RTL NITRO
+        EITFixUp::kFixRTL;
+    fix[ 9999 << 16 |   191LL << 32 | 11102 ] = // DAS VIERTE
+        EITFixUp::kEFixForceISO8859_15;
+    // on this transport are only HD services, two TBD, arte and ServusTV, I think arte properly signals HD!
+    fix[ 9999 << 16 |   401LL << 32 | 29109 ] = // ServusTV HD
+        EITFixUp::kFixHDTV;
 
     // DVB-S Astra 19.2E DMAX Germany
     fix[  1113LL << 32 | 1 << 16 | 12602] = EITFixUp::kEFixForceISO8859_15;
