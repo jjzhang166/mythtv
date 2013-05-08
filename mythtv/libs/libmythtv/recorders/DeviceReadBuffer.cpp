@@ -1,3 +1,8 @@
+// POSIX
+#include <sys/types.h>  // for fnctl
+#include <fcntl.h>      // for fnctl
+#include <errno.h>      // for checking errno
+
 #include <algorithm>
 using namespace std;
 
