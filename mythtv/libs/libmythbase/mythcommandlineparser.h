@@ -306,5 +306,6 @@ class MBASE_PUBLIC MythCommandLineParser
     uint64_t                        m_defaultVerboseMask;
     int                             m_defaultLogLevel;
     int                             m_defaultSyslogFacility;
+    bool                            m_loggingConfigured;
 };
 

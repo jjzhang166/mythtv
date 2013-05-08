@@ -1149,7 +1149,8 @@ void CommandLineArg::PrintDeprecatedWarning(QString &keyword) const
  */
 MythCommandLineParser::MythCommandLineParser(QString appname) :
     m_appname(appname), m_passthroughActive(false),
-    m_overridesImported(false), m_verbose(false)
+    m_overridesImported(false), m_verbose(false),
+    m_loggingConfigured(false)
 {
     char *verbose = getenv("VERBOSE_PARSER");
     if (verbose != NULL)
@@ -2628,6 +2629,8 @@ bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
         QString("Enabled verbose msgs: %1")
         .arg(myth_logging::format_verbose(myth_logging::get_verbose())));
 
+    m_loggingConfigured = true;
+
     return true;
 }
 
@@ -2737,10 +2740,21 @@ bool setUser(const QString &username)
 }
 
 
-/** \brief Fork application into background, and detatch from terminal
+/** \brief Fork application into background, and detatch from terminal.
+ *
+ *  If called, this must be called before logging is configured to
+ *  avoid losing logging messages.
+ *
  */
 int MythCommandLineParser::Daemonize(void)
 {
+    if (m_loggingConfigured)
+    {
+        cerr << "Programmer Error: Daemonize must be called before "
+             << "logging is configured." << endl;
+        return GENERIC_EXIT_DAEMONIZING_ERROR;
+    }
+
     ofstream pidfs;
     if (!openPidfile(pidfs, toString("pidfile")))
         return GENERIC_EXIT_PERMISSIONS_ERROR;

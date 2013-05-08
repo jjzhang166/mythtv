@@ -84,25 +84,22 @@ int main(int argc, char **argv)
 #endif
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHBACKEND);
 
-    if (!cmdline.ConfigureLogging(kMultiThreadedLogging))
-        return GENERIC_EXIT_NOT_OK;
-
-    pidfile = cmdline.toString("pidfile");
-
     if (cmdline.toBool("daemon"))
     {
         int retval = cmdline.Daemonize();
         if (retval != GENERIC_EXIT_OK)
             return retval;
-    }
 
-    CleanupGuard callCleanup(cleanup);
-
-    if (cmdline.toBool("daemon"))
-    {
         // Don't listen to console input if daemonized
         close(0);
     }
+
+    if (!cmdline.ConfigureLogging(kMultiThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
+
+    pidfile = cmdline.toString("pidfile");
+
+    CleanupGuard callCleanup(cleanup);
 
 #ifndef _WIN32
     QList<int> signallist;

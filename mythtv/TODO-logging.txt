@@ -1,7 +1,4 @@
 /*
- BUGS
-   Logging to logfile or logpath fails with --daemon param.
-
  TODO Logging primary goals:
    We can still optionally log to database tables
    --nodblog option should be accepted and ignored.

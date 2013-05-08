@@ -98,17 +98,14 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMEDIASERVER);
 
     if (cmdline.toBool("daemon"))
-        cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, -1);
-
-    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
-        return GENERIC_EXIT_NOT_OK;
-
-    if (cmdline.toBool("daemon"))
     {
         int retval = cmdline.Daemonize();
         if (retval != GENERIC_EXIT_OK)
             return retval;
     }
+
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
 
     CleanupGuard callCleanup(cleanup);
 
