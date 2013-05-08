@@ -11,6 +11,20 @@
 // MythTV
 #include "mythlogging.h"
 
+/** \brief This sets up a unidirectional pipe.
+ *
+ *  The pipes are returned in pipefd and the flags on those
+ *  pipes are returned in myflags.
+ *
+ *  At the 0 index is the read end of the pipe and at the 1
+ *  index is the write index.
+ *
+ *  This will attempt to make the read end of the pipe non-blocking.
+ *
+ *  The pipe ends will be set to -1 if this fails to set up the pipe.
+ *  The O_NONBLOCK flag will be missing on myflags[0] if this fails
+ *  to make the read pipe non-blocking.
+ */
 #ifdef USING_MINGW
 void setup_pipe(int[2], long[2]) {}
 #else // !USING_MINGW
