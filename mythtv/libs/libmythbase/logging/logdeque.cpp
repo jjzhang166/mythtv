@@ -29,6 +29,7 @@ using namespace std;
 #include <QDir>
 
 #include "logeventhandler.h"
+#include "mythbaseutil.h"
 #include "loghandler.h"
 #include "logdeque.h"
 #include "mthread.h"
@@ -293,9 +294,7 @@ LogDeque::~LogDeque()
 QString LogDeque::RegisterThread(const QString &name)
 {
     Qt::HANDLE handle = QThread::currentThreadId();
-    int process_id = 0; // TODO lookup
-
-    ThreadInfo ti(name, handle, process_id);
+    ThreadInfo ti(name, handle, get_gdb_thread_id());
 
     QWriteLocker locker(&m_hashLock);
     ThreadInfo old = m_threadInfoMap[handle];

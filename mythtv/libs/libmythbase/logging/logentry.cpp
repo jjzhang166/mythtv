@@ -26,11 +26,11 @@
  */
 QString LogEntry::toString() const
 {
-    return QString("%1 %2 [%3/%4] %5 %6:%7 %8 - %9")
+    return QString("%1 %2 [%3] %5 %6:%7 %8 - %9")
         .arg(m_when.toString("yyyy-MM-dd hh:mm:ss.zzz"))
         .arg(LogDeque::Get().LookupLogLevelChar(m_level))
-        .arg(0/*m_processId*/)
-        .arg(0/*reinterpret_cast<uint64_t>(m_threadId)*/)
+        .arg(m_processId)
+//        .arg(reinterpret_cast<uint64_t>(m_threadId))
         .arg(m_threadName)
         .arg(LogDeque::Get().LookupHashedString(m_fileHash))
         .arg(m_line)
