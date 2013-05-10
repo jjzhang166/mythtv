@@ -145,6 +145,7 @@ class MBASE_PUBLIC LogDeque
     }
 
     QString RegisterThread(const QString &name);
+    QString RenameThread(const QString &name);
     QString DeregisterThread(void);
 
     QString FormatVerbose(uint64_t mask);

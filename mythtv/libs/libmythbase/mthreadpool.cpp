@@ -91,8 +91,7 @@ class MPoolThread : public MThread
             m_reserved = false;
             m_runnable = NULL;
 
-            myth_logging::deregister_thread();
-            myth_logging::register_thread(objectName());
+            myth_logging::rename_thread(objectName());
 
             GetMythDB()->GetDBManager()->PurgeIdleConnections(false);
             qApp->processEvents();

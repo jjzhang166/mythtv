@@ -280,6 +280,11 @@ MBASE_PUBLIC QString register_thread(const QString &name)
     return LogDeque::Get().RegisterThread(name);
 }
 
+MBASE_PUBLIC QString rename_thread(const QString &name)
+{
+    return LogDeque::Get().RenameThread(name);
+}
+
 MBASE_PUBLIC QString deregister_thread(void)
 {
     return LogDeque::Get().DeregisterThread();

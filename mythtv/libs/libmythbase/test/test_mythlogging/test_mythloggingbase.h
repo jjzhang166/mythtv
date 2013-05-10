@@ -620,7 +620,7 @@ class TestMythLoggingBase : public QObject
         QVERIFY(help.contains("decode"));
     }
 
-    void test_register_thread(void)
+    void test_register_thread_captures_name(void)
     {
         QString old_name = register_thread("SillyNameRegister");
         LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
@@ -631,7 +631,18 @@ class TestMythLoggingBase : public QObject
         register_thread(old_name);
     }
 
-    void test_deregister_thread(void)
+    void test_rename_thread_captures_name(void)
+    {
+        QString old_name = rename_thread("SillyNameRegister");
+        LOG(VB_CHANNEL, LOG_WARNING, QString(__FUNCTION__));
+        wait_for_log_thread_completion();
+        QVERIFY(console_dbg()->Has(kHandleLog));
+        DebugLogHandlerEntry l = console_dbg()->LastEntry(kHandleLog);
+        QVERIFY(l.entry().toString().contains("SillyNameRegister"));
+        register_thread(old_name);
+    }
+
+    void test_deregister_thread_captures_name(void)
     {
         QString old_name = register_thread("SillyNameUnregister");
         QString new_name = deregister_thread();

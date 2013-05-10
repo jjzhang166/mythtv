@@ -302,6 +302,25 @@ QString LogDeque::RegisterThread(const QString &name)
     return old.GetName();
 }
 
+QString LogDeque::RenameThread(const QString &name)
+{
+    QWriteLocker locker(&m_hashLock);
+    Qt::HANDLE handle = QThread::currentThreadId();    
+    QHash<Qt::HANDLE, ThreadInfo>::iterator it = m_threadInfoMap.find(handle);
+    if (it != m_threadInfoMap.end())
+    {
+        QString old_name = (*it).GetName();
+        m_threadInfoMap[handle] = ThreadInfo(
+            name, (*it).GetThreadId(), (*it).GetProcessId());
+        return old_name;
+    }
+    else
+    {
+        locker.unlock();
+        return RegisterThread(name);
+    }
+}
+
 QString LogDeque::DeregisterThread(void)
 {
     QWriteLocker locker(&m_hashLock);
