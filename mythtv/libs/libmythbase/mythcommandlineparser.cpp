@@ -2375,7 +2375,7 @@ uint64_t MythCommandLineParser::GetDefaultVerboseMask(void) const
 
 /** \brief Canned argument definition for all logging options, including
  *  --verbose, --logpath, --quiet, --loglevel, --syslog
- *  and --nodblog
+ *  --dblog and --nodblog
  */
 void MythCommandLineParser::addLogging(
     uint64_t default_verbose_mask,
@@ -2421,6 +2421,8 @@ void MythCommandLineParser::addLogging(
         "defaults to none.", "")
                 ->SetGroup("Logging");
     add("--dblog", "dblog", false, "Enable database logging.", "")
+        ->SetGroup("Logging");
+    add("--nodblog", "nodblog", false, "", "")
         ->SetGroup("Logging");
 
     add(QStringList( QStringList() << "-l" << "--logfile" ),

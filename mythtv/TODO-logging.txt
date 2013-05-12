@@ -1,7 +1,6 @@
 /*
  TODO Logging primary goals:
    We can still optionally log to database tables
-   --nodblog option should be accepted and ignored.
    Messages sent to stderr and stdout should be captured by logging
      This is for third party library logging to be captured.
        I'm not sure if this is always possible,
