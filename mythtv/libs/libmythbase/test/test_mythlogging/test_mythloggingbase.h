@@ -204,6 +204,11 @@ class TestMythLoggingBase : public QObject
         QVERIFY(log_will_use(VB_CHANNEL, LOG_WARNING));
     }
 
+    void log_will_use_with_LOG_ANY(void)
+    {
+        QVERIFY(log_will_use(VB_CHANNEL, LOG_ANY));
+    }
+
     void log_will_use_single_verbose_fail(void)
     {
         QVERIFY(!log_will_use(VB_DECODE, LOG_WARNING));
