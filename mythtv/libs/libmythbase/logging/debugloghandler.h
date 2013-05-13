@@ -30,6 +30,7 @@ using namespace std;
 #include <QHash>
 #include <QSet>
 
+#include "syslogloghandler.h" // for Syslog::format()
 #include "mythbaseexp.h"
 #include "loghandler.h"
 #include "logentry.h"
@@ -113,6 +114,13 @@ class MBASE_PUBLIC DebugLogHandler : public LogHandler
     DebugLogHandler(const QString &classReplaced,
                     QString param = QString()) :
         m_classReplaced(classReplaced), m_param(param)
+    {
+        s_replacement[classReplaced] = this;
+    }
+
+    DebugLogHandler(const QString &classReplaced,
+                    SyslogFacility facility) :
+        m_classReplaced(classReplaced), m_param(Syslog::format(facility))
     {
         s_replacement[classReplaced] = this;
     }

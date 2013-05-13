@@ -12,7 +12,7 @@ void MythLCDServerCommandLineParser::LoadArguments(void)
     addHelp();
     addVersion();
     addDaemon();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
     //addPIDFile();
 
     add(QStringList( QStringList() << "-p" << "--port" ), "port", 6545, "listen port",

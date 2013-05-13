@@ -36,6 +36,7 @@
 #include "logging/loglevelinfo.h"
 #include "logging/threadinfo.h"
 #include "logging/logdeque.h"
+#include "logging/syslogloghandler.h"
 
 MBASE_PUBLIC int log_will_use(uint64_t mask, int level)
 {
@@ -124,7 +125,7 @@ namespace myth_logging
 MBASE_PUBLIC void initialize_logging(
     uint64_t verbose_mask,
     int log_level,
-    int syslog_facility,
+    SyslogFacility syslog_facility,
     bool use_threads,
     bool enable_database_logging,
     const QString &logfile,
@@ -200,9 +201,9 @@ MBASE_PUBLIC QString format_log_level(int level)
     return LogDeque::Get().FormatLogLevel(level);
 }
 
-MBASE_PUBLIC QString format_syslog_facility(int facility)
+MBASE_PUBLIC QString format_syslog_facility(SyslogFacility facility)
 {
-    return QString();
+    return Syslog::format(facility);
 }
 
 MBASE_PUBLIC bool parse_verbose(
@@ -270,9 +271,10 @@ MBASE_PUBLIC bool parse_log_level(const QString &levelStr, int &logLevel)
     return false;
 }
 
-MBASE_PUBLIC bool parse_syslog_facility(const QString &value, int &facility)
+MBASE_PUBLIC bool parse_syslog_facility(
+    const QString &value, SyslogFacility &facility)
 {
-    return false;
+    return Syslog::parse(value, facility);
 }
 
 MBASE_PUBLIC QString register_thread(const QString &name)

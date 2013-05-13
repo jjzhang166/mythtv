@@ -158,7 +158,7 @@ class TestMythLoggingBase : public QObject
         }
 
         initialize_logging(
-            VB_CHANNEL, LOG_WARNING, -1, use_threads, false,
+            VB_CHANNEL, LOG_WARNING, kDaemonFacility, use_threads, false,
             logfile, logprefix);
 
         QVERIFY(!logfile.isEmpty());
@@ -609,6 +609,37 @@ class TestMythLoggingBase : public QObject
     {
         int level;
         bool rok = parse_log_level("random", level);
+        QVERIFY(!rok);
+    }
+
+    void parse_syslog_facility_recognizes_real_input(void)
+    {
+        SyslogFacility facility;
+        bool ok = parse_syslog_facility("lpr", facility);
+        QVERIFY(ok);
+        QVERIFY(kLPRFacility == facility);
+    }
+
+    void parse_syslog_facility_case_insensitive(void)
+    {
+        SyslogFacility facility;
+        bool ok = parse_syslog_facility("lpr", facility);
+        QVERIFY(ok);
+        QVERIFY(kLPRFacility == facility);
+    }
+
+    void parse_syslog_facility_trims(void)
+    {
+        SyslogFacility facility;
+        bool ok = parse_syslog_facility("\t\n lpr \t\n", facility);
+        QVERIFY(ok);
+        QVERIFY(kLPRFacility == facility);
+    }
+
+    void parse_syslog_facility_rejects_random_strings(void)
+    {
+        SyslogFacility facility;
+        bool rok = parse_syslog_facility("random", facility);
         QVERIFY(!rok);
     }
 

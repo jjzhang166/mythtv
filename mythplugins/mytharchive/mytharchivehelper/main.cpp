@@ -2303,7 +2303,7 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
     addVersion();
 
     // by default we only output our messages
-    addLogging(VB_JOBQUEUE, LOG_ERR, -1);
+    addLogging(VB_JOBQUEUE, LOG_ERR, kNoFacility);
 
     add(QStringList( QStringList() << "-t" << "--createthumbnail" ),
             "createthumbnail", false,

@@ -14,7 +14,7 @@ void MythBackendCommandLineParser::LoadArguments(void)
     addDaemon();
     addSettingsOverride();
     addUPnP();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
     addPIDFile();
 
     CommandLineArg::AllowOneOf(QList<CommandLineArg*>()

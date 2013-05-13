@@ -270,7 +270,7 @@ int main(int argc, char *argv[])
     bool use_display = true;
     if (cmdline.toBool("scan"))
     {
-        cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, -1);
+        cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, kNoFacility);
         use_display = false;
     }
 

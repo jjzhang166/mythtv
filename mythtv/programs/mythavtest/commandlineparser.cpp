@@ -22,7 +22,7 @@ void MythAVTestCommandLineParser::LoadArguments(void)
     addWindowed();
     addGeometry();
     addDisplay();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
     addInFile();
     add(QStringList(QStringList() << "-t" << "--test"), "test", false,
                     "Test video performance.",

@@ -31,6 +31,7 @@
 #include "loglevelinfo.h"
 #include "mythbaseexp.h"
 #include "verboseinfo.h"
+#include "syslogdefs.h"
 #include "threadinfo.h"
 #include "logentry.h"
 
@@ -64,7 +65,7 @@ class MBASE_PUBLIC LogDeque
     void InitializeLogging(
         uint64_t verbose_mask,
         int log_level,
-        int syslog_facility,
+        SyslogFacility syslog_facility,
         bool use_threads,
         bool enable_database_logging,
         const QString &logfile,
@@ -168,6 +169,12 @@ class MBASE_PUBLIC LogDeque
         return m_logPath;
     }
 
+    SyslogFacility GetSyslogFacility(void) const
+    {
+        QReadLocker locker(&m_handlerLock);
+        return m_logSyslogFacility;
+    }
+
   private:
     LogDeque();
     ~LogDeque();
@@ -221,6 +228,7 @@ class MBASE_PUBLIC LogDeque
     QString m_logFile; // m_handlerLock
     QString m_logPrefix; // m_handlerLock
     QString m_logPath; // m_handlerLock
+    SyslogFacility m_logSyslogFacility; // m_handlerLock
 
     mutable QReadWriteLock m_threadLock;
     bool m_singleThreaded; // m_threadLock

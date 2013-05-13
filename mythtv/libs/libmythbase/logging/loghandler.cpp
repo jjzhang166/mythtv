@@ -21,6 +21,7 @@
 #include "logentry.h"
 #include "loghandler.h"
 #include "debugloghandler.h"
+#include "syslogloghandler.h"
 
 #include <iostream>
 using namespace std;
@@ -134,4 +135,12 @@ LogHandler *LogHandler::GetPathHandler(const QString &prefix)
         static_cast<LogHandler*>(
             new DebugLogHandler("PathLogHandler", prefix)) :
         static_cast<LogHandler*>(new PathLogHandler(prefix));
+}
+
+LogHandler *LogHandler::GetSyslogHandler(SyslogFacility facility)
+{
+    return (DebugLogHandler::IsReplacing("SyslogLogHandler")) ?
+        static_cast<LogHandler*>(
+            new DebugLogHandler("SyslogLogHandler", facility)) :
+        static_cast<LogHandler*>(new SyslogLogHandler(facility));
 }

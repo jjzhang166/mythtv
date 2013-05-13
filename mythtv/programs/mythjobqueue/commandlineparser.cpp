@@ -18,7 +18,7 @@ void MythJobQueueCommandLineParser::LoadArguments(void)
     addHelp();
     addSettingsOverride();
     addVersion();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
     addPIDFile();
     addDaemon();
 }

@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
     bool showprogress = cmdline.toBool("showprogress");
 
     if ((outfile == "-") || showprogress)
-        cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, -1);
+        cmdline.SetLoggingDefaults(VB_NONE, LOG_INFO, kNoFacility);
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

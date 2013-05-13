@@ -12,7 +12,7 @@ void MythPreviewGeneratorCommandLineParser::LoadArguments(void)
     addHelp();
     addVersion();
     addRecording();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
 
     add("--seconds", "seconds", 0LL, "Number of seconds into video to take preview image.", "");
     add("--frame", "frame", 0LL, "Number of frames into video to take preview image.", "");

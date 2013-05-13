@@ -263,9 +263,10 @@ class MBASE_PUBLIC MythCommandLineParser
     bool                    SetValue(const QString &key, QVariant value);
 
     bool                    ConfigureLogging(ThreadedLogging);
-    void                    SetLoggingDefaults(uint64_t default_verbose_mask,
-                                               int default_log_level,
-                                               int default_syslog_facility);
+    void                    SetLoggingDefaults(
+        uint64_t default_verbose_mask,
+        int default_log_level,
+        SyslogFacility default_syslog_facility);
     void                    ApplySettingsOverride(void);
     int                     Daemonize(void);
 
@@ -286,7 +287,7 @@ class MBASE_PUBLIC MythCommandLineParser
     void addUPnP(void);
     void addLogging(uint64_t default_verbose_mask,
                     int default_log_level,
-                    int default_syslog_facility);
+                    SyslogFacility default_syslog_facility);
     void addPIDFile(void);
     void addJob(void);
     void addInFile(bool addOutFile = false);
@@ -305,7 +306,7 @@ class MBASE_PUBLIC MythCommandLineParser
 
     uint64_t                        m_defaultVerboseMask;
     int                             m_defaultLogLevel;
-    int                             m_defaultSyslogFacility;
+    SyslogFacility                  m_defaultSyslogFacility;
     bool                            m_loggingConfigured;
 };
 

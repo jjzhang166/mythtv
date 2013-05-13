@@ -36,6 +36,7 @@ HEADERS += logging/logdeque.h logging/logentry.h
 HEADERS += logging/loglevelinfo.h logging/verboseinfo.h
 HEADERS += logging/loghandler.h logging/debugloghandler.h
 HEADERS += logging/threadinfo.h logging/logeventhandler.h
+HEADERS += logging/syslogloghandler.h
 
 SOURCES += mthread.cpp mthreadpool.cpp
 SOURCES += mythsocket.cpp
@@ -55,6 +56,7 @@ SOURCES += mythlogging.cpp
 SOURCES += logging/logdeque.cpp logging/logentry.cpp
 SOURCES += logging/loghandler.cpp logging/debugloghandler.cpp
 SOURCES += logging/logeventhandler.cpp
+SOURCES += logging/syslogloghandler.cpp
 
 # This stuff is not Qt5 compatible..
 contains(QT_VERSION, ^4\\.[0-9]\\..*) {
@@ -76,7 +78,8 @@ mingw {
 inc.path = $${PREFIX}/include/mythtv/
 inc.files += mythdbcon.h mythdbparams.h mythbaseexp.h mythdb.h
 inc.files += compat.h mythversion.h mythconfig.h mythconfig.mak version.h
-inc.files += mythobservable.h mythevent.h mcodecs.h verbosedefs.h
+inc.files += mythobservable.h mythevent.h mcodecs.h
+inc.files += verbosedefs.h syslogdefs.h
 inc.files += mythtimer.h lcddevice.h exitcodes.h mythdirs.h mythstorage.h
 inc.files += mythsocket.h mythsocket_cb.h mythlogging.h mythlogging_extra.h
 inc.files += mythcorecontext.h mythsystem.h storagegroup.h

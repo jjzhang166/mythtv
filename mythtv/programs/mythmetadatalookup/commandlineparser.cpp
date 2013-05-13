@@ -14,7 +14,7 @@ void MythMetadataLookupCommandLineParser::LoadArguments(void)
     addVersion();
     addRecording();
     addJob();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
 
     CommandLineArg::AllowOneOf( QList<CommandLineArg*>()
          << add("--refresh-all", "refresh-all", false,

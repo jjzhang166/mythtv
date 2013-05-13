@@ -2361,7 +2361,7 @@ void MythCommandLineParser::addUPnP(void)
 void MythCommandLineParser::SetLoggingDefaults(
     uint64_t default_verbose_mask,
     int default_log_level,
-    int default_syslog_facility)
+    SyslogFacility default_syslog_facility)
 {
     m_defaultVerboseMask = default_verbose_mask;
     m_defaultLogLevel = default_log_level;
@@ -2380,7 +2380,7 @@ uint64_t MythCommandLineParser::GetDefaultVerboseMask(void) const
 void MythCommandLineParser::addLogging(
     uint64_t default_verbose_mask,
     int default_log_level,
-    int default_syslog_facility)
+    SyslogFacility default_syslog_facility)
 {
     SetLoggingDefaults(
         default_verbose_mask, default_log_level, default_syslog_facility);
@@ -2577,7 +2577,7 @@ bool MythCommandLineParser::ConfigureLogging(ThreadedLogging threading)
         }
     }
 
-    int facility = m_defaultSyslogFacility;
+    SyslogFacility facility = m_defaultSyslogFacility;
     if (toBool("syslog"))
     {
         if (!myth_logging::parse_syslog_facility(toString("syslog"), facility))

@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
     // default to quiet operation for pidcounter and pidfilter
     if (cmdline.toBool("pidcounter") || cmdline.toBool("pidfilter"))
-        cmdline.SetLoggingDefaults(VB_NONE, LOG_ERR, -1);
+        cmdline.SetLoggingDefaults(VB_NONE, LOG_ERR, kNoFacility);
 
     if (cmdline.toBool("showhelp"))
     {

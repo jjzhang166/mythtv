@@ -12,7 +12,7 @@ void MythCCExtractorCommandLineParser::LoadArguments(void)
     addHelp();
     addSettingsOverride();
     addVersion();
-    addLogging(VB_NONE, LOG_ERR, -1);
+    addLogging(VB_NONE, LOG_ERR, kNoFacility);
     add(QStringList( QStringList() << "-i" << "--infile" ), "inputfile", "",
             "input file", "");
 }

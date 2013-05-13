@@ -14,7 +14,7 @@ void MythShutdownCommandLineParser::LoadArguments(void)
 
     addHelp();
     addVersion();
-    addLogging(VB_NONE, LOG_ERR, -1);
+    addLogging(VB_NONE, LOG_ERR, kNoFacility);
 
     CommandLineArg::AllowOneOf( QList<CommandLineArg*>()
          << add(QStringList( QStringList() << "-w" << "--setwakeup" ),

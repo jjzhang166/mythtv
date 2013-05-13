@@ -2,13 +2,14 @@
 #define MYTHLOGGING_EXTRA_H_
 
 #include "mythlogging.h"
+#include "syslogdefs.h"
 
 namespace myth_logging {
 
 MBASE_PUBLIC void initialize_logging(
     uint64_t default_verbose_mask,
     int default_log_level,
-    int default_syslog_facility,
+    SyslogFacility default_syslog_facility,
     bool use_threads,
     bool enable_database_logging,
     const QString &logfile,
@@ -26,11 +27,11 @@ MBASE_PUBLIC QString command_line_arguments(void);
 
 MBASE_PUBLIC QString format_verbose(uint64_t mask);
 MBASE_PUBLIC QString format_log_level(int level);
-MBASE_PUBLIC QString format_syslog_facility(int facility);
+MBASE_PUBLIC QString format_syslog_facility(SyslogFacility facility);
 
 MBASE_PUBLIC bool parse_verbose(const QString &, uint64_t &sub, uint64_t &add);
 MBASE_PUBLIC bool parse_log_level(const QString&, int &level);
-MBASE_PUBLIC bool parse_syslog_facility(const QString&, int &facility);
+MBASE_PUBLIC bool parse_syslog_facility(const QString&, SyslogFacility&);
 
 MBASE_PUBLIC QString register_thread(const QString &name);
 MBASE_PUBLIC QString rename_thread(const QString &name);

@@ -11,7 +11,7 @@ void MythFillDatabaseCommandLineParser::LoadArguments(void)
 {
     addHelp();
     addVersion();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
     allowPassthrough();
 
     add("--manual", "manual", false, "Run interactive configuration",

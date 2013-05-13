@@ -14,7 +14,7 @@ void MythTranscodeCommandLineParser::LoadArguments(void)
     addJob();
     addRecording();
     addSettingsOverride();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
 
     add(QStringList( QStringList() << "-p" << "--profile" ), "profile", "",
             "Transcoding profile.", "")

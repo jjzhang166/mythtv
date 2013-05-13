@@ -24,7 +24,7 @@ void MythTVSetupCommandLineParser::LoadArguments(void)
     addMouse();
     addGeometry();
     addDisplay();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
 
     add("--expert", "expert", false, "", "Expert mode.");
     add("--scan-list", "scanlist", false, "", "no help");

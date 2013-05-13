@@ -21,6 +21,8 @@
 #ifndef _LOG_HANDLER_H_
 #define _LOG_HANDLER_H_
 
+#include "syslogdefs.h"
+
 class QString;
 class LogEntry;
 
@@ -42,6 +44,7 @@ class LogHandler
     static LogHandler *GetConsoleHandler(void);
     static LogHandler *GetFileHandler(const QString&);
     static LogHandler *GetPathHandler(const QString&);
+    static LogHandler *GetSyslogHandler(SyslogFacility facility);
 };
 
 #endif // _LOG_HANDLER_H_

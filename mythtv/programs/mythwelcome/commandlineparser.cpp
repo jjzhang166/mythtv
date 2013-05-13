@@ -18,7 +18,7 @@ void MythWelcomeCommandLineParser::LoadArguments(void)
     addHelp();
     addSettingsOverride();
     addVersion();
-    addLogging(VB_GENERAL, LOG_INFO, -1);
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
 
     add(QStringList( QStringList() << "-s" << "--setup" ), "setup", false,
             "Run setup for mythshutdown.", "");

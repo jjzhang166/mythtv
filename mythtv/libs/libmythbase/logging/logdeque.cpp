@@ -39,7 +39,7 @@ LogDeque LogDeque::s_logDeque;
 void LogDeque::InitializeLogging(
     uint64_t verbose_mask,
     int log_level,
-    int syslog_facility,
+    SyslogFacility syslog_facility,
     bool use_threads,
     bool enable_database_logging,
     const QString &logfile,
@@ -68,6 +68,12 @@ void LogDeque::InitializeLogging(
         m_handlers.push_back(LogHandler::GetPathHandler(logprefix));
         m_logPrefix = QDir::cleanPath(QDir::fromNativeSeparators(logprefix));
         m_logPath = m_logPrefix.mid(0, m_logPrefix.lastIndexOf("/"));
+    }
+
+    if (kNoFacility != syslog_facility)
+    {
+        m_handlers.push_back(LogHandler::GetSyslogHandler(syslog_facility));
+        m_logSyslogFacility = syslog_facility;
     }
 
     handler_locker.unlock();
