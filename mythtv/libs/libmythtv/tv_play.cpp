@@ -16,6 +16,11 @@ using namespace std;
 #include <QEvent>
 #include <QFile>
 #include <QDir>
+#include <QDomDocument>
+#include <QDomElement>
+#include <QDomNode>
+
+Q_DECLARE_METATYPE(QDomNode)
 
 #include "signalhandling.h"
 #include "mythdb.h"
@@ -569,6 +574,8 @@ void TV::InitKeys(void)
 
     REG_KEY("TV Playback", "BACK", QT_TRANSLATE_NOOP("MythControls",
             "Exit or return to DVD menu"), "Esc");
+    REG_KEY("TV Playback", ACTION_MENUCOMPACT, QT_TRANSLATE_NOOP("MythControls",
+            "Playback Compact Menu"), "Alt+M");
     REG_KEY("TV Playback", ACTION_CLEAROSD, QT_TRANSLATE_NOOP("MythControls",
             "Clear OSD"), "Backspace");
     REG_KEY("TV Playback", ACTION_PAUSE, QT_TRANSLATE_NOOP("MythControls",
@@ -3649,7 +3656,7 @@ bool TV::HandleTrackAction(PlayerContext *ctx, const QString &action)
             ctx->player->ToggleCaptions();
         }
     }
-    else if (action.left(6) == "TOGGLE")
+    else if (action.startsWith("TOGGLE"))
     {
         int type = to_track_type(action.mid(6));
         if (type == kTrackTypeTeletextMenu)
@@ -3659,7 +3666,7 @@ bool TV::HandleTrackAction(PlayerContext *ctx, const QString &action)
         else
             handled = false;
     }
-    else if (action.left(6) == "SELECT")
+    else if (action.startsWith("SELECT"))
     {
         int type = to_track_type(action.mid(6));
         int num = action.section("_", -1).toInt();
@@ -3668,13 +3675,13 @@ bool TV::HandleTrackAction(PlayerContext *ctx, const QString &action)
         else
             handled = false;
     }
-    else if (action.left(4) == "NEXT" || action.left(4) == "PREV")
+    else if (action.startsWith("NEXT") || action.startsWith("PREV"))
     {
-        int dir = (action.left(4) == "NEXT") ? +1 : -1;
+        int dir = (action.startsWith("NEXT")) ? +1 : -1;
         int type = to_track_type(action.mid(4));
         if (type >= kTrackTypeAudio)
             ctx->player->ChangeTrack(type, dir);
-        else if (action.right(2) == "CC")
+        else if (action.endsWith("CC"))
             ctx->player->ChangeCaptionTrack(dir);
         else
             handled = false;
@@ -4481,6 +4488,8 @@ bool TV::ActiveHandleAction(PlayerContext *ctx,
         ChangeTimeStretch(ctx, -1);
     else if (has_action("MENU", actions))
         ShowOSDMenu(ctx);
+    else if (has_action(ACTION_MENUCOMPACT, actions))
+        ShowOSDMenu(ctx, true);
     else if (has_action("INFO", actions) ||
              has_action("INFOWITHCUTLIST", actions))
     {
@@ -9177,8 +9186,17 @@ void TV::customEvent(QEvent *e)
     {
         DialogCompletionEvent *dce =
             reinterpret_cast<DialogCompletionEvent*>(e);
-        OSDDialogEvent(dce->GetResult(), dce->GetResultText(),
-                       dce->GetData().toString());
+        if (dce->GetData().userType() == qMetaTypeId<QDomNode>())
+        {
+            QDomNode data = qVariantValue<QDomNode>(dce->GetData());
+            if (dce->GetResult() == -1) // menu exit/back
+                MenuShow(data.parentNode(), data);
+            else
+                MenuShow(data, QDomNode());
+        }
+        else
+            OSDDialogEvent(dce->GetResult(), dce->GetResultText(),
+                           dce->GetData().toString());
         return;
     }
 
@@ -9297,7 +9315,7 @@ void TV::customEvent(QEvent *e)
     {
         GetStatus();
     }
-    else if (message.left(14) == "DONE_RECORDING")
+    else if (message.startsWith("DONE_RECORDING"))
     {
         int seconds = 0;
         //long long frames = 0;
@@ -9358,7 +9376,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(14) == "ASK_RECORDING ")
+    if (message.startsWith("ASK_RECORDING "))
     {
         int timeuntil = 0, hasrec = 0, haslater = 0;
         if (tokens.size() >= 5)
@@ -9395,7 +9413,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(11) == "QUIT_LIVETV")
+    if (message.startsWith("QUIT_LIVETV"))
     {
         cardnum = (tokens.size() >= 2) ? tokens[1].toUInt() : 0;
 
@@ -9434,7 +9452,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(12) == "LIVETV_WATCH")
+    if (message.startsWith("LIVETV_WATCH"))
     {
         int watch = 0;
         if (tokens.size() >= 3)
@@ -9475,7 +9493,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(12) == "LIVETV_CHAIN")
+    if (message.startsWith("LIVETV_CHAIN"))
     {
         QString id = QString::null;
         if ((tokens.size() >= 2) && tokens[1] == "UPDATE")
@@ -9495,7 +9513,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(12) == "EXIT_TO_MENU")
+    if (message.startsWith("EXIT_TO_MENU"))
     {
         PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
         for (uint i = 0; mctx && (i < player.size()); i++)
@@ -9510,7 +9528,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(6) == "SIGNAL")
+    if (message.startsWith("SIGNAL"))
     {
         cardnum = (tokens.size() >= 2) ? tokens[1].toUInt() : 0;
         QStringList signalList = me->ExtraDataList();
@@ -9534,7 +9552,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(15) == "NETWORK_CONTROL")
+    if (message.startsWith("NETWORK_CONTROL"))
     {
         if ((tokens.size() >= 2) &&
             (tokens[1] != "ANSWER") && (tokens[1] != "RESPONSE"))
@@ -9552,17 +9570,17 @@ void TV::customEvent(QEvent *e)
         }
     }
 
-    if (message.left(9) == "START_EPG")
+    if (message.startsWith("START_EPG"))
     {
         int editType = tokens[1].toInt();
         DoEditSchedule(editType);
     }
 
-    if (message.left(11) == "EPG_EXITING" ||
-        message.left(18) == "PROGFINDER_EXITING" ||
-        message.left(21) == "VIEWSCHEDULED_EXITING" ||
-        message.left(19)   == "PLAYBACKBOX_EXITING" ||
-        message.left(22) == "SCHEDULEEDITOR_EXITING")
+    if (message.startsWith("EPG_EXITING") ||
+        message.startsWith("PROGFINDER_EXITING") ||
+        message.startsWith("VIEWSCHEDULED_EXITING") ||
+        message.startsWith("PLAYBACKBOX_EXITING") ||
+        message.startsWith("SCHEDULEEDITOR_EXITING"))
     {
         // Resize the window back to the MythTV Player size
         PlayerContext *actx = GetPlayerReadLock(-1, __FILE__, __LINE__);
@@ -9604,7 +9622,7 @@ void TV::customEvent(QEvent *e)
         isEmbedded = false;
         ignoreKeyPresses = false;
 
-        if (message.left(19) == "PLAYBACKBOX_EXITING")
+        if (message.startsWith("PLAYBACKBOX_EXITING"))
         {
             ProgramInfo pginfo(me->ExtraDataList());
             if (pginfo.HasPathname() || pginfo.GetChanID())
@@ -9615,7 +9633,7 @@ void TV::customEvent(QEvent *e)
 
     }
 
-    if (message.left(14) == "COMMFLAG_START" && (tokens.size() >= 2))
+    if (message.startsWith("COMMFLAG_START") && (tokens.size() >= 2))
     {
         uint evchanid = 0;
         QDateTime evrecstartts;
@@ -9642,7 +9660,7 @@ void TV::customEvent(QEvent *e)
         ReturnPlayerLock(mctx);
     }
 
-    if (message.left(15) == "COMMFLAG_UPDATE" && (tokens.size() >= 3))
+    if (message.startsWith("COMMFLAG_UPDATE") && (tokens.size() >= 3))
     {
         uint evchanid = 0;
         QDateTime evrecstartts;
@@ -10593,12 +10611,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         action.remove("DIALOG_");
         QStringList desc = action.split("_");
         bool valid = desc.size() == 3;
-        if (valid && desc[0] == "MENU")
-        {
-            ShowOSDMenu(actx, desc[1], text);
-            hide = false;
-        }
-        else if (valid && desc[0] == ACTION_JUMPREC)
+        if (valid && desc[0] == ACTION_JUMPREC)
         {
             FillOSDMenuJumpRec(actx, desc[1], desc[2].toInt(), text);
             hide = false;
@@ -10683,7 +10696,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         EnableUpmix(actx, true);
     else if (action == ACTION_DISABLEUPMIX)
         EnableUpmix(actx, false);
-    else if (action.left(13) == "ADJUSTSTRETCH")
+    else if (action.startsWith("ADJUSTSTRETCH"))
     {
         bool floatRead;
         float stretch = action.right(action.length() - 13).toFloat(&floatRead);
@@ -10701,7 +10714,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
 
         ChangeTimeStretch(actx, 0, !floatRead);   // just display
     }
-    else if (action.left(11) == "SELECTSCAN_")
+    else if (action.startsWith("SELECTSCAN_"))
     {
         QString msg = QString::null;
         actx->LockDeletePlayer(__FILE__, __LINE__);
@@ -10712,7 +10725,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         if (!msg.isEmpty())
             SetOSDMessage(actx, msg);
     }
-    else if (action.left(15) == ACTION_TOGGELAUDIOSYNC)
+    else if (action.startsWith(ACTION_TOGGELAUDIOSYNC))
         ChangeAudioSync(actx, 0);
     else if (action == ACTION_TOGGLESUBTITLEZOOM)
         ChangeSubtitleZoom(actx, 0);
@@ -10724,17 +10737,17 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         EnableVisualisation(actx, true);
     else if (action == ACTION_DISABLEVISUALISATION)
         EnableVisualisation(actx, false);
-    else if (action.left(11) == ACTION_TOGGLESLEEP)
+    else if (action.startsWith(ACTION_TOGGLESLEEP))
     {
         ToggleSleepTimer(actx, action.left(13));
     }
-    else if (action.left(17) == "TOGGLEPICCONTROLS")
+    else if (action.startsWith("TOGGLEPICCONTROLS"))
     {
         adjustingPictureAttribute = (PictureAttribute)
             (action.right(1).toInt() - 1);
         DoTogglePictureAttribute(actx, kAdjustingPicture_Playback);
     }
-    else if (action.left(18) == ACTION_TOGGLESTUDIOLEVELS)
+    else if (action.startsWith(ACTION_TOGGLESTUDIOLEVELS))
     {
         DoToggleStudioLevels(actx);
     }
@@ -10742,12 +10755,12 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
     {
         DoToggleNightMode(actx);
     }
-    else if (action.left(12) == "TOGGLEASPECT")
+    else if (action.startsWith("TOGGLEASPECT"))
     {
         ToggleAspectOverride(actx,
                              (AspectOverrideMode) action.right(1).toInt());
     }
-    else if (action.left(10) == "TOGGLEFILL")
+    else if (action.startsWith("TOGGLEFILL"))
     {
         ToggleAdjustFill(actx, (AdjustFillMode) action.right(1).toInt());
     }
@@ -10757,7 +10770,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
     }
     else if (action == ACTION_GUIDE)
         EditSchedule(actx, kScheduleProgramGuide);
-    else if (action.left(10) == "CHANGROUP_" && db_use_channel_groups)
+    else if (action.startsWith("CHANGROUP_") && db_use_channel_groups)
     {
         if (action == "CHANGROUP_ALL_CHANNELS")
         {
@@ -10846,7 +10859,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
             browsehelper->BrowseStart(actx);
         else if (action == "PREVCHAN")
             PopPreviousChannel(actx, true);
-        else if (action.left(14) == "SWITCHTOINPUT_")
+        else if (action.startsWith("SWITCHTOINPUT_"))
         {
             switchToInputId = action.mid(14).toUInt();
             QMutexLocker locker(&timerIdLock);
@@ -10884,17 +10897,17 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
                 actx->player->GoToMenu(menu);
             actx->UnlockDeletePlayer(__FILE__, __LINE__);
         }
-        else if (action.left(13) == ACTION_JUMPCHAPTER)
+        else if (action.startsWith(ACTION_JUMPCHAPTER))
         {
             int chapter = action.right(3).toInt();
             DoJumpChapter(actx, chapter);
         }
-        else if (action.left(11) == ACTION_SWITCHTITLE)
+        else if (action.startsWith(ACTION_SWITCHTITLE))
         {
             int title = action.right(3).toInt();
             DoSwitchTitle(actx, title);
         }
-        else if (action.left(13) == ACTION_SWITCHANGLE)
+        else if (action.startsWith(ACTION_SWITCHANGLE))
         {
             int angle = action.right(3).toInt();
             DoSwitchAngle(actx, angle);
@@ -10906,7 +10919,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         }
         else if (action == "TOGGLEAUTOEXPIRE")
             ToggleAutoExpire(actx);
-        else if (action.left(14) == "TOGGLECOMMSKIP")
+        else if (action.startsWith("TOGGLECOMMSKIP"))
             SetAutoCommercialSkip(
                 actx, (CommSkipMode)(action.right(1).toInt()));
         else if (action == "QUEUETRANSCODE")
@@ -10959,755 +10972,548 @@ void TV::HandleOSDInfo(PlayerContext *ctx, QString action)
     }
 }
 
-void TV::ShowOSDMenu(const PlayerContext *ctx, const QString category,
-                     const QString selected)
+bool MenuBase::MenuLoadFromFile(const QString &filename,
+                                const QString &menuname,
+                                const char *translationContext,
+                                const QString &keyBindingContext)
 {
-    QString cat = category.isEmpty() ? "MAIN" : category;
+    bool result = false;
 
-    OSD *osd = GetOSDLock(ctx);
-    if (osd)
+    m_translationContext = translationContext;
+    m_keyBindingContext = keyBindingContext;
+    QStringList searchpath = GetMythUI()->GetThemeSearchPath();
+    searchpath.prepend(GetConfDir() + '/');
+    QStringList::const_iterator it = searchpath.begin();
+    for (; !result && it != searchpath.end(); ++it)
     {
-        osd->DialogShow(OSD_DLG_MENU, tr("Playback Menu"));
-        QString currenttext = QString();
-        QString back = QString();
-
-        FillOSDMenuAudio    (ctx, osd, cat, selected, currenttext, back);
-        FillOSDMenuVideo    (ctx, osd, cat, selected, currenttext, back);
-        FillOSDMenuSubtitles(ctx, osd, cat, selected, currenttext, back);
-        FillOSDMenuPlayback (ctx, osd, cat, selected, currenttext, back);
-        FillOSDMenuNavigate (ctx, osd, cat, selected, currenttext, back);
-        FillOSDMenuSchedule (ctx, osd, cat, selected, currenttext, back);
-        FillOSDMenuSource   (ctx, osd, cat, selected, currenttext, back);
-        FillOSDMenuJobs     (ctx, osd, cat, selected, currenttext, back);
-
-        if (!currenttext.isEmpty())
-            osd->DialogSetText(currenttext);
-        if (!back.isEmpty() && !category.isEmpty())
-            osd->DialogBack(cat, QString("DIALOG_MENU_%1_0").arg(back));
-    }
-    ReturnOSDLock(ctx, osd);
-}
-
-void TV::FillOSDMenuAudio(const PlayerContext *ctx, OSD *osd,
-                          QString category, const QString selected,
-                          QString &currenttext, QString &backaction)
-{
-    QStringList tracks;
-    uint curtrack = ~0;
-    bool avsync = true;
-    bool visual = false;
-    QString active = QString("");
-    bool upmixing = false;
-    bool canupmix = false;
-    ctx->LockDeletePlayer(__FILE__, __LINE__);
-    if (ctx->player)
-    {
-        visual = ctx->player->CanVisualise();
-        active = ctx->player->GetVisualiserName();
-        tracks = ctx->player->GetTracks(kTrackTypeAudio);
-        if (!tracks.empty())
-            curtrack = (uint) ctx->player->GetTrack(kTrackTypeAudio);
-        avsync = (ctx->player->GetTrackCount(kTrackTypeVideo) > 0) &&
-                  !tracks.empty();
-        upmixing = ctx->player->GetAudio()->IsUpmixing();
-        canupmix = ctx->player->GetAudio()->CanUpmix();
-    }
-    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-    if (tracks.empty()) // No audio
-        return;
-
-    if (category == "MAIN")
-    {
-        osd->DialogAddButton(tr("Audio"), "DIALOG_MENU_AUDIO_0",
-                             true, selected == "AUDIO");
-    }
-    else if (category == "AUDIO")
-    {
-        // TODO Add mute and volume
-        backaction = "MAIN";
-        currenttext = tr("Audio");
-        if (tracks.size() > 1)
+        QString themefile = *it + filename;
+        LOG(VB_PLAYBACK, LOG_INFO,
+            LOC + QString("Loading menu %1").arg(themefile));
+        QFile file(themefile);
+        if (file.open(QIODevice::ReadOnly))
         {
-            osd->DialogAddButton(tr("Select Audio Track"),
-                                 "DIALOG_MENU_AUDIOTRACKS_0", true,
-                                 selected == "AUDIOTRACKS");
-        }
-        if (avsync)
-            osd->DialogAddButton(tr("Adjust Audio Sync"), ACTION_TOGGELAUDIOSYNC);
-        if (visual)
-        {
-            osd->DialogAddButton(tr("Visualisation"),
-                                 "DIALOG_MENU_VISUALISATIONS_0", true,
-                                 selected == "VISUALISATIONS");
-        }
-
-        if (canupmix)
-        {
-            if (upmixing)
+            m_menuDocument = new QDomDocument();
+            if (m_menuDocument->setContent(&file))
             {
-                osd->DialogAddButton(tr("Disable Audio Upmixer"),
-                                     ACTION_DISABLEUPMIX);
+                result = true;
+                m_menuName =
+                    MenuTranslate(MenuGetRoot().attribute("text", menuname));
+                QDomElement root = MenuGetRoot();
+                MenuProcessIncludes(root);
             }
             else
             {
-                osd->DialogAddButton(tr("Enable Audio Upmixer"),
-                                     ACTION_ENABLEUPMIX);
+                delete m_menuDocument;
+                m_menuDocument = NULL;
             }
+            file.close();
         }
+        if (!result)
+        {
+            LOG(VB_FILE, LOG_ERR, LOC + "No theme file " + themefile);
+        }
+    }
 
-    }
-    else if (category == "AUDIOTRACKS")
+    return result;
+}
+
+void MenuBase::MenuProcessIncludes(QDomElement &root)
+{
+    const int maxRecursion = 10;
+    for (QDomNode n = root.firstChild(); !n.isNull(); n = n.nextSibling())
     {
-        backaction  = "AUDIO";
-        currenttext = tr("Select Audio Track");
-        for (uint i = 0; i < (uint)tracks.size(); i++)
+        if (n.isElement())
         {
-            osd->DialogAddButton(tracks[i],
-                                 "SELECTAUDIO_" + QString::number(i),
-                                 false, i == curtrack);
-        }
-    }
-    else if (category == "VISUALISATIONS")
-    {
-        backaction = "AUDIO";
-        currenttext = tr("Visualisation");
-        osd->DialogAddButton(tr("None"),
-                             ACTION_DISABLEVISUALISATION, false,
-                             active.isEmpty());
-        QStringList visualisers;
-        ctx->LockDeletePlayer(__FILE__, __LINE__);
-        if (ctx->player)
-            visualisers = ctx->player->GetVisualiserList();
-        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-        for (int i = 0; i < visualisers.size(); i++)
-        {
-            osd->DialogAddButton(visualisers[i],
-                "VISUALISER_" + visualisers[i], false,
-                active == visualisers[i]);
+            QDomElement e = n.toElement();
+            if (e.tagName() == "include")
+            {
+                QString include = e.attribute("file", "");
+                int level = m_recursionLevel + 1;
+                if (level > maxRecursion)
+                {
+                    LOG(VB_GENERAL, LOG_ERR,
+                        QString("Maximum include depth (%1) "
+                                "exceeded for %2")
+                        .arg(maxRecursion).arg(include));
+                    return;
+                }
+                MenuBase menu;
+                menu.m_recursionLevel = level;
+                if (menu.MenuLoadFromFile(include, include,
+                                          m_translationContext,
+                                          m_keyBindingContext))
+                {
+                    QDomNode newChild = menu.MenuGetRoot();
+                    newChild = m_menuDocument->importNode(newChild, true);
+                    root.replaceChild(newChild, n);
+                    n = newChild;
+                }
+            }
+            else if (e.tagName() == "menu")
+            {
+                MenuProcessIncludes(e);
+            }
         }
     }
 }
 
-void TV::FillOSDMenuVideo(const PlayerContext *ctx, OSD *osd,
-                          QString category, const QString selected,
-                          QString &currenttext, QString &backaction)
+MenuBase::~MenuBase()
 {
-    QStringList tracks;
-    //uint curtrack                     = ~0;
-    uint sup                          = kPictureAttributeSupported_None;
-    bool studio_levels                = false;
-    bool autodetect                   = false;
-    AdjustFillMode adjustfill         = kAdjustFill_Off;
-    AspectOverrideMode aspectoverride = kAspect_Off;
-    FrameScanType scan_type           = kScan_Ignore;
-    bool scan_type_locked             = false;
-    bool stereoallowed                = false;
-    StereoscopicMode stereomode       = kStereoscopicModeNone;
-
-    ctx->LockDeletePlayer(__FILE__, __LINE__);
-    if (ctx->player)
+    if (m_menuDocument)
     {
-        tracks           = ctx->player->GetTracks(kTrackTypeVideo);
-        aspectoverride   = ctx->player->GetAspectOverride();
-        adjustfill       = ctx->player->GetAdjustFill();
-        scan_type        = ctx->player->GetScanType();
-        scan_type_locked = ctx->player->IsScanTypeLocked();
-        //if (!tracks.empty())
-        //    curtrack = (uint) ctx->player->GetTrack(kTrackTypeVideo);
-        VideoOutput *vo = ctx->player->GetVideoOutput();
-        if (vo)
+        delete m_menuDocument;
+        m_menuDocument = NULL;
+    }
+}
+
+QDomElement MenuBase::MenuGetRoot(void) const
+{
+    return m_menuDocument->documentElement();
+}
+
+QString MenuBase::MenuTranslate(const QString &text) const
+{
+    return qApp->translate(m_translationContext, text.toUtf8(), NULL,
+                           QCoreApplication::UnicodeUTF8);
+}
+
+bool MenuBase::MenuShowHelper(const QDomNode &node,
+                              const QDomNode &selected,
+                              bool doDisplay)
+{
+    bool hasSelected = false;
+    bool displayed = false;
+    for (QDomNode n = node.firstChild(); !n.isNull(); n = n.nextSibling())
+    {
+        if (n == selected)
+            hasSelected = true;
+    }
+    for (QDomNode n = node.firstChild(); !n.isNull(); n = n.nextSibling())
+    {
+        if (n.isElement())
         {
-            sup = vo->GetSupportedPictureAttributes();
-            studio_levels = vo->GetPictureAttribute(kPictureAttribute_StudioLevels) > 0;
-            autodetect = !vo->hasHWAcceleration();
-            stereoallowed = vo->StereoscopicModesAllowed();
-            stereomode = vo->GetStereoscopicMode();
+            QDomElement e = n.toElement();
+            QString text  = e.attribute("text", "");
+            text          = MenuTranslate(text);
+            QString show = e.attribute("show", "");
+            MenuShowContext showContext =
+                (show == "active" ? kMenuShowActive :
+                 show == "inactive" ? kMenuShowInactive : kMenuShowAlways);
+            QString current = e.attribute("current", "");
+            bool currentActive = (current == "active") && !hasSelected;
+            if (e.tagName() == "menu")
+            {
+                MenuItemContext c(n, text, (hasSelected && n == selected),
+                                  doDisplay);
+                displayed |= MenuDisplayItem(c);
+            }
+            else if (e.tagName() == "item")
+            {
+                QString action = e.attribute("action", "");
+                MenuItemContext c(n, showContext, currentActive, action,
+                                  text, doDisplay);
+                displayed |= MenuDisplayItem(c);
+            }
+            else if (e.tagName() == "itemlist")
+            {
+                QString actiongroup = e.attribute("actiongroup", "");
+                MenuItemContext c(n, showContext, currentActive,
+                                  actiongroup, doDisplay);
+                displayed |= MenuDisplayItem(c);
+            }
+        }
+        if (!doDisplay && displayed)
+            break; // early exit optimization
+    }
+    return displayed;
+}
+
+static bool matchesGroup(const QString &name, const QString &inPrefix,
+                         MenuCategory category, QString &outPrefix)
+{
+    outPrefix = name;
+    return ((category == kMenuCategoryItem && name.startsWith(inPrefix)) ||
+            (category == kMenuCategoryItemlist && name == inPrefix));
+}
+
+static void addButton(const MenuItemContext &c, OSD *osd, bool active,
+                      bool &result, const QString &action,
+                      const QString &defaultTextActive,
+                      const QString &defaultTextInactive = "",
+                      bool isMenu = false)
+{
+    if (c.m_category == kMenuCategoryItemlist || action == c.m_action)
+    {
+        if ((c.m_showContext != kMenuShowInactive && active) ||
+            (c.m_showContext != kMenuShowActive && !active))
+        {
+            result = true;
+            if (c.m_doDisplay)
+            {
+                QString text = c.m_actionText;
+                if (text.isEmpty())
+                    text = (active || defaultTextInactive.isEmpty()) ?
+                        defaultTextActive : defaultTextInactive;
+                osd->DialogAddButton(text, action, isMenu,
+                                     active && c.m_setCurrentActive);
+            }
         }
     }
-    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+}
 
-    if (tracks.empty()) // No video
-        return;
+#define BUTTON(action, text) \
+    addButton(c, osd, active, result, (action), (text))
+#define BUTTON2(action, textActive, textInactive) \
+    addButton(c, osd, active, result, (action), (textActive), (textInactive))
+#define BUTTON3(action, textActive, textInactive, isMenu)     \
+    addButton(c, osd, active, result, (action), (textActive), \
+              (textInactive), (isMenu))
 
-    if (category == "MAIN")
+// Returns true if at least one item should be displayed.
+bool TV::MenuDisplayItem(const MenuItemContext &c)
+{
+    MenuCategory category = c.m_category;
+    const QString &actionName = c.m_action;
+
+    bool result = false;
+    bool active = true;
+    PlayerContext *ctx = m_tvmCtx;
+    OSD *osd = m_tvmOsd;
+    if (!osd)
+        return result;
+    if (category == kMenuCategoryMenu)
     {
-        osd->DialogAddButton(tr("Video"), "DIALOG_MENU_VIDEO_0",
-                             true, selected == "VIDEO");
+        result = MenuShowHelper(c.m_node, QDomNode(), false);
+        if (result && c.m_doDisplay)
+        {
+            QVariant v;
+            v.setValue(c.m_node);
+            osd->DialogAddButton(c.m_menuName, v, true, c.m_setCurrentActive);
+        }
+        return result;
     }
-    else if (category == "VIDEO")
+    ctx->LockDeletePlayer(__FILE__, __LINE__);
+    QString prefix;
+    if (matchesGroup(actionName, "VISUALISER_", category, prefix))
     {
-        // TODO Add deinterlacer, filters, video track
-        backaction = "MAIN";
-        currenttext = tr("Video");
+        for (int i = 0; i < m_tvm_visualisers.size(); i++)
+        {
+            QString action = prefix + m_tvm_visualisers[i];
+            active = (m_tvm_active == m_tvm_visualisers[i]);
+            BUTTON(action, m_tvm_visualisers[i]);
+        }
+    }
+    else if (matchesGroup(actionName, "TOGGLEASPECT", category, prefix))
+    {
         if (ctx == GetPlayer(ctx, 0))
         {
-            osd->DialogAddButton(tr("Change Aspect Ratio"),
-                                 "DIALOG_MENU_VIDEOASPECT_0", true,
-                                 selected == "VIDEOASPECT");
-            osd->DialogAddButton(tr("Adjust Fill"),
-                                 "DIALOG_MENU_ADJUSTFILL_0", true,
-                                 selected == "ADJUSTFILL");
-            osd->DialogAddButton(tr("Manual Zoom Mode"), "TOGGLEMANUALZOOM");
-            if (sup != kPictureAttributeSupported_None)
+            for (int j = kAspect_Off; j < kAspect_END; j++)
             {
-                osd->DialogAddButton(tr("Adjust Picture"),
-                                     "DIALOG_MENU_ADJUSTPICTURE_0", true,
-                                     selected == "ADJUSTPICTURE");
+                // swap 14:9 and 16:9
+                int i = ((kAspect_14_9 == j) ? kAspect_16_9 :
+                         ((kAspect_16_9 == j) ? kAspect_14_9 : j));
+                QString action = prefix + QString::number(i);
+                active = (m_tvm_aspectoverride == i);
+                BUTTON(action, toString((AspectOverrideMode) i));
             }
         }
-        if (stereoallowed)
-        {
-            osd->DialogAddButton(tr("3D"), "DIALOG_MENU_3D_0",
-                                 true, selected == "3D");
-        }
-        osd->DialogAddButton(tr("Advanced"), "DIALOG_MENU_ADVANCEDVIDEO_0",
-                             true, selected == "ADVANCEDVIDEO");
     }
-    else if (category == "VIDEOASPECT")
+    else if (matchesGroup(actionName, "TOGGLEFILL", category, prefix))
     {
-        backaction = "VIDEO";
-        currenttext = tr("Change Aspect Ratio");
-
-        for (int j = kAspect_Off; j < kAspect_END; j++)
+        if (ctx == GetPlayer(ctx, 0))
         {
-            // swap 14:9 and 16:9
-            int i = ((kAspect_14_9 == j) ? kAspect_16_9 :
-                     ((kAspect_16_9 == j) ? kAspect_14_9 : j));
-            osd->DialogAddButton(toString((AspectOverrideMode) i),
-                                 QString("TOGGLEASPECT%1").arg(i), false,
-                                 aspectoverride == i);
-        }
-    }
-    else if (category == "ADJUSTFILL")
-    {
-        backaction = "VIDEO";
-        currenttext = tr("Adjust Fill");
-
-        if (autodetect)
-        {
-            osd->DialogAddButton(tr("Auto Detect"), "AUTODETECT_FILL",
-                 false, (adjustfill == kAdjustFill_AutoDetect_DefaultHalf) ||
-                        (adjustfill == kAdjustFill_AutoDetect_DefaultOff));
-        }
-        for (int i = kAdjustFill_Off; i < kAdjustFill_END; i++)
-        {
-            osd->DialogAddButton(toString((AdjustFillMode) i),
-                                 QString("TOGGLEFILL%1").arg(i), false,
-                                 adjustfill == i);
-        }
-    }
-    else if (category == "ADJUSTPICTURE")
-    {
-        backaction = "VIDEO";
-        currenttext = tr("Adjust Picture");
-        for (int i = kPictureAttribute_MIN; i < kPictureAttribute_MAX; i++)
-        {
-            if (toMask((PictureAttribute)i) & sup)
+            for (int i = kAdjustFill_Off; i < kAdjustFill_END; i++)
             {
-                if ((PictureAttribute)i == kPictureAttribute_StudioLevels)
+                QString action = prefix + QString::number(i);
+                active = (m_tvm_adjustfill == i);
+                BUTTON(action, toString((AdjustFillMode) i));
+            }
+        }
+    }
+    else if (matchesGroup(actionName, "TOGGLEPICCONTROLS", category, prefix))
+    {
+        if (ctx == GetPlayer(ctx, 0))
+        {
+            for (int i = kPictureAttribute_MIN; i < kPictureAttribute_MAX; i++)
+            {
+                if (toMask((PictureAttribute)i) & m_tvm_sup)
                 {
-                    QString msg = studio_levels ? tr("Disable studio levels") :
-                                                  tr("Enable studio levels");
-                    osd->DialogAddButton(msg, ACTION_TOGGLESTUDIOLEVELS);
-                }
-                else
-                {
-                    osd->DialogAddButton(toString((PictureAttribute) i),
-                                   QString("TOGGLEPICCONTROLS%1").arg(i));
+                    QString action = prefix +
+                        QString::number(i - kPictureAttribute_MIN);
+                    active = m_tvm_studio_levels;
+                    if ((PictureAttribute)i == kPictureAttribute_StudioLevels)
+                        BUTTON(ACTION_TOGGLESTUDIOLEVELS,
+                               toString((AdjustFillMode) i));
+                    else
+                        BUTTON(action, toString((PictureAttribute) i));
                 }
             }
         }
-        osd->DialogAddButton(
-            gCoreContext->GetNumSetting("NightModeEnabled", 0) ?
-            tr("Disable Night Mode") : tr("Enable Night Mode"),
-            ACTION_TOGGLENIGHTMODE);
     }
-    else if (category == "3D")
+    else if (matchesGroup(actionName, "3D", category, prefix))
     {
-        backaction = "VIDEO";
-        currenttext = tr("3D");
-        osd->DialogAddButton(tr("None"),
-                             ACTION_3DNONE, false,
-                             stereomode == kStereoscopicModeNone);
-        osd->DialogAddButton(tr("Side by Side"),
-                             ACTION_3DSIDEBYSIDE, false,
-                             stereomode == kStereoscopicModeSideBySide);
-        osd->DialogAddButton(tr("Discard Side by Side"),
-                             ACTION_3DSIDEBYSIDEDISCARD, false,
-                             stereomode == kStereoscopicModeSideBySideDiscard);
-        osd->DialogAddButton(tr("Top and Bottom"),
-                             ACTION_3DTOPANDBOTTOM, false,
-                             stereomode == kStereoscopicModeTopAndBottom);
-        osd->DialogAddButton(tr("Discard Top and Bottom"),
-                             ACTION_3DTOPANDBOTTOMDISCARD, false,
-                             stereomode == kStereoscopicModeTopAndBottomDiscard);
-    }
-    else if (category == "ADVANCEDVIDEO")
-    {
-        osd->DialogAddButton(tr("Video Scan"),
-                             "DIALOG_MENU_VIDEOSCAN_0", true,
-                             selected == "VIDEOSCAN");
-        if (kScan_Progressive != scan_type)
+        if (m_tvm_stereoallowed)
         {
-            osd->DialogAddButton(tr("Deinterlacer"),
-                                 "DIALOG_MENU_DEINTERLACER_0", true,
-                                 selected == "DEINTERLACER");
+            active = (m_tvm_stereomode == kStereoscopicModeNone);
+            BUTTON(ACTION_3DNONE, tr("None"));
+            active = (m_tvm_stereomode == kStereoscopicModeSideBySide);
+            BUTTON(ACTION_3DSIDEBYSIDE, tr("Side by Side"));
+            active = (m_tvm_stereomode == kStereoscopicModeSideBySideDiscard);
+            BUTTON(ACTION_3DSIDEBYSIDEDISCARD, tr("Discard Side by Side"));
+            active = (m_tvm_stereomode == kStereoscopicModeTopAndBottom);
+            BUTTON(ACTION_3DTOPANDBOTTOM, tr("Top and Bottom"));
+            active = (m_tvm_stereomode == kStereoscopicModeTopAndBottomDiscard);
+            BUTTON(ACTION_3DTOPANDBOTTOMDISCARD, tr("Discard Top and Bottom"));
         }
-        backaction = "VIDEO";
-        currenttext = tr("Advanced");
     }
-    else if (category == "DEINTERLACER")
+    else if (matchesGroup(actionName, "SELECTSCAN_", category, prefix))
     {
-        backaction = "ADVANCEDVIDEO";
-        currenttext = tr("Deinterlacer");
-
-        QStringList deinterlacers;
-        QString     currentdeinterlacer;
-        bool        doublerate = false;
-        ctx->LockDeletePlayer(__FILE__, __LINE__);
-        if (ctx->player && ctx->player->GetVideoOutput())
+        active = (m_tvm_scan_type_unlocked == kScan_Detect);
+        BUTTON("SELECTSCAN_0", tr("Detect") + m_tvm_cur_mode);
+        active = (m_tvm_scan_type_unlocked == kScan_Progressive);
+        BUTTON("SELECTSCAN_3", tr("Progressive"));
+        active = (m_tvm_scan_type_unlocked == kScan_Interlaced);
+        BUTTON("SELECTSCAN_1", tr("Interlaced (Normal)"));
+        active = (m_tvm_scan_type_unlocked == kScan_Intr2ndField);
+        BUTTON("SELECTSCAN_2", tr("Interlaced (Reversed)"));
+    }
+    else if (matchesGroup(actionName, "DEINTERLACER_", category, prefix))
+    {
+        if (m_tvm_scan_type != kScan_Progressive)
         {
-            ctx->player->GetVideoOutput()->GetDeinterlacers(deinterlacers);
-            currentdeinterlacer = ctx->player->GetVideoOutput()->GetDeinterlacer();
-            doublerate = ctx->player->CanSupportDoubleRate();
-        }
-        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-        foreach (QString deint, deinterlacers)
-        {
-            if ((deint.contains("doublerate") ||
-                deint.contains("doubleprocess") ||
-                deint.contains("bobdeint")) && !doublerate)
+            foreach (QString deint, m_tvm_deinterlacers)
             {
-                continue;
-            }
-            QString trans = VideoDisplayProfile::GetDeinterlacerName(deint);
-            osd->DialogAddButton(trans, "DEINTERLACER_" + deint, false,
-                                 deint == currentdeinterlacer);
-        }
-    }
-    else if (category == "VIDEOSCAN")
-    {
-        backaction = "ADVANCEDVIDEO";
-        currenttext = tr("Video Scan");
-
-        QString cur_mode = "";
-        if (!scan_type_locked)
-        {
-            if (kScan_Interlaced == scan_type)
-                cur_mode = tr("(I)", "Interlaced (Normal)");
-            else if (kScan_Intr2ndField == scan_type)
-                cur_mode = tr("(i)", "Interlaced (Reversed)");
-            else if (kScan_Progressive == scan_type)
-                cur_mode = tr("(P)", "Progressive");
-            cur_mode = " " + cur_mode;
-            scan_type = kScan_Detect;
-        }
-
-        osd->DialogAddButton(tr("Detect") + cur_mode, "SELECTSCAN_0", false,
-                             scan_type == kScan_Detect);
-        osd->DialogAddButton(tr("Progressive"), "SELECTSCAN_3", false,
-                             scan_type == kScan_Progressive);
-        osd->DialogAddButton(tr("Interlaced (Normal)"), "SELECTSCAN_1", false,
-                             scan_type == kScan_Interlaced);
-        osd->DialogAddButton(tr("Interlaced (Reversed)"), "SELECTSCAN_2", false,
-                             scan_type == kScan_Intr2ndField);
-    }
-}
-
-void TV::FillOSDMenuSubtitles(const PlayerContext *ctx, OSD *osd,
-                              QString category, const QString selected,
-                              QString &currenttext, QString &backaction)
-{
-    uint capmode  = 0;
-    QStringList av_tracks;
-    QStringList cc708_tracks;
-    QStringList cc608_tracks;
-    QStringList ttx_tracks;
-    QStringList ttm_tracks;
-    QStringList text_tracks;
-    uint av_curtrack    = ~0;
-    uint cc708_curtrack = ~0;
-    uint cc608_curtrack = ~0;
-    uint ttx_curtrack   = ~0;
-    uint text_curtrack  = ~0;
-    bool havetext = false;
-    bool forcedon = true;
-    bool enabled  = false;
-    ctx->LockDeletePlayer(__FILE__, __LINE__);
-    if (ctx->player)
-    {
-        capmode      = ctx->player->GetCaptionMode();
-        enabled      = ctx->player->GetCaptionsEnabled();
-        havetext     = ctx->player->HasTextSubtitles();
-        forcedon     = ctx->player->GetAllowForcedSubtitles();
-        av_tracks    = ctx->player->GetTracks(kTrackTypeSubtitle);
-        cc708_tracks = ctx->player->GetTracks(kTrackTypeCC708);
-        cc608_tracks = ctx->player->GetTracks(kTrackTypeCC608);
-        ttx_tracks   = ctx->player->GetTracks(kTrackTypeTeletextCaptions);
-        ttm_tracks   = ctx->player->GetTracks(kTrackTypeTeletextMenu);
-        text_tracks  = ctx->player->GetTracks(kTrackTypeRawText);
-        if (!av_tracks.empty())
-            av_curtrack = (uint) ctx->player->GetTrack(kTrackTypeSubtitle);
-        if (!cc708_tracks.empty())
-            cc708_curtrack = (uint) ctx->player->GetTrack(kTrackTypeCC708);
-        if (!cc608_tracks.empty())
-            cc608_curtrack = (uint) ctx->player->GetTrack(kTrackTypeCC608);
-        if (!ttx_tracks.empty())
-            ttx_curtrack = (uint) ctx->player->GetTrack(kTrackTypeTeletextCaptions);
-        if (!text_tracks.empty())
-            text_curtrack = (uint) ctx->player->GetTrack(kTrackTypeRawText);
-    }
-    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-    bool have_subs = !av_tracks.empty() || havetext || !cc708_tracks.empty() ||
-                     !cc608_tracks.empty() || !ttx_tracks.empty() ||
-                     !text_tracks.empty();
-
-    if (category == "MAIN")
-    {
-        if (have_subs || !ttm_tracks.empty())
-        {
-            osd->DialogAddButton(tr("Subtitles"),
-                                 "DIALOG_MENU_SUBTITLES_0",
-                                 true, selected == "SUBTITLES");
-        }
-    }
-    else if (category == "SUBTITLES")
-    {
-        backaction = "MAIN";
-        currenttext = tr("Subtitles");
-
-        uint capmode = ctx->player->GetCaptionMode();
-        if (have_subs && enabled)
-            osd->DialogAddButton(tr("Disable Subtitles"), ACTION_DISABLESUBS);
-        else if (have_subs && !enabled)
-            osd->DialogAddButton(tr("Enable Subtitles"), ACTION_ENABLESUBS);
-        if (!av_tracks.empty() || !text_tracks.empty())
-        {
-            if (forcedon)
-            {
-                osd->DialogAddButton(tr("Disable Forced Subtitles"),
-                                     ACTION_DISABLEFORCEDSUBS);
-            }
-            else
-            {
-                osd->DialogAddButton(tr("Enable Forced Subtitles"),
-                                     ACTION_ENABLEFORCEDSUBS);
-            }
-            if (!av_tracks.empty())
-                osd->DialogAddButton(tr("Select Subtitle"),
-                                     "DIALOG_MENU_AVSUBTITLES_0",
-                                     true, selected == "AVSUBTITLES");
-        }
-        if (havetext || !text_tracks.empty())
-        {
-            osd->DialogAddButton(tr("Text Subtitles"),
-                                 "DIALOG_MENU_TEXTSUBTITLES_0",
-                                 true, selected == "TEXTSUBTITLES");
-        }
-        if (!cc708_tracks.empty())
-        {
-            osd->DialogAddButton(tr("Select ATSC CC"),
-                                 "DIALOG_MENU_708SUBTITLES_0",
-                                 true, selected == "708SUBTITLES");
-        }
-        if (!cc608_tracks.empty())
-        {
-            osd->DialogAddButton(tr("Select VBI CC"),
-                                 "DIALOG_MENU_608SUBTITLES_0",
-                                 true, selected == "608SUBTITLES");
-        }
-        if (!ttx_tracks.empty())
-        {
-            osd->DialogAddButton(tr("Select Teletext CC"),
-                                 "DIALOG_MENU_TTXSUBTITLES_0",
-                                 true, selected == "TTXSUBTITLES");
-        }
-        if (!ttm_tracks.empty())
-            osd->DialogAddButton(tr("Toggle Teletext Menu"), "TOGGLETTM");
-        if (enabled)
-            osd->DialogAddButton(tr("Adjust Subtitle Zoom"),
-                                 ACTION_TOGGLESUBTITLEZOOM);
-        if (enabled &&
-            (capmode == kDisplayRawTextSubtitle ||
-             capmode == kDisplayTextSubtitle))
-            osd->DialogAddButton(tr("Adjust Subtitle Delay"),
-                                 ACTION_TOGGLESUBTITLEDELAY);
-    }
-    else if (category == "AVSUBTITLES")
-    {
-        backaction = "SUBTITLES";
-        currenttext = tr("Select Subtitle");
-        for (uint i = 0; i < (uint)av_tracks.size(); i++)
-        {
-            osd->DialogAddButton(av_tracks[i],
-                                 "SELECTSUBTITLE_" + QString::number(i),
-                                 false, i == av_curtrack);
-        }
-    }
-    else if (category == "TEXTSUBTITLES")
-    {
-        backaction = "SUBTITLES";
-        currenttext = tr("Text Subtitles");
-        if (havetext)
-        {
-            if (capmode == kDisplayTextSubtitle)
-            {
-                osd->DialogAddButton(tr("Disable External Subtitles"),
-                                     ACTION_DISABLEEXTTEXT);
-            }
-            else
-            {
-                osd->DialogAddButton(tr("Enable External Subtitles"),
-                                     ACTION_ENABLEEXTTEXT);
-            }
-        }
-        if (!text_tracks.empty())
-        {
-            for (uint i = 0; i < (uint)text_tracks.size(); i++)
-            {
-                osd->DialogAddButton(text_tracks[i],
-                                     "SELECTRAWTEXT_" + QString::number(i),
-                                     false, i == text_curtrack);
+                if ((deint.contains("doublerate") ||
+                     deint.contains("doubleprocess") ||
+                     deint.contains("bobdeint")) && !m_tvm_doublerate)
+                {
+                    continue;
+                }
+                QString action = prefix + deint;
+                active = (deint == m_tvm_currentdeinterlacer);
+                QString trans = VideoDisplayProfile::GetDeinterlacerName(deint);
+                BUTTON(action, trans);
             }
         }
     }
-    else if (category == "708SUBTITLES")
+    else if (matchesGroup(actionName, "SELECTSUBTITLE_", category, prefix) ||
+             matchesGroup(actionName, "SELECTRAWTEXT_",  category, prefix) ||
+             matchesGroup(actionName, "SELECTCC708_",    category, prefix) ||
+             matchesGroup(actionName, "SELECTCC608_",    category, prefix) ||
+             matchesGroup(actionName, "SELECTTTC_",      category, prefix) ||
+             matchesGroup(actionName, "SELECTAUDIO_",    category, prefix))
     {
-        backaction = "SUBTITLES";
-        currenttext = tr("Select ATSC CC");
-        for (uint i = 0; i < (uint)cc708_tracks.size(); i++)
+        int i = 0;
+        TrackType type = kTrackTypeUnknown;
+        if (prefix == "SELECTSUBTITLE_")
+            type = kTrackTypeSubtitle;
+        else if (prefix == "SELECTRAWTEXT_")
+            type = kTrackTypeRawText;
+        else if (prefix == "SELECTCC708_")
+            type = kTrackTypeCC708;
+        else if (prefix == "SELECTCC608_")
+            type = kTrackTypeCC608;
+        else if (prefix == "SELECTTTC_")
+            type = kTrackTypeTeletextCaptions;
+        else if (prefix == "SELECTAUDIO_")
         {
-            osd->DialogAddButton(cc708_tracks[i],
-                                 "SELECTCC708_" + QString::number(i),
-                                 false, i == cc708_curtrack);
+            type = kTrackTypeAudio;
+            if (m_tvm_tracks[type].size() <= 1)
+                i = 1; // don't show choices if only 1 audio track
         }
-    }
-    else if (category == "608SUBTITLES")
-    {
-        backaction = "SUBTITLES";
-        currenttext = tr("Select VBI CC");
-        for (uint i = 0; i < (uint)cc608_tracks.size(); i++)
-        {
-            osd->DialogAddButton(cc608_tracks[i],
-                                 "SELECTCC608_" + QString::number(i),
-                                 false, i == cc608_curtrack);
-        }
-    }
-    else if (category == "TTXSUBTITLES")
-    {
-        backaction = "SUBTITLES";
-        currenttext = tr("Select Teletext CC");
-        for (uint i = 0; i < (uint)ttx_tracks.size(); i++)
-        {
-            osd->DialogAddButton(ttx_tracks[i],
-                                 "SELECTTTC_" + QString::number(i),
-                                 false, i == ttx_curtrack);
-        }
-    }
-}
 
-void TV::FillOSDMenuNavigate(const PlayerContext *ctx, OSD *osd,
-                             QString category, const QString selected,
-                             QString &currenttext, QString &backaction)
-{
-    int num_chapters  = GetNumChapters(ctx);
-    int num_titles    = GetNumTitles(ctx);
-    int num_angles    = GetNumAngles(ctx);
-    TVState state     = ctx->GetState();
-    bool isdvd        = state == kState_WatchingDVD;
-    bool isbd         = ctx->buffer && ctx->buffer->IsBD() &&
-                        ctx->buffer->BD()->IsHDMVNavigation();
-    bool islivetv     = StateIsLiveTV(state);
-    bool isrecording  = state == kState_WatchingPreRecorded ||
-                        state == kState_WatchingRecording;
-    bool previouschan = false;
-    if (islivetv)
-    {
-        QString prev_channum = ctx->GetPreviousChannel();
-        QString cur_channum  = QString();
-        if (ctx->tvchain)
-            cur_channum = ctx->tvchain->GetChannelName(-1);
-        if (!prev_channum.isEmpty() && prev_channum != cur_channum)
-            previouschan = true;
-    }
-
-    bool jump = !num_chapters && !isdvd && !isbd &&
-                ctx->buffer->IsSeekingAllowed();
-    bool show = isdvd || num_chapters || num_titles || previouschan ||
-                isrecording || num_angles || jump;
-
-    if (category == "MAIN")
-    {
-        if (show)
+        for (; i < m_tvm_tracks[type].size(); i++)
         {
-            osd->DialogAddButton(tr("Navigate"), "DIALOG_MENU_NAVIGATE_0",
-                                 true, selected == "NAVIGATE");
+            QString action = prefix + QString::number(i);
+            active = (i == m_tvm_curtrack[type]);
+            BUTTON(action, m_tvm_tracks[type][i]);
         }
     }
-    else if (category == "NAVIGATE")
+    else if (matchesGroup(actionName, "ADJUSTSTRETCH", category, prefix))
     {
-        backaction = "MAIN";
-        currenttext = tr("Navigate");
-        if (jump)
+        static struct {
+            int speedX100;
+            QString suffix;
+            QString trans;
+        } speeds[] = {
+            {  0, "",    tr("Adjust")},
+            { 50, "0.5", tr("0.5x")},
+            { 90, "0.9", tr("0.9x")},
+            {100, "1.0", tr("1.0x")},
+            {110, "1.1", tr("1.1x")},
+            {120, "1.2", tr("1.2x")},
+            {130, "1.3", tr("1.3x")},
+            {140, "1.4", tr("1.4x")},
+            {150, "1.5", tr("1.5x")},
+        };
+        for (uint i = 0; i < sizeof(speeds) / sizeof(*speeds); ++i)
         {
-            osd->DialogAddButton(tr("Jump Ahead"), ACTION_JUMPFFWD, false, false);
-            osd->DialogAddButton(tr("Jump Back"), ACTION_JUMPRWND, false, false);
-        }
-        if (isrecording)
-        {
-            osd->DialogAddButton(tr("Commercial Auto-Skip"),
-                                 "DIALOG_MENU_COMMSKIP_0",
-                                 true, selected == "COMMSKIP");
-        }
-        if (isbd)
-        {
-            osd->DialogAddButton(tr("Top menu"), ACTION_JUMPTODVDROOTMENU);
-            osd->DialogAddButton(tr("Popup menu"), ACTION_JUMPTOPOPUPMENU);
-        }
-        if (isdvd)
-        {
-            osd->DialogAddButton(tr("DVD Root Menu"),    ACTION_JUMPTODVDROOTMENU);
-            osd->DialogAddButton(tr("DVD Title Menu"),   ACTION_JUMPTODVDTITLEMENU);
-            osd->DialogAddButton(tr("DVD Chapter Menu"), ACTION_JUMPTODVDCHAPTERMENU);
-        }
-        if (previouschan)
-        {
-            osd->DialogAddButton(tr("Previous Channel"), "PREVCHAN");
-        }
-        if (num_chapters)
-        {
-            osd->DialogAddButton(tr("Chapter"), "DIALOG_MENU_AVCHAPTER_0",
-                                 true, selected == "AVCHAPTER");
-        }
-        if (num_angles > 1)
-        {
-            osd->DialogAddButton(tr("Angle"), "DIALOG_MENU_AVANGLE_0",
-                                 true, selected == "AVANGLE");
-        }
-        if (num_titles)
-        {
-            osd->DialogAddButton(tr("Title"), "DIALOG_MENU_AVTITLE_0",
-                                 true, selected == "AVTITLE");
+            QString action = prefix + speeds[i].suffix;
+            active = (m_tvm_speedX100 == speeds[i].speedX100);
+            BUTTON(action, speeds[i].trans);
         }
     }
-    else if (category == "AVCHAPTER")
+    else if (matchesGroup(actionName, "TOGGLESLEEP", category, prefix))
     {
-        backaction = "NAVIGATE";
-        currenttext = tr("Chapter");
-        int current_chapter =  GetCurrentChapter(ctx);
-        QList<long long> times;
-        GetChapterTimes(ctx, times);
-        if (num_chapters == times.size())
+        active = false;
+        if (sleepTimerId)
+            BUTTON(ACTION_TOGGLESLEEP + "ON", tr("Sleep Off"));
+        BUTTON(ACTION_TOGGLESLEEP + "30", tr("%n minute(s)", "", 30));
+        BUTTON(ACTION_TOGGLESLEEP + "60", tr("%n minute(s)", "", 60));
+        BUTTON(ACTION_TOGGLESLEEP + "90", tr("%n minute(s)", "", 90));
+        BUTTON(ACTION_TOGGLESLEEP + "120", tr("%n minute(s)", "", 120));
+    }
+    else if (matchesGroup(actionName, "CHANGROUP_", category, prefix))
+    {
+        if (db_use_channel_groups)
         {
-            int size = QString::number(num_chapters).size();
-            for (int i = 0; i < num_chapters; i++)
+            active = false;
+            BUTTON("CHANGROUP_ALL_CHANNELS", tr("All Channels"));
+            ChannelGroupList::const_iterator it;
+            for (it = db_channel_groups.begin();
+                 it != db_channel_groups.end(); ++it)
             {
-                int hours   = times[i] / 60 / 60;
-                int minutes = (times[i] / 60) - (hours * 60);
-                int secs    = times[i] % 60;
+                QString action = prefix + QString::number(it->grpid);
+                active = ((int)(it->grpid) == channelGroupId);
+                BUTTON(action, it->name);
+            }
+        }
+    }
+    else if (matchesGroup(actionName, "TOGGLECOMMSKIP", category, prefix))
+    {
+        static uint cas_ord[] = { 0, 2, 1 };
+        if (m_tvm_isrecording || m_tvm_isrecorded)
+        {
+            for (uint i = 0; i < sizeof(cas_ord)/sizeof(cas_ord[0]); i++)
+            {
+                const CommSkipMode mode = (CommSkipMode) cas_ord[i];
+                QString action = prefix + QString::number(cas_ord[i]);
+                active = (mode == m_tvm_curskip);
+                BUTTON(action, toString((CommSkipMode) cas_ord[i]));
+            }
+        }
+    }
+    else if (matchesGroup(actionName, "JUMPTOCHAPTER", category, prefix))
+    {
+        if (m_tvm_num_chapters &&
+            m_tvm_num_chapters == m_tvm_chapter_times.size())
+        {
+            int size = QString::number(m_tvm_num_chapters).size();
+            for (int i = 0; i < m_tvm_num_chapters; i++)
+            {
+                int hours   = m_tvm_chapter_times[i] / 60 / 60;
+                int minutes = (m_tvm_chapter_times[i] / 60) - (hours * 60);
+                int secs    = m_tvm_chapter_times[i] % 60;
                 QString chapter1 = QString("%1").arg(i+1, size, 10, QChar(48));
                 QString chapter2 = QString("%1").arg(i+1, 3   , 10, QChar(48));
                 QString desc = chapter1 + QString(" (%1:%2:%3)")
-                    .arg(hours, 2, 10, QChar(48)).arg(minutes, 2, 10, QChar(48))
-                    .arg(secs, 2, 10, QChar(48));
-                osd->DialogAddButton(desc, ACTION_JUMPCHAPTER + chapter2,
-                                     false, current_chapter == (i + 1));
+                    .arg(hours,   2, 10, QChar(48))
+                    .arg(minutes, 2, 10, QChar(48))
+                    .arg(secs,    2, 10, QChar(48));
+                QString action = prefix + chapter2;
+                active = (m_tvm_current_chapter == (i + 1));
+                BUTTON(action, desc);
             }
         }
     }
-    else if (category == "AVTITLE")
+    else if (matchesGroup(actionName, "SWITCHTOANGLE", category, prefix))
     {
-        backaction = "NAVIGATE";
-        currenttext = tr("Title");
-        int current_title = GetCurrentTitle(ctx);
-
-        for (int i = 0; i < num_titles; i++)
+        if (m_tvm_num_angles > 1)
+        {
+            for (int i = 1; i <= m_tvm_num_angles; i++)
+            {
+                QString angleIdx = QString("%1").arg(i, 3, 10, QChar(48));
+                QString desc = GetAngleName(ctx, i);
+                QString action = prefix + angleIdx;
+                active = (m_tvm_current_angle == i);
+                BUTTON(action, desc);
+            }
+        }
+    }
+    else if (matchesGroup(actionName, "JUMPTOTITLE", category, prefix))
+    {
+        for (int i = 0; i < m_tvm_num_titles; i++)
         {
             if (GetTitleDuration(ctx, i) < 120) // Ignore < 2 minutes long
                 continue;
 
             QString titleIdx = QString("%1").arg(i, 3, 10, QChar(48));
             QString desc = GetTitleName(ctx, i);
-            osd->DialogAddButton(desc, ACTION_SWITCHTITLE + titleIdx,
-                                 false, current_title == i);
+            QString action = prefix + titleIdx;
+            active = (m_tvm_current_title == i);
+            BUTTON(action, desc);
         }
     }
-    else if (category == "AVANGLE")
+    else if (matchesGroup(actionName, "SWITCHTOINPUT_", category, prefix))
     {
-        backaction = "NAVIGATE";
-        currenttext = tr("Angle");
-        int current_angle = GetCurrentAngle(ctx);
-
-        for (int i = 1; i <= num_angles; i++)
+        if (ctx->recorder)
         {
-            QString angleIdx = QString("%1").arg(i, 3, 10, QChar(48));
-            QString desc = GetAngleName(ctx, i);
-            osd->DialogAddButton(desc, ACTION_SWITCHANGLE + angleIdx,
-                                 false, current_angle == i);
-        }
-    }
-    else if (category == "COMMSKIP")
-    {
-        backaction = "NAVIGATE";
-        currenttext = tr("Commercial Auto-Skip");
-        uint cas_ord[] = { 0, 2, 1 };
-        ctx->LockDeletePlayer(__FILE__, __LINE__);
-        CommSkipMode cur = kCommSkipOff;
-        if (ctx->player)
-            cur = ctx->player->GetAutoCommercialSkip();
-        ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-        for (uint i = 0; i < sizeof(cas_ord)/sizeof(uint); i++)
-        {
-            const CommSkipMode mode = (CommSkipMode) cas_ord[i];
-            osd->DialogAddButton(toString((CommSkipMode) cas_ord[i]),
-                                 QString("TOGGLECOMMSKIP%1").arg(cas_ord[i]),
-                                 false, mode == cur);
-        }
-    }
-}
-
-void TV::FillOSDMenuSource(const PlayerContext *ctx, OSD *osd,
-                           QString category, const QString selected,
-                           QString &currenttext, QString &backaction)
-{
-    QMap<uint,InputInfo> sources;
-    vector<uint> cardids;
-    uint cardid = 0;
-    vector<uint> excluded_cardids;
-    uint sourceid = 0;
-
-    if ((category == "SOURCE" || category == "INPUTSWITCHING"||
-         category == "SOURCESWITCHING") && ctx->recorder)
-    {
-        cardids = CardUtil::GetCardList();
-        cardid  = ctx->GetCardID();
-        // The cardids are already in the preferred order.  Don't
-        // alter it if switching sources.
-        if (category != "SOURCESWITCHING")
+            vector<uint> cardids = CardUtil::GetCardList();
+            uint cardid  = ctx->GetCardID();
+            vector<uint> excluded_cardids;
             stable_sort(cardids.begin(), cardids.end());
-        excluded_cardids.push_back(cardid);
-        InfoMap info;
-        ctx->recorder->GetChannelInfo(info);
-        sourceid = info["sourceid"].toUInt();
+            excluded_cardids.push_back(cardid);
+            vector<uint>::const_iterator it = cardids.begin();
+            InfoMap info;
+            ctx->recorder->GetChannelInfo(info);
+            uint sourceid = info["sourceid"].toUInt();
+            for (; it != cardids.end(); ++it)
+            {
+                vector<InputInfo> inputs =
+                    RemoteRequestFreeInputList(*it, excluded_cardids);
 
-        if (category != "INPUTSWITCHING")
+                for (uint i = 0; i < inputs.size(); i++)
+                {
+                    // don't add current input to list
+                    if ((inputs[i].cardid   == cardid) &&
+                        (inputs[i].sourceid == sourceid))
+                    {
+                        continue;
+                    }
+
+                    QString name = CardUtil::GetDisplayName(inputs[i].inputid);
+                    if (name.isEmpty())
+                    {
+                        name = tr("C", "Card") + ":" +
+                            QString::number(*it) + " " +
+                            tr("I", "Input") + ":" + inputs[i].name;
+                    }
+
+                    QString action = prefix +
+                        QString::number(inputs[i].inputid);
+                    active = false;
+                    BUTTON(action, name);
+                }
+            }
+        }
+    }
+    else if (matchesGroup(actionName, "SWITCHTOSOURCE_", category, prefix))
+    {
+        if (ctx->recorder)
         {
+            QMap<uint,InputInfo> sources;
+            vector<uint> cardids;
+            uint cardid = 0;
+            vector<uint> excluded_cardids;
+            uint sourceid = 0;
+            cardids = CardUtil::GetCardList();
+            cardid  = ctx->GetCardID();
+            excluded_cardids.push_back(cardid);
+            InfoMap info;
+            ctx->recorder->GetChannelInfo(info);
+            sourceid = info["sourceid"].toUInt();
             // Get sources available on other cards
             vector<uint>::const_iterator it = cardids.begin();
             for (; it != cardids.end(); ++it)
             {
                 vector<InputInfo> inputs =
-                        RemoteRequestFreeInputList(*it, excluded_cardids);
+                    RemoteRequestFreeInputList(*it, excluded_cardids);
                 if (inputs.empty())
                     continue;
 
                 for (uint i = 0; i < inputs.size(); i++)
                     if (!sources.contains(inputs[i].sourceid))
-                       sources[inputs[i].sourceid] = inputs[i];
+                        sources[inputs[i].sourceid] = inputs[i];
             }
             // Get other sources available on this card
             vector<uint> currentinputs = CardUtil::GetInputIDs(cardid);
@@ -11725,355 +11531,617 @@ void TV::FillOSDMenuSource(const PlayerContext *ctx, OSD *osd,
             }
             // delete current source from list
             sources.remove(sourceid);
-        }
-    }
-
-    if (category == "MAIN")
-    {
-        osd->DialogAddButton(tr("Source"), "DIALOG_MENU_SOURCE_0",
-                             true, selected == "SOURCE");
-    }
-    else if (category == "SOURCE")
-    {
-        backaction = "MAIN";
-        currenttext = tr("Source");
-        osd->DialogAddButton(tr("Jump to Program"),
-                             "DIALOG_MENU_" + ACTION_JUMPREC + "_0",
-                             true, selected == ACTION_JUMPREC);
-
-        vector<uint>::const_iterator it = cardids.begin();
-        for (; it != cardids.end(); ++it)
-        {
-            vector<InputInfo> inputs = RemoteRequestFreeInputList(
-                *it, excluded_cardids);
-            uint testsize = 0;
-            for (uint i = 0; i < inputs.size(); i++)
+            QMap<uint,InputInfo>::const_iterator sit = sources.begin();
+            for (; sit != sources.end(); ++sit)
             {
-                if ((inputs[i].cardid   == cardid) &&
-                    (inputs[i].sourceid == sourceid))
-                {
-                    testsize = 1;
-                    break;
-                }
-            }
-            if (inputs.size() <= testsize)
-                continue;
-            osd->DialogAddButton(tr("Switch Input"),
-                                 "DIALOG_MENU_INPUTSWITCHING_0",
-                                 true, selected == "INPUTSWITCHING");
-            break;
-        }
-        if (!sources.empty())
-        {
-            osd->DialogAddButton(tr("Switch Source"),
-                                 "DIALOG_MENU_SOURCESWITCHING_0",
-                                 true, selected == "SOURCESWITCHING");
-        }
-    }
-    else if (category == ACTION_JUMPREC)
-    {
-        backaction = "SOURCE";
-        currenttext = tr("Jump to Program");
-        osd->DialogAddButton(tr("Recorded Program"),
-                             "DIALOG_" + ACTION_JUMPREC + "_X_0",
-                             true, selected == ACTION_JUMPREC + "2");
-        if (lastProgram != NULL)
-        {
-            if (lastProgram->GetSubtitle().isEmpty())
-                osd->DialogAddButton(lastProgram->GetTitle(), ACTION_JUMPPREV);
-            else
-                osd->DialogAddButton(QString("%1: %2")
-                        .arg(lastProgram->GetTitle())
-                        .arg(lastProgram->GetSubtitle()), ACTION_JUMPPREV);
-        }
-    }
-    else if (category == "INPUTSWITCHING")
-    {
-        backaction = "SOURCE";
-        currenttext = tr("Switch Input");
-        vector<uint>::const_iterator it = cardids.begin();
-        for (; it != cardids.end(); ++it)
-        {
-            vector<InputInfo> inputs = RemoteRequestFreeInputList(
-                *it, excluded_cardids);;
-
-            for (uint i = 0; i < inputs.size(); i++)
-            {
-                // don't add current input to list
-                if ((inputs[i].cardid   == cardid) &&
-                    (inputs[i].sourceid == sourceid))
-                {
-                    continue;
-                }
-
-                QString name = CardUtil::GetDisplayName(inputs[i].inputid);
-                if (name.isEmpty())
-                {
-                    name = tr("C", "Card") + ":" + QString::number(*it) + " " +
-                        tr("I", "Input") + ":" + inputs[i].name;
-                }
-
-                osd->DialogAddButton(name,
-                    QString("SWITCHTOINPUT_%1").arg(inputs[i].inputid));
+                QString action = QString("SWITCHTOINPUT_%1").arg((*sit).inputid);
+                BUTTON(action, SourceUtil::GetSourceName((*sit).sourceid));
             }
         }
     }
-    else if (category == "SOURCESWITCHING")
+    else if (category == kMenuCategoryItem)
     {
-        backaction = "SOURCE";
-        currenttext = tr("Switch Source");
-        QMap<uint,InputInfo>::const_iterator sit = sources.begin();
-        for (; sit != sources.end(); ++sit)
+        if (actionName == "TOGGLEAUDIOSYNC")
         {
-            osd->DialogAddButton(SourceUtil::GetSourceName((*sit).sourceid),
-                                 QString("SWITCHTOINPUT_%1").arg((*sit).inputid));
+            BUTTON(actionName, tr("Adjust Audio Sync"));
         }
-    }
-}
-
-void TV::FillOSDMenuJobs(const PlayerContext *ctx, OSD *osd,
-                         QString category, const QString selected,
-                         QString &currenttext, QString &backaction)
-{
-    TVState state    = ctx->GetState();
-    bool islivetv    = StateIsLiveTV(state);
-    bool isrecorded  = state == kState_WatchingPreRecorded;
-    bool isrecording = state == kState_WatchingRecording;
-    bool isvideo     = state == kState_WatchingVideo;
-
-    if (category == "MAIN")
-    {
-        if (islivetv || isrecording || isrecorded || isvideo)
+        else if (actionName == "DISABLEVISUALISATION")
         {
-            osd->DialogAddButton(tr("Jobs"), "DIALOG_MENU_JOBS_0",
-                                 true, selected == "JOBS");
+            if (m_tvm_visual)
+                BUTTON(actionName, tr("None"));
         }
-    }
-    else if (category == "JOBS")
-    {
-        backaction = "MAIN";
-        currenttext = tr("Jobs");
-
-        ctx->LockPlayingInfo(__FILE__, __LINE__);
-        bool is_on = ctx->playingInfo->QueryAutoExpire() != kDisableAutoExpire;
-        bool transcoding = JobQueue::IsJobQueuedOrRunning(
-                                JOB_TRANSCODE,
-                                ctx->playingInfo->GetChanID(),
-                                ctx->playingInfo->GetScheduledStartTime());
-        ctx->UnlockPlayingInfo(__FILE__, __LINE__);
-
-        if (islivetv)
+        else if (actionName == "DISABLEUPMIX")
         {
-            osd->DialogAddButton(tr("Edit Channel"),   "EDIT");
-        }
-
-        if (isrecorded || isrecording || isvideo)
-        {
-            osd->DialogAddButton(tr("Edit Recording"), "EDIT");
-        }
-
-        if (isrecorded || isrecording)
-        {
-            osd->DialogAddButton(is_on ? tr("Turn Auto-Expire OFF") :
-                                 tr("Turn Auto-Expire ON"), "TOGGLEAUTOEXPIRE");
-        }
-
-        if (isrecorded)
-        {
-            if (transcoding)
+            if (m_tvm_canupmix)
             {
-                osd->DialogAddButton(tr("Stop Transcoding"), "QUEUETRANSCODE");
-            }
-            else
-            {
-                osd->DialogAddButton(tr("Begin Transcoding"),
-                                     "DIALOG_MENU_TRANSCODE_0",
-                                     true, selected == "TRANSCODE");
+                active = !m_tvm_upmixing;
+                BUTTON(actionName, tr("Disable Audio Upmixer"));
             }
         }
-    }
-    else if (category == "TRANSCODE")
-    {
-        backaction = "JOBS";
-        currenttext = tr("Begin Transcoding");
-        osd->DialogAddButton(tr("Default"),       "QUEUETRANSCODE");
-        osd->DialogAddButton(tr("Autodetect"),    "QUEUETRANSCODE_AUTO");
-        osd->DialogAddButton(tr("High Quality"),  "QUEUETRANSCODE_HIGH");
-        osd->DialogAddButton(tr("Medium Quality"),"QUEUETRANSCODE_MEDIUM");
-        osd->DialogAddButton(tr("Low Quality"),   "QUEUETRANSCODE_LOW");
-    }
-}
-
-void TV::FillOSDMenuPlayback(const PlayerContext *ctx, OSD *osd,
-                             QString category, const QString selected,
-                             QString &currenttext, QString &backaction)
-{
-    bool allowPIP = IsPIPSupported(ctx);
-    bool allowPBP = IsPBPSupported(ctx);
-    bool ispaused = false;
-    ctx->LockDeletePlayer(__FILE__, __LINE__);
-    if (ctx->player)
-        ispaused = ctx->player->IsPaused();
-    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
-
-    if (category == "MAIN")
-    {
-        osd->DialogAddButton(tr("Playback"), "DIALOG_MENU_PLAYBACK_0",
-                             true, selected == "PLAYBACK");
-    }
-    else if (category == "PLAYBACK")
-    {
-        backaction = "MAIN";
-        currenttext = tr("Playback");
-
-        osd->DialogAddButton(ispaused ? tr("Play") : tr("Pause"),
-                             ACTION_PAUSE, false, false);
-        osd->DialogAddButton(tr("Adjust Time Stretch"),
-                             "DIALOG_MENU_TIMESTRETCH_0", true,
-                              selected == "TIMESTRETCH");
-        if (allowPIP || allowPBP)
+        else if (actionName == "ENABLEUPMIX")
         {
-            osd->DialogAddButton(tr("Picture-in-Picture"),
-                                 "DIALOG_MENU_PIP_1", true,
-                                 selected == "PIP");
+            if (m_tvm_canupmix)
+            {
+                active = m_tvm_upmixing;
+                BUTTON(actionName, tr("Auto Detect"));
+            }
         }
-        osd->DialogAddButton(tr("Sleep"),
-                             "DIALOG_MENU_SLEEP_0", true,
-                              selected == "SLEEP");
-        if (db_use_channel_groups)
+        else if (actionName == "AUTODETECT_FILL")
         {
-            osd->DialogAddButton(tr("Channel Groups"),
-                                 "DIALOG_MENU_CHANNELGROUP_0",
-                                 true, selected == "CHANNELGROUP");
+            if (m_tvm_fill_autodetect)
+            {
+                active =
+                    (m_tvm_adjustfill == kAdjustFill_AutoDetect_DefaultHalf) ||
+                    (m_tvm_adjustfill == kAdjustFill_AutoDetect_DefaultOff);
+                BUTTON(actionName, tr("Auto Detect"));
+            }
         }
-        if (!db_browse_always)
-            osd->DialogAddButton(tr("Toggle Browse Mode"), "TOGGLEBROWSE");
-        if (inPlaylist)
-            osd->DialogAddButton(tr("Cancel Playlist"), "CANCELPLAYLIST");
-        osd->DialogAddButton(tr("Playback data"),
-                             ACTION_TOGGLEOSDDEBUG, false, false);
-    }
-    else if (category == "TIMESTRETCH")
-    {
-        backaction = "PLAYBACK";
-        currenttext = tr("Adjust Time Stretch");
-        int speedX100 = (int)(round(ctx->ts_normal * 100));
-        osd->DialogAddButton(tr("Toggle"), "TOGGLESTRETCH");
-        osd->DialogAddButton(tr("Adjust"), "ADJUSTSTRETCH");
-        osd->DialogAddButton(tr("0.5X"), "ADJUSTSTRETCH0.5", false, speedX100 == 50);
-        osd->DialogAddButton(tr("0.9X"), "ADJUSTSTRETCH0.9", false, speedX100 == 90);
-        osd->DialogAddButton(tr("1.0X"), "ADJUSTSTRETCH1.0", false, speedX100 == 100);
-        osd->DialogAddButton(tr("1.1X"), "ADJUSTSTRETCH1.1", false, speedX100 == 110);
-        osd->DialogAddButton(tr("1.2X"), "ADJUSTSTRETCH1.2", false, speedX100 == 120);
-        osd->DialogAddButton(tr("1.3X"), "ADJUSTSTRETCH1.3", false, speedX100 == 130);
-        osd->DialogAddButton(tr("1.4X"), "ADJUSTSTRETCH1.4", false, speedX100 == 140);
-        osd->DialogAddButton(tr("1.5X"), "ADJUSTSTRETCH1.5", false, speedX100 == 150);
-    }
-    else if (category == "SLEEP")
-    {
-        backaction = "PLAYBACK";
-        currenttext = tr("Sleep");
-        if (sleepTimerId)
-            osd->DialogAddButton(tr("Sleep Off"), ACTION_TOGGLESLEEP + "ON");
-        osd->DialogAddButton(tr("%n minute(s)", "", 30),
-                                ACTION_TOGGLESLEEP + "30");
-        osd->DialogAddButton(tr("%n minute(s)", "", 60),
-                                ACTION_TOGGLESLEEP + "60");
-        osd->DialogAddButton(tr("%n minute(s)", "", 90),
-                                ACTION_TOGGLESLEEP + "90");
-        osd->DialogAddButton(tr("%n minute(s)", "", 120),
-                                ACTION_TOGGLESLEEP + "120");
-    }
-    else if (category == "CHANNELGROUP")
-    {
-        backaction = "PLAYBACK";
-        currenttext = tr("Channel Groups");
-        osd->DialogAddButton(tr("All Channels"), "CHANGROUP_ALL_CHANNELS");
-        ChannelGroupList::const_iterator it;
-        for (it = db_channel_groups.begin();
-             it != db_channel_groups.end(); ++it)
+        else if (actionName == "TOGGLEMANUALZOOM")
         {
-            osd->DialogAddButton(it->name,
-                                 QString("CHANGROUP_%1").arg(it->grpid),
-                                 false, (int)(it->grpid) == channelGroupId);
+            BUTTON(actionName, tr("Manual Zoom Mode"));
         }
-    }
-    else if (category == "PIP" && (allowPIP || allowPBP))
-    {
-        backaction = "PLAYBACK";
-        currenttext = tr("Picture-in-Picture");
-        bool hasPBP = (player.size()>1) && GetPlayer(ctx,1)->IsPBP();
-        bool hasPIP = (player.size()>1) && GetPlayer(ctx,1)->IsPIP();
-
-        if (RemoteGetFreeRecorderCount())
+        else if (actionName == "TOGGLENIGHTMODE")
         {
-            if (player.size() <= kMaxPIPCount && !hasPBP && allowPIP)
-                osd->DialogAddButton(tr("Open Live TV PIP"), "CREATEPIPVIEW");
-            if (player.size() < kMaxPBPCount && !hasPIP && allowPBP)
-                osd->DialogAddButton(tr("Open Live TV PBP"), "CREATEPBPVIEW");
+            if (m_tvm_sup != kPictureAttributeSupported_None)
+            {
+                active = gCoreContext->GetNumSetting("NightModeEnabled", 0);
+                BUTTON2(actionName,
+                        tr("Disable Night Mode"), tr("Enable Night Mode"));
+            }
         }
-
-        if (player.size() <= kMaxPIPCount && !hasPBP && allowPIP)
-            osd->DialogAddButton(tr("Open Recording PIP"), "JUMPRECPIP");
-        if (player.size() < kMaxPBPCount && !hasPIP && allowPBP)
-            osd->DialogAddButton(tr("Open Recording PBP"), "JUMPRECPBP");
-
-        if (player.size() > 1)
+        else if (actionName == "DISABLESUBS")
         {
-            osd->DialogAddButton(tr("Change Active Window"), "NEXTPIPWINDOW");
-
-            QString pipType  = (ctx->IsPBP()) ? "PBP" : "PIP";
-            QString toggleMode = QString("TOGGLE%1MODE").arg(pipType);
-
-            bool isPBP = ctx->IsPBP();
+            active = !m_tvm_subs_enabled;
+            if (m_tvm_subs_have_subs)
+                BUTTON(actionName, tr("Disable Subtitles"));
+        }
+        else if (actionName == "ENABLESUBS")
+        {
+            active = m_tvm_subs_enabled;
+            if (m_tvm_subs_have_subs)
+                BUTTON(actionName, tr("Enable Subtitles"));
+        }
+        else if (actionName == "DISABLEFORCEDSUBS")
+        {
+            active = !m_tvm_subs_forcedon;
+            if (!m_tvm_tracks[kTrackTypeSubtitle].empty() ||
+                !m_tvm_tracks[kTrackTypeRawText].empty())
+            {
+                BUTTON(actionName, tr("Disable Forced Subtitles"));
+            }
+        }
+        else if (actionName == "ENABLEFORCEDSUBS")
+        {
+            active = m_tvm_subs_forcedon;
+            if (!m_tvm_tracks[kTrackTypeSubtitle].empty() ||
+                !m_tvm_tracks[kTrackTypeRawText].empty())
+            {
+                BUTTON(actionName, tr("Enable Forced Subtitles"));
+            }
+        }
+        else if (actionName == "DISABLEEXTTEXT")
+        {
+            active = m_tvm_subs_capmode != kDisplayTextSubtitle;
+            if (m_tvm_subs_havetext)
+                BUTTON(actionName, tr("Disable External Subtitles"));
+        }
+        else if (actionName == "ENABLEEXTTEXT")
+        {
+            active = m_tvm_subs_capmode == kDisplayTextSubtitle;
+            if (m_tvm_subs_havetext)
+                BUTTON(actionName, tr("Enable External Subtitles"));
+        }
+        else if (actionName == "TOGGLETTM")
+        {
+            if (!m_tvm_tracks[kTrackTypeTeletextMenu].empty())
+                BUTTON(actionName, tr("Toggle Teletext Menu"));
+        }
+        else if (actionName == "TOGGLESUBZOOM")
+        {
+            if (m_tvm_subs_enabled)
+                BUTTON(actionName, tr("Adjust Subtitle Zoom"));
+        }
+        else if (actionName == "TOGGLESUBDELAY")
+        {
+            if (m_tvm_subs_enabled &&
+                (m_tvm_subs_capmode == kDisplayRawTextSubtitle ||
+                 m_tvm_subs_capmode == kDisplayTextSubtitle))
+            {
+                BUTTON(actionName, tr("Adjust Subtitle Delay"));
+            }
+        }
+        else if (actionName == "PAUSE")
+        {
+            active = m_tvm_ispaused;
+            BUTTON2(actionName, tr("Play"), tr("Pause"));
+        }
+        else if (actionName == "TOGGLESTRETCH")
+        {
+            BUTTON(actionName, tr("Toggle"));
+        }
+        else if (actionName == "CREATEPIPVIEW")
+        {
+            MenuLazyInit(&m_tvm_freerecordercount);
+            if (m_tvm_freerecordercount &&
+                player.size() <= kMaxPIPCount && !m_tvm_hasPBP && m_tvm_allowPIP)
+            {
+                BUTTON(actionName, tr("Open Live TV PIP"));
+            }
+        }
+        else if (actionName == "CREATEPBPVIEW")
+        {
+            MenuLazyInit(&m_tvm_freerecordercount);
+            if (m_tvm_freerecordercount &&
+                player.size() < kMaxPBPCount && !m_tvm_hasPIP && m_tvm_allowPBP)
+            {
+                BUTTON(actionName, tr("Open Live TV PBP"));
+            }
+        }
+        else if (actionName == "JUMPRECPIP")
+        {
+            if (player.size() <= kMaxPIPCount &&
+                !m_tvm_hasPBP && m_tvm_allowPIP)
+            {
+                BUTTON(actionName, tr("Open Recording PIP"));
+            }
+        }
+        else if (actionName == "JUMPRECPBP")
+        {
+            if (player.size() < kMaxPBPCount &&
+                !m_tvm_hasPIP && m_tvm_allowPBP)
+            {
+                BUTTON(actionName, tr("Open Recording PBP"));
+            }
+        }
+        else if (actionName == "NEXTPIPWINDOW")
+        {
+            if (player.size() > 1)
+                BUTTON(actionName, tr("Change Active Window"));
+        }
+        else if (actionName == "TOGGLEPIPMODE")
+        {
+            if (player.size() > 1)
+            {
+                const PlayerContext *mctx = GetPlayer(ctx, 0);
+                const PlayerContext *octx = GetPlayer(ctx, 1);
+                if (mctx == ctx && octx->IsPIP())
+                    BUTTON(actionName, tr("Close PIP(s)", 0, player.size() - 1));
+            }
+        }
+        else if (actionName == "TOGGLEPBPMODE")
+        {
+            if (player.size() > 1)
+            {
+                const PlayerContext *mctx = GetPlayer(ctx, 0);
+                const PlayerContext *octx = GetPlayer(ctx, 1);
+                if (mctx == ctx && octx->IsPBP())
+                    BUTTON(actionName, tr("Close PBP(s)", 0, player.size() - 1));
+            }
+        }
+        else if (actionName == "SWAPPIP")
+        {
             const PlayerContext *mctx = GetPlayer(ctx, 0);
-            QString pipClose = (isPBP) ? tr("Close PBP") : tr("Close PIP");
-            if (mctx == ctx)
-            {
-                if (player.size() > 2)
-                    pipClose = (isPBP) ? tr("Close PBPs") : tr("Close PIPs");
-                osd->DialogAddButton(pipClose, toggleMode);
-
-                if (player.size() == 2)
-                    osd->DialogAddButton(tr("Swap Windows"), "SWAPPIP");
-            }
-            else
-            {
-                osd->DialogAddButton(pipClose, toggleMode);
-                osd->DialogAddButton(tr("Swap Windows"), "SWAPPIP");
-            }
-
+            if (mctx != ctx || player.size() == 2)
+                BUTTON(actionName, tr("Swap Windows"));
+        }
+        else if (actionName == "TOGGLEPIPSTATE")
+        {
             uint max_cnt = min(kMaxPBPCount, kMaxPIPCount+1);
             if (player.size() <= max_cnt &&
-                !(hasPIP && !allowPBP) &&
-                !(hasPBP && !allowPIP))
+                !(m_tvm_hasPIP && !m_tvm_allowPBP) &&
+                !(m_tvm_hasPBP && !m_tvm_allowPIP))
             {
-                QString switchTo = (isPBP) ? tr("Switch to PIP") : tr("Switch to PBP");
-                osd->DialogAddButton(switchTo, "TOGGLEPIPSTATE");
+                active = !m_tvm_hasPBP;
+                BUTTON2(actionName, tr("Switch to PBP"), tr("Switch to PIP"));
             }
         }
+        else if (actionName == "TOGGLEBROWSE")
+        {
+            if (db_use_channel_groups)
+                BUTTON(actionName, tr("Toggle Browse Mode"));
+        }
+        else if (actionName == "CANCELPLAYLIST")
+        {
+            if (inPlaylist)
+                BUTTON(actionName, tr("Cancel Playlist"));
+        }
+        else if (actionName == "DEBUGOSD")
+        {
+            BUTTON(actionName, tr("Playback Data"));
+        }
+        else if (actionName == "JUMPFFWD")
+        {
+            if (m_tvm_jump)
+                BUTTON(actionName, tr("Jump Ahead"));
+        }
+        else if (actionName == "JUMPRWND")
+        {
+            if (m_tvm_jump)
+                BUTTON(actionName, tr("Jump Back"));
+        }
+        else if (actionName == "JUMPTODVDROOTMENU")
+        {
+            if (m_tvm_isbd || m_tvm_isdvd)
+            {
+                active = m_tvm_isdvd;
+                BUTTON2(actionName, tr("DVD Root Menu"), tr("Top menu"));
+            }
+        }
+        else if (actionName == "JUMPTOPOPUPMENU")
+        {
+            if (m_tvm_isbd)
+                BUTTON(actionName, tr("Popup menu"));
+        }
+        else if (actionName == "JUMPTODVDTITLEMENU")
+        {
+            if (m_tvm_isdvd)
+                BUTTON(actionName, tr("DVD Title Menu"));
+        }
+        else if (actionName == "JUMPTODVDCHAPTERMENU")
+        {
+            if (m_tvm_isdvd)
+                BUTTON(actionName, tr("DVD Chapter Menu"));
+        }
+        else if (actionName == "PREVCHAN")
+        {
+            if (m_tvm_previouschan)
+                BUTTON(actionName, tr("Previous Channel"));
+        }
+        else if (actionName == "GUIDE")
+        {
+            BUTTON(actionName, tr("Program Guide"));
+        }
+        else if (actionName == "FINDER")
+        {
+            BUTTON(actionName, tr("Program Finder"));
+        }
+        else if (actionName == "VIEWSCHEDULED")
+        {
+            BUTTON(actionName, tr("Upcoming Recordings"));
+        }
+        else if (actionName == "SCHEDULE")
+        {
+            BUTTON(actionName, tr("Edit Recording Schedule"));
+        }
+        else if (actionName == "DIALOG_JUMPREC_X_0")
+        {
+            BUTTON3(actionName, tr("Recorded Program"), "", true);
+            QVariant v;
+            v.setValue(c.m_node);
+            m_tvm_jumprec_back_hack = v;
+        }
+        else if (actionName == "JUMPPREV")
+        {
+            if (lastProgram != NULL)
+            {
+                if (lastProgram->GetSubtitle().isEmpty())
+                    BUTTON(actionName, lastProgram->GetTitle());
+                else
+                    BUTTON(actionName,
+                           QString("%1: %2")
+                           .arg(lastProgram->GetTitle())
+                           .arg(lastProgram->GetSubtitle()));
+            }
+        }
+        else if (actionName == "EDIT")
+        {
+            if (m_tvm_islivetv || m_tvm_isrecorded ||
+                m_tvm_isrecording || m_tvm_isvideo)
+            {
+                active = m_tvm_islivetv;
+                BUTTON2(actionName, tr("Edit Channel"), tr("Edit Recording"));
+            }
+        }
+        else if (actionName == "TOGGLEAUTOEXPIRE")
+        {
+            if (m_tvm_isrecorded || m_tvm_isrecording)
+            {
+                active = m_tvm_is_on;
+                BUTTON2(actionName,
+                        tr("Turn Auto-Expire OFF"), tr("Turn Auto-Expire ON"));
+            }
+        }
+        else if (actionName == "QUEUETRANSCODE")
+        {
+            if (m_tvm_isrecorded)
+            {
+                active = m_tvm_transcoding;
+                BUTTON2(actionName, tr("Stop Transcoding"), tr("Default"));
+            }
+        }
+        else if (actionName == "QUEUETRANSCODE_AUTO")
+        {
+            if (m_tvm_isrecorded)
+            {
+                active = m_tvm_transcoding;
+                BUTTON(actionName, tr("Autodetect"));
+            }
+        }
+        else if (actionName == "QUEUETRANSCODE_HIGH")
+        {
+            if (m_tvm_isrecorded)
+            {
+                active = m_tvm_transcoding;
+                BUTTON(actionName, tr("High Quality"));
+            }
+        }
+        else if (actionName == "QUEUETRANSCODE_MEDIUM")
+        {
+            if (m_tvm_isrecorded)
+            {
+                active = m_tvm_transcoding;
+                BUTTON(actionName, tr("Medium Quality"));
+            }
+        }
+        else if (actionName == "QUEUETRANSCODE_LOW")
+        {
+            if (m_tvm_isrecorded)
+            {
+                active = m_tvm_transcoding;
+                BUTTON(actionName, tr("Low Quality"));
+            }
+        }
+        else
+        {
+            // Allow an arbitrary action if it has a translated
+            // description available to be used as the button text.
+            // Look in the specified keybinding context as well as the
+            // Global context.
+            QString text = GetMythMainWindow()->
+                GetActionText(m_keyBindingContext, actionName);
+            if (text.isEmpty())
+                text = GetMythMainWindow()
+                    ->GetActionText("Global", actionName);
+            if (!text.isEmpty())
+                BUTTON(actionName, text);
+        }
+    }
+
+    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+    return result;
+}
+
+void TV::MenuLazyInit(void *field)
+{
+    if (field == &m_tvm_freerecordercount)
+    {
+        if (m_tvm_freerecordercount < 0)
+            m_tvm_freerecordercount = RemoteGetFreeRecorderCount();
     }
 }
 
-void TV::FillOSDMenuSchedule(const PlayerContext *ctx, OSD *osd,
-                             QString category, const QString selected,
-                             QString &currenttext, QString &backaction)
+void TV::MenuInit(void)
 {
-    if (category == "MAIN")
+    m_tvmCtx = GetPlayerReadLock(-1, __FILE__, __LINE__);
+    m_tvmOsd = GetOSDLock(m_tvmCtx);
+    PlayerContext *ctx = m_tvmCtx;
+
+    m_tvm_avsync   = true;
+    m_tvm_visual   = false;
+    m_tvm_active   = "";
+    m_tvm_upmixing = false;
+    m_tvm_canupmix = false;
+
+    m_tvm_aspectoverride     = kAspect_Off;
+    m_tvm_adjustfill         = kAdjustFill_Off;
+    m_tvm_fill_autodetect    = false;
+    m_tvm_sup                = kPictureAttributeSupported_None;
+    m_tvm_studio_levels      = false;
+    m_tvm_stereoallowed      = false;
+    m_tvm_stereomode         = kStereoscopicModeNone;
+    m_tvm_scan_type          = kScan_Ignore;
+    m_tvm_scan_type_unlocked = kScan_Ignore;
+    m_tvm_scan_type_locked   = false;
+    m_tvm_cur_mode           = "";
+    m_tvm_doublerate         = false;
+
+    m_tvm_speedX100         = (int)(round(ctx->ts_normal * 100));
+    m_tvm_state             = ctx->GetState();
+    m_tvm_isrecording       = (m_tvm_state == kState_WatchingRecording);
+    m_tvm_isrecorded        = (m_tvm_state == kState_WatchingPreRecorded);
+    m_tvm_isrecorded        = (m_tvm_state == kState_WatchingPreRecorded);
+    m_tvm_isvideo           = (m_tvm_state == kState_WatchingVideo);
+    m_tvm_curskip           = kCommSkipOff;
+    m_tvm_ispaused          = false;
+    m_tvm_allowPIP          = IsPIPSupported(ctx);
+    m_tvm_allowPBP          = IsPBPSupported(ctx);
+    m_tvm_hasPBP            = (player.size() > 1) && GetPlayer(ctx,1)->IsPBP();
+    m_tvm_hasPIP            = (player.size() > 1) && GetPlayer(ctx,1)->IsPIP();
+    m_tvm_freerecordercount = -1;
+    m_tvm_isdvd             = (m_tvm_state == kState_WatchingDVD);
+    m_tvm_isbd              = (ctx->buffer && ctx->buffer->IsBD() &&
+                               ctx->buffer->BD()->IsHDMVNavigation());
+    m_tvm_jump              = (!m_tvm_num_chapters && !m_tvm_isdvd &&
+                               !m_tvm_isbd && ctx->buffer->IsSeekingAllowed());
+    m_tvm_islivetv          = StateIsLiveTV(m_tvm_state);
+    m_tvm_previouschan      = false;
+
+    m_tvm_num_chapters    = GetNumChapters(ctx);
+    m_tvm_current_chapter = GetCurrentChapter(ctx);
+    m_tvm_num_angles      = GetNumAngles(ctx);
+    m_tvm_current_angle   = GetCurrentAngle(ctx);
+    m_tvm_num_titles      = GetNumTitles(ctx);
+    m_tvm_current_title   = GetCurrentTitle(ctx);
+    m_tvm_chapter_times.clear();
+    GetChapterTimes(ctx, m_tvm_chapter_times);
+
+    m_tvm_subs_capmode   = 0;
+    m_tvm_subs_havetext  = false;
+    m_tvm_subs_forcedon  = true;
+    m_tvm_subs_enabled   = false;
+    m_tvm_subs_have_subs = false;
+
+    for (int i = kTrackTypeUnknown ; i < kTrackTypeCount ; ++i)
+        m_tvm_curtrack[i] = -1;
+
+    if (m_tvm_islivetv)
     {
-        osd->DialogAddButton(tr("Schedule"),
-                             "DIALOG_MENU_SCHEDULE_0",
-                             true, selected == "SCHEDULE");
+        QString prev_channum = ctx->GetPreviousChannel();
+        QString cur_channum  = QString();
+        if (ctx->tvchain)
+            cur_channum = ctx->tvchain->GetChannelName(-1);
+        if (!prev_channum.isEmpty() && prev_channum != cur_channum)
+            m_tvm_previouschan = true;
     }
-    else if (category == "SCHEDULE")
+
+    ctx->LockDeletePlayer(__FILE__, __LINE__);
+
+    if (ctx->player)
     {
-        backaction = "MAIN";
-        currenttext = tr("Schedule");
-        osd->DialogAddButton(tr("Program Guide"),           ACTION_GUIDE);
-        osd->DialogAddButton(tr("Program Finder"),          ACTION_FINDER);
-        osd->DialogAddButton(tr("Upcoming Recordings"),     ACTION_VIEWSCHEDULED);
-        osd->DialogAddButton(tr("Edit Recording Schedule"), "SCHEDULE");
+        for (int i = kTrackTypeUnknown ; i < kTrackTypeCount ; ++i)
+        {
+            m_tvm_tracks[i] = ctx->player->GetTracks(i);
+            if (!m_tvm_tracks[i].empty())
+                m_tvm_curtrack[i] = ctx->player->GetTrack(i);
+        }
+        m_tvm_subs_have_subs =
+            !m_tvm_tracks[kTrackTypeSubtitle].empty() ||
+            m_tvm_subs_havetext ||
+            !m_tvm_tracks[kTrackTypeCC708].empty() ||
+            !m_tvm_tracks[kTrackTypeCC608].empty() ||
+            !m_tvm_tracks[kTrackTypeTeletextCaptions].empty() ||
+            !m_tvm_tracks[kTrackTypeRawText].empty();
+        m_tvm_avsync = (ctx->player->GetTrackCount(kTrackTypeVideo) > 0) &&
+            !m_tvm_tracks[kTrackTypeAudio].empty();
+        m_tvm_visual             = ctx->player->CanVisualise();
+        m_tvm_active             = ctx->player->GetVisualiserName();
+        m_tvm_upmixing           = ctx->player->GetAudio()->IsUpmixing();
+        m_tvm_canupmix           = ctx->player->GetAudio()->CanUpmix();
+        m_tvm_aspectoverride     = ctx->player->GetAspectOverride();
+        m_tvm_adjustfill         = ctx->player->GetAdjustFill();
+        m_tvm_scan_type          = ctx->player->GetScanType();
+        m_tvm_scan_type_unlocked = m_tvm_scan_type;
+        m_tvm_scan_type_locked   = ctx->player->IsScanTypeLocked();
+        m_tvm_doublerate         = ctx->player->CanSupportDoubleRate();
+        m_tvm_curskip            = ctx->player->GetAutoCommercialSkip();
+        m_tvm_ispaused           = ctx->player->IsPaused();
+        m_tvm_subs_capmode       = ctx->player->GetCaptionMode();
+        m_tvm_subs_enabled       = ctx->player->GetCaptionsEnabled();
+        m_tvm_subs_havetext      = ctx->player->HasTextSubtitles();
+        m_tvm_subs_forcedon      = ctx->player->GetAllowForcedSubtitles();
+        ctx->player->GetVideoOutput()->GetDeinterlacers(m_tvm_deinterlacers);
+        m_tvm_currentdeinterlacer =
+            ctx->player->GetVideoOutput()->GetDeinterlacer();
+        if (m_tvm_visual)
+            m_tvm_visualisers = ctx->player->GetVisualiserList();
+        VideoOutput *vo = ctx->player->GetVideoOutput();
+        if (vo)
+        {
+            m_tvm_sup             = vo->GetSupportedPictureAttributes();
+            m_tvm_stereoallowed   = vo->StereoscopicModesAllowed();
+            m_tvm_stereomode      = vo->GetStereoscopicMode();
+            m_tvm_fill_autodetect = !vo->hasHWAcceleration();
+            m_tvm_studio_levels   =
+                vo->GetPictureAttribute(kPictureAttribute_StudioLevels) > 0;
+        }
+        if (!m_tvm_scan_type_locked)
+        {
+            if (kScan_Interlaced == m_tvm_scan_type)
+                m_tvm_cur_mode = tr("(I)", "Interlaced (Normal)");
+            else if (kScan_Intr2ndField == m_tvm_scan_type)
+                m_tvm_cur_mode = tr("(i)", "Interlaced (Reversed)");
+            else if (kScan_Progressive == m_tvm_scan_type)
+                m_tvm_cur_mode = tr("(P)", "Progressive");
+            m_tvm_cur_mode = " " + m_tvm_cur_mode;
+            m_tvm_scan_type_unlocked = kScan_Detect;
+        }
     }
+    ctx->LockPlayingInfo(__FILE__, __LINE__);
+    m_tvm_is_on = ctx->playingInfo->QueryAutoExpire() != kDisableAutoExpire;
+    m_tvm_transcoding = JobQueue::IsJobQueuedOrRunning
+        (JOB_TRANSCODE, ctx->playingInfo->GetChanID(),
+         ctx->playingInfo->GetScheduledStartTime());
+    ctx->UnlockPlayingInfo(__FILE__, __LINE__);
+
+    ctx->UnlockDeletePlayer(__FILE__, __LINE__);
+}
+
+void TV::MenuDeinit(void)
+{
+    ReturnOSDLock(m_tvmCtx, m_tvmOsd);
+    ReturnPlayerLock(m_tvmCtx);
+    m_tvmOsd = NULL;
+    m_tvmOsd = NULL;
+}
+
+void TV::MenuShow(const QDomNode &node, const QDomNode &selected)
+{
+    MenuInit();
+    if (m_tvmOsd)
+    {
+        m_tvmOsd->DialogShow(OSD_DLG_MENU, m_menuName);
+        MenuBase::MenuShow(node, selected);
+        QString text =
+            MenuTranslate(node.toElement().attribute("text", m_menuName));
+        m_tvmOsd->DialogSetText(text);
+        QDomNode parent = node.parentNode();
+        if (!parent.parentNode().isNull())
+        {
+            QVariant v;
+            v.setValue(node);
+            m_tvmOsd->DialogBack("", v);
+        }
+    }
+    MenuDeinit();
+}
+
+void TV::MenuStrings(void) const
+{
+    tr("Playback Menu");
+    tr("Playback Compact Menu");
+    tr("Audio");
+    tr("Select Audio Track");
+    tr("Visualisation");
+    tr("Video");
+    tr("Change Aspect Ratio");
+    tr("Adjust Fill");
+    tr("Adjust Picture");
+    tr("3D");
+    tr("Advanced");
+    tr("Video Scan");
+    tr("Deinterlacer");
+    tr("Subtitles");
+    tr("Select Subtitle");
+    tr("Text Subtitles");
+    tr("Select ATSC CC");
+    tr("Select VBI CC");
+    tr("Select Teletext CC");
+    tr("Playback");
+    tr("Adjust Time Stretch");
+    tr("Picture-in-Picture");
+    tr("Sleep");
+    tr("Channel Groups");
+    tr("Navigate");
+    tr("Commercial Auto-Skip");
+    tr("Chapter");
+    tr("Angle");
+    tr("Title");
+    tr("Schedule");
+    tr("Source");
+    tr("Jump to Program");
+    tr("Switch Input");
+    tr("Switch Source");
+    tr("Jobs");
+    tr("Begin Transcoding");
+}
+
+void TV::ShowOSDMenu(const PlayerContext *ctx, bool isCompact)
+{
+    if (!MenuIsLoaded())
+    {
+        MenuLoadFromFile("menu_playback.xml",
+                         tr("Playback Menu"),
+                         metaObject()->className(),
+                         "TV Playback");
+        m_compactMenu.MenuLoadFromFile("menu_playback_compact.xml",
+                                       tr("Playback Compact Menu"),
+                                       metaObject()->className(),
+                                       "TV Playback");
+    }
+    if (isCompact && m_compactMenu.MenuIsLoaded())
+        MenuShow(m_compactMenu.MenuGetRoot(), QDomNode());
+    else if (MenuIsLoaded())
+        MenuShow(MenuGetRoot(), QDomNode());
 }
 
 void TV::FillOSDMenuJumpRec(PlayerContext* ctx, const QString category,
@@ -12185,8 +12253,13 @@ void TV::FillOSDMenuJumpRec(PlayerContext* ctx, const QString category,
             if (level == 1)
                 osd->DialogBack(category, "DIALOG_" + ACTION_JUMPREC + "_X_0");
             else if (level == 0)
-                osd->DialogBack(ACTION_JUMPREC,
-                                "DIALOG_MENU_" + ACTION_JUMPREC +"_0");
+            {
+                if (m_tvm_jumprec_back_hack.isValid())
+                    osd->DialogBack("", m_tvm_jumprec_back_hack);
+                else
+                    osd->DialogBack(ACTION_JUMPREC,
+                                    "DIALOG_MENU_" + ACTION_JUMPREC +"_0");
+            }
         }
     }
     ReturnOSDLock(ctx, osd);
@@ -12282,7 +12355,7 @@ bool TV::HandleJumpToProgramAction(
     QStringList::const_iterator it = actions.begin();
     for (; it != actions.end(); ++it)
     {
-        if ((*it).left(8) != "JUMPPROG")
+        if (!(*it).startsWith("JUMPPROG"))
             continue;
 
         const QString &action = *it;
