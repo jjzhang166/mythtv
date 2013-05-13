@@ -29,6 +29,7 @@
 #include <QSet>
 
 // myth
+#include <mythlogging_extra.h>
 #include <mythuihelper.h>
 #include <mythcontext.h>
 #include <mythdirs.h>

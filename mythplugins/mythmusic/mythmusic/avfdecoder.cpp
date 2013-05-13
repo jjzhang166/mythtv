@@ -105,16 +105,17 @@ static int64_t SeekFunc(void *opaque, int64_t offset, int whence)
      return -1;
 }
 
+// TODO FIXME why is this copy-n-pasted from avformatdecoder??
 static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
 {
-    if (VERBOSE_LEVEL_NONE)
+    if (!LOG_MIGHT_USE(VB_LIBAV|VB_GENERAL, LOG_EMERG))
         return;
 
     static QString full_line("");
     static const int msg_len = 255;
     static QMutex string_lock;
     uint64_t   verbose_mask  = VB_GENERAL;
-    LogLevel_t verbose_level = LOG_DEBUG;
+    int        verbose_level = LOG_DEBUG;
 
     // determine mythtv debug level from av log level
     switch (level)
@@ -142,7 +143,7 @@ static void myth_av_log(void *ptr, int level, const char* fmt, va_list vl)
             return;
     }
 
-    if (!VERBOSE_LEVEL_CHECK(verbose_mask, verbose_level))
+    if (!LOG_WILL_USE(verbose_mask, verbose_level))
         return;
 
     string_lock.lock();
@@ -191,7 +192,7 @@ avfDecoder::avfDecoder(const QString &file, DecoderFactory *d, AudioOutput *o) :
     setObjectName("avfDecoder");
     setFilename(file);
 
-    bool debug = VERBOSE_LEVEL_CHECK(VB_LIBAV, LOG_ANY);
+    bool debug = LOG_WILL_USE(VB_LIBAV, LOG_ANY);
     av_log_set_level((debug) ? AV_LOG_DEBUG : AV_LOG_ERROR);
     av_log_set_callback(myth_av_log);
 }
