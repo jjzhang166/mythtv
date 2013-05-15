@@ -11,7 +11,6 @@ MBASE_PUBLIC void initialize_logging(
     int default_log_level,
     SyslogFacility default_syslog_facility,
     bool use_threads,
-    bool enable_database_logging,
     const QString &logfile,
     const QString &logprefix);
 

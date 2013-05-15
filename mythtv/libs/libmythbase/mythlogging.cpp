@@ -115,7 +115,6 @@ namespace myth_logging
  *                     are ignored.
  * \param syslog_facility A syslog facility to send logging to.
  * \param use_threads  Use multithreading.
- * \param enabled_database_logging Write logging messages to a SQL database.
  * \param logfile      File to send all logging to (including the logging of
  *                     subprocesses.)
  * \param logprefix    Path+'/'+prefix of where logger should create logging
@@ -127,14 +126,12 @@ MBASE_PUBLIC void initialize_logging(
     int log_level,
     SyslogFacility syslog_facility,
     bool use_threads,
-    bool enable_database_logging,
     const QString &logfile,
     const QString &logprefix)
 {
     LogDeque::Get().InitializeLogging(
         verbose_mask, log_level, syslog_facility,
-        use_threads, enable_database_logging,
-        logfile, logprefix);
+        use_threads, logfile, logprefix);
 }
 
 /// Shuts down logging threads, if there are any.

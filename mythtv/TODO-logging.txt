@@ -1,6 +1,5 @@
 /*
  TODO Logging primary goals:
-   We can still optionally log to database tables
    Messages sent to stderr and stdout should be captured by logging
      This is for third party library logging to be captured.
        I'm not sure if this is always possible,
@@ -22,6 +21,13 @@
    Make sure we don't consume unbounded amounts of memory if too much
      logging is done. Either via feedback (slowing down LOG), or by
      just dropping log messages. [DONE feedback added + hard-threshold]
+   Remove support for DB logging (danielk 2012-05-14) [DONE]
+     Can't start logging until after MythContext is initialized
+     Must stop logging before MythContext is torn down
+     No tools exist to analyse DB log, many tools available for
+       syslog and log file logging.
+     DB storage engines appropriate for logging are not available
+       by default on all Linux distributions.
 
  Logging secondary goals:
    Allow log messages to be formatted.

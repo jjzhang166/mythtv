@@ -41,7 +41,6 @@ void LogDeque::InitializeLogging(
     int log_level,
     SyslogFacility syslog_facility,
     bool use_threads,
-    bool enable_database_logging,
     const QString &logfile,
     const QString &logprefix)
 {
@@ -54,8 +53,6 @@ void LogDeque::InitializeLogging(
     QWriteLocker handler_locker(&m_handlerLock);
 
     m_handlers.push_back(LogHandler::GetConsoleHandler());
-
-    /* enable_database_logging */
 
     if (!logfile.isEmpty())
     {

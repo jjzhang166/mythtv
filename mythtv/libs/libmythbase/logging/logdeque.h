@@ -67,7 +67,6 @@ class MBASE_PUBLIC LogDeque
         int log_level,
         SyslogFacility syslog_facility,
         bool use_threads,
-        bool enable_database_logging,
         const QString &logfile,
         const QString &logprefix);
 
