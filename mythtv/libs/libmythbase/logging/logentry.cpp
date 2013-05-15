@@ -37,3 +37,13 @@ QString LogEntry::toString() const
         .arg(LogDeque::Get().LookupHashedString(m_funcHash))
         .arg(m_msg);
 }
+
+QString LogEntry::GetFunctionName(void) const
+{
+    return LogDeque::Get().LookupHashedString(m_funcHash);
+}
+
+QString LogEntry::GetFilename(void) const
+{
+    return LogDeque::Get().LookupHashedString(m_fileHash);
+}

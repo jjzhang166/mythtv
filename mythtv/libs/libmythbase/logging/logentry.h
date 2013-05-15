@@ -77,7 +77,14 @@ class MBASE_PUBLIC LogEntry
     bool IsPrint(void) const { return m_line < 0; }
     bool IsFlush(void) const { return m_processId == ~0ULL; }
 
+    QDateTime GetWhen(void) const { return m_when; }
     uint64_t GetMask(void) const { return m_mask; }
+    uint64_t GetProcessId(void) const { return m_processId; }
+    Qt::HANDLE GetThreadId(void) const { return m_threadId; }
+    QString GetThreadName(void) const { return m_threadName; }
+    QString GetFunctionName(void) const;
+    QString GetFilename(void) const;
+    int GetLine(void) const { return m_line; }
     int GetLevel(void) const { return m_level; }
     QString GetMessage(void) const { return m_msg; }
 
