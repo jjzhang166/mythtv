@@ -21,6 +21,8 @@
 /* Make sure we don't include verbosedefs.h until later.. */
 #define VERBOSEDEFS_H_
 
+#include <unistd.h> // for usleep
+
 #include <algorithm> // for stable_sort
 using namespace std;
 
