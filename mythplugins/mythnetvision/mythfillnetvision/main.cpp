@@ -42,7 +42,7 @@ void MythFillNVCommandLineParser::LoadArguments(void)
 {
     addHelp();
     addVersion();
-    addLogging();
+    addLogging(VB_GENERAL, LOG_INFO, kNoFacility);
 
     add("--refresh-all", "refresh-all", false,
             "Refresh ALL configured and installed tree grabbers", "");
@@ -78,9 +78,8 @@ int main(int argc, char *argv[])
     QCoreApplication a(argc, argv);
     QCoreApplication::setApplicationName("mythfillnetvision");
 
-    int retval;
-    if ((retval = cmdline.ConfigureLogging()) != GENERIC_EXIT_OK)
-        return retval;
+    if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
+        return GENERIC_EXIT_NOT_OK;
     
     ///////////////////////////////////////////////////////////////////////
     // Don't listen to console input
