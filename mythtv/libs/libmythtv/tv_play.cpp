@@ -20,8 +20,6 @@ using namespace std;
 #include <QDomElement>
 #include <QDomNode>
 
-Q_DECLARE_METATYPE(QDomNode)
-
 #include "signalhandling.h"
 #include "mythdb.h"
 #include "tv_play.h"
@@ -195,6 +193,18 @@ class DDLoader : public QRunnable
     QMutex m_lock;
     QWaitCondition m_wait;
 };
+
+class MenuNodeTuple
+{
+public:
+    MenuNodeTuple(const MenuBase &menu, const QDomNode &node) :
+        m_menu(menu), m_node(node) {}
+    MenuNodeTuple(void) : m_menu(MenuBase()) {}
+    const MenuBase &m_menu;
+    const QDomNode  m_node;
+};
+
+Q_DECLARE_METATYPE(MenuNodeTuple)
 
 /**
  * \brief If any cards are configured, return the number.
@@ -3784,8 +3794,8 @@ bool TV::ProcessKeypress(PlayerContext *actx, QKeyEvent *e)
                     handled = true;
                 }
                 else
-                    handled |= actx->player->HandleProgramEditorActions(
-                                                      actions, current_frame);
+                    handled |=
+                        actx->player->HandleProgramEditorActions(actions);
             }
         }
         if (handled)
@@ -9186,13 +9196,14 @@ void TV::customEvent(QEvent *e)
     {
         DialogCompletionEvent *dce =
             reinterpret_cast<DialogCompletionEvent*>(e);
-        if (dce->GetData().userType() == qMetaTypeId<QDomNode>())
+        if (dce->GetData().userType() == qMetaTypeId<MenuNodeTuple>())
         {
-            QDomNode data = qVariantValue<QDomNode>(dce->GetData());
+            MenuNodeTuple data = qVariantValue<MenuNodeTuple>(dce->GetData());
             if (dce->GetResult() == -1) // menu exit/back
-                MenuShow(data.parentNode(), data);
+                PlaybackMenuShow(data.m_menu, data.m_node.parentNode(),
+                                 data.m_node);
             else
-                MenuShow(data, QDomNode());
+                PlaybackMenuShow(data.m_menu, data.m_node, QDomNode());
         }
         else
             OSDDialogEvent(dce->GetResult(), dce->GetResultText(),
@@ -10014,60 +10025,47 @@ void TV::ShowOSDCutpoint(PlayerContext *ctx, const QString &type)
                 if (previous_cut > 0)
                     osd->DialogAddButton(QObject::tr("Move Previous Cut End "
                                                      "Here"),
-                                         QString("DIALOG_CUTPOINT_MOVEPREV_%1")
-                                                 .arg(frame));
+                                         QString("DIALOG_CUTPOINT_MOVEPREV_0"));
                 else
                     osd->DialogAddButton(QObject::tr("Cut to Beginning"),
-                                   QString("DIALOG_CUTPOINT_CUTTOBEGINNING_%1")
-                                           .arg(frame));
+                                   QString("DIALOG_CUTPOINT_CUTTOBEGINNING_0"));
 
                 if (next_cut == total_frames)
                     osd->DialogAddButton(QObject::tr("Cut to End"),
-                                         QString("DIALOG_CUTPOINT_CUTTOEND_%1")
-                                                 .arg(frame));
+                                         QString("DIALOG_CUTPOINT_CUTTOEND_0"));
                 else
                     osd->DialogAddButton(QObject::tr("Move Next Cut Start "
                                                      "Here"),
-                                         QString("DIALOG_CUTPOINT_MOVENEXT_%1")
-                                                 .arg(frame));
+                                         QString("DIALOG_CUTPOINT_MOVENEXT_0"));
             }
             else
             {
                 osd->DialogAddButton(QObject::tr("Move Start of Cut Here"),
-                                     QString("DIALOG_CUTPOINT_MOVEPREV_%1")
-                                             .arg(frame));
+                                     QString("DIALOG_CUTPOINT_MOVEPREV_0"));
                 osd->DialogAddButton(QObject::tr("Move End of Cut Here"),
-                                     QString("DIALOG_CUTPOINT_MOVENEXT_%1")
-                                             .arg(frame));
+                                     QString("DIALOG_CUTPOINT_MOVENEXT_0"));
             }
             osd->DialogAddButton(QObject::tr("Delete This Cut"),
-                                 QString("DIALOG_CUTPOINT_DELETE_%1")
-                                         .arg(frame));
+                                 QString("DIALOG_CUTPOINT_DELETE_0"));
         }
         else
         {
             if (previous_cut > 0)
                 osd->DialogAddButton(QObject::tr("Move Previous Cut End Here"),
-                                     QString("DIALOG_CUTPOINT_MOVEPREV_%1")
-                                             .arg(frame));
+                                     QString("DIALOG_CUTPOINT_MOVEPREV_0"));
             else
                 osd->DialogAddButton(QObject::tr("Cut to Beginning"),
-                                  QString("DIALOG_CUTPOINT_CUTTOBEGINNING_%1")
-                                          .arg(frame));
+                                     QString("DIALOG_CUTPOINT_CUTTOBEGINNING_0"));
             if (next_cut == total_frames)
                 osd->DialogAddButton(QObject::tr("Cut to End"),
-                                     QString("DIALOG_CUTPOINT_CUTTOEND_%1")
-                                             .arg(frame));
+                                     QString("DIALOG_CUTPOINT_CUTTOEND_0"));
             else
                 osd->DialogAddButton(QObject::tr("Move Next Cut Start Here"),
-                                     QString("DIALOG_CUTPOINT_MOVENEXT_%1")
-                                             .arg(frame));
+                                     QString("DIALOG_CUTPOINT_MOVENEXT_0"));
             osd->DialogAddButton(QObject::tr("Add New Cut"),
-                                 QString("DIALOG_CUTPOINT_NEWCUT_%1")
-                                         .arg(frame));
+                                 QString("DIALOG_CUTPOINT_NEWCUT_0"));
             osd->DialogAddButton(QObject::tr("Join Surrounding Cuts"),
-                                 QString("DIALOG_CUTPOINT_DELETE_%1")
-                                         .arg(frame));
+                                 QString("DIALOG_CUTPOINT_DELETE_0"));
         }
         if (ctx->player->DeleteMapHasUndo())
             osd->DialogAddButton(QObject::tr("Undo") + " - " +
@@ -10120,7 +10118,7 @@ void TV::ShowOSDCutpoint(PlayerContext *ctx, const QString &type)
     ReturnOSDLock(ctx, osd);
 }
 
-bool TV::HandleOSDCutpoint(PlayerContext *ctx, QString action, long long frame)
+bool TV::HandleOSDCutpoint(PlayerContext *ctx, QString action)
 {
     bool res = true;
     if (!DialogIsVisible(ctx, OSD_DLG_CUTPOINT))
@@ -10138,7 +10136,7 @@ bool TV::HandleOSDCutpoint(PlayerContext *ctx, QString action, long long frame)
     else if (osd)
     {
         QStringList actions(action);
-        if (!ctx->player->HandleProgramEditorActions(actions, frame))
+        if (!ctx->player->HandleProgramEditorActions(actions))
             LOG(VB_GENERAL, LOG_ERR, LOC + "Unrecognised cutpoint action");
         else
             editmode = ctx->player->GetEditMode();
@@ -10646,7 +10644,7 @@ void TV::OSDDialogEvent(int result, QString text, QString action)
         }
         else if (valid && desc[0] == "CUTPOINT")
         {
-            hide = HandleOSDCutpoint(actx, desc[1], desc[2].toLongLong());
+            hide = HandleOSDCutpoint(actx, desc[1]);
         }
         else if (valid && desc[0] == "DELETE")
         {
@@ -10972,10 +10970,10 @@ void TV::HandleOSDInfo(PlayerContext *ctx, QString action)
     }
 }
 
-bool MenuBase::MenuLoadFromFile(const QString &filename,
-                                const QString &menuname,
-                                const char *translationContext,
-                                const QString &keyBindingContext)
+bool MenuBase::Load(const QString &filename,
+                    const QString &menuname,
+                    const char *translationContext,
+                    const QString &keyBindingContext)
 {
     bool result = false;
 
@@ -10992,19 +10990,18 @@ bool MenuBase::MenuLoadFromFile(const QString &filename,
         QFile file(themefile);
         if (file.open(QIODevice::ReadOnly))
         {
-            m_menuDocument = new QDomDocument();
-            if (m_menuDocument->setContent(&file))
+            m_document = new QDomDocument();
+            if (m_document->setContent(&file))
             {
                 result = true;
-                m_menuName =
-                    MenuTranslate(MenuGetRoot().attribute("text", menuname));
-                QDomElement root = MenuGetRoot();
-                MenuProcessIncludes(root);
+                QDomElement root = GetRoot();
+                m_menuName = Translate(root.attribute("text", menuname));
+                ProcessIncludes(root);
             }
             else
             {
-                delete m_menuDocument;
-                m_menuDocument = NULL;
+                delete m_document;
+                m_document = NULL;
             }
             file.close();
         }
@@ -11017,7 +11014,7 @@ bool MenuBase::MenuLoadFromFile(const QString &filename,
     return result;
 }
 
-void MenuBase::MenuProcessIncludes(QDomElement &root)
+void MenuBase::ProcessIncludes(QDomElement &root)
 {
     const int maxRecursion = 10;
     for (QDomNode n = root.firstChild(); !n.isNull(); n = n.nextSibling())
@@ -11028,6 +11025,8 @@ void MenuBase::MenuProcessIncludes(QDomElement &root)
             if (e.tagName() == "include")
             {
                 QString include = e.attribute("file", "");
+                if (include.isEmpty())
+                    continue;
                 int level = m_recursionLevel + 1;
                 if (level > maxRecursion)
                 {
@@ -11039,19 +11038,20 @@ void MenuBase::MenuProcessIncludes(QDomElement &root)
                 }
                 MenuBase menu;
                 menu.m_recursionLevel = level;
-                if (menu.MenuLoadFromFile(include, include,
-                                          m_translationContext,
-                                          m_keyBindingContext))
+                if (menu.Load(include,
+                              include, // fallback menu name is filename
+                              m_translationContext,
+                              m_keyBindingContext))
                 {
-                    QDomNode newChild = menu.MenuGetRoot();
-                    newChild = m_menuDocument->importNode(newChild, true);
+                    QDomNode newChild = menu.GetRoot();
+                    newChild = m_document->importNode(newChild, true);
                     root.replaceChild(newChild, n);
                     n = newChild;
                 }
             }
             else if (e.tagName() == "menu")
             {
-                MenuProcessIncludes(e);
+                ProcessIncludes(e);
             }
         }
     }
@@ -11059,27 +11059,28 @@ void MenuBase::MenuProcessIncludes(QDomElement &root)
 
 MenuBase::~MenuBase()
 {
-    if (m_menuDocument)
+    if (m_document)
     {
-        delete m_menuDocument;
-        m_menuDocument = NULL;
+        delete m_document;
+        m_document = NULL;
     }
 }
 
-QDomElement MenuBase::MenuGetRoot(void) const
+QDomElement MenuBase::GetRoot(void) const
 {
-    return m_menuDocument->documentElement();
+    return m_document->documentElement();
 }
 
-QString MenuBase::MenuTranslate(const QString &text) const
+QString MenuBase::Translate(const QString &text) const
 {
     return qApp->translate(m_translationContext, text.toUtf8(), NULL,
                            QCoreApplication::UnicodeUTF8);
 }
 
-bool MenuBase::MenuShowHelper(const QDomNode &node,
-                              const QDomNode &selected,
-                              bool doDisplay)
+bool MenuBase::Show(const QDomNode &node,
+                    const QDomNode &selected,
+                    MenuItemDisplayer &displayer,
+                    bool doDisplay) const
 {
     bool hasSelected = false;
     bool displayed = false;
@@ -11093,8 +11094,7 @@ bool MenuBase::MenuShowHelper(const QDomNode &node,
         if (n.isElement())
         {
             QDomElement e = n.toElement();
-            QString text  = e.attribute("text", "");
-            text          = MenuTranslate(text);
+            QString text  = Translate(e.attribute("text", ""));
             QString show = e.attribute("show", "");
             MenuShowContext showContext =
                 (show == "active" ? kMenuShowActive :
@@ -11103,23 +11103,24 @@ bool MenuBase::MenuShowHelper(const QDomNode &node,
             bool currentActive = (current == "active") && !hasSelected;
             if (e.tagName() == "menu")
             {
-                MenuItemContext c(n, text, (hasSelected && n == selected),
+                MenuItemContext c(*this, n, text,
+                                  (hasSelected && n == selected),
                                   doDisplay);
-                displayed |= MenuDisplayItem(c);
+                displayed |= displayer.MenuItemDisplay(c);
             }
             else if (e.tagName() == "item")
             {
                 QString action = e.attribute("action", "");
-                MenuItemContext c(n, showContext, currentActive, action,
-                                  text, doDisplay);
-                displayed |= MenuDisplayItem(c);
+                MenuItemContext c(*this, n, showContext, currentActive,
+                                  action, text, doDisplay);
+                displayed |= displayer.MenuItemDisplay(c);
             }
             else if (e.tagName() == "itemlist")
             {
                 QString actiongroup = e.attribute("actiongroup", "");
-                MenuItemContext c(n, showContext, currentActive,
+                MenuItemContext c(*this, n, showContext, currentActive,
                                   actiongroup, doDisplay);
-                displayed |= MenuDisplayItem(c);
+                displayed |= displayer.MenuItemDisplay(c);
             }
         }
         if (!doDisplay && displayed)
@@ -11170,8 +11171,13 @@ static void addButton(const MenuItemContext &c, OSD *osd, bool active,
               (textInactive), (isMenu))
 
 // Returns true if at least one item should be displayed.
-bool TV::MenuDisplayItem(const MenuItemContext &c)
+bool TV::MenuItemDisplay(const MenuItemContext &c)
 {
+    // Test &c.m_menu to determine which menu is being displayed and
+    // therefore which actions to test for.  For the regular and
+    // compact playback menus, we do the same thing so no test is
+    // needed, but as other playback-context menus are added, we'll
+    // want to test.
     MenuCategory category = c.m_category;
     const QString &actionName = c.m_action;
 
@@ -11183,11 +11189,11 @@ bool TV::MenuDisplayItem(const MenuItemContext &c)
         return result;
     if (category == kMenuCategoryMenu)
     {
-        result = MenuShowHelper(c.m_node, QDomNode(), false);
+        result = c.m_menu.Show(c.m_node, QDomNode(), *this, false);
         if (result && c.m_doDisplay)
         {
             QVariant v;
-            v.setValue(c.m_node);
+            v.setValue(MenuNodeTuple(c.m_menu, c.m_node));
             osd->DialogAddButton(c.m_menuName, v, true, c.m_setCurrentActive);
         }
         return result;
@@ -11474,9 +11480,11 @@ bool TV::MenuDisplayItem(const MenuItemContext &c)
                     QString name = CardUtil::GetDisplayName(inputs[i].inputid);
                     if (name.isEmpty())
                     {
-                        name = tr("C", "Card") + ":" +
-                            QString::number(*it) + " " +
-                            tr("I", "Input") + ":" + inputs[i].name;
+                        //: %1 is the numeric card ID,
+                        //: %2 is the string input name
+                        name = tr("C:%1 I:%2",
+                                  "Playback OSD menu, Live TV input selection")
+                            .arg(QString::number(*it)).arg(inputs[i].name);
                     }
 
                     QString action = prefix +
@@ -11807,7 +11815,7 @@ bool TV::MenuDisplayItem(const MenuItemContext &c)
         {
             BUTTON3(actionName, tr("Recorded Program"), "", true);
             QVariant v;
-            v.setValue(c.m_node);
+            v.setValue(MenuNodeTuple(c.m_menu, c.m_node));
             m_tvm_jumprec_back_hack = v;
         }
         else if (actionName == "JUMPPREV")
@@ -11888,10 +11896,10 @@ bool TV::MenuDisplayItem(const MenuItemContext &c)
             // Look in the specified keybinding context as well as the
             // Global context.
             QString text = GetMythMainWindow()->
-                GetActionText(m_keyBindingContext, actionName);
+                GetActionText(c.m_menu.GetKeyBindingContext(), actionName);
             if (text.isEmpty())
-                text = GetMythMainWindow()
-                    ->GetActionText("Global", actionName);
+                text = GetMythMainWindow()->
+                    GetActionText("Global", actionName);
             if (!text.isEmpty())
                 BUTTON(actionName, text);
         }
@@ -11910,7 +11918,7 @@ void TV::MenuLazyInit(void *field)
     }
 }
 
-void TV::MenuInit(void)
+void TV::PlaybackMenuInit(void)
 {
     m_tvmCtx = GetPlayerReadLock(-1, __FILE__, __LINE__);
     m_tvmOsd = GetOSDLock(m_tvmCtx);
@@ -12056,7 +12064,7 @@ void TV::MenuInit(void)
     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
 }
 
-void TV::MenuDeinit(void)
+void TV::PlaybackMenuDeinit(void)
 {
     ReturnOSDLock(m_tvmCtx, m_tvmOsd);
     ReturnPlayerLock(m_tvmCtx);
@@ -12064,25 +12072,26 @@ void TV::MenuDeinit(void)
     m_tvmOsd = NULL;
 }
 
-void TV::MenuShow(const QDomNode &node, const QDomNode &selected)
+void TV::PlaybackMenuShow(const MenuBase &menu,
+                          const QDomNode &node, const QDomNode &selected)
 {
-    MenuInit();
+    PlaybackMenuInit();
     if (m_tvmOsd)
     {
-        m_tvmOsd->DialogShow(OSD_DLG_MENU, m_menuName);
-        MenuBase::MenuShow(node, selected);
+        m_tvmOsd->DialogShow(OSD_DLG_MENU, menu.GetName());
+        menu.Show(node, selected, *this);
         QString text =
-            MenuTranslate(node.toElement().attribute("text", m_menuName));
+            menu.Translate(node.toElement().attribute("text", menu.GetName()));
         m_tvmOsd->DialogSetText(text);
         QDomNode parent = node.parentNode();
         if (!parent.parentNode().isNull())
         {
             QVariant v;
-            v.setValue(node);
+            v.setValue(MenuNodeTuple(menu, node));
             m_tvmOsd->DialogBack("", v);
         }
     }
-    MenuDeinit();
+    PlaybackMenuDeinit();
 }
 
 void TV::MenuStrings(void) const
@@ -12127,21 +12136,23 @@ void TV::MenuStrings(void) const
 
 void TV::ShowOSDMenu(const PlayerContext *ctx, bool isCompact)
 {
-    if (!MenuIsLoaded())
+    if (!m_playbackMenu.IsLoaded())
     {
-        MenuLoadFromFile("menu_playback.xml",
-                         tr("Playback Menu"),
-                         metaObject()->className(),
-                         "TV Playback");
-        m_compactMenu.MenuLoadFromFile("menu_playback_compact.xml",
-                                       tr("Playback Compact Menu"),
-                                       metaObject()->className(),
-                                       "TV Playback");
+        m_playbackMenu.Load("menu_playback.xml",
+                            tr("Playback Menu"),
+                            metaObject()->className(),
+                            "TV Playback");
+        m_compactMenu.Load("menu_playback_compact.xml",
+                           tr("Playback Compact Menu"),
+                           metaObject()->className(),
+                           "TV Playback");
     }
-    if (isCompact && m_compactMenu.MenuIsLoaded())
-        MenuShow(m_compactMenu.MenuGetRoot(), QDomNode());
-    else if (MenuIsLoaded())
-        MenuShow(MenuGetRoot(), QDomNode());
+    if (isCompact && m_compactMenu.IsLoaded())
+        PlaybackMenuShow(m_compactMenu, m_compactMenu.GetRoot(),
+                         QDomNode());
+    else if (m_playbackMenu.IsLoaded())
+        PlaybackMenuShow(m_playbackMenu, m_playbackMenu.GetRoot(),
+                         QDomNode());
 }
 
 void TV::FillOSDMenuJumpRec(PlayerContext* ctx, const QString category,
