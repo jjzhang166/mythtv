@@ -18,6 +18,7 @@ extern "C" {
 #include <sys/types.h>  // for fnctl
 #include <fcntl.h>      // for fnctl
 #include <errno.h>      // for checking errno
+#include <unistd.h>     // for pipe & syscall
 
 // Qt
 #include <QString>
