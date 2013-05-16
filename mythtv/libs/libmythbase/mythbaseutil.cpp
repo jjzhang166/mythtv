@@ -3,14 +3,14 @@
 #include <QtGlobal> // for Q_OS macros, used for system header pulling
 
 // System headers
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX)
 #include <sys/syscall.h>
-#elif Q_OS_FREEBSD
+#elif defined(Q_OS_FREEBSD)
 extern "C" {
 #include <sys/ucontext.h>
 #include <sys/thr.h>
 }
-#elif Q_OS_MAC
+#elif defined(Q_OS_MAC)
 #include <mach/mach.h>
 #endif
 
@@ -81,13 +81,13 @@ void setup_pipe(int mypipe[2], long myflags[2])
 /// one of the formats reported by the GNU gdb debugger.
 MBASE_PUBLIC uint64_t get_gdb_thread_id(void)
 {
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX)
     return static_cast<uint64_t>(syscall(SYS_gettid));
-#elif Q_OS_FREEBSD
+#elif defined(Q_OS_FREEBSD)
     long lwpid;
     (void) thr_self(&lwpid);
     return static_cast<uint64_t>(lwpid);
-#elif Q_OS_MAC
+#elif defined(Q_OS_MAC)
     return static_cast<uint64_t>(mach_thread_self());
 #else
     #warning "get_gdb_thread_id() not implemented on current platform."
