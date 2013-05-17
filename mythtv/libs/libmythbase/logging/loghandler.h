@@ -29,6 +29,8 @@ class LogEntry;
 class LogHandler
 {
   public:
+    virtual ~LogHandler() {}
+
     /// This handles logging messages
     virtual void HandleLog(const LogEntry&) = 0;
     /// This handles messages to be sent to the console for the user (if applicable).
