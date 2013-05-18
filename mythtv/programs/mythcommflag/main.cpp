@@ -1098,6 +1098,8 @@ int main(int argc, char *argv[])
 //    QString allEnd   = MythDate::current().toString("yyyyMMddhhmmss");
     int jobType = JOB_NONE;
 
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHCOMMFLAG);
+
     if (!cmdline.Parse(argc, argv))
     {
         cmdline.PrintHelp();
@@ -1117,7 +1119,6 @@ int main(int argc, char *argv[])
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHCOMMFLAG);
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

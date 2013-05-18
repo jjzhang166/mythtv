@@ -2400,6 +2400,8 @@ void MythArchiveHelperCommandLineParser::LoadArguments(void)
 
 int main(int argc, char **argv)
 {
+    QCoreApplication::setApplicationName("mytharchivehelper");
+
     MythArchiveHelperCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -2420,7 +2422,6 @@ int main(int argc, char **argv)
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName("mytharchivehelper");
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

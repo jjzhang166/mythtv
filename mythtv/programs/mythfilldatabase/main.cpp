@@ -75,6 +75,8 @@ int main(int argc, char *argv[])
     int sourceid = -1;
     QString fromddfile_lineupid;
 
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFILLDATABASE);
+
     MythFillDatabaseCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -95,7 +97,6 @@ int main(int argc, char *argv[])
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFILLDATABASE);
 
     myth_nice(19);
 

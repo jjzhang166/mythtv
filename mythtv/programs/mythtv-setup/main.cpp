@@ -248,6 +248,8 @@ int main(int argc, char *argv[])
     QString scanTableName = "atsc-vsb8-us";
     QString scanInputName = "";
 
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHTV_SETUP);
+
     MythTVSetupCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -282,7 +284,6 @@ int main(int argc, char *argv[])
     QApplication::setDesktopSettingsAware(FALSE);
 #endif
     new QApplication(argc, argv, use_display);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHTV_SETUP);
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

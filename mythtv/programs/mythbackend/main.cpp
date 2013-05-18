@@ -54,6 +54,8 @@
 
 int main(int argc, char **argv)
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHBACKEND);
+
     MythBackendCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -82,7 +84,6 @@ int main(int argc, char **argv)
     // such as socket notifications :[
     QApplication a(argc, argv);
 #endif
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHBACKEND);
 
     if (cmdline.toBool("daemon"))
     {

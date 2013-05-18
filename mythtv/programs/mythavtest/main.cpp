@@ -145,6 +145,8 @@ class VideoPerformanceTest
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHAVTEST);
+
     MythAVTestCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -165,7 +167,6 @@ int main(int argc, char *argv[])
     }
 
     QApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHAVTEST);
 
     if (!cmdline.ConfigureLogging(kMultiThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

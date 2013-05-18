@@ -43,6 +43,8 @@ static void initKeys(void)
 
 int main(int argc, char **argv)
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHWELCOME);
+
     bool bShowSettings = false;
 
     MythWelcomeCommandLineParser cmdline;
@@ -65,7 +67,6 @@ int main(int argc, char **argv)
     }
     
     QApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHWELCOME);
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

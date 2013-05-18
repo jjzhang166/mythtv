@@ -186,6 +186,8 @@ int main(int argc, char *argv[])
     int isVideo = 0;
     bool passthru = false;
 
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHTRANSCODE);
+
     MythTranscodeCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -206,7 +208,6 @@ int main(int argc, char *argv[])
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHTRANSCODE);
 
     if (cmdline.toBool("outputfile"))
     {

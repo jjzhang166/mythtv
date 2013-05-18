@@ -56,6 +56,8 @@ void MythFillNVCommandLineParser::LoadArguments(void)
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setApplicationName("mythfillnetvision");
+
     MythFillNVCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -76,7 +78,6 @@ int main(int argc, char *argv[])
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName("mythfillnetvision");
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

@@ -1435,6 +1435,8 @@ int main(int argc, char **argv)
     bool bPromptForBackend    = false;
     bool bBypassAutoDiscovery = false;
 
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFRONTEND);
+
     MythFrontendCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -1462,7 +1464,6 @@ int main(int argc, char **argv)
     QApplication::setDesktopSettingsAware(false);
 #endif
     new QApplication(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHFRONTEND);
 
     if (!cmdline.ConfigureLogging(kMultiThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

@@ -33,6 +33,8 @@ int main(int argc, char **argv)
     QString startup_message = "";          // default to no startup message
     int message_time = 30;                 // time to display startup message
 
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHLCDSERVER);
+
     // TODO: check if this can use LOG_*
     debug_level = 0;  // don't show any debug messages by default
 
@@ -56,7 +58,6 @@ int main(int argc, char **argv)
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHLCDSERVER);
 
     if (cmdline.toBool("daemon"))
     {

@@ -104,11 +104,11 @@ static int RunCCExtract(const ProgramInfo &program_info)
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHCCEXTRACTOR);
+
     QCoreApplication a(argc, argv);
 
     bool useDB = false;
-
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHCCEXTRACTOR);
 
     MythCCExtractorCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))

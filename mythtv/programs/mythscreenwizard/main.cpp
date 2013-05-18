@@ -125,6 +125,8 @@ static void startAppearWiz(int _x, int _y, int _w, int _h)
 
 int main(int argc, char **argv)
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSCREENWIZARD);
+
     MythScreenWizardCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -150,7 +152,6 @@ int main(int argc, char **argv)
     QApplication::setDesktopSettingsAware(false);
 #endif
     new QApplication(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSCREENWIZARD);
 
     CleanupGuard callCleanup(cleanup);
 

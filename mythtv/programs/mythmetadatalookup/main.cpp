@@ -56,6 +56,8 @@ bool inJobQueue = false;
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMETADATALOOKUP);
+
     MythMetadataLookupCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -76,7 +78,6 @@ int main(int argc, char *argv[])
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMETADATALOOKUP);
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

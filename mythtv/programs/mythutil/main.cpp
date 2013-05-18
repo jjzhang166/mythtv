@@ -26,6 +26,8 @@
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHUTIL);
+
     MythUtilCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -56,8 +58,6 @@ int main(int argc, char *argv[])
     // such as socket notifications :[
     QApplication a(argc, argv);
 #endif
-
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHUTIL);
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

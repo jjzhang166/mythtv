@@ -811,6 +811,8 @@ static int startup()
 
 int main(int argc, char **argv)
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSHUTDOWN);
+
     MythShutdownCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -831,7 +833,6 @@ int main(int argc, char **argv)
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHSHUTDOWN);
 
     if (!cmdline.ConfigureLogging(kSingleThreadedLogging))
         return GENERIC_EXIT_NOT_OK;

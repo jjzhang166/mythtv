@@ -75,6 +75,8 @@ namespace
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMEDIASERVER);
+
     MythMediaServerCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -95,7 +97,6 @@ int main(int argc, char *argv[])
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHMEDIASERVER);
 
     if (cmdline.toBool("daemon"))
     {

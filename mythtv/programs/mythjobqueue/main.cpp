@@ -77,6 +77,8 @@ namespace
 
 int main(int argc, char *argv[])
 {
+    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHJOBQUEUE);
+
     MythJobQueueCommandLineParser cmdline;
     if (!cmdline.Parse(argc, argv))
     {
@@ -97,7 +99,6 @@ int main(int argc, char *argv[])
     }
 
     QCoreApplication a(argc, argv);
-    QCoreApplication::setApplicationName(MYTH_APPNAME_MYTHJOBQUEUE);
 
     int retval = cmdline.Daemonize();
     if (retval != GENERIC_EXIT_OK)

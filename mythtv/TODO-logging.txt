@@ -47,11 +47,5 @@
      something similar to the tickless kernel approach.
  */
 
-Can QCoreApplication::setApplicationName() be called earlier in
-programs so that we can initialize logging earlier?
-
 Document mythlogging{,_extra}.h
-
-Thread-safety strategy for g_myth_logging_log_level and
-g_myth_logging_verbose_mask, read write lock? other?
 
