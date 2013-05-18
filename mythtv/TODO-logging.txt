@@ -45,6 +45,7 @@
    Don't send a notify for every LOG event. These will cause the event
      handling thread to be woken up more than it should. Instead adopt
      something similar to the tickless kernel approach.
+   Disable console log when in --daemon mode and other logging is enabled.
  */
 
 Document mythlogging{,_extra}.h
