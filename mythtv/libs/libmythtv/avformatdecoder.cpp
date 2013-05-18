@@ -1989,7 +1989,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
 
         if (!enc->codec)
         {
-            if (OpenAVCodec(enc, codec) < 0)
+            if (!OpenAVCodec(enc, codec))
                 continue;
         }
 
@@ -2248,7 +2248,7 @@ int AvFormatDecoder::ScanStreams(bool novideo)
             {
                 QMutexLocker locker(avcodeclock);
 
-                if (OpenAVCodec(enc, codec) < 0)
+                if (!OpenAVCodec(enc, codec))
                 {
                     scanerror = -1;
                     break;
@@ -3968,7 +3968,7 @@ int AvFormatDecoder::AutoSelectTrack(uint type)
 }
 
 static vector<int> filter_lang(const sinfo_vec_t &tracks, int lang_key,
-                               const vector<int> ftype)
+                               const vector<int> &ftype)
 {
     vector<int> ret;
 
