@@ -1,5 +1,7 @@
-#ifndef SYSTEM_UNIX_H_
-#define SYSTEM_UNIX_H_
+/// -*- Mode: c++ -*-
+
+#ifndef _MYTHSYSTEM_WINDOWS_H_
+#define _MYTHSYSTEM_WINDOWS_H_
 
 #include <signal.h>
 
@@ -10,6 +12,7 @@
 #include <QList>
 #include <QMap>
 
+#include "mythsystemprivate.h"
 #include "mythbaseexp.h"
 #include "mythsystem.h"
 #include "mthread.h"
@@ -83,15 +86,15 @@ class MBASE_PUBLIC MythSystemWindows : public MythSystemPrivate
         MythSystemWindows(MythSystem *parent);
         ~MythSystemWindows();
 
-        virtual void Fork(time_t timeout);
-        virtual void Manage();
+        virtual void Fork(time_t timeout) MOVERRIDE;
+        virtual void Manage(void) MOVERRIDE;
 
-        virtual void Term(bool force=false);
-        virtual void Signal(int sig);
-        virtual void JumpAbort(void);
+        virtual void Term(bool force=false) MOVERRIDE;
+        virtual void Signal(int sig) MOVERRIDE;
+        virtual void JumpAbort(void) MOVERRIDE;
 
         virtual bool ParseShell(const QString &cmd, QString &abscmd,
-                                QStringList &args);
+                                QStringList &args) MOVERRIDE;
 
         friend class MythSystemManager;
         friend class MythSystemSignalManager;
@@ -104,7 +107,7 @@ class MBASE_PUBLIC MythSystemWindows : public MythSystemPrivate
         HANDLE      m_stdpipe[3];
 };
 
-#endif
+#endif // _MYTHSYSTEM_WINDOWS_H_
 
 /*
  * vim:ts=4:sw=4:ai:et:si:sts=4

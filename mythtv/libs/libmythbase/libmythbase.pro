@@ -21,7 +21,8 @@ HEADERS += verbosedefs.h mythversion.h compat.h mythconfig.h
 HEADERS += mythobservable.h mythevent.h
 HEADERS += mythtimer.h mythsignalingtimer.h mythdirs.h exitcodes.h
 HEADERS += lcddevice.h mythstorage.h remotefile.h
-HEADERS += mythcorecontext.h mythsystem.h mythlocale.h storagegroup.h
+HEADERS += mythcorecontext.h mythsystem.h mythsystemprivate.h
+HEADERS += mythlocale.h storagegroup.h
 HEADERS += mythcoreutil.h mythdownloadmanager.h mythtranslation.h
 HEADERS += unzip.h unzip_p.h zipentry_p.h iso639.h iso3166.h mythmedia.h
 HEADERS += mythmiscutil.h mythhdd.h mythcdrom.h autodeletedeque.h dbutil.h
@@ -65,13 +66,13 @@ SOURCES += httpcomms.cpp mcodecs.cpp mythhttppool.cpp mythhttphandler.cpp
 }
 
 unix {
-    SOURCES += system-unix.cpp
-    HEADERS += system-unix.h
+    SOURCES += mythsystemunix.cpp
+    HEADERS += mythsystemunix.h
 }
 
 mingw {
-    SOURCES += system-windows.cpp
-    HEADERS += system-windows.h
+    SOURCES += mythsystemwindows.cpp
+    HEADERS += mythsystemwindows.h
 }
 
 # Install headers to same location as libmyth to make things easier

@@ -21,9 +21,8 @@
 // has been added and as a core functionality class is due for a code
 // review and some cleanup.
 
-// FIXME: compat.h && signal.h should not be pulled into a header file.
-#include "compat.h"
-#include <signal.h>
+// C headers
+#include <stdint.h>
 
 typedef enum MythSystemMask {
     kMSNone               = 0x00000000,
@@ -51,14 +50,25 @@ typedef enum MythSystemMask {
 } MythSystemFlag;
 
 #ifdef __cplusplus
-#include <QString>
-#include <QStringList>
-#include <QBuffer>
-#include <QSemaphore>
-#include <QMap> // FIXME: This shouldn't be needed, Setting_t is not public
-#include <QPointer> // FIXME: QPointer is deprecated
 
-#include "referencecounter.h"
+#include <QStringList>
+#include <QSemaphore>
+#include <QBuffer>
+#include <QObject>
+#include <QString>
+#include <QMap> // FIXME: This shouldn't be needed, Setting_t is not public
+
+typedef enum MythSignal {
+    kSignalHangup,
+    kSignalInterrupt,
+    kSignalContinue,
+    kSignalQuit,
+    kSignalKill,
+    kSignalUser1,
+    kSignalUser2,
+    kSignalTerm,
+    kSignalStop,
+} MythSignal;
 
 // FIXME: _t is not how we name types in MythTV...
 typedef QMap<QString, bool> Setting_t;
@@ -105,16 +115,9 @@ class MBASE_PUBLIC MythSystem : public QObject
     // FIXME: We should not return a reference here
     QByteArray& ReadAllErr();
 
-    // FIXME: Replace these with a single Signal() that accepts
-    //        an enum typedef defined in this header.
+    // FIXME: Can Term be wrapped into Signal?
     void Term(bool force = false);
-    void Kill(void)   { Signal(SIGKILL); }
-    void Stop(void)   { Signal(SIGSTOP); }
-    void Cont(void)   { Signal(SIGCONT); }
-    void HangUp(void) { Signal(SIGHUP);  }
-    void USR1(void)   { Signal(SIGUSR1); }
-    void USR2(void)   { Signal(SIGUSR2); }
-    void Signal(int sig);
+    void Signal(MythSignal);
 
     // FIXME: Should be documented, and maybe should be called AbortJump()
     void JumpAbort(void);
@@ -185,11 +188,12 @@ class MBASE_PUBLIC MythSystem : public QObject
 
   private:
     void initializePrivate(void);
-    MythSystemPrivate *d;
+    MythSystemPrivate *d; // FIXME we generally call this m_priv in MythTV
 
   protected:
     void ProcessFlags(uint flags);
 
+    // FIXME if we already have a private helper, why all this?
     uint        m_status;
     QSemaphore  m_semReady;
 
@@ -205,81 +209,20 @@ class MBASE_PUBLIC MythSystem : public QObject
     QBuffer     m_stdbuff[3];
 };
 
-// FIXME: do we really need reference counting?
-// it shouldn't be difficult to track the lifetime of a private object.
-// FIXME: This should not live in the same header as MythSystem
-class MythSystemPrivate : public QObject, public ReferenceCounter
-{
-    Q_OBJECT
-
-  public:
-    MythSystemPrivate(const QString &debugName);
-
-    virtual void Fork(time_t timeout) = 0;
-    virtual void Manage(void) = 0;
-
-    virtual void Term(bool force=false) = 0;
-    virtual void Signal(int sig) = 0;
-    virtual void JumpAbort(void) = 0;
-
-    virtual bool ParseShell(const QString &cmd, QString &abscmd,
-                            QStringList &args) = 0;
-
-  protected:
-    QPointer<MythSystem> m_parent;
-
-    uint GetStatus(void)             { return m_parent->GetStatus(); }
-    void SetStatus(uint status)      { m_parent->SetStatus(status); }
-
-    // FIXME: We should not return a reference here
-    QString& GetLogCmd(void)         { return m_parent->GetLogCmd(); }
-    // FIXME: We should not return a reference here
-    QString& GetDirectory(void)      { return m_parent->GetDirectory(); }
-
-    bool GetSetting(const char *setting) 
-        { return m_parent->GetSetting(setting); }
-
-    // FIXME: We should not return a reference here
-    QString& GetCommand(void)        { return m_parent->GetCommand(); }
-    void SetCommand(QString &cmd)    { m_parent->SetCommand(cmd); }
-
-    // FIXME: We should not return a reference here
-    // FIXME: Rename "GetArguments"
-    QStringList &GetArgs(void)       { return m_parent->GetArgs(); }
-    // FIXME: Rename "SetArguments"
-    void SetArgs(QStringList &args)  { m_parent->SetArgs(args); }
-
-    // FIXME: This is likely a bad idea, but possibly manageable
-    //        since this is a private class.
-    QBuffer *GetBuffer(int index)    { return m_parent->GetBuffer(index); }
-    // FIXME: This is likely a bad idea, but possibly manageable
-    //        since this is a private class.
-    void Unlock(void)                { m_parent->Unlock(); }
-
-  signals:
-    void started(void);
-    void finished(void);
-    void error(uint status);
-    void readDataReady(int fd);
-};
 
 
 MBASE_PUBLIC uint myth_system(const QString &command, 
                               uint flags = kMSNone,
                               uint timeout = 0);
 MBASE_PUBLIC void myth_system_jump_abort(void);
-extern "C" {
-#endif
-
-/* C prototype */
-MBASE_PUBLIC uint myth_system_c(char *command, uint flags, uint timeout);
+#endif // __cplusplus
 
 #ifdef __cplusplus
-}
-#endif
+extern "C"
+#endif // __cplusplus
+MBASE_PUBLIC uint myth_system_c(char *command, uint flags, uint timeout);
 
-#endif
-
+#endif // MYTHSYSTEM_H_
 /*
  * vim:ts=4:sw=4:ai:et:si:sts=4
  */

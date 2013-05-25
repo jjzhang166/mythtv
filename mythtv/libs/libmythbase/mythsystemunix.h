@@ -1,5 +1,7 @@
-#ifndef SYSTEM_UNIX_H_
-#define SYSTEM_UNIX_H_
+/// -*- Mode: c++ -*-
+
+#ifndef _MYTHSYSTEM_UNIX_H_
+#define _MYTHSYSTEM_UNIX_H_
 
 #include <sys/select.h>
 #include <signal.h>
@@ -14,6 +16,7 @@
 #include <QMutex>
 #include <QPointer>
 
+#include "mythsystemprivate.h"
 #include "mythbaseexp.h"
 #include "mythsystem.h"
 #include "mthread.h"
@@ -84,15 +87,15 @@ class MBASE_PUBLIC MythSystemUnix : public MythSystemPrivate
         MythSystemUnix(MythSystem *parent);
         ~MythSystemUnix();
 
-        virtual void Fork(time_t timeout);
-        virtual void Manage();
+        virtual void Fork(time_t timeout) MOVERRIDE;
+        virtual void Manage(void) MOVERRIDE;
 
-        virtual void Term(bool force=false);
-        virtual void Signal(int sig);
-        virtual void JumpAbort(void);
+        virtual void Term(bool force=false) MOVERRIDE;
+        virtual void Signal(int sig) MOVERRIDE;
+        virtual void JumpAbort(void) MOVERRIDE;
 
         virtual bool ParseShell(const QString &cmd, QString &abscmd,
-                                QStringList &args);
+                                QStringList &args) MOVERRIDE;
 
         friend class MythSystemManager;
         friend class MythSystemSignalManager;
@@ -105,7 +108,7 @@ class MBASE_PUBLIC MythSystemUnix : public MythSystemPrivate
         int         m_stdpipe[3];
 };
 
-#endif
+#endif // _MYTHSYSTEM_UNIX_H_
 
 /*
  * vim:ts=4:sw=4:ai:et:si:sts=4
