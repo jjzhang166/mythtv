@@ -158,7 +158,7 @@ class TestMythLoggingBase : public QObject
         }
 
         initialize_logging(
-            VB_CHANNEL, LOG_WARNING, kDaemonFacility, use_threads, false,
+            VB_CHANNEL, LOG_WARNING, kDaemonFacility, use_threads,
             logfile, logprefix);
 
         QVERIFY(!logfile.isEmpty());
