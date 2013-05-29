@@ -699,11 +699,11 @@ class TestMythLoggingBase : public QObject
         }
     }
 
-    void benchmark_processing_10000(void)
+    void benchmark_processing_1000(void)
     {
         QBENCHMARK
         {
-            log_many_times(10000);
+            log_many_times(1000);
             wait_for_log_thread_completion();
         }
     }
