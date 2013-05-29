@@ -73,6 +73,7 @@ MusicMetadata::MusicMetadata(int lid, QString lstation, QString lchannel, QStrin
             m_albumArt(NULL),
             m_id(lid),
             m_filename(lurl),
+            m_fileSize(0),
             m_changed(false),
             m_station(lstation),
             m_channel(lchannel),
@@ -847,7 +848,15 @@ void MusicMetadata::toMap(MetadataMap &metadataMap, const QString &prefix)
     metadataMap[prefix + "station"] = m_station;
     metadataMap[prefix + "channel"] = m_channel;
     metadataMap[prefix + "genre"] = m_genre;
-    metadataMap[prefix + "url"] = m_filename;
+
+    if (isRadio())
+    {
+        QUrl url(m_filename);
+        metadataMap[prefix + "url"] = url.toString(QUrl::RemoveUserInfo);
+    }
+    else
+        metadataMap[prefix + "url"] = m_filename;
+
     metadataMap[prefix + "logourl"] = m_logoUrl;
     metadataMap[prefix + "metadataformat"] = m_metaFormat;
 }
@@ -965,7 +974,7 @@ QString MusicMetadata::getAlbumArtFile(void)
         res = albumart_image->filename;
 
     // check file exists
-    if (!res.isEmpty())
+    if (!res.isEmpty() && albumart_image)
     {
         int repo = ID_TO_REPO(m_id);
         if (repo == RT_Radio)
