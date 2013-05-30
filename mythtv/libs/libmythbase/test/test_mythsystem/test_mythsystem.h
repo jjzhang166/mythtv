@@ -27,7 +27,7 @@
 #include <iostream>
 using namespace std;
 
-//#define NEW_LOGGING
+#define NEW_LOGGING
 #ifdef NEW_LOGGING
 #include "mythlogging_extra.h"
 #include "debugloghandler.h"
