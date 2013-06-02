@@ -41,7 +41,7 @@ using namespace std;
 #include "mythdirs.h"
 #include "mythlogging.h"
 #include "libmythupnp/httprequest.h"    // for TestMimeType()
-#include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "exitcodes.h"
 
 #ifdef USING_DVB
@@ -564,19 +564,20 @@ void XMLTVConfig::Load(void)
     QStringList name_list;
     QStringList prog_list;
 
-    QStringList args;
+    QStringList args("tv_find_grabbers");
     args += "baseline";
 
-    MythSystemLegacy find_grabber_proc("tv_find_grabbers", args, 
-                                 kMSStdOut | kMSRunShell);
-    find_grabber_proc.Run(25);
     LOG(VB_GENERAL, LOG_INFO,
-        loc + "Running 'tv_find_grabbers " + args.join(" ") + "'.");
-    uint status = find_grabber_proc.Wait();
+        loc + QString("Running '%1'.").arg(args.join(" ")));
 
-    if (status == GENERIC_EXIT_OK)
+    QScopedPointer<MythSystem> find_grabber_proc(
+        MythSystem::Create(args, kMSStdOut | kMSRunShell));
+    find_grabber_proc->Wait();
+
+    if (GENERIC_EXIT_OK == find_grabber_proc->GetExitCode())
     {
-        QTextStream ostream(find_grabber_proc.ReadAll());
+        QTextStream ostream(
+            find_grabber_proc->GetStandardOutputStream()->readAll());
         while (!ostream.atEnd())
         {
             QString grabber_list(ostream.readLine());

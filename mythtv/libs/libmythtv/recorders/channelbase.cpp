@@ -786,6 +786,10 @@ bool ChannelBase::ChangeExternalChannel(const QString &changer,
     LOG(VB_CHANNEL, LOG_INFO, LOC +
         QString("Running command: %1").arg(command));
 
+    // TODO FIXME Can we really run in the background and still hope
+    // to kill runaway scripts? If yes, then we must add a unit test
+    // for this behaviour so it isn't lost. If no, we must fix this.
+    // -- dtk 2013-06-02
     m_system = new MythSystemLegacy(command, kMSRunShell | kMSRunBackground);
     m_system->Run();
 

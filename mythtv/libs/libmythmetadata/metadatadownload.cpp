@@ -8,7 +8,7 @@
 #include "mythcorecontext.h"
 #include "mythdirs.h"
 #include "mythuihelper.h"
-#include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "storagegroup.h"
 #include "metadatadownload.h"
 #include "mythmiscutil.h"
@@ -249,15 +249,16 @@ MetadataLookupList MetadataDownload::runGrabber(QString cmd, QStringList args,
                                                 MetadataLookup* lookup,
                                                 bool passseas)
 {
-    MythSystemLegacy grabber(cmd, args, kMSStdOut);
-    MetadataLookupList list;
+    QScopedPointer<MythSystem> grabber(
+        MythSystem::Create(QStringList(cmd) + args, kMSStdOut));
 
+    MetadataLookupList list;
     LOG(VB_GENERAL, LOG_INFO, QString("Running Grabber: %1 %2")
         .arg(cmd).arg(args.join(" ")));
 
-    grabber.Run();
-    grabber.Wait();
-    QByteArray result = grabber.ReadAll();
+    grabber->Wait();
+
+    QByteArray result = grabber->GetStandardOutputStream()->readAll();
     if (!result.isEmpty())
     {
         QDomDocument doc;
@@ -308,18 +309,13 @@ QString MetadataDownload::GetGameGrabber()
 
 bool MetadataDownload::runGrabberTest(const QString &grabberpath)
 {
-    QStringList args;
+    QStringList args(grabberpath);
     args.append("-t");
 
-    MythSystemLegacy grabber(grabberpath, args, kMSStdOut);
+    QScopedPointer<MythSystem> grabber(MythSystem::Create(args, kMSStdOut));
+    grabber->Wait();
 
-    grabber.Run();
-    uint exitcode = grabber.Wait();
-
-    if (exitcode != 0)
-        return false;
-
-    return true;
+    return 0 == grabber->GetExitCode();
 }
 
 bool MetadataDownload::MovieGrabberWorks()

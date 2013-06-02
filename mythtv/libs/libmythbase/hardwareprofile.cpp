@@ -1,6 +1,7 @@
 #include "hardwareprofile.h"
 
 // qt
+#include <QScopedPointer>
 #include <QStringList>
 #include <QDir>
 #include <QTextStream>
@@ -48,14 +49,12 @@ void HardwareProfile::GenerateUUIDs(void)
         LOG(VB_GENERAL, LOG_INFO,
                  "No UUID in DB or File, generating new UUID...");
 
-        QString cmd = GetShareDir() + "hardwareprofile/sendProfile.py";
-        QStringList args;
+        QStringList args(GetShareDir() + "hardwareprofile/sendProfile.py");
         args << "-p";
-        MythSystemLegacy system(cmd, args, kMSRunShell | kMSStdOut);
-
-        system.Run();
-        system.Wait();
-        m_hardwareProfile = system.ReadAll();
+        QScopedPointer<MythSystem> system(
+            MythSystem::Create(args, kMSRunShell | kMSStdOut));
+        system->Wait();
+        m_hardwareProfile = system->GetStandardOutputStream()->readAll();
         m_uuid = GetPrivateUUIDFromFile();
     }
     else if (fileUUID.isEmpty())
@@ -179,14 +178,12 @@ bool HardwareProfile::SubmitProfile(void)
                  QString("Submitting the following hardware profile:  %1")
                          .arg(m_hardwareProfile));
 
-    QString cmd = GetShareDir() + "hardwareprofile/sendProfile.py";
-    QStringList args;
-    args << "--submitOnly";
-    args << "-a";
-    MythSystemLegacy system(cmd, args, kMSRunShell | kMSStdOut);
-
-    system.Run();
-    if (system.Wait() == GENERIC_EXIT_OK)
+    QStringList args(GetShareDir() + "hardwareprofile/sendProfile.py");
+    args << "--submitOnly" << "-a";
+    QScopedPointer<MythSystem> system(
+        MythSystem::Create(args, kMSRunShell | kMSStdOut));
+    system->Wait();
+    if (GENERIC_EXIT_OK == system->GetExitCode())
     {
         GenerateUUIDs();
         gCoreContext->SaveSetting("HardwareProfileUUID", GetPrivateUUID());
@@ -195,8 +192,6 @@ bool HardwareProfile::SubmitProfile(void)
                                   MythDate::current_iso_string());
         return true;
     }
-    else
-        return false;
 
     return false;
 }
@@ -210,12 +205,11 @@ bool HardwareProfile::DeleteProfile(void)
              QString("Deleting the following hardware profile: %1")
                      .arg(m_uuid));
 
-    QString cmd = GetShareDir() + "hardwareprofile/deleteProfile.py";
-    QStringList args;
-    MythSystemLegacy system(cmd, args, kMSRunShell | kMSStdOut);
-
-    system.Run();
-    if (system.Wait() == GENERIC_EXIT_OK)
+    QScopedPointer<MythSystem> system(
+        MythSystem::Create(GetShareDir() + "hardwareprofile/deleteProfile.py",
+                           kMSRunShell | kMSStdOut));
+    system->Wait();
+    if (GENERIC_EXIT_OK == system->GetExitCode())
     {
         gCoreContext->SaveSetting("HardwareProfileUUID", "");
         gCoreContext->SaveSetting("HardwareProfilePublicUUID", "");
@@ -223,8 +217,6 @@ bool HardwareProfile::DeleteProfile(void)
                                   MythDate::current_iso_string());
         return true;
     }
-    else
-        return false;
 
     return false;
 }
@@ -243,12 +235,10 @@ QString HardwareProfile::GetProfileURL() const
 
 QString HardwareProfile::GetHardwareProfile() const
 {
-    QString cmd = GetShareDir() + "hardwareprofile/sendProfile.py";
-    QStringList args;
+    QStringList args(GetShareDir() + "hardwareprofile/sendProfile.py");
     args << "-p";
-    MythSystemLegacy system(cmd, args, kMSRunShell | kMSStdOut);
-
-    system.Run();
-    system.Wait();
-    return system.ReadAll();
+    QScopedPointer<MythSystem> system(
+        MythSystem::Create(args, kMSRunShell | kMSStdOut));
+    system->Wait();
+    return QString(system->GetStandardOutputStream()->readAll());
 }

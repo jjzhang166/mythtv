@@ -9,6 +9,7 @@
 #include "mythdb.h"
 #include "mythdirs.h"
 #include "mythlogging.h"
+#include "mythsystem.h"
 #include "mythsystemlegacy.h"
 
 bool SourceUtil::HasDigitalChannel(uint sourceid)
@@ -364,9 +365,7 @@ bool SourceUtil::UpdateChannelsFromListings(uint sourceid, QString cardtype, boo
 {
     if (wait)
     {
-        QString cmd = GetInstallPrefix() +
-                      "/bin/mythfilldatabase";
-        QStringList args;
+        QString args(GetInstallPrefix() + "/bin/mythfilldatabase");
         args.append("--only-update-channels");
 
         if (sourceid)
@@ -380,9 +379,7 @@ bool SourceUtil::UpdateChannelsFromListings(uint sourceid, QString cardtype, boo
             args.append(cardtype);
         }
 
-        MythSystemLegacy getchan(cmd, args, kMSRunShell | kMSAutoCleanup );
-        getchan.Run();
-        getchan.Wait();
+        MythSystem::Create(args, kMSRunShell | kMSAutoCleanup);
     }
     else
     {

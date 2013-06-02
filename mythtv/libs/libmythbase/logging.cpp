@@ -22,7 +22,7 @@ using namespace std;
 #include "mythdb.h"
 #include "mythdirs.h"
 #include "mythcorecontext.h"
-#include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "mythsignalingtimer.h"
 #include "dbutil.h"
 #include "exitcodes.h"
@@ -487,15 +487,11 @@ void LoggerThread::launchLogServer(void)
     {
         LOG(VB_GENERAL, LOG_INFO, "Starting mythlogserver");
 
-        MythSystemMask mask = MythSystemMask(kMSDontBlockInputDevs |
-                                             kMSDontDisableDrawing |
-                                             kMSRunShell);
-        QStringList args;
+        QStringList args(GetInstallPrefix() + "/bin/mythlogserver");
         args << "--daemon" << logPropagateArgs;
-
-        MythSystemLegacy ms(GetInstallPrefix() + "/bin/mythlogserver", args, mask);
-        ms.Run();
-        ms.Wait(0);
+        MythSystem::Create(
+            args, (kMSDontBlockInputDevs | kMSDontDisableDrawing |
+                   kMSRunShell | kMSAutoCleanup));
     }
 }
 

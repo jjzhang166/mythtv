@@ -1,11 +1,12 @@
 #include <unistd.h>
 
 // QT headers
-#include <QDir>
-#include <QFile>
-#include <QTextStream>
-#include <QTextCodec>                                                          
+#include <QScopedPointer>
 #include <QApplication>
+#include <QTextStream>
+#include <QTextCodec>
+#include <QFile>
+#include <QDir>
 
 // MythTV headers
 #include <mythcontext.h>
@@ -13,6 +14,7 @@
 #include <compat.h>
 #include <mythdirs.h>
 #include <mythsystemlegacy.h>
+#include <mythsystem.h>
 #include <exitcodes.h>
 
 // MythWeather headers
@@ -22,24 +24,26 @@
 QStringList WeatherSource::ProbeTypes(QString workingDirectory,
                                       QString program)
 {
-    QStringList arguments("-t");
-    const QString loc = QString("WeatherSource::ProbeTypes(%1 %2): ")
-        .arg(program).arg(arguments.join(" "));
-    QStringList types;
+    QStringList args(program);
+    args += ("-t");
+    const QString loc = QString("WeatherSource::ProbeTypes(%1): ")
+        .arg(args.join(" "));
 
-    uint flags = kMSRunShell | kMSStdOut | 
-                 kMSDontDisableDrawing | kMSDontBlockInputDevs;
-    MythSystemLegacy ms(program, arguments, flags);
-    ms.SetDirectory(workingDirectory);
-    ms.Run();
-    if (ms.Wait() != GENERIC_EXIT_OK)
+    uint flags = kMSRunShell | kMSStdOut |
+        kMSDontDisableDrawing | kMSDontBlockInputDevs;
+
+    QScopedPointer<MythSystem> ms(
+        MythSystem::Create(args, flags, workingDirectory));
+    ms->Wait();
+
+    if (GENERIC_EXIT_OK != ms->GetExitCode())
     {
         LOG(VB_GENERAL, LOG_ERR, loc + "Cannot run script");
-        return types;
+        return QStringList();
     }
 
-    QByteArray result = ms.ReadAll();
-    QTextStream text(result);
+    QTextStream text(ms->GetStandardOutputStream()->readAll());
+    QStringList types;
 
     while (!text.atEnd())
     {
@@ -63,26 +67,28 @@ bool WeatherSource::ProbeTimeouts(QString  workingDirectory,
                                   uint    &updateTimeout,
                                   uint    &scriptTimeout)
 {
-    QStringList arguments("-T");
-    const QString loc = QString("WeatherSource::ProbeTimeouts(%1 %2): ")
-        .arg(program).arg(arguments.join(" "));
+    QStringList args(program);
+    args += "-T";
+    const QString loc = QString("WeatherSource::ProbeTimeouts(%1): ")
+        .arg(args.join(" "));
 
     updateTimeout = DEFAULT_UPDATE_TIMEOUT;
     scriptTimeout = DEFAULT_SCRIPT_TIMEOUT;
 
-    uint flags = kMSRunShell | kMSStdOut | 
-                 kMSDontDisableDrawing | kMSDontBlockInputDevs;
-    MythSystemLegacy ms(program, arguments, flags);
-    ms.SetDirectory(workingDirectory);
-    ms.Run();
-    if (ms.Wait() != GENERIC_EXIT_OK)
+    uint flags = kMSRunShell | kMSStdOut |
+        kMSDontDisableDrawing | kMSDontBlockInputDevs;
+
+    QScopedPointer<MythSystem> ms(
+        MythSystem::Create(args, flags, workingDirectory));
+    ms->Wait();
+
+    if (GENERIC_EXIT_OK != ms->GetExitCode())
     {
         LOG(VB_GENERAL, LOG_ERR, loc + "Cannot run script");
         return false;
     }
 
-    QByteArray result = ms.ReadAll();
-    QTextStream text(result);
+    QTextStream text(ms->GetStandardOutputStream()->readAll());
 
     QStringList lines;
     while (!text.atEnd())
@@ -128,24 +134,26 @@ bool WeatherSource::ProbeTimeouts(QString  workingDirectory,
 
 bool WeatherSource::ProbeInfo(ScriptInfo &info)
 {
-    QStringList arguments("-v");
+    QStringList args(info.program);
+    args += "-v";
 
-    const QString loc = QString("WeatherSource::ProbeInfo(%1 %2): ")
-        .arg(info.program).arg(arguments.join(" "));
+    const QString loc = QString("WeatherSource::ProbeInfo(%1): ")
+        .arg(args.join(" "));
 
-    uint flags = kMSRunShell | kMSStdOut | 
-                 kMSDontDisableDrawing | kMSDontBlockInputDevs;
-    MythSystemLegacy ms(info.program, arguments, flags);
-    ms.SetDirectory(info.path);
-    ms.Run();
-    if (ms.Wait() != GENERIC_EXIT_OK)
+    uint flags = kMSRunShell | kMSStdOut |
+        kMSDontDisableDrawing | kMSDontBlockInputDevs;
+
+    QScopedPointer<MythSystem> ms(
+        MythSystem::Create(args, flags, info.path));
+    ms->Wait();
+
+    if (GENERIC_EXIT_OK != ms->GetExitCode())
     {
         LOG(VB_GENERAL, LOG_ERR, loc + "Cannot run script");
         return false;
     }
 
-    QByteArray result = ms.ReadAll();
-    QTextStream text(result);
+    QTextStream text(ms->GetStandardOutputStream()->readAll());
 
     QStringList lines;
     while (!text.atEnd())
@@ -375,31 +383,30 @@ void WeatherSource::disconnectScreen(WeatherScreen *ws)
 
 QStringList WeatherSource::getLocationList(const QString &str)
 {
-    QString program = m_info->program;
-    QStringList args;
+    QStringList args(m_info->program);
     args << "-l";
     args << str;
 
-    const QString loc = QString("WeatherSource::getLocationList(%1 %2): ")
-        .arg(program).arg(args.join(" "));
+    const QString loc = QString("WeatherSource::getLocationList(%1): ")
+        .arg(args.join(" "));
 
-    uint flags = kMSRunShell | kMSStdOut | 
-                 kMSDontDisableDrawing | kMSDontBlockInputDevs;
-    MythSystemLegacy ms(program, args, flags);
-    ms.SetDirectory(m_info->path);
-    ms.Run();
-    
-    if (ms.Wait() != GENERIC_EXIT_OK)
+    uint flags = kMSRunShell | kMSStdOut |
+        kMSDontDisableDrawing | kMSDontBlockInputDevs;
+
+    QScopedPointer<MythSystem> ms(
+        MythSystem::Create(args, flags, m_info->path));
+    ms->Wait();
+
+    if (GENERIC_EXIT_OK != ms->GetExitCode())
     {
         LOG(VB_GENERAL, LOG_ERR, loc + "Cannot run script");
         return QStringList();
     }
 
     QStringList locs;
-    QByteArray result = ms.ReadAll();
-    QTextStream text(result);
-                                                                                
-    QTextCodec *codec = QTextCodec::codecForName("UTF-8");                     
+    QTextStream text(ms->GetStandardOutputStream()->readAll());
+
+    QTextCodec *codec = QTextCodec::codecForName("UTF-8");
     while (!text.atEnd())
     {
         QString tmp = text.readLine();

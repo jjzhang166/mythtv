@@ -27,6 +27,7 @@ using namespace std;
 #include <QtDBus>
 #include <QDBusConnection>
 #endif
+#include <QScopedPointer>
 #include <QList>
 #include <QTextStream>
 #include <QDir>
@@ -364,7 +365,7 @@ QString MediaMonitorUnix::GetDeviceFile(const QString &sysfs)
                  "MediaMonitorUnix::GetDeviceFile udev_new failed");
   #else   // HAVE_LIBUDEV
     // Use udevadm info to determine the name
-    QStringList  args;
+    QStringList args("udevinfo")
     args << "info" << "-q"  << "name"
          << "-rp" << sysfs;
 
@@ -372,29 +373,27 @@ QString MediaMonitorUnix::GetDeviceFile(const QString &sysfs)
     if (VERBOSE_LEVEL_CHECK(VB_MEDIA, LOG_DEBUG))
         flags |= kMSStdErr;
 
-    // TODO: change this to a MythSystemLegacy on the stack?
-    MythSystemLegacy *udevinfo = new MythSystemLegacy("udevinfo", args, flags);
-    udevinfo->Run(4);
-    if( udevinfo->Wait() != GENERIC_EXIT_OK )
-    {
-        delete udevinfo;
+    QScopedPointer<MythSystem> udevinfo(MythSystem::Create(args, flags));
+    udevinfo->Wait();
+
+    if (udevinfo->GetExitStatus() != GENERIC_EXIT_OK)
         return ret;
-    }
 
     if (VERBOSE_LEVEL_CHECK(VB_MEDIA, LOG_DEBUG))
     {
-        QTextStream estream(udevinfo->ReadAllErr());
-        while( !estream.atEnd() )
+        QTextStream estream(udevinfo->GetStandardError()->readAll());
+        while (!estream.atEnd())
+        {
             LOG(VB_MEDIA, LOG_DEBUG,
                     msg + " - udevadm info error...\n" + estream.readLine());
+        }
     }
 
-    QTextStream ostream(udevinfo->ReadAll());
+    QTextStream ostream(udevinfo->GetStandardOutput()->readAll());
     QString udevLine = ostream.readLine();
     if (!udevLine.startsWith("device not found in database") )
         ret = udevLine;
 
-    delete udevinfo;
   #endif // HAVE_LIBUDEV
 #endif // linux
 

@@ -6,7 +6,7 @@
 
 #include "mythdirs.h"
 #include "mythcontext.h"
-#include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "exitcodes.h"
 #include "mythdate.h"
 #include "mythlogging.h"
@@ -49,25 +49,28 @@ void GrabberScript::run()
     RunProlog();
     QMutexLocker locker(&m_lock);
 
-    QString commandline = m_commandline;
-    MythSystemLegacy getTree(commandline, QStringList("-T"),
-                       kMSRunShell | kMSStdOut);
-    getTree.Run(900);
-    uint status = getTree.Wait();
+    QStringList args(m_commandline);
+    args += "-T";
+    MythSystem *getTree =
+        MythSystem::Create(args, kMSRunShell | kMSStdOut);
+    getTree->Wait();
+    int exit_code = getTree->GetExitCode();
 
-    if( status == GENERIC_EXIT_CMD_NOT_FOUND )
+    if (GENERIC_EXIT_CMD_NOT_FOUND == exit_code)
+    {
         LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Internet Content Source %1 cannot run, file missing.")
                 .arg(m_title));
-    else if( status == GENERIC_EXIT_OK )
+    }
+    else if (GENERIC_EXIT_OK == exit_code)
     {
         LOG(VB_GENERAL, LOG_INFO, LOC +
             QString("Internet Content Source %1 completed download, "
                     "beginning processing...").arg(m_title));
 
-        QByteArray result = getTree.ReadAll();
+        QByteArray result = getTree->GetStandardOutput()->readAll();
 
-	QDomDocument domDoc;
+        QDomDocument domDoc;
         domDoc.setContent(result, true);
         QDomElement root = domDoc.documentElement();
         QDomElement channel = root.firstChildElement("channel");
@@ -85,10 +88,13 @@ void GrabberScript::run()
                     "marking as updated.").arg(m_title));
     }
     else
+    {
         LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Internet Content Source %1 crashed while grabbing tree.")
                 .arg(m_title));
+    }
 
+    delete getTree;
     emit finished();
     RunEpilog();
 }

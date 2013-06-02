@@ -11,6 +11,7 @@
 #include <QString>
 
 #include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "exitcodes.h"
 #include "../mythgallery/galleryutil.h"
 #include "mythlogging.h"
@@ -56,17 +57,18 @@ bool DcrawHandler::read(QImage *image)
         return false;
 
     path = "'" + path + "'";
-    QStringList arguments;
+    QStringList arguments("dcraw");
     arguments << "-c" << "-w" << "-W";
 #ifdef ICC_PROFILE
     arguments << "-p" << ICC_PROFILE;
 #endif // ICC_PROFILE
     arguments << path;
 
-    uint flags = kMSRunShell | kMSStdOut;
-    MythSystemLegacy ms("dcraw", arguments, flags);
-    ms.Run();
-    if (ms.Wait() != GENERIC_EXIT_OK)
+    QScopedPointer<MythSystem> ms(
+        MythSystem::Create(arguments, kMSRunShell | kMSStdOut));
+    ms->Wait();
+
+    if (ms->GetExitCode())
         return false;
 
     QByteArray buffer = ms.ReadAll();
@@ -79,14 +81,15 @@ bool DcrawHandler::read(QImage *image)
 
 int DcrawHandler::loadThumbnail(QImage *image, QString fileName)
 {
-    QStringList arguments;
+    QStringList arguments("dcraw");
     arguments << "-e" << "-c";
     arguments << "'" + fileName + "'";
 
-    uint flags = kMSRunShell | kMSStdOut;
-    MythSystemLegacy ms("dcraw", arguments, flags);
-    ms.Run();
-    if (ms.Wait() != GENERIC_EXIT_OK)
+    QScopedPointer<MythSystem> ms(
+        MythSystem::Create(arguments, kMSRunShell | kMSStdOut));
+    ms->Wait();
+
+    if (ms->GetExitCode())
         return -1;
 
     QByteArray buffer = ms.ReadAll();
