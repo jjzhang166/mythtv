@@ -52,7 +52,7 @@ HouseKeeper::HouseKeeper(bool runthread, bool master, Scheduler *lsched) :
     isMaster(master),           sched(lsched),
     houseKeepingRun(runthread), houseKeepingThread(NULL),
     fillDBThread(NULL),         fillDBStarted(false),
-    fillDBMythSystemLegacy(NULL)
+    fillDBMythSystem(NULL)
 {
     CleanupMyOldRecordings();
 
@@ -439,22 +439,22 @@ void HouseKeeper::RunMFD(void)
 
     {
         QMutexLocker locker(&fillDBLock);
-        fillDBMythSystemLegacy = new MythSystemLegacy(command, kMSRunShell |
-                                                   kMSAutoCleanup);
-        fillDBMythSystemLegacy->Run(0);
+        fillDBMythSystem = new MythSystemLegacy(
+            command, kMSRunShell | kMSAutoCleanup);
+        fillDBMythSystem->Run(0);
         fillDBWait.wakeAll();
     }
 
     MythFillDatabaseThread::setTerminationEnabled(true);
 
-    uint result = fillDBMythSystemLegacy->Wait(0);
+    uint result = fillDBMythSystem->Wait(0);
 
     MythFillDatabaseThread::setTerminationEnabled(false);
 
     {
         QMutexLocker locker(&fillDBLock);
-        fillDBMythSystemLegacy->deleteLater();
-        fillDBMythSystemLegacy = NULL;
+        fillDBMythSystem->deleteLater();
+        fillDBMythSystem = NULL;
         fillDBWait.wakeAll();
     }
 
@@ -489,15 +489,15 @@ void HouseKeeper::KillMFD(void)
         return;
 
     QMutexLocker locker(&fillDBLock);
-    if (fillDBMythSystemLegacy && fillDBThread->isRunning())
+    if (fillDBMythSystem && fillDBThread->isRunning())
     {
-        fillDBMythSystemLegacy->Term(false);
+        fillDBMythSystem->Term(false);
         fillDBWait.wait(locker.mutex(), 50);
     }
 
-    if (fillDBMythSystemLegacy && fillDBThread->isRunning())
+    if (fillDBMythSystem && fillDBThread->isRunning())
     {
-        fillDBMythSystemLegacy->Term(true);
+        fillDBMythSystem->Term(true);
         fillDBWait.wait(locker.mutex(), 50);
     }
 
