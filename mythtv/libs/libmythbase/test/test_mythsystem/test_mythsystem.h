@@ -245,7 +245,6 @@ class TestMythSystem: public QObject
 
     void get_disk_priority_returns_priority_sent(void)
     {
-        MSKIP("Not working yet");
         QScopedPointer<MythSystem> cmd(
             MythSystem::Create(
                 "exit 5", kMSRunShell, QString(),

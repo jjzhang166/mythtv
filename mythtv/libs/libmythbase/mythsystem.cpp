@@ -79,6 +79,24 @@ class MythSystemLegacyWrapper : public MythSystem
         if (nice_sentinel != cpu_nice)
             legacy->SetNice(cpu_nice);
 
+        int io_nice = nice_sentinel;
+        switch (diskPriority)
+        {
+            case kIdlePriority: io_nice = 8; break;
+            case kLowestPriority: io_nice = 7; break;
+            case kLowPriority: io_nice = 6; break;
+            case kNormalPriority: io_nice = 4; break;
+            case kHighPriority: io_nice = 2; break;
+            case kHighestPriority: io_nice = 0; break;
+            case kTimeCriticalPriority: io_nice = -1; break;
+            case kInheritPriority:
+                io_nice = nice_sentinel;
+                break;
+        }
+
+        if (nice_sentinel != io_nice)
+            legacy->SetIOPrio(io_nice);
+
         uint ac = kMSAutoCleanup | kMSRunBackground;
         if ((ac & flags) == ac)
         {
@@ -133,7 +151,22 @@ class MythSystemLegacyWrapper : public MythSystem
     /// Return the Disk Priority of the program
     Priority GetDiskPriority(void) const MOVERRIDE
     {
-        return kNormalPriority;
+        int io_nice = m_legacy->GetIOPrio();
+
+        if (io_nice >= 8)
+            return kIdlePriority;
+        else if (io_nice >= 7)
+            return kLowestPriority;
+        else if (io_nice >= 6)
+            return kLowPriority;
+        else if (io_nice >= 4)
+            return kNormalPriority;
+        else if (io_nice >= 2)
+            return kHighPriority;
+        else if (io_nice >= 0)
+            return kHighestPriority;
+        else
+            return kTimeCriticalPriority;
     }
 
     /// Blocks until child process is collected or timeout reached.
