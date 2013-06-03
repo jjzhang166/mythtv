@@ -212,6 +212,14 @@ class TestMythSystem: public QObject
         QVERIFY(cmd->GetFlags() == (kMSStdOut | kMSDontDisableDrawing));
     }
 
+    void starting_path_respected(void)
+    {
+        QScopedPointer<MythSystem> cmd(
+            MythSystem::Create("pwd", kMSStdOut, "/tmp"));
+        QVERIFY(QString(cmd->GetStandardOutputStream()->readAll())
+                .contains("/tmp"));
+    }
+
     void get_starting_path_returns_path_sent(void)
     {
         QScopedPointer<MythSystem> cmd(
