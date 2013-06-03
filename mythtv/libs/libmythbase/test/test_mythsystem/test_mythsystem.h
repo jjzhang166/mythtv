@@ -223,7 +223,7 @@ class TestMythSystem: public QObject
     void get_starting_path_returns_path_sent(void)
     {
         QScopedPointer<MythSystem> cmd(
-            MythSystem::Create("exit 5", kMSNone, "/tmp"));
+            MythSystem::Create("exit 5", kMSRunShell, "/tmp"));
         QVERIFY(cmd->GetStartingPath() == "/tmp");
     }
 
@@ -231,16 +231,15 @@ class TestMythSystem: public QObject
     {
         MSKIP("Not working yet");
         QScopedPointer<MythSystem> cmd(
-            MythSystem::Create("exit 5", kMSNone));
+            MythSystem::Create("exit 5", kMSRunShell));
         QVERIFY(!cmd->GetStartingPath().isEmpty());
     }
 
     void get_cpu_priority_returns_priority_sent(void)
     {
-        MSKIP("Not working yet");
         QScopedPointer<MythSystem> cmd(
             MythSystem::Create(
-                "exit 5", kMSNone, QString(), MythSystem::kLowPriority));
+                "exit 5", kMSRunShell, QString(), MythSystem::kLowPriority));
         QVERIFY(cmd->GetCPUPriority() == MythSystem::kLowPriority);
     }
 
@@ -249,7 +248,7 @@ class TestMythSystem: public QObject
         MSKIP("Not working yet");
         QScopedPointer<MythSystem> cmd(
             MythSystem::Create(
-                "exit 5", kMSNone, QString(),
+                "exit 5", kMSRunShell, QString(),
                 MythSystem::kInheritPriority, MythSystem::kLowPriority));
         QVERIFY(cmd->GetDiskPriority() == MythSystem::kLowPriority);
     }
