@@ -60,6 +60,25 @@ class MythSystemLegacyWrapper : public MythSystem
         if (!startPath.isEmpty())
             legacy->SetDirectory(startPath);
 
+        const int nice_sentinel = -999;
+        int cpu_nice = nice_sentinel;
+        switch (cpuPriority)
+        {
+            case kIdlePriority: cpu_nice = 20; break;
+            case kLowestPriority: cpu_nice = 13; break;
+            case kLowPriority: cpu_nice = 6; break;
+            case kNormalPriority: cpu_nice = 0; break;
+            case kHighPriority: cpu_nice = -10; break;
+            case kHighestPriority: cpu_nice = -20; break;
+            case kTimeCriticalPriority: cpu_nice = -50; break;
+            case kInheritPriority:
+                cpu_nice = nice_sentinel;
+                break;
+        }
+
+        if (nice_sentinel != cpu_nice)
+            legacy->SetNice(cpu_nice);
+
         uint ac = kMSAutoCleanup | kMSRunBackground;
         if ((ac & flags) == ac)
         {
@@ -70,7 +89,7 @@ class MythSystemLegacyWrapper : public MythSystem
         MythSystemLegacyWrapper *wrapper =
             new MythSystemLegacyWrapper(legacy, flags);
 
-        // TODO implement cpuPriority and diskPriority
+        // TODO implement diskPriority
         return wrapper;
     }
 
@@ -93,7 +112,22 @@ class MythSystemLegacyWrapper : public MythSystem
     /// Return the CPU Priority of the program
     Priority GetCPUPriority(void) const MOVERRIDE
     {
-        return kNormalPriority;
+        int cpu_nice = m_legacy->GetNice();
+
+        if (cpu_nice >= 17)
+            return kIdlePriority;
+        else if (cpu_nice >= 10)
+            return kLowestPriority;
+        else if (cpu_nice >= 3)
+            return kLowPriority;
+        else if (cpu_nice >= -5)
+            return kNormalPriority;
+        else if (cpu_nice >= -15)
+            return kHighPriority;
+        else if (cpu_nice >= -20)
+            return kHighestPriority;
+        else
+            return kTimeCriticalPriority;
     }
 
     /// Return the Disk Priority of the program
