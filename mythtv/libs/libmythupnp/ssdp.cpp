@@ -168,21 +168,21 @@ void SSDP::EnableNotifications( int nServicePort )
         // ------------------------------------------------------------------
 
         LOG(VB_UPNP, LOG_INFO,
-            "SSDP::EnableNotifications() - sending NTS_byebye");
-        m_pNotifyTask->SetNTS( NTS_byebye );
-        m_pNotifyTask->Execute( NULL );
-
-        m_bAnnouncementsEnabled = true;
+            "SSDP::EnableNotifications() - sending NTS_byebye2");
+        m_pNotifyTask->SetNTS( NTS_byebye2 );
     }
+    else
+    {
+        LOG(VB_UPNP, LOG_INFO,
+            "SSDP::EnableNotifications() - sending NTS_alive");
+        m_pNotifyTask->SetNTS( NTS_alive );
+    }
+
+    m_bAnnouncementsEnabled = true;
 
     // ------------------------------------------------------------------
     // Add Announcement Task to the Queue
     // ------------------------------------------------------------------
-
-    LOG(VB_UPNP, LOG_INFO, "SSDP::EnableNotifications() - sending NTS_alive");
-
-    m_pNotifyTask->SetNTS( NTS_alive );
-
     TaskQueue::Instance()->AddTask(m_pNotifyTask);
 
     LOG(VB_UPNP, LOG_INFO,

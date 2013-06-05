@@ -128,7 +128,9 @@ void UPnpNotifyTask::SendNotifyMsg( MSocketDevice *pSocket,
 
         pSocket->writeBlock( scPacket, scPacket.length(),
                              pSocket->address(), pSocket->port() );
-        usleep( random() % 250000 );
+        // Only wait if not sending final bybbye.  This speeds up shutdown
+        if (m_eNTS != NTS_byebye)
+            usleep( random() % 250000 );
         pSocket->writeBlock( scPacket, scPacket.length(),
                              pSocket->address(), pSocket->port() );
     }
@@ -169,6 +171,11 @@ void UPnpNotifyTask::Execute( TaskQueue *pQueue )
 
     if (m_eNTS == NTS_alive) 
         pQueue->AddTask( (m_nMaxAge / 2) * 1000, (Task *)this  );
+    else if (m_eNTS == NTS_byebye2)
+    {
+        m_eNTS = NTS_alive;
+        pQueue->AddTask( this );
+    }
 
     m_mutex.unlock();
 

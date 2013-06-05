@@ -37,7 +37,8 @@ class UPnpDevice;
 typedef enum 
 {
     NTS_alive   = 0,
-    NTS_byebye  = 1
+    NTS_byebye  = 1,
+    NTS_byebye2
 
 } UPnpNotifyNTS;
 
@@ -89,6 +90,7 @@ class UPnpNotifyTask : public Task
             {  
                 case NTS_alive : return( "ssdp:alive"  );
                 case NTS_byebye: return( "ssdp:byebye" );
+                case NTS_byebye2: return( "ssdp:byebye" );
             }
             return( "unknown" );
         }
