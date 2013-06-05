@@ -884,6 +884,17 @@ void MythDB::OverrideSettingForSession(
     d->settingsCacheLock.unlock();
 }
 
+bool MythDB::IsOverrideSettingForSession(const QString &key) const
+{
+    QString mk = key.toLower();
+
+    d->settingsCacheLock.lockForRead();
+    SettingsMap::iterator oit = d->overriddenSettings.find(mk);
+    bool bOverridden = (oit != d->overriddenSettings.end());
+    d->settingsCacheLock.unlock();
+    return bOverridden;
+}
+
 /// \brief Clears session Overrides for the given setting.
 void MythDB::ClearOverrideSettingForSession(const QString &key)
 {

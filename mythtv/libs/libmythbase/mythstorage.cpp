@@ -3,15 +3,46 @@
 // Myth headers
 #include "mythstorage.h"
 #include "mythdb.h"
+#include "mythcorecontext.h"
+#include "mythlogging.h"
+
+const char kUnset[] = "<unset_value>";
 
 void SimpleDBStorage::Load(void)
 {
-    MSqlQuery query(MSqlQuery::InitCon());
     MSqlBindings bindings;
+    QString const where = GetWhereClause(bindings);
+    QString const table = GetTableName();
+    QString const column = GetColumnName();
+
+    // Use the dbase settings cache if possible
+    if (table == "settings" && column == "data" && bindings.contains(":WHEREVALUE") )
+    {
+        QString value = bindings.value(":WHEREVALUE").toString();
+        QString data = !bindings.contains(":WHEREHOSTNAME") ?
+            gCoreContext->GetSetting(value, kUnset) :
+            gCoreContext->GetSettingOnHost(value,
+                bindings.value(":WHEREHOSTNAME").toString(), kUnset);
+        if (data != kUnset)
+        {
+            initval = gCoreContext->IsOverrideSettingForSession(value) ? kUnset: data;
+            user->SetDBValue(data);
+        }
+        else
+        {
+            LOG(VB_GENERAL, LOG_WARNING, QString(
+                "SimpleDBStorage: %1 has no saved setting. Using default '%2'")
+                    .arg(value).arg(user->GetDBValue()) );
+            initval = kUnset; // Force save
+        }
+        return;
+    }
+
+    MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
-        "SELECT " + GetColumnName() +
-        "  FROM " + GetTableName() +
-        " WHERE " + GetWhereClause(bindings));
+        "SELECT " + column +
+        "  FROM " + table +
+        " WHERE " + where);
     query.bindValues(bindings);
 
     if (!query.exec() || !query.isActive())
@@ -35,9 +66,23 @@ void SimpleDBStorage::Save(QString _table)
     if (!IsSaveRequired())
         return;
 
+    // Use the dbase settings cache if possible
     MSqlBindings bindings;
+    QString const where = GetWhereClause(bindings);
+
+    if (_table == "settings" && bindings.contains(":WHEREVALUE") )
+    {
+        QString value = bindings.value(":WHEREVALUE").toString();
+        if (bindings.contains(":WHEREHOSTNAME"))
+            gCoreContext->SaveSettingOnHost(value,
+                user->GetDBValue(), bindings.value(":WHEREHOSTNAME").toString());
+        else
+            gCoreContext->SaveSettingOnHost(value, user->GetDBValue(), "");
+        return;
+    }
+
     QString querystr = QString("SELECT * FROM " + _table + " WHERE "
-                               + GetWhereClause(bindings) + ';');
+                               + where + ';');
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(querystr);
@@ -102,7 +147,7 @@ bool SimpleDBStorage::IsSaveRequired(void) const
 
 void SimpleDBStorage::SetSaveRequired(void)
 {
-    initval.clear();
+    initval = kUnset;
 }
 
 //////////////////////////////////////////////////////////////////////

@@ -37,6 +37,7 @@ class MBASE_PUBLIC MythDB
     void ActivateSettingsCache(bool activate = true);
     void OverrideSettingForSession(const QString &key, const QString &newValue);
     void ClearOverrideSettingForSession(const QString &key);
+    bool IsOverrideSettingForSession(const QString &key) const;
 
     void SaveSetting(const QString &key, int newValue);
     void SaveSetting(const QString &key, const QString &newValue);

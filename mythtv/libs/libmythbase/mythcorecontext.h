@@ -188,6 +188,8 @@ class MBASE_PUBLIC MythCoreContext : public QObject, public MythObservable, publ
     void ActivateSettingsCache(bool activate = true);
     void OverrideSettingForSession(const QString &key, const QString &value);
     void ClearOverrideSettingForSession(const QString &key);
+    bool IsOverrideSettingForSession(const QString &key)
+        { return GetDB()->IsOverrideSettingForSession(key); }
 
     void dispatch(const MythEvent &event);
 
