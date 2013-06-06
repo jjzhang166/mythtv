@@ -40,7 +40,7 @@
 #include "config.h"
 #include "thumbgenerator.h"
 #include "galleryutil.h"
-#include "mythsystem.h"
+#include "mythsystemlegacy.h"
 #include "exitcodes.h"
 #include "mythlogging.h"
 
@@ -306,7 +306,7 @@ void ThumbGenerator::loadFile(QImage& image, const QFileInfo& fi)
             args << "--infile" << '"' + fi.absoluteFilePath() + '"';
             args << "--outfile" << '"' + tmpDir.filePath(thumbFile) + '"';
 
-            MythSystem ms(cmd, args, kMSRunShell);
+            MythSystemLegacy ms(cmd, args, kMSRunShell);
             ms.SetDirectory(tmpDir.absolutePath());
             ms.Run();
             if (ms.Wait() == GENERIC_EXIT_OK)

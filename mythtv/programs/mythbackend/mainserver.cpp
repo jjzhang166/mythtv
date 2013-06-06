@@ -41,7 +41,7 @@ using namespace std;
 #include "previewgeneratorqueue.h"
 #include "mythlogging_extra.h"
 #include "mythmiscutil.h"
-#include "mythsystem.h"
+#include "mythsystemlegacy.h"
 #include "exitcodes.h"
 #include "mythcontext.h"
 #include "mythversion.h"
@@ -1020,7 +1020,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (recInfo.GetChanID())
             {
-                SendMythSystemPlayEvent("REC_EXPIRED", &recInfo);
+                SendMythSystemLegacyPlayEvent("REC_EXPIRED", &recInfo);
 
                 // allow re-record if auto expired but not expired live
                 // or already "deleted" programs

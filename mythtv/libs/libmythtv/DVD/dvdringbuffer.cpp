@@ -275,8 +275,8 @@ long long DVDRingBuffer::Seek(long long time)
     }
     else
     {
-        m_seektime = (uint64_t)time;
-        dvdRet = dvdnav_absolute_time_search(m_dvdnav, m_seektime, 0);
+        m_seektime = time;
+        dvdRet = dvdnav_absolute_time_search(m_dvdnav, (uint64_t)m_seektime, 0);
     }
 
     LOG(VB_PLAYBACK, LOG_DEBUG,
@@ -776,7 +776,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
                 }
 
                 // update our status
-                m_currentTime = (uint)dvdnav_get_current_time(m_dvdnav);
+                m_currentTime = dvdnav_get_current_time(m_dvdnav);
                 m_currentpos = GetReadPosition();
 
                 if (m_seeking)
@@ -784,7 +784,7 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
 
                     int relativetime =
                         (int)((m_seektime - m_currentTime)/ 90000);
-                    if (relativetime <= 1)
+                    if (abs(relativetime) <= 1)
                     {
                         m_seeking = false;
                         m_seektime = 0;
@@ -1859,7 +1859,7 @@ int DVDRingBuffer::is_transp(const uint8_t *buf, int pitch, int n,
  */
 int DVDRingBuffer::find_smallest_bounding_rectangle(AVSubtitle *s)
 {
-    uint8_t transp_color[256];
+    uint8_t transp_color[256] = { 0 };
     int y1, y2, x1, x2, y, w, h, i;
     uint8_t *bitmap;
 
@@ -1869,10 +1869,9 @@ int DVDRingBuffer::find_smallest_bounding_rectangle(AVSubtitle *s)
         return 0;
     }
 
-    memset(transp_color, 0, 256);
-    for (i = 0; i < s->rects[0]->nb_colors * 4; i+=4)
+    for(i = 0; i < s->rects[0]->nb_colors; i++)
     {
-        if ((s->rects[0]->pict.data[1][i] >> 24) == 0)
+        if ((((uint32_t*)s->rects[0]->pict.data[1])[i] >> 24) == 0)
             transp_color[i] = 1;
     }
 

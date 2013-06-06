@@ -128,7 +128,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
 
     virtual void IgnoreWaitStates(bool ignore) { m_skipstillorwait = ignore; }
     void AudioStreamsChanged(bool change) { m_audioStreamsChanged = change; }
-    uint GetCurrentTime(void)             { return (m_currentTime / 90000); }
+    int64_t GetCurrentTime(void)          { return (m_currentTime / 90000); }
     uint TitleTimeLeft(void);
     void  SetTrack(uint type, int trackNo);
     int   GetTrack(uint type);
@@ -194,12 +194,11 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     int            m_curAudioTrack;
     int8_t         m_curSubtitleTrack;
     bool           m_autoselectsubtitle;
-    long long      m_seekpos;
     const char    *m_dvdname;
     const char    *m_serialnumber;
     bool           m_seeking;
-    uint64_t       m_seektime;
-    uint           m_currentTime;
+    int64_t        m_seektime;
+    int64_t        m_currentTime;
     QMap<uint, uint> m_seekSpeedMap;
     QMap<uint, QList<uint64_t> > m_chapterMap;
 

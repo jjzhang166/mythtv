@@ -62,7 +62,7 @@ using namespace std;
 #include <programinfo.h>
 #include <mythdirs.h>
 #include <mythconfig.h>
-#include <mythsystem.h>
+#include <mythsystemlegacy.h>
 #include <mythdate.h>
 #include <mythlogging.h>
 
@@ -1954,9 +1954,6 @@ static int getFileInfo(QString inFile, QString outFile, int lenMethod)
 
     AVFormatContext *inputFC = NULL;
     AVInputFormat *fmt = NULL;
-
-    if (type)
-        fmt = av_find_input_format(type);
 
     // Open recording
     LOG(VB_JOBQUEUE, LOG_INFO, QString("getFileInfo(): Opening '%1'")

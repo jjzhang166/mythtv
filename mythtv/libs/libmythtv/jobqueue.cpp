@@ -29,7 +29,7 @@ using namespace std;
 
 #include "mythdb.h"
 #include "mythdirs.h"
-#include "mythsystem.h"
+#include "mythsystemlegacy.h"
 #include "mythmiscutil.h"
 #include "mythlogging_extra.h"
 

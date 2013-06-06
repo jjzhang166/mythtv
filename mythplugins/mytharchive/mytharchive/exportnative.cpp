@@ -22,7 +22,7 @@
 #include <mythuibuttonlist.h>
 #include <mythuiprogressbar.h>
 #include <mythmainwindow.h>
-#include <mythsystem.h>
+#include <mythsystemlegacy.h>
 #include <exitcodes.h>
 #include <mythlogging_extra.h>
 
