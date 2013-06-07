@@ -10,7 +10,7 @@
 class Scheduler;
 class QString;
 class HouseKeeper;
-class MythSystemLegacy;
+class MythSystem;
 
 class HouseKeepingThread : public MThread
 {
@@ -79,7 +79,7 @@ class HouseKeeper
     QWaitCondition          fillDBWait;        // protected by fillDBLock
     MythFillDatabaseThread *fillDBThread;      // Only mod in HouseKeepingThread
     bool                    fillDBStarted;     // protected by fillDBLock
-    MythSystemLegacy       *fillDBMythSystem;  // protected by fillDBLock
+    MythSystem              *fillDBMythSystem;  // protected by fillDBLock
 };
 
 #endif

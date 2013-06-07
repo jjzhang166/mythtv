@@ -1,13 +1,13 @@
 #include <iostream>
 
 // qt
-#include <QString>
-#include <QString>
+#include <QScopedPointer>
 #include <QStringList>
+#include <QString>
 
 // myth
 #include "mythcorecontext.h"
-#include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "mythdbcon.h"
 #include "mythdirs.h"
 
@@ -97,12 +97,15 @@ void GrabberSettings::Load(void)
         for (QStringList::const_iterator i = MovieScripts.begin();
              i != MovieScripts.end(); ++i)
         {
-            QString commandline = QString("%1/%2")
-                                      .arg(MovieScriptPath.path()).arg(*i);
-            MythSystemLegacy grabber(commandline, QStringList() << "-v", kMSRunShell | kMSStdOut);
-            grabber.Run();
-            grabber.Wait();
-            QByteArray result = grabber.ReadAll();
+            QStringList commandline(
+                QString("%1/%2").arg(MovieScriptPath.path()).arg(*i));
+            commandline += "-v";
+
+            QScopedPointer<MythSystem> grabber(
+                MythSystem::Create(commandline, kMSRunShell | kMSStdOut));
+            grabber->Wait();
+
+            QByteArray result = grabber->GetStandardOutputStream()->readAll();
 
             if (!result.isEmpty())
             {
@@ -124,12 +127,15 @@ void GrabberSettings::Load(void)
         for (QStringList::const_iterator i = TVScripts.end() - 1;
                 i != TVScripts.begin() - 1; --i)
         {
-            QString commandline = QString("%1/%2")
-                                      .arg(TVScriptPath.path()).arg(*i);
-            MythSystemLegacy grabber(commandline, QStringList() << "-v", kMSRunShell | kMSStdOut);
-            grabber.Run();
-            grabber.Wait();
-            QByteArray result = grabber.ReadAll();
+            QStringList commandline(
+                QString("%1/%2").arg(TVScriptPath.path()).arg(*i));
+            commandline += "-v";
+
+            QScopedPointer<MythSystem> grabber(
+                MythSystem::Create(commandline, kMSRunShell | kMSStdOut));
+            grabber->Wait();
+
+            QByteArray result = grabber->GetStandardOutputStream()->readAll();
 
             if (!result.isEmpty())
             {
@@ -152,12 +158,15 @@ void GrabberSettings::Load(void)
         for (QStringList::const_iterator i = GameScripts.end() - 1;
                 i != GameScripts.begin() - 1; --i)
         {
-            QString commandline = QString("%1/%2")
-                                      .arg(GameScriptPath.path()).arg(*i);
-            MythSystemLegacy grabber(commandline, QStringList() << "-v", kMSRunShell | kMSStdOut);
-            grabber.Run();
-            grabber.Wait();
-            QByteArray result = grabber.ReadAll();
+            QStringList commandline(
+                QString("%1/%2").arg(GameScriptPath.path()).arg(*i));
+            commandline += "-v";
+
+            QScopedPointer<MythSystem> grabber(
+                MythSystem::Create(commandline, kMSRunShell | kMSStdOut));
+            grabber->Wait();
+
+            QByteArray result = grabber->GetStandardOutputStream()->readAll();
 
             if (!result.isEmpty())
             {

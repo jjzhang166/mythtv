@@ -381,7 +381,7 @@ QString MediaMonitorUnix::GetDeviceFile(const QString &sysfs)
 
     if (VERBOSE_LEVEL_CHECK(VB_MEDIA, LOG_DEBUG))
     {
-        QTextStream estream(udevinfo->GetStandardError()->readAll());
+        QTextStream estream(udevinfo->GetStandardError());
         while (!estream.atEnd())
         {
             LOG(VB_MEDIA, LOG_DEBUG,
@@ -389,7 +389,7 @@ QString MediaMonitorUnix::GetDeviceFile(const QString &sysfs)
         }
     }
 
-    QTextStream ostream(udevinfo->GetStandardOutput()->readAll());
+    QTextStream ostream(udevinfo->GetStandardOutput());
     QString udevLine = ostream.readLine();
     if (!udevLine.startsWith("device not found in database") )
         ret = udevLine;

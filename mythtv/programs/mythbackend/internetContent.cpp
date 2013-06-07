@@ -7,6 +7,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 
+#include <QScopedPointer>
 #include <QTextStream>
 #include <QDir>
 #include <QFile>
@@ -18,8 +19,8 @@
 #include "internetContent.h"
 
 #include "mythcorecontext.h"
+#include "mythsystem.h"
 #include "mythdate.h"
-#include "mythsystemlegacy.h"
 #include "mythdirs.h"
 
 #include "rssparse.h"
@@ -186,12 +187,13 @@ void InternetContent::GetInternetSources( HTTPRequest *pRequest )
     for (QStringList::const_iterator i = Grabbers.begin();
             i != Grabbers.end(); ++i)
     {
-        QString commandline = GrabberDir + (*i);
-        MythSystemLegacy scriptcheck(commandline, QStringList("-v"),
-                               kMSRunShell | kMSStdOut);
-        scriptcheck.Run();
-        scriptcheck.Wait();
-        QByteArray result = scriptcheck.ReadAll();
+        QStringList commandline(GrabberDir + (*i));
+        commandline += "-v";
+        QScopedPointer<MythSystem> scriptcheck(
+            MythSystem::Create(
+                commandline, kMSRunShell | kMSStdOut));
+        scriptcheck->Wait();
+        QByteArray result = scriptcheck->GetStandardOutputStream()->readAll();
 
         if (!result.isEmpty() && result.toLower().startsWith("<grabber>"))
             ret += result;

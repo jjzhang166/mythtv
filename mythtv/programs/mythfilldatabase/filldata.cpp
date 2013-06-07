@@ -27,6 +27,7 @@ using namespace std;
 #include "mythdirs.h"
 #include "mythdb.h"
 #include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "videosource.h" // for is_grabber..
 
 // filldata headers
@@ -615,20 +616,30 @@ bool FillData::Run(SourceList &sourcelist)
 
         if (is_grabber_external(xmltv_grabber))
         {
-            uint flags = kMSRunShell | kMSStdOut;
-            MythSystemLegacy grabber_capabilities_proc(xmltv_grabber,
-                                                 QStringList("--capabilities"),
-                                                 flags);
-            grabber_capabilities_proc.Run(25);
-            if (grabber_capabilities_proc.Wait() != GENERIC_EXIT_OK)
+            QStringList args(xmltv_grabber);
+            args += "--capabilities";
+            QScopedPointer<MythSystem> sys(
+                MythSystem::Create(args, kMSRunShell | kMSStdOut));
+            if (!sys->Wait(25 * 1000))
+            {
                 LOG(VB_GENERAL, LOG_ERR,
-                    QString("%1  --capabilities failed or we timed out waiting."                            
-                    " You may need to upgrade your xmltv grabber")
-                        .arg(xmltv_grabber));
+                    QString("Timed out waiting for '%1 --capabilities' "
+                            "to return data. Try upgrading xmltv.")
+                    .arg(xmltv_grabber));
+                sys->Signal(kSignalTerm);
+                if (!sys->Wait(1000))
+                    sys->Signal(kSignalKill);
+            }
+            else if (sys->GetExitCode())
+            {
+                LOG(VB_GENERAL, LOG_ERR,
+                    QString("%1 --capabilities returned an error. "
+                            "Try running manually or upgrading xmltv.")
+                    .arg(xmltv_grabber));
+            }
             else
             {
-                QByteArray result = grabber_capabilities_proc.ReadAll();
-                QTextStream ostream(result);
+                QTextStream ostream(sys->GetStandardOutputStream());
                 QString capabilities;
                 while (!ostream.atEnd())
                 {
@@ -659,24 +670,26 @@ bool FillData::Run(SourceList &sourcelist)
 
         if (hasprefmethod)
         {
-            uint flags = kMSRunShell | kMSStdOut;
-            MythSystemLegacy grabber_method_proc(xmltv_grabber,
-                                           QStringList("--preferredmethod"),
-                                           flags);
-            grabber_method_proc.Run(15);
-            if (grabber_method_proc.Wait() != GENERIC_EXIT_OK)
+            QStringList args(xmltv_grabber);
+            args += "--preferredmethod";
+            QScopedPointer<MythSystem> sys(
+                MythSystem::Create(args, kMSRunShell | kMSStdOut));
+            sys->Wait();
+
+            if (sys->GetExitCode())
+            {
                 LOG(VB_GENERAL, LOG_ERR,
-                    QString("%1 --preferredmethod failed or we timed out "
-                            "waiting. You may need to upgrade your xmltv "
+                    QString("%1 --preferredmethod failed. "
+                            "You may need to upgrade your xmltv "
                             "grabber").arg(xmltv_grabber));
+            }
             else
             {
-                QTextStream ostream(grabber_method_proc.ReadAll());
-                (*it).xmltvgrabber_prefmethod =
-                                ostream.readLine().simplified();
+                QTextStream ostream(sys->GetStandardOutputStream());
+                (*it).xmltvgrabber_prefmethod = ostream.readLine().simplified();
 
                 LOG(VB_GENERAL, LOG_INFO, QString("Grabber prefers method: %1")
-                                    .arg((*it).xmltvgrabber_prefmethod));
+                    .arg((*it).xmltvgrabber_prefmethod));
             }
         }
 

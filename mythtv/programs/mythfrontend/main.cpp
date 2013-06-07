@@ -22,6 +22,7 @@ using namespace std;
 #include "mythmiscutil.h"
 #include "mythconfig.h"
 #include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "tv.h"
 #include "proglist.h"
 #include "progfind.h"
@@ -296,15 +297,14 @@ static void startAppearWiz(void)
     int curW = gCoreContext->GetNumSetting("GuiWidth", 0);
     int curH = gCoreContext->GetNumSetting("GuiHeight", 0);
 
-    MythSystemLegacy *wizard = new MythSystemLegacy(
+    MythSystem *wizard = MythSystem::Create(
         GetInstallPrefix() + "/bin/mythscreenwizard",
-        QStringList(),
         kMSDisableUDPListener | kMSPropagateLogs);
-    wizard->Run();
+    wizard->Wait();
 
     bool reload = false;
 
-    if (!wizard->Wait())
+    if (!wizard->GetExitCode())
     {
         // no reported errors, check for changed geometry parameters
         gCoreContext->ClearSettingsCache("GuiOffsetX");

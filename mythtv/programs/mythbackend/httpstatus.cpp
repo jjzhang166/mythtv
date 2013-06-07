@@ -572,10 +572,17 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
         QDomElement misc = pDoc->createElement("Miscellaneous");
         root.appendChild(misc);
 
-        uint flags = kMSRunShell | kMSStdOut;
-        MythSystemLegacy ms(info_script, flags);
-        ms.Run(10);
-        if (ms.Wait() != GENERIC_EXIT_OK)
+        QScopedPointer<MythSystem> ms(
+            MythSystem::Create(info_script, kMSRunShell | kMSStdOut));
+
+        if (!ms->Wait(10 * 1000))
+        {
+            LOG(VB_GENERAL, LOG_ERR,
+                QString("Timeout running miscellaneous "
+                        "status information script: %1").arg(info_script));
+            return;
+        }
+        else if (ms->GetExitCode())
         {
             LOG(VB_GENERAL, LOG_ERR,
                 QString("Error running miscellaneous "
@@ -583,10 +590,8 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
             return;
         }
 
-        QByteArray input = ms.ReadAll();
-
-        QStringList output = QString(input).split('\n',
-                                                  QString::SkipEmptyParts);
+        QStringList output = QString(ms->GetStandardOutputStream()->readAll())
+            .split('\n', QString::SkipEmptyParts);
 
         QStringList::iterator iter;
         for (iter = output.begin(); iter != output.end(); ++iter)

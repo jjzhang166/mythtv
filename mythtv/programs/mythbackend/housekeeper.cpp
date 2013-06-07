@@ -18,7 +18,7 @@ using namespace std;
 
 // MythTV headers
 #include "housekeeper.h"
-#include "mythsystemlegacy.h"
+#include "mythsystem.h"
 #include "jobqueue.h"
 #include "mythcorecontext.h"
 #include "mythdb.h"
@@ -439,21 +439,19 @@ void HouseKeeper::RunMFD(void)
 
     {
         QMutexLocker locker(&fillDBLock);
-        fillDBMythSystem = new MythSystemLegacy(
-            command, kMSRunShell | kMSAutoCleanup);
-        fillDBMythSystem->Run(0);
+        fillDBMythSystem = MythSystem::Create(command, kMSRunShell);
         fillDBWait.wakeAll();
     }
 
     MythFillDatabaseThread::setTerminationEnabled(true);
 
-    uint result = fillDBMythSystem->Wait(0);
+    uint result = fillDBMythSystem->Wait();
 
     MythFillDatabaseThread::setTerminationEnabled(false);
 
     {
         QMutexLocker locker(&fillDBLock);
-        fillDBMythSystem->deleteLater();
+        delete fillDBMythSystem;
         fillDBMythSystem = NULL;
         fillDBWait.wakeAll();
     }
@@ -491,14 +489,14 @@ void HouseKeeper::KillMFD(void)
     QMutexLocker locker(&fillDBLock);
     if (fillDBMythSystem && fillDBThread->isRunning())
     {
-        fillDBMythSystem->Term(false);
-        fillDBWait.wait(locker.mutex(), 50);
+        fillDBMythSystem->Signal(kSignalTerm);
+        fillDBWait.wait(locker.mutex(), 500);
     }
 
     if (fillDBMythSystem && fillDBThread->isRunning())
     {
-        fillDBMythSystem->Term(true);
-        fillDBWait.wait(locker.mutex(), 50);
+        fillDBMythSystem->Signal(kSignalKill);
+        fillDBWait.wait(locker.mutex(), 500);
     }
 
     if (fillDBThread->isRunning())
@@ -810,18 +808,14 @@ void HouseKeeper::UpdateThemeChooserInfoCache(void)
 
 void HouseKeeper::UpdateRecordedArtwork(void)
 {
-    QString command = GetInstallPrefix() + "/bin/mythmetadatalookup";
-    QStringList args;
+    QStringList args(GetInstallPrefix() + "/bin/mythmetadatalookup");
     args << "--refresh-all-artwork";
     args << logPropagateArgs;
 
-    LOG(VB_GENERAL, LOG_INFO, QString("Performing Artwork Refresh: %1 %2")
-        .arg(command).arg(args.join(" ")));
+    LOG(VB_GENERAL, LOG_INFO, QString("Performing Artwork Refresh: %1")
+        .arg(args.join(" ")));
 
-    MythSystemLegacy artupd(command, args, kMSRunShell | kMSAutoCleanup);
-
-    artupd.Run();
-    artupd.Wait();
+    delete MythSystem::Create(args, kMSRunShell);
 
     LOG(VB_GENERAL, LOG_INFO, QString("Artwork Refresh Complete"));
 }
