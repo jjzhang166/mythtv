@@ -311,6 +311,7 @@ bool MythContextPrivate::Init(const bool gui,
         MythTranslation::load("mythfrontend");
         EndTempWindow();
     }
+    gCoreContext->ActivateSettingsCache(true);
     gCoreContext->InitLocale();
     gCoreContext->SaveLocaleDefaults();
 
@@ -1183,8 +1184,6 @@ bool MythContext::Init(const bool gui,
     {
         return false;
     }
-
-    gCoreContext->ActivateSettingsCache(true);
 
     return true;
 }

@@ -88,6 +88,8 @@ class MBASE_PUBLIC MythDB
     MythDB();
    ~MythDB();
 
+    bool LoadCacheFromSettings();
+
   private:
     MythDBPrivate *d;
 };
