@@ -11,7 +11,7 @@ AudioPlayer::AudioPlayer(MythPlayer *parent, bool muted)
     m_stretchfactor(1.0f),m_passthru(false),
     m_lock(QMutex::Recursive), m_muted_on_creation(muted),
     m_main_device(QString::null), m_passthru_device(QString::null),
-    m_no_audio_in(false), m_no_audio_out(false), m_controls_volume(true)
+    m_no_audio_in(false), m_no_audio_out(true), m_controls_volume(true)
 {
     m_controls_volume = gCoreContext->GetNumSetting("MythControlsVolume", 1);
 }
@@ -262,7 +262,7 @@ void AudioPlayer::SetAudioParams(AudioFormat format, int orig_channels,
                                  int samplerate, bool passthru,
                                  int codec_profile)
 {
-    m_format        = format;
+    m_format        = CanProcess(format) ? format : FORMAT_S16;
     m_orig_channels = orig_channels;
     m_channels      = channels;
     m_codec         = codec;
@@ -515,4 +515,43 @@ bool AudioPlayer::IsBufferAlmostFull(void)
         return ofill > othresh;
     }
     return false;
+}
+
+bool AudioPlayer::CanProcess(AudioFormat fmt)
+{
+    if (!m_audioOutput)
+        return false;
+    else
+        return m_audioOutput->CanProcess(fmt);
+}
+
+uint32_t AudioPlayer::CanProcess(void)
+{
+    if (!m_audioOutput)
+        return 0;
+    else
+        return m_audioOutput->CanProcess();
+}
+
+/**
+ * DecodeAudio
+ * Utility routine.
+ * Decode an audio packet, and compact it if data is planar
+ * Return negative error code if an error occurred during decoding
+ * or the number of bytes consumed from the input AVPacket
+ * data_size contains the size of decoded data copied into buffer
+ * data decoded will be S16 samples if class instance can't handle HD audio
+ * or S16 and above otherwise. No U8 PCM format can be returned
+ */
+int AudioPlayer::DecodeAudio(AVCodecContext *ctx,
+                             uint8_t *buffer, int &data_size,
+                             const AVPacket *pkt)
+{
+    if (!m_audioOutput)
+    {
+        data_size = 0;
+        return 0;
+    }
+    else
+        return m_audioOutput->DecodeAudio(ctx, buffer, data_size, pkt);
 }

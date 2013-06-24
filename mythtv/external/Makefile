@@ -1,6 +1,6 @@
 include ../config.mak
 
-SUBDIRS = FFmpeg libmythbluray
+SUBDIRS = FFmpeg libmythbluray libsamplerate
 
 ifdef CONFIG_HDHOMERUN
     SUBDIRS += libhdhomerun
@@ -29,4 +29,7 @@ libhdhomerun-all libhdhomerun-clean libhdhomerun-distclean libhdhomerun-install 
 
 libmythbluray-all libmythbluray-clean libmythbluray-distclean libmythbluray-install libmythbluray-uninstall:
 	${MAKE} -C libmythbluray ${@:libmythbluray-%=%}
+
+libsamplerate-all libsamplerate-clean libsamplerate-distclean libsamplerate-install libsamplerate-uninstall:
+	${MAKE} -C libsamplerate ${@:libsamplerate-%=%}
 

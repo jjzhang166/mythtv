@@ -12,12 +12,43 @@
 
 #include "ringbuffer.h"
 #include "mythdate.h"
+#include "referencecounter.h"
 
 extern "C" {
 #include "libavcodec/avcodec.h"
 }
 
 #include "dvdnav/dvdnav.h"
+
+/** \class MythDVDContext
+ *  \brief Encapsulates playback context at any given moment.
+ *
+ * This class is mainly represents a single VOBU (video object unit)
+ * on a DVD
+ */
+class MTV_PUBLIC MythDVDContext : public ReferenceCounter
+{
+    friend class DVDRingBuffer;
+
+  public:
+    virtual ~MythDVDContext();
+
+    int64_t  GetStartPTS()          const { return (int64_t)m_pci.pci_gi.vobu_s_ptm;    }
+    int64_t  GetEndPTS()            const { return (int64_t)m_pci.pci_gi.vobu_e_ptm;    }
+    int64_t  GetSeqEndPTS()         const { return (int64_t)m_pci.pci_gi.vobu_se_e_ptm; }
+    uint32_t GetLBA()               const { return m_pci.pci_gi.nv_pck_lbn;             }
+    uint32_t GetLBAPrevVideoFrame() const;
+    int      GetNumFrames()         const;
+    int      GetNumFramesPresent()  const;
+    int      GetFPS()               const { return (m_pci.pci_gi.e_eltm.frame_u & 0x80) ? 30 : 25; }
+
+  protected:
+    MythDVDContext();
+
+  protected:
+    dsi_t          m_dsi;
+    pci_t          m_pci;
+};
 
 /** \class DVDRingBufferPriv
  *  \brief RingBuffer class for DVD's
@@ -72,13 +103,15 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     bool PGCLengthChanged(void);
     bool CellChanged(void);
     virtual bool IsInStillFrame(void)   const { return m_still > 0;             }
-    bool NeedsStillFrame(void) { return IsInStillFrame() || NewSequence(); }
-    bool NewSequence(bool new_sequence = false);
     bool AudioStreamsChanged(void) const { return m_audioStreamsChanged; }
     bool IsWaiting(void) const           { return m_dvdWaiting;          }
     int  NumPartsInTitle(void)     const { return m_titleParts;          }
-    void GetMenuSPUPkt(uint8_t *buf, int len, int stream_id);
-    int64_t GetTimeDiff(void)      const { return m_timeDiff; }
+    void GetMenuSPUPkt(uint8_t *buf, int len, int stream_id, uint32_t startTime);
+
+    uint32_t AdjustTimestamp(uint32_t timestamp);
+    int64_t AdjustTimestamp(int64_t timestamp);
+    MythDVDContext* GetDVDContext(void);
+    int32_t GetLastEvent(void) const     { return m_dvdEvent; }
 
     // Public menu/button stuff
     AVSubtitle *GetMenuSubtitle(uint &version);
@@ -90,14 +123,17 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
 
     // Subtitles
     uint GetSubtitleLanguage(int key);
+    int GetSubtitleTrackNum(uint stream_id);
     bool DecodeSubtitles(AVSubtitle * sub, int * gotSubtitles,
-                         const uint8_t * buf, int buf_size);
+                         const uint8_t * buf, int buf_size, uint32_t startTime);
 
-    uint GetAudioLanguage(int id);
-    int  GetAudioTrackNum(uint key);
-    int  GetAudioTrackType(uint stream_id);
+    uint GetAudioLanguage(int idx);
+    int  GetAudioTrackNum(uint stream_id);
+    int  GetAudioTrackType(uint idx);
 
     bool GetNameAndSerialNum(QString& _name, QString& _serialnum);
+    bool GetDVDStateSnapshot(QString& state);
+    bool RestoreDVDStateSnapshot(QString& state);
     double GetFrameRate(void);
     bool StartOfTitle(void) { return (m_part == 0); }
     bool EndOfTitle(void)   { return ((!m_titleParts) ||
@@ -117,6 +153,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     virtual int safe_read(void *data, uint sz);
     virtual long long Seek(long long pos, int whence, bool has_lock);
     long long NormalSeek(long long time);
+    bool SectorSeek(uint64_t sector);
     void SkipStillFrame(void);
     void WaitSkip(void);
     void SkipDVDWaitingForPlayer(void)    { m_playerWait = false;           }
@@ -132,7 +169,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     uint TitleTimeLeft(void);
     void  SetTrack(uint type, int trackNo);
     int   GetTrack(uint type);
-    uint8_t GetNumAudioChannels(int id);
+    uint8_t GetNumAudioChannels(int idx);
     void SetDVDSpeed(void);
     void SetDVDSpeed(int speed);
     bool SwitchAngle(uint angle);
@@ -173,7 +210,6 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     int64_t        m_endPts;
     int64_t        m_timeDiff;
 
-    bool           m_newSequence;
     int            m_still;
     int            m_lastStill;
     bool           m_audioStreamsChanged;
@@ -205,6 +241,8 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     MythDVDPlayer *m_parent;
     float          m_forcedAspect;
 
+    QMutex          m_contextLock;
+    MythDVDContext *m_context;
     processState_t  m_processState;
     dvdnav_status_t m_dvdStat;
     int32_t        m_dvdEvent;

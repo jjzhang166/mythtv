@@ -1380,8 +1380,9 @@ void AvFormatDecoder::InitVideoCodec(AVStream *stream, AVCodecContext *enc,
         FlagIsSet(kDecodeFewBlocks) || FlagIsSet(kDecodeNoLoopFilter)   ||
         FlagIsSet(kDecodeNoDecode))
     {
-        if ((AV_CODEC_ID_MPEG2VIDEO == codec->id) ||
-            (AV_CODEC_ID_MPEG1VIDEO == codec->id))
+        if (codec &&
+            ((AV_CODEC_ID_MPEG2VIDEO == codec->id) ||
+            (AV_CODEC_ID_MPEG1VIDEO == codec->id)))
         {
             if (FlagIsSet(kDecodeFewBlocks))
             {
@@ -1393,7 +1394,7 @@ void AvFormatDecoder::InitVideoCodec(AVStream *stream, AVCodecContext *enc,
             if (FlagIsSet(kDecodeLowRes))
                 enc->lowres = 2; // 1 = 1/2 size, 2 = 1/4 size
         }
-        else if (AV_CODEC_ID_H264 == codec->id)
+        else if (codec && (AV_CODEC_ID_H264 == codec->id))
         {
             if (FlagIsSet(kDecodeNoLoopFilter))
             {
@@ -2033,11 +2034,17 @@ int AvFormatDecoder::ScanStreams(bool novideo)
                 int logical_stream_id;
                 if (ringBuffer && ringBuffer->IsDVD())
                 {
-                    logical_stream_id =
-                        ringBuffer->DVD()->GetAudioTrackNum(ic->streams[i]->id);
+                    logical_stream_id = ringBuffer->DVD()->GetAudioTrackNum(ic->streams[i]->id);
+                    channels = ringBuffer->DVD()->GetNumAudioChannels(logical_stream_id);
                 }
                 else
                     logical_stream_id = ic->streams[i]->id;
+
+                if (logical_stream_id == -1)
+                {
+                    // This stream isn't mapped, so skip it
+                    continue;
+                }
 
                 tracks[kTrackTypeAudio].push_back(
                    StreamInfo(i, lang, lang_indx, logical_stream_id, channels,
@@ -2045,10 +2052,10 @@ int AvFormatDecoder::ScanStreams(bool novideo)
             }
 
             LOG(VB_AUDIO, LOG_INFO, LOC +
-                QString("Audio Track #%1, of type (%2) is A/V stream #%3 "
-                        "and has %4 channels in the %5 language(%6).")
+                QString("Audio Track #%1, of type (%2) is A/V stream #%3 (id=0x%4) "
+                        "and has %5 channels in the %6 language(%7).")
                     .arg(tracks[kTrackTypeAudio].size()).arg(toString(type))
-                    .arg(i).arg(enc->channels)
+                    .arg(i).arg(ic->streams[i]->id,0,16).arg(enc->channels)
                     .arg(iso639_key_toName(lang)).arg(lang));
         }
     }
@@ -3009,11 +3016,7 @@ void AvFormatDecoder::MpegPreProcessPkt(AVStream *stream, AVPacket *pkt)
 
         float aspect_override = -1.0f;
         if (ringBuffer->IsDVD())
-        {
-            if (start_code_state == SEQ_END_CODE)
-                ringBuffer->DVD()->NewSequence(true);
             aspect_override = ringBuffer->DVD()->GetAspectOverride();
-        }
 
         if (start_code_state >= SLICE_MIN && start_code_state <= SLICE_MAX)
             continue;
@@ -3308,9 +3311,6 @@ bool AvFormatDecoder::ProcessVideoPacket(AVStream *curstream, AVPacket *pkt)
     {
         context->reordered_opaque = pkt->pts;
         ret = avcodec_decode_video2(context, &mpa_pic, &gotpicture, pkt);
-        // Reparse it to not drop the DVD still frame
-        if (ringBuffer->IsDVD() && ringBuffer->DVD()->NeedsStillFrame())
-            ret = avcodec_decode_video2(context, &mpa_pic, &gotpicture, pkt);
     }
     avcodeclock->unlock();
 
@@ -3698,7 +3698,7 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
         if (ringBuffer->DVD()->NumMenuButtons() > 0)
         {
             ringBuffer->DVD()->GetMenuSPUPkt(pkt->data, pkt->size,
-                                             curstream->id);
+                                             curstream->id, pts);
         }
         else
         {
@@ -3706,7 +3706,7 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
             {
                 QMutexLocker locker(avcodeclock);
                 ringBuffer->DVD()->DecodeSubtitles(&subtitle, &gotSubtitles,
-                                                   pkt->data, pkt->size);
+                                                   pkt->data, pkt->size, pts);
             }
         }
     }
@@ -3715,14 +3715,15 @@ bool AvFormatDecoder::ProcessSubtitlePacket(AVStream *curstream, AVPacket *pkt)
         QMutexLocker locker(avcodeclock);
         avcodec_decode_subtitle2(curstream->codec, &subtitle, &gotSubtitles,
                                  pkt);
+
+        subtitle.start_display_time += pts;
+        subtitle.end_display_time += pts;
     }
 
     if (gotSubtitles)
     {
         if (isForcedTrack)
             subtitle.forced = true;
-        subtitle.start_display_time += pts;
-        subtitle.end_display_time += pts;
         LOG(VB_PLAYBACK | VB_TIMESTAMP, LOG_INFO, LOC +
             QString("subtl timecode %1 %2 %3 %4")
                 .arg(pkt->pts).arg(pkt->dts)
@@ -3815,9 +3816,6 @@ QString AvFormatDecoder::GetTrackDesc(uint type, uint trackNo) const
     QString forcedString = forced ? QObject::tr(" (forced)") : "";
     if (kTrackTypeAudio == type)
     {
-        if (ringBuffer->IsDVD())
-            lang_key = ringBuffer->DVD()->GetAudioLanguage(trackNo);
-
         QString msg = iso639_key_toName(lang_key);
 
         switch (tracks[type][trackNo].audio_type)
@@ -3835,9 +3833,7 @@ QString AvFormatDecoder::GetTrackDesc(uint type, uint trackNo) const
                         msg += QString(" %1").arg(s->codec->codec->name).toUpper();
 
                     int channels = 0;
-                    if (ringBuffer->IsDVD())
-                        channels = ringBuffer->DVD()->GetNumAudioChannels(trackNo);
-                    else if (s->codec->channels)
+                    if (ringBuffer->IsDVD() || s->codec->channels)
                         channels = tracks[kTrackTypeAudio][trackNo].orig_num_channels;
 
                     if (channels == 0)
@@ -3865,9 +3861,6 @@ QString AvFormatDecoder::GetTrackDesc(uint type, uint trackNo) const
     }
     else if (kTrackTypeSubtitle == type)
     {
-        if (ringBuffer->IsDVD())
-            lang_key = ringBuffer->DVD()->GetSubtitleLanguage(trackNo);
-
         return QObject::tr("Subtitle") + QString(" %1: %2%3")
             .arg(trackNo + 1).arg(iso639_key_toName(lang_key))
             .arg(forcedString);
@@ -4376,7 +4369,7 @@ bool AvFormatDecoder::ProcessAudioPacket(AVStream *curstream, AVPacket *pkt,
                     ctx->channels = m_audio->GetMaxChannels();
             }
 
-            ret = AudioOutputUtil::DecodeAudio(ctx, audioSamples, data_size, &tmp_pkt);
+            ret = m_audio->DecodeAudio(ctx, audioSamples, data_size, &tmp_pkt);
             decoded_size = data_size;
             already_decoded = true;
             reselectAudioTrack |= ctx->channels;
@@ -4394,7 +4387,8 @@ bool AvFormatDecoder::ProcessAudioPacket(AVStream *curstream, AVPacket *pkt,
             audSubIdx = selectedTrack[kTrackTypeAudio].av_substream_index;
         }
 
-        if (!(decodetype & kDecodeAudio) || (pkt->stream_index != audIdx))
+        if (!(decodetype & kDecodeAudio) || (pkt->stream_index != audIdx)
+            || !m_audio->HasAudioOut())
             break;
 
         if (firstloop && pkt->pts != (int64_t)AV_NOPTS_VALUE)
@@ -4427,7 +4421,7 @@ bool AvFormatDecoder::ProcessAudioPacket(AVStream *curstream, AVPacket *pkt,
             {
                 if (m_audio->NeedDecodingBeforePassthrough())
                 {
-                    ret = AudioOutputUtil::DecodeAudio(ctx, audioSamples, data_size, &tmp_pkt);
+                    ret = m_audio->DecodeAudio(ctx, audioSamples, data_size, &tmp_pkt);
                     decoded_size = data_size;
                 }
                 else
@@ -4451,7 +4445,7 @@ bool AvFormatDecoder::ProcessAudioPacket(AVStream *curstream, AVPacket *pkt,
                 else
                     ctx->request_channels = 0;
 
-                ret = AudioOutputUtil::DecodeAudio(ctx, audioSamples, data_size, &tmp_pkt);
+                ret = m_audio->DecodeAudio(ctx, audioSamples, data_size, &tmp_pkt);
                 decoded_size = data_size;
             }
 
@@ -4489,9 +4483,9 @@ bool AvFormatDecoder::ProcessAudioPacket(AVStream *curstream, AVPacket *pkt,
             extract_mono_channel(audSubIdx, &audioOut,
                                  (char *)audioSamples, data_size);
 
-        int frames = (ctx->channels <= 0 || decoded_size < 0) ? -1 :
-            decoded_size / (ctx->channels *
-                            av_get_bytes_per_sample(ctx->sample_fmt));
+        int samplesize = AudioOutputSettings::SampleSize(m_audio->GetFormat());
+        int frames = (ctx->channels <= 0 || decoded_size < 0 || !samplesize) ? -1 :
+            decoded_size / (ctx->channels * samplesize);
         m_audio->AddAudioData((char *)audioSamples, data_size, temppts, frames);
         if (audioOut.do_passthru && !m_audio->NeedDecodingBeforePassthrough())
         {
@@ -4989,30 +4983,13 @@ bool AvFormatDecoder::SetupAudioStream(void)
         assert(curstream->codec);
         ctx = curstream->codec;
         orig_channels = selectedTrack[kTrackTypeAudio].orig_num_channels;
-        AudioFormat fmt;
-        AVSampleFormat format_pack = av_get_packed_sample_fmt(ctx->sample_fmt);
+        AudioFormat fmt =
+            AudioOutputSettings::AVSampleFormatToFormat(ctx->sample_fmt,
+                                                        ctx->bits_per_raw_sample);
 
-        if (format_pack != ctx->sample_fmt)
+        if (av_sample_fmt_is_planar(ctx->sample_fmt))
         {
             LOG(VB_AUDIO, LOG_INFO, LOC + QString("Audio data is planar"));
-        }
-
-        switch (format_pack)
-        {
-            case AV_SAMPLE_FMT_U8:     fmt = FORMAT_U8;    break;
-            case AV_SAMPLE_FMT_S16:    fmt = FORMAT_S16;   break;
-            case AV_SAMPLE_FMT_FLT:    fmt = FORMAT_FLT;   break;
-            case AV_SAMPLE_FMT_DBL:    fmt = FORMAT_NONE;  break;
-            case AV_SAMPLE_FMT_S32:
-                switch (ctx->bits_per_raw_sample)
-                {
-                    case  0:    fmt = FORMAT_S32;   break;
-                    case 24:    fmt = FORMAT_S24;   break;
-                    case 32:    fmt = FORMAT_S32;   break;
-                    default:    fmt = FORMAT_NONE;
-                }
-                break;
-            default:                fmt = FORMAT_NONE;
         }
 
         if (fmt == FORMAT_NONE)

@@ -12,10 +12,10 @@
 #include "remoteutil.h"
 #include "exitcodes.h"
 
-#define LOC      QString("MythSystemLegacyEventHandler: ")
+#define LOC      QString("MythSystemEventHandler: ")
 
 /** \class SystemEventThread
- *  \brief QRunnable class for running MythSystemLegacyEvent handler commands
+ *  \brief QRunnable class for running MythSystemEvent handler commands
  *
  *  The SystemEventThread class runs a system event handler command in
  *  non-blocking mode.  The commands are run in the MThreadPool::globalInstance,
@@ -69,28 +69,28 @@ class SystemEventThread : public QRunnable
 };
 
 
-/** \fn MythSystemLegacyEventHandler::MythSystemLegacyEventHandler(void)
+/** \fn MythSystemEventHandler::MythSystemEventHandler(void)
  *  \brief Null Constructor
  *
  *  Adds this object as a gContext event listener.
  */
-MythSystemLegacyEventHandler::MythSystemLegacyEventHandler(void)
+MythSystemEventHandler::MythSystemEventHandler(void)
 {
-    setObjectName("MythSystemLegacyEventHandler");
+    setObjectName("MythSystemEventHandler");
     gCoreContext->addListener(this);
 }
 
-/** \fn MythSystemLegacyEventHandler::~MythSystemLegacyEventHandler()
+/** \fn MythSystemEventHandler::~MythSystemEventHandler()
  *  \brief Destructor
  *
  *  Removes this object as a gContext event listener.
  */
-MythSystemLegacyEventHandler::~MythSystemLegacyEventHandler()
+MythSystemEventHandler::~MythSystemEventHandler()
 {
     gCoreContext->removeListener(this);
 }
 
-/** \fn MythSystemLegacyEventHandler::SubstituteMatches(const QStringList &tokens,
+/** \fn MythSystemEventHandler::SubstituteMatches(const QStringList &tokens,
                                                   QString &command)
  *  \brief Substitutes %MATCH% variables in given command line.
  *  \sa ProgramInfo::SubstituteMatches(QString &str)
@@ -103,7 +103,7 @@ MythSystemLegacyEventHandler::~MythSystemLegacyEventHandler()
  *  \param tokens  Const QStringList containing token list passed with event.
  *  \param command Command line containing %MATCH% variables to be substituted.
  */
-void MythSystemLegacyEventHandler::SubstituteMatches(const QStringList &tokens,
+void MythSystemEventHandler::SubstituteMatches(const QStringList &tokens,
                                                QString &command)
 {
     if (command.isEmpty())
@@ -213,8 +213,8 @@ void MythSystemLegacyEventHandler::SubstituteMatches(const QStringList &tokens,
                                             .arg(command));
 }
 
-/** \fn MythSystemLegacyEventHandler::EventNameToSetting(const QString &name)
- *  \brief Convert an MythSystemLegacyEvent name to a database setting name
+/** \fn MythSystemEventHandler::EventNameToSetting(const QString &name)
+ *  \brief Convert an MythSystemEvent name to a database setting name
  *
  *  Converts an underscored, all-capital-letters system event name of the form
  *  NET_CTRL_CONNECTED to the corresponding CamelCase database setting
@@ -222,7 +222,7 @@ void MythSystemLegacyEventHandler::SubstituteMatches(const QStringList &tokens,
  *
  *  \param name Const QString containing System Event name to convert
  */
-QString MythSystemLegacyEventHandler::EventNameToSetting(const QString &name)
+QString MythSystemEventHandler::EventNameToSetting(const QString &name)
 {
     QString result("EventCmd");
     QStringList parts = name.toLower().split('_', QString::SkipEmptyParts);
@@ -239,11 +239,11 @@ QString MythSystemLegacyEventHandler::EventNameToSetting(const QString &name)
     return result;
 }
 
-/** \fn MythSystemLegacyEventHandler::customEvent(QEvent *e)
+/** \fn MythSystemEventHandler::customEvent(QEvent *e)
  *  \brief Custom Event handler for receiving and processing System Events
- *  \sa MythSystemLegacyEventHandler::SubstituteMatches(const QStringList &tokens,
+ *  \sa MythSystemEventHandler::SubstituteMatches(const QStringList &tokens,
                                                   QString &command)
- *      MythSystemLegacyEventHandler::EventNameToSetting(const QString &name)
+ *      MythSystemEventHandler::EventNameToSetting(const QString &name)
  *
  *  This function listens for SYSTEM_EVENT messages and fires off any
  *  necessary event handler commands.  In addition to SYSTEM_EVENT messages,
@@ -254,7 +254,7 @@ QString MythSystemLegacyEventHandler::EventNameToSetting(const QString &name)
  *
  *  \param e Pointer to QEvent containing event to handle
  */
-void MythSystemLegacyEventHandler::customEvent(QEvent *e)
+void MythSystemEventHandler::customEvent(QEvent *e)
 {
     if ((MythEvent::Type)(e->type()) == MythEvent::MythEventMessage)
     {
@@ -314,13 +314,13 @@ void MythSystemLegacyEventHandler::customEvent(QEvent *e)
 
 /****************************************************************************/
 
-/** \fn SendMythSystemLegacyRecEvent(const QString msg, const RecordingInfo *pginfo)
+/** \fn SendMythSystemRecEvent(const QString msg, const RecordingInfo *pginfo)
  *  \brief Sends a System Event for an in-progress recording
  *  \sa MythCoreContext::SendSystemEvent(const QString msg)
  *  \param msg    Const QString to send as a System Event
  *  \param pginfo Pointer to a RecordingInfo containing info on a recording
  */
-void SendMythSystemLegacyRecEvent(const QString msg, const RecordingInfo *pginfo)
+void SendMythSystemRecEvent(const QString msg, const RecordingInfo *pginfo)
 {
     if (pginfo)
     {
@@ -334,17 +334,17 @@ void SendMythSystemLegacyRecEvent(const QString msg, const RecordingInfo *pginfo
     else
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
-            "SendMythSystemLegacyRecEvent() called with empty RecordingInfo");
+            "SendMythSystemRecEvent() called with empty RecordingInfo");
     }
 }
 
-/** \fn SendMythSystemLegacyPlayEvent(const QString msg, const ProgramInfo *pginfo)
+/** \fn SendMythSystemPlayEvent(const QString msg, const ProgramInfo *pginfo)
  *  \brief Sends a System Event for a previously recorded program
  *  \sa MythCoreContext::SendSystemEvent(const QString msg)
  *  \param msg    Const QString to send as a System Event
  *  \param pginfo Pointer to a RecordingInfo containing info on a recording
  */
-void SendMythSystemLegacyPlayEvent(const QString msg, const ProgramInfo *pginfo)
+void SendMythSystemPlayEvent(const QString msg, const ProgramInfo *pginfo)
 {
     if (pginfo)
         gCoreContext->SendSystemEvent(
@@ -353,15 +353,15 @@ void SendMythSystemLegacyPlayEvent(const QString msg, const ProgramInfo *pginfo)
                     .arg(pginfo->GetChanID())
                     .arg(pginfo->GetRecordingStartTime(MythDate::ISODate)));
     else
-        LOG(VB_GENERAL, LOG_ERR, LOC + "SendMythSystemLegacyPlayEvent() called with "
+        LOG(VB_GENERAL, LOG_ERR, LOC + "SendMythSystemPlayEvent() called with "
                                        "empty ProgramInfo");
 }
 
 /****************************************************************************/
 
-/** \fn MythSystemLegacyEventEditor::MythSystemLegacyEventEditor(MythScreenStack *parent,
+/** \fn MythSystemEventEditor::MythSystemEventEditor(MythScreenStack *parent,
                                                      const char *name)
- *  \brief Constructor for the MythSystemLegacyEvent settings editor
+ *  \brief Constructor for the MythSystemEvent settings editor
  *
  *  Populates the settings name list with the System Event settings names
  *  and sets the title of the RawSettingsEditor screen to indicate that
@@ -370,46 +370,85 @@ void SendMythSystemLegacyPlayEvent(const QString msg, const ProgramInfo *pginfo)
  *  \param parent Parent screen stack for this window
  *  \param name   Name of this window
  */
-MythSystemLegacyEventEditor::MythSystemLegacyEventEditor(MythScreenStack *parent,
+MythSystemEventEditor::MythSystemEventEditor(MythScreenStack *parent,
                                              const char *name)
   : RawSettingsEditor(parent, name)
 {
     m_title = tr("System Event Command Editor");
 
-    m_settings["EventCmdRecPending"]           = tr("Recording pending");
-    m_settings["EventCmdRecStarted"]           = tr("Recording started");
-    m_settings["EventCmdRecFinished"]          = tr("Recording finished");
-    m_settings["EventCmdRecDeleted"]           = tr("Recording deleted");
-    m_settings["EventCmdRecExpired"]           = tr("Recording expired");
-    m_settings["EventCmdLivetvStarted"]        = tr("LiveTV started");
-    m_settings["EventCmdPlayStarted"]          = tr("Playback started");
-    m_settings["EventCmdPlayStopped"]          = tr("Playback stopped");
-    m_settings["EventCmdPlayPaused"]           = tr("Playback paused");
-    m_settings["EventCmdPlayUnpaused"]         = tr("Playback unpaused");
-    m_settings["EventCmdPlayChanged"]          = tr("Playback program changed");
-    m_settings["EventCmdMasterStarted"]        = tr("Master backend started");
-    m_settings["EventCmdMasterShutdown"]       = tr("Master backend shutdown");
-    m_settings["EventCmdClientConnected"]      = tr("Client connected to master backend");
-    m_settings["EventCmdClientDisconnected"]   = tr("Client disconnected from master backend");
-    m_settings["EventCmdSlaveConnected"]       = tr("Slave backend connected to master");
-    m_settings["EventCmdSlaveDisconnected"]    = tr("Slave backend disconnected from master");
-    m_settings["EventCmdNetCtrlConnected"]     = tr("Network Control client connected");
-    m_settings["EventCmdNetCtrlDisconnected"]  = tr("Network Control client disconnected");
-    m_settings["EventCmdMythfilldatabaseRan"]  = tr("mythfilldatabase ran");
-    m_settings["EventCmdSchedulerRan"]         = tr("Scheduler ran");
-    m_settings["EventCmdSettingsCacheCleared"] = tr("Settings cache cleared");
-    m_settings["EventCmdScreenType"]           = tr("Screen created or destroyed");
-    m_settings["EventCmdKey01"]                = tr("Keystroke event #1");
-    m_settings["EventCmdKey02"]                = tr("Keystroke event #2");
-    m_settings["EventCmdKey03"]                = tr("Keystroke event #3");
-    m_settings["EventCmdKey04"]                = tr("Keystroke event #4");
-    m_settings["EventCmdKey05"]                = tr("Keystroke event #5");
-    m_settings["EventCmdKey06"]                = tr("Keystroke event #6");
-    m_settings["EventCmdKey07"]                = tr("Keystroke event #7");
-    m_settings["EventCmdKey08"]                = tr("Keystroke event #8");
-    m_settings["EventCmdKey09"]                = tr("Keystroke event #9");
-    m_settings["EventCmdKey10"]                = tr("Keystroke event #10");
-    m_settings["EventCmdAll"]                  = tr("Any event");
+    // Event names are programmatically converted to settings names in
+    // EventNameToSetting().  For convenience of searching the code
+    // base, the event names are listed in comments.
+    m_settings["EventCmdRecPending"]           = // REC_PENDING
+        tr("Recording pending");
+    m_settings["EventCmdRecStarted"]           = // REC_STARTED
+        tr("Recording started");
+    m_settings["EventCmdRecStartedWriting"]    = // REC_STARTED_WRITING
+        tr("Recording started writing");
+    m_settings["EventCmdRecFinished"]          = // REC_FINISHED
+        tr("Recording finished");
+    m_settings["EventCmdRecDeleted"]           = // REC_DELETED
+        tr("Recording deleted");
+    m_settings["EventCmdRecExpired"]           = // REC_EXPIRED
+        tr("Recording expired");
+    m_settings["EventCmdLivetvStarted"]        = // LIVETV_STARTED
+        tr("LiveTV started");
+    m_settings["EventCmdPlayStarted"]          = // PLAY_STARTED
+        tr("Playback started");
+    m_settings["EventCmdPlayStopped"]          = // PLAY_STOPPED
+        tr("Playback stopped");
+    m_settings["EventCmdPlayPaused"]           = // PLAY_PAUSED
+        tr("Playback paused");
+    m_settings["EventCmdPlayUnpaused"]         = // PLAY_UNPAUSED
+        tr("Playback unpaused");
+    m_settings["EventCmdPlayChanged"]          = // PLAY_CHANGED
+        tr("Playback program changed");
+    m_settings["EventCmdMasterStarted"]        = // MASTER_STARTED
+        tr("Master backend started");
+    m_settings["EventCmdMasterShutdown"]       = // MASTER_SHUTDOWN
+        tr("Master backend shutdown");
+    m_settings["EventCmdClientConnected"]      = // CLIENT_CONNECTED
+        tr("Client connected to master backend");
+    m_settings["EventCmdClientDisconnected"]   = // CLIENT_DISCONNECTED
+        tr("Client disconnected from master backend");
+    m_settings["EventCmdSlaveConnected"]       = // SLAVE_CONNECTED
+        tr("Slave backend connected to master");
+    m_settings["EventCmdSlaveDisconnected"]    = // SLAVE_DISCONNECTED
+        tr("Slave backend disconnected from master");
+    m_settings["EventCmdNetCtrlConnected"]     = // NET_CTRL_CONNECTED
+        tr("Network Control client connected");
+    m_settings["EventCmdNetCtrlDisconnected"]  = // NET_CTRL_DISCONNECTED
+        tr("Network Control client disconnected");
+    m_settings["EventCmdMythfilldatabaseRan"]  = // MYTHFILLDATABASE_RAN
+        tr("mythfilldatabase ran");
+    m_settings["EventCmdSchedulerRan"]         = // SCHEDULER_RAN
+        tr("Scheduler ran");
+    m_settings["EventCmdSettingsCacheCleared"] = // SETTINGS_CACHE_CLEARED
+        tr("Settings cache cleared");
+    m_settings["EventCmdScreenType"]           = // SCREEN_TYPE
+        tr("Screen created or destroyed");
+    m_settings["EventCmdKey01"]                = // KEY_%1
+        tr("Keystroke event #1");
+    m_settings["EventCmdKey02"]                = // KEY_%1
+        tr("Keystroke event #2");
+    m_settings["EventCmdKey03"]                = // KEY_%1
+        tr("Keystroke event #3");
+    m_settings["EventCmdKey04"]                = // KEY_%1
+        tr("Keystroke event #4");
+    m_settings["EventCmdKey05"]                = // KEY_%1
+        tr("Keystroke event #5");
+    m_settings["EventCmdKey06"]                = // KEY_%1
+        tr("Keystroke event #6");
+    m_settings["EventCmdKey07"]                = // KEY_%1
+        tr("Keystroke event #7");
+    m_settings["EventCmdKey08"]                = // KEY_%1
+        tr("Keystroke event #8");
+    m_settings["EventCmdKey09"]                = // KEY_%1
+        tr("Keystroke event #9");
+    m_settings["EventCmdKey10"]                = // KEY_%1
+        tr("Keystroke event #10");
+    m_settings["EventCmdAll"]                  = // EventCmdAll
+        tr("Any event");
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

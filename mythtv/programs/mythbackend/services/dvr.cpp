@@ -382,6 +382,40 @@ QStringList Dvr::GetTitleList()
 //
 /////////////////////////////////////////////////////////////////////////////
 
+DTC::TitleInfoList* Dvr::GetTitleInfoList()
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    QString querystr = QString(
+        "SELECT DISTINCT title, inetref "
+        "    FROM recorded "
+        "    WHERE inetref <> '' "
+        "    ORDER BY title");
+
+    query.prepare(querystr);
+
+    DTC::TitleInfoList *pTitleInfos = new DTC::TitleInfoList();
+    if (!query.exec())
+    {
+        MythDB::DBError("GetTitleList recorded", query);
+        return pTitleInfos;
+    }
+
+    while (query.next())
+    {
+        DTC::TitleInfo *pTitleInfo = pTitleInfos->AddNewTitleInfo();
+
+        pTitleInfo->setTitle(query.value(0).toString());
+        pTitleInfo->setInetref(query.value(1).toString());
+    }
+
+    return pTitleInfos;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
 DTC::ProgramList* Dvr::GetUpcomingList( int  nStartIndex,
                                         int  nCount,
                                         bool bShowAll )
@@ -492,7 +526,7 @@ DTC::ProgramList* Dvr::GetConflictList( int  nStartIndex,
     return pPrograms;
 }
 
-int Dvr::AddRecordSchedule   (
+uint Dvr::AddRecordSchedule   (
                                QString   sTitle,
                                QString   sSubtitle,
                                QString   sDescription,
@@ -621,12 +655,12 @@ int Dvr::AddRecordSchedule   (
 
     rule.Save();
 
-    int recid = rule.m_recordID;
+    uint recid = rule.m_recordID;
 
     return recid;
 }
 
-bool Dvr::UpdateRecordSchedule ( int       nRecordId,
+bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
                                  QString   sTitle,
                                  QString   sSubtitle,
                                  QString   sDescription,
@@ -849,9 +883,6 @@ DTC::RecRule* Dvr::GetRecordSchedule( uint      nRecordId,
                                       QDateTime dStartTimeRaw,
                                       bool      bMakeOverride )
 {
-    if (nRecordId < 0 )
-        throw QString("Record ID is invalid.");
-
     RecordingRule rule;
 
     if (nRecordId > 0)

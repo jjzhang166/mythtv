@@ -242,7 +242,7 @@ void AudioConfigSettings::AudioRescan()
 
 void AudioConfigSettings::UpdateVisibility(const QString &device)
 {
-    if (!m_MaxAudioChannels && !m_AudioUpmix && !m_AudioUpmixType)
+    if (!m_MaxAudioChannels || !m_AudioUpmix || !m_AudioUpmixType)
         return;
 
     int cur_speakers = m_MaxAudioChannels->getValue().toInt();
@@ -276,7 +276,7 @@ AudioOutputSettings AudioConfigSettings::UpdateCapabilities(
         return settings;
 
     bool bAC3 = true;
-    bool bDTS = true;
+    //bool bDTS = true;
     bool bLPCM = true;
     bool bEAC3 = true;
     bool bTRUEHD = true;
@@ -302,8 +302,8 @@ AudioOutputSettings AudioConfigSettings::UpdateCapabilities(
 
         bAC3  = settingsdigital.canFeature(FEATURE_AC3) &&
             m_AC3PassThrough->boolValue();
-        bDTS  = settingsdigital.canFeature(FEATURE_DTS)  &&
-            m_DTSPassThrough->boolValue();
+        //bDTS  = settingsdigital.canFeature(FEATURE_DTS)  &&
+        //    m_DTSPassThrough->boolValue();
         bLPCM = settings.canFeature(FEATURE_LPCM) &&
             !gCoreContext->GetNumSetting("StereoPCM", false);
         bEAC3 = settingsdigital.canFeature(FEATURE_EAC3) &&
@@ -555,7 +555,7 @@ void AudioConfigSettings::StartAudioTest()
 AudioTestThread::AudioTestThread(QObject *parent,
                                  QString main, QString passthrough,
                                  int channels,
-                                 AudioOutputSettings settings,
+                                 AudioOutputSettings &settings,
                                  bool hd) :
     MThread("AudioTest"),
     m_parent(parent), m_channels(channels), m_device(main),
@@ -721,13 +721,13 @@ void AudioTestThread::run()
 }
 
 AudioTest::AudioTest(QString main, QString passthrough,
-                     int channels, AudioOutputSettings settings) 
+                     int channels, AudioOutputSettings &settings)
     : VerticalConfigurationGroup(false, true, false, false),
       m_frontleft(NULL), m_frontright(NULL), m_center(NULL),
       m_surroundleft(NULL), m_surroundright(NULL),
-      m_rearleft(NULL), m_rearright(NULL), m_lfe(NULL),
-      m_main(main), m_passthrough(passthrough), m_settings(settings),
-      m_quality(false)
+      m_rearleft(NULL), m_rearright(NULL), m_lfe(NULL), m_button(NULL),
+      m_hd(NULL), m_main(main), m_passthrough(passthrough),
+      m_settings(settings), m_quality(false)
 {
     m_channels = gCoreContext->GetNumSetting("TestingChannels", channels);
     setLabel(QObject::tr("Audio Configuration Testing"));
@@ -969,7 +969,7 @@ bool AudioTest::event(QEvent *event)
 
 
 AudioTestGroup::AudioTestGroup(QString main, QString passthrough,
-                               int channels, AudioOutputSettings settings)
+                               int channels, AudioOutputSettings &settings)
 {
     addChild(new AudioTest(main, passthrough, channels, settings));
 }

@@ -111,6 +111,7 @@ public:
 #ifdef USING_LIBCRYPTO
         m_keyloaded     = false;
         m_psz_key_path  = current_key_path;
+        memset(&m_aeskey, 0, sizeof(m_aeskey));
 #endif
         m_downloading   = false;
     }
@@ -289,7 +290,7 @@ public:
         /* Decrypt data using AES-128 */
         int aeslen = m_data.size() & ~0xf;
         unsigned char iv[AES_BLOCK_SIZE];
-        char *decrypted_data = new char[aeslen];
+        char *decrypted_data = new char[m_data.size()];
         if (IV == NULL)
         {
             /*
@@ -393,6 +394,7 @@ public:
         m_url           = uri;
 #ifdef USING_LIBCRYPTO
         m_ivloaded      = false;
+        memset(m_AESIV, 0, sizeof(m_AESIV));
 #endif
     }
 
@@ -438,6 +440,7 @@ public:
 #ifdef USING_LIBCRYPTO
         m_keypath       = rhs.m_keypath;
         m_ivloaded      = rhs.m_ivloaded;
+        memcpy(m_AESIV, rhs.m_AESIV, sizeof(m_AESIV));
 #endif
         return *this;
     }
@@ -2882,6 +2885,12 @@ long long HLSRingBuffer::Seek(long long pos, int whence, bool has_lock)
     }
     else
     {
+        if (segment == NULL) // can never happen, make coverity happy
+        {
+            // stream doesn't contain segment error can't continue,
+            // unknown error
+            return -1;
+        }
         int32_t skip = ((postime - starttime) * segment->Size()) / segment->Duration();
         segment->Read(NULL, skip);
     }

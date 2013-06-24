@@ -164,4 +164,13 @@ EXTRA_LIBS += $$LOCAL_LIBDIR_OGL
 EXTRA_LIBS += $$LOCAL_LIBDIR_X11
 EXTRA_LIBS += $$CONFIG_OPENGL_LIBS
 
-macx:using_firewire:using_backend:EXTRA_LIBS += -F$${CONFIG_MAC_AVC} -framework AVCVideoServices
+macx {
+    using_firewire:using_backend:EXTRA_LIBS += -F$${CONFIG_MAC_AVC} -framework AVCVideoServices
+    QMAKE_LFLAGS_SONAME  = -Wl,-install_name,@rpath/
+}
+
+macx {
+    _RPATH_="-rpath,"
+} else {
+    _RPATH_="-rpath="
+}

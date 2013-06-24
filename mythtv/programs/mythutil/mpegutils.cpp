@@ -286,7 +286,7 @@ static int pid_filter(const MythUtilCommandLineParser &cmdline)
     delete destRB;
 
     LOG_PRINT_FLUSH(QString("Wrote %1 of %2 packets\n")
-        .arg(write_count).arg(total_count));
+                    .arg(write_count).arg(total_count));
 
     return GENERIC_EXIT_OK;
 }

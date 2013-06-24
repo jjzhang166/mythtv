@@ -246,7 +246,7 @@ Component options:
 
 Hardware accelerators:
   --disable-dxva2          disable DXVA2 code [autodetect]
-  --enable-vaapi           enable VAAPI code
+  --disable-vaapi          disable VAAPI code [autodetect]
   --enable-vda             enable VDA code
   --disable-vdpau          disable VDPAU code [autodetect]
 
@@ -2587,8 +2587,8 @@ enable safe_bitstream_reader
 #enable static
 enable swscale_alpha
 
-# By default, enable only those hwaccels that have no external dependencies.
-enable dxva2 vdpau
+# Enable hwaccels by default.
+enable dxva2 vaapi vdpau
 
 # mythtv settings
 enable shared
@@ -4121,13 +4121,9 @@ case $target_os in
         ###### Standard ffmpeg configure stuff follows:
         gas="gas-preprocessor.pl $cc"
         enabled ppc && add_asflags -force_cpusubtype_ALL
-        
-        build_os_ver=$(uname -r)
-        if test ${build_os_ver:0:1} = 8; then
-            SHFLAGS='-headerpad_max_install_names -dynamiclib -Wl,-single_module -Wl,-install_name,$(SLIBNAME),-current_version,$(LIBVERSION)'
-        else
-            SHFLAGS='-headerpad_max_install_names -dynamiclib -Wl,-single_module -Wl,-install_name,$(SLIBNAME),-current_version,$(LIBVERSION),-compatibility_version,$(LIBMAJOR)'
-        fi
+
+        #Need to add @rpath in front of install name so test unit can use non-installed lib
+        SHFLAGS='-headerpad_max_install_names -dynamiclib -Wl,-single_module -Wl,-install_name,@rpath/$(SLIBNAME),-current_version,$(LIBVERSION),-compatibility_version,$(LIBMAJOR)'
         enabled x86_32 && append SHFLAGS -Wl,-read_only_relocs,suppress
         strip="${strip} -x"
         add_ldflags -Wl,-dynamic,-search_paths_first
@@ -4903,11 +4899,6 @@ if ! disabled vda && ! enabled ppc; then
     check_header VideoDecodeAcceleration/VDADecoder.h && enable vda
 fi
 
-# check for VAAPI lib
-if ! disabled vaapi; then
-    check_lib va/va.h vaInitialize -lva && enable vaapi
-fi
-
 #End MythTV check
 
 if ! disabled w32threads && ! enabled pthreads; then
@@ -4973,7 +4964,6 @@ enabled libudev && check_lib2 libudev.h udev_new -ludev || disable libudev
 
 check_lib math.h sin -lm && LIBM="-lm"
 disabled crystalhd || check_lib libcrystalhd/libcrystalhd_if.h DtsCrystalHDVersion -lcrystalhd || disable crystalhd
-enabled vaapi && require vaapi va/va.h vaInitialize -lva
 
 atan2f_args=2
 ldexpf_args=2
@@ -5233,12 +5223,9 @@ require X11 X11/Xlib.h XOpenDisplay -lX11                 &&
 require Xext X11/extensions/XShm.h XShmCreateImage -lXext &&
 require Xfixes X11/extensions/Xfixes.h XFixesGetCursorImage -lXfixes
 
-if ! disabled vaapi; then
-    check_lib va/va.h vaInitialize -lva && {
-        check_cpp_condition va/va_version.h "VA_CHECK_VERSION(0,32,0)" ||
-        warn "Please upgrade to VA-API >= 0.32 if you would like full VA-API support.";
-    } || disable vaapi
-fi
+enabled vaapi &&
+    check_lib va/va.h vaInitialize -lva ||
+    disable vaapi
 
 enabled vdpau &&
     check_cpp_condition vdpau/vdpau.h "defined VDP_DECODER_PROFILE_MPEG4_PART2_ASP" ||
@@ -6473,5 +6460,9 @@ fi
 echo "Configuring libmythbluray..."
 (cd external/libmythbluray ; \
        ${qmakeconf} -o Makefile)
+echo "Configuring libsamplerate..."
+(cd external/libsamplerate ; \
+       ${qmakeconf} -o Makefile)
+
 
 test -n "$WARNINGS" && printf "\n$WARNINGS" || exit 0

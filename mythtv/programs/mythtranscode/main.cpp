@@ -60,11 +60,8 @@ static void UpdatePositionMap(frm_pos_map_t &posMap, frm_pos_map_t &durMap, QStr
         fprintf (mapfh, "Type: %d\n", keyType);
         for (it = posMap.begin(); it != posMap.end(); ++it)
         {
-            if (it.key() == keyType)
-            {
-                QString str = QString("%1 %2\n").arg(it.key()).arg(*it);
-                fprintf(mapfh, "%s", qPrintable(str));
-            }
+            QString str = QString("%1 %2\n").arg(it.key()).arg(*it);
+            fprintf(mapfh, "%s", qPrintable(str));
         }
         fclose(mapfh);
     }
@@ -1008,7 +1005,15 @@ static void CompleteJob(int jobID, ProgramInfo *pginfo, bool useCutlist,
                 QFile checkFile(oldfileprev);
 
                 if ((oldfileprev != newfileprev) && (checkFile.exists()))
-                    rename(aoldfileprev.constData(), anewfileprev.constData());
+                {
+                    if(rename(aoldfileprev.constData(), 
+                              anewfileprev.constData()) == -1)
+                    {
+                        LOG(VB_GENERAL, LOG_ERR,
+                            QString("mythtranscode: Error renaming %1 to %2")
+                                    .arg(oldfileprev).arg(newfileprev) + ENO);
+                    }
+                }
             }
         }
 

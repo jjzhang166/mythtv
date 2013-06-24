@@ -3,7 +3,6 @@ include (../settings.pro)
 TEMPLATE = subdirs
 
 # Libraries without dependencies
-SUBDIRS += libmythsamplerate
 SUBDIRS += libmythsoundtouch libmythdvdnav
 SUBDIRS += libmythfreesurround libmythbase
 SUBDIRS += libmythservicecontracts
@@ -18,7 +17,8 @@ SUBDIRS += libmythui libmythupnp libmyth
 libmythui.depends = libmythbase
 libmythupnp.depends = libmythbase
 libmyth.depends =  libmythbase libmythui libmythupnp
-libmyth.depends += libmythsamplerate libmythsoundtouch libmythfreesurround
+libmyth.depends += libmythsoundtouch
+libmyth.depends += libmythfreesurround
 libmythupnp.depends = libmythbase libmythservicecontracts
 
 LIBMYTHTVDEPS = $$SUBDIRS
@@ -35,13 +35,19 @@ libmythmetadata.depends = $$LIBMYTHTVDEPS libmythtv
 SUBDIRS += libmythprotoserver
 libmythprotoserver.depends = $$LIBMYTHTVDEPS libmythtv
 
-# unit tests
+# unit tests libmyth
+libmyth-test.depends = sub-libmyth
+libmyth-test.target = buildtestmyth
+libmyth-test.commands = cd libmyth/test && $(QMAKE) && $(MAKE)
+unix:QMAKE_EXTRA_TARGETS += libmyth-test
+
+# unit tests libmythbase
 libmythbase-test.depends = sub-libmythbase
-libmythbase-test.target = buildtest
+libmythbase-test.target = buildtestmythbase
 libmythbase-test.commands = cd libmythbase/test && $(QMAKE) && $(MAKE)
 unix:QMAKE_EXTRA_TARGETS += libmythbase-test
 
-unittest.depends = libmythbase-test
+unittest.depends = libmyth-test libmythbase-test
 unittest.target = test
 unittest.commands = ../programs/scripts/unittests.sh
 unix:QMAKE_EXTRA_TARGETS += unittest

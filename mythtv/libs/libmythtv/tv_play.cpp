@@ -353,12 +353,6 @@ bool TV::StartTV(ProgramInfo *tvrec, uint flags)
             tv->SetLastProgram(&pginfo);
     }
 
-    if (curProgram)
-    {
-        startSysEventSent = true;
-        SendMythSystemLegacyPlayEvent("PLAY_STARTED", curProgram);
-    }
-
     // Notify others that we are about to play
     gCoreContext->WantingPlayback(tv);
 
@@ -375,7 +369,7 @@ bool TV::StartTV(ProgramInfo *tvrec, uint flags)
             else if (!startSysEventSent)
             {
                 startSysEventSent = true;
-                SendMythSystemLegacyPlayEvent("PLAY_STARTED", curProgram);
+                SendMythSystemPlayEvent("PLAY_STARTED", curProgram);
             }
 
             LOG(VB_PLAYBACK, LOG_INFO, LOC + "tv->Playback() -- end");
@@ -429,7 +423,7 @@ bool TV::StartTV(ProgramInfo *tvrec, uint flags)
 
             curProgram = nextProgram;
 
-            SendMythSystemLegacyPlayEvent("PLAY_CHANGED", curProgram);
+            SendMythSystemPlayEvent("PLAY_CHANGED", curProgram);
             continue;
         }
 
@@ -463,7 +457,8 @@ bool TV::StartTV(ProgramInfo *tvrec, uint flags)
 
     if (curProgram)
     {
-        SendMythSystemLegacyPlayEvent("PLAY_STOPPED", curProgram);
+        if (startSysEventSent)
+            SendMythSystemPlayEvent("PLAY_STOPPED", curProgram);
 
         if (deleterecording)
         {
@@ -483,7 +478,7 @@ bool TV::StartTV(ProgramInfo *tvrec, uint flags)
 
         delete curProgram;
     }
-    else
+    else if (startSysEventSent)
         gCoreContext->SendSystemEvent("PLAY_STOPPED");
 
     if (!playerError.isEmpty())
@@ -2806,34 +2801,6 @@ void TV::timerEvent(QTimerEvent *te)
     if (handled)
         return;
 
-    // Check if it matches a tvchainUpdateTimerId
-    ctx = NULL;
-    {
-        QMutexLocker locker(&timerIdLock);
-        TimerContextMap::iterator it = tvchainUpdateTimerId.find(timer_id);
-        if (it != tvchainUpdateTimerId.end())
-        {
-            KillTimer(timer_id);
-            ctx = *it;
-            tvchainUpdateTimerId.erase(it);
-        }
-    }
-
-    if (ctx)
-    {
-        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
-        bool still_exists = find_player_index(ctx) >= 0;
-
-        if (still_exists)
-            ctx->UpdateTVChain();
-
-        ReturnPlayerLock(mctx);
-        handled = true;
-    }
-
-    if (handled)
-        return;
-
     // Check if it matches networkControlTimerId
     QString netCmd = QString::null;
     {
@@ -5142,6 +5109,8 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
     {
         if (tokens[2] == "POSITION")
         {
+            if (!ctx->player)
+                return;
             QString speedStr;
             if (ContextIsPaused(ctx, __FILE__, __LINE__))
             {
@@ -5334,6 +5303,8 @@ void TV::ProcessNetworkControlCommand(PlayerContext *ctx,
         }
         else if (tokens[2] == "VOLUME")
         {
+            if (!ctx->player)
+                return;
             QString infoStr = QString("%1%").arg(ctx->player->GetVolume());
 
             QString message = QString("NETWORK_CONTROL ANSWER %1")
@@ -6091,7 +6062,7 @@ void TV::DoPlay(PlayerContext *ctx)
         if (ctx->ff_rew_state)
             time = StopFFRew(ctx);
         else if (ctx->player->IsPaused())
-            SendMythSystemLegacyPlayEvent("PLAY_UNPAUSED", ctx->playingInfo);
+            SendMythSystemPlayEvent("PLAY_UNPAUSED", ctx->playingInfo);
 
         ctx->player->Play(ctx->ts_normal, true);
         gCoreContext->emitTVPlaybackUnpaused();
@@ -6213,9 +6184,9 @@ void TV::DoTogglePause(PlayerContext *ctx, bool showOSD)
     ctx->UnlockDeletePlayer(__FILE__, __LINE__);
 
     if (paused)
-        SendMythSystemLegacyPlayEvent("PLAY_UNPAUSED", ctx->playingInfo);
+        SendMythSystemPlayEvent("PLAY_UNPAUSED", ctx->playingInfo);
     else
-        SendMythSystemLegacyPlayEvent("PLAY_PAUSED", ctx->playingInfo);
+        SendMythSystemPlayEvent("PLAY_PAUSED", ctx->playingInfo);
 
     if (!ignore)
         DoTogglePauseFinish(ctx, DoTogglePauseStart(ctx), showOSD);
@@ -7043,7 +7014,8 @@ void TV::SwitchCards(PlayerContext *ctx,
         // pause the decoder first, so we're not reading too close to the end.
         ctx->buffer->IgnoreLiveEOF(true);
         ctx->buffer->StopReads();
-        ctx->player->PauseDecoder();
+        if (ctx->player)
+            ctx->player->PauseDecoder();
 
         // shutdown stuff
         ctx->buffer->Pause();
@@ -9527,10 +9499,10 @@ void TV::customEvent(QEvent *e)
         for (uint i = 0; mctx && (i < player.size()); i++)
         {
             PlayerContext *ctx = GetPlayer(mctx, i);
-            if (ctx->tvchain && ctx->tvchain->GetID() == id)
+            if (ctx->tvchain && ctx->tvchain->GetID() == id &&
+                find_player_index(ctx) >= 0)
             {
-                QMutexLocker locker(&timerIdLock);
-                tvchainUpdateTimerId[StartTimer(1, __LINE__)] = ctx;
+                ctx->UpdateTVChain(me->ExtraDataList());
                 break;
             }
         }
@@ -10450,7 +10422,7 @@ QString TV::GetDataDirect(QString key, QString value, QString field,
     if (best_match != (*it_key).end())
     {
         InfoMap::const_iterator it_field = (*best_match).find(field);
-        if (it_field != (*it_val).end())
+        if (it_field != (*best_match).end())
         {
             QString ret = *it_field;
             ret.detach();

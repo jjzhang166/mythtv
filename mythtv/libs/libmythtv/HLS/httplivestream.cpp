@@ -461,7 +461,13 @@ bool HTTPLiveStream::WritePlaylist(bool audioOnly, bool writeEndTag)
 
     file.close();
 
-    rename(tmpFile.toLatin1().constData(), outFile.toLatin1().constData());
+    if(rename(tmpFile.toLatin1().constData(), 
+              outFile.toLatin1().constData()) == -1)
+    {
+        LOG(VB_RECORD, LOG_ERR, LOC + 
+            QString("Error renaming %1 to %2").arg(tmpFile).arg(outFile) + ENO);
+        return false;
+    }
 
     return true;
 }
@@ -941,16 +947,19 @@ DTC::LiveStreamInfo *HTTPLiveStream::GetLiveStreamInfo(
     info->setPercentComplete((int)m_percentComplete);
     info->setCreated(m_created);
     info->setLastModified(m_lastModified);
-    info->setRelativeURL(m_relativeURL);
-    info->setFullURL(m_fullURL);
     info->setStatusStr(StatusToString(m_status));
     info->setStatusInt((int)m_status);
     info->setStatusMessage(m_statusMessage);
     info->setSourceFile(m_sourceFile);
     info->setSourceHost(m_sourceHost);
-    info->setSourceWidth(m_sourceWidth);
-    info->setSourceHeight(m_sourceHeight);
     info->setAudioOnlyBitrate((int)m_audioOnlyBitrate);
+
+    if (m_width && m_height) {
+        info->setRelativeURL(m_relativeURL);
+        info->setFullURL(m_fullURL);
+        info->setSourceWidth(m_sourceWidth);
+        info->setSourceHeight(m_sourceHeight);
+    }
 
     return info;
 }

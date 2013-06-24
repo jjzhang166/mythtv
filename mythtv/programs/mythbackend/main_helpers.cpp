@@ -30,7 +30,7 @@
 #include "mainserver.h"
 #include "encoderlink.h"
 #include "remoteutil.h"
-#include "housekeeper.h"
+#include "backendhousekeeper.h"
 
 #include "mythcontext.h"
 #include "mythversion.h"
@@ -50,6 +50,7 @@
 #include "mythtranslation.h"
 #include "mythtimezone.h"
 #include "signalhandling.h"
+#include "hardwareprofile.h"
 
 #include "mediaserver.h"
 #include "httpstatus.h"
@@ -433,6 +434,7 @@ int connect_to_master(void)
         {
             LOG(VB_GENERAL, LOG_ERR, "Master backend is incompatible with "
                     "this backend.\nCannot become a slave.");
+            tempMonitorConnection->DecrRef();
             return GENERIC_EXIT_CONNECT_ERROR;
         }
 
@@ -465,12 +467,14 @@ int connect_to_master(void)
         {
             timeCheck.push_back("QUERY_TIME_ZONE");
             tempMonitorConnection->SendReceiveStringList(timeCheck);
+            tempMonitorConnection->WriteStringList(tempMonitorDone);
         }
         if (timeCheck.size() < 3)
         {
+            if (tempMonitorConnection)
+                tempMonitorConnection->DecrRef();
             return GENERIC_EXIT_SOCKET_ERROR;
         }
-        tempMonitorConnection->WriteStringList(tempMonitorDone);
 
         QDateTime our_time = MythDate::current();
         QDateTime master_time = MythDate::fromString(timeCheck[2]);
@@ -482,7 +486,8 @@ int connect_to_master(void)
                 QString("Current time on the master backend differs by "
                         "%1 seconds from time on this system. Exiting.")
                 .arg(timediff));
-            tempMonitorConnection->DecrRef();
+            if (tempMonitorConnection)
+                tempMonitorConnection->DecrRef();
             return GENERIC_EXIT_INVALID_TIME;
         }
 
@@ -567,7 +572,7 @@ int run_backend(MythBackendCommandLineParser &cmdline)
         return GENERIC_EXIT_SETUP_ERROR;
     }
 
-    MythSystemLegacyEventHandler *sysEventHandler = new MythSystemLegacyEventHandler();
+    MythSystemEventHandler *sysEventHandler = new MythSystemEventHandler();
 
     if (ismaster)
     {
@@ -602,9 +607,6 @@ int run_backend(MythBackendCommandLineParser &cmdline)
                 sched->DisableScheduling();
         }
 
-        if (!cmdline.toBool("nohousekeeper"))
-            housekeeping = new HouseKeeper(true, ismaster, sched);
-
         if (!cmdline.toBool("noautoexpire"))
         {
             expirer = new AutoExpire(&tvList);
@@ -613,9 +615,28 @@ int run_backend(MythBackendCommandLineParser &cmdline)
         }
         gCoreContext->SetScheduler(sched);
     }
-    else if (!cmdline.toBool("nohousekeeper"))
+
+    if (!cmdline.toBool("nohousekeeper"))
     {
-        housekeeping = new HouseKeeper(true, ismaster, NULL);
+        housekeeping = new HouseKeeper();
+
+        if (ismaster)
+        {
+            housekeeping->RegisterTask(new LogCleanerTask());
+            housekeeping->RegisterTask(new CleanupTask());
+            housekeeping->RegisterTask(new ThemeUpdateTask());
+            housekeeping->RegisterTask(new ArtworkTask());
+            housekeeping->RegisterTask(new MythFillDatabaseTask());
+        }
+
+        housekeeping->RegisterTask(new JobQueueRecoverTask());
+#ifdef __linux__
+ #ifdef CONFIG_BINDINGS_PYTHON
+        housekeeping->RegisterTask(new HardwareProfileTask());
+ #endif
+#endif
+
+        housekeeping->Start();
     }
 
     if (!cmdline.toBool("nojobqueue"))

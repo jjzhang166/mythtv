@@ -230,6 +230,7 @@ MainServer::MainServer(bool master, int port,
     encoderList(tvList),
     m_defaultVerboseMask(defaultVerboseMask),
     mythserver(NULL),
+    metadatafactory(NULL),
     masterFreeSpaceListUpdater(NULL),
     masterServerReconnect(NULL),
     masterServer(NULL), ismaster(master), threadPool("ProcessRequestPool"),
@@ -1020,7 +1021,7 @@ void MainServer::customEvent(QEvent *e)
 
             if (recInfo.GetChanID())
             {
-                SendMythSystemLegacyPlayEvent("REC_EXPIRED", &recInfo);
+                SendMythSystemPlayEvent("REC_EXPIRED", &recInfo);
 
                 // allow re-record if auto expired but not expired live
                 // or already "deleted" programs

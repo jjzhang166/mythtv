@@ -92,6 +92,8 @@ Scheduler::Scheduler(bool runthread, QMap<int, EncoderLink *> *tvList,
         return;
     }
 
+    CreateConflictLists();
+
     fsInfoCacheFillTime = MythDate::current().addSecs(-1000);
 
     if (doRun)
@@ -129,6 +131,12 @@ Scheduler::~Scheduler()
     {
         delete worklist.back();
         worklist.pop_back();
+    }
+
+    while (!conflictlists.empty())
+    {
+        delete conflictlists.back();
+        conflictlists.pop_back();
     }
 
     locker.unlock();
@@ -840,6 +848,7 @@ void Scheduler::SlaveConnected(RecordingList &slavelist)
 
         if (sp->GetInputID() && !found)
         {
+            sp->mplexid = sp->QueryMplexID();
             reclist.push_back(new RecordingInfo(*sp));
             reclist_changed = true;
             sp->AddHistory(false);
@@ -961,6 +970,8 @@ void Scheduler::PruneOverlaps(void)
 
 void Scheduler::BuildListMaps(void)
 {
+    QMap<uint, uint> badinputs;
+
     RecIter i = worklist.begin();
     for ( ; i != worklist.end(); ++i)
     {
@@ -970,16 +981,31 @@ void Scheduler::BuildListMaps(void)
             p->GetRecordingStatus() == rsWillRecord ||
             p->GetRecordingStatus() == rsUnknown)
         {
-            conflictlist.push_back(p);
+            RecList *conflictlist = conflictlistmap[p->GetInputID()];
+            if (!conflictlist)
+            {
+                ++badinputs[p->GetInputID()];
+                continue;
+            }
+            conflictlist->push_back(p);
             titlelistmap[p->GetTitle().toLower()].push_back(p);
             recordidlistmap[p->GetRecordingRuleID()].push_back(p);
         }
+    }
+
+    QMap<uint, uint>::iterator it;
+    for (it = badinputs.begin(); it != badinputs.end(); ++it)
+    {
+        LOG(VB_GENERAL, LOG_WARNING, LOC_WARN +
+            QString("Ignored %1 entries for invalid input %2")
+            .arg(badinputs[it.value()]).arg(it.key()));
     }
 }
 
 void Scheduler::ClearListMaps(void)
 {
-    conflictlist.clear();
+    for (uint i = 0; i < conflictlists.size(); ++i)
+        conflictlists[i]->clear();
     titlelistmap.clear();
     recordidlistmap.clear();
     cache_is_same_program.clear();
@@ -1059,15 +1085,14 @@ bool Scheduler::FindNextConflict(
                      .arg(p->GetCardID()).arg(q->GetCardID())
                      .arg(igrp.GetSharedInputGroup(
                               p->GetInputID(), q->GetInputID()))
-                     .arg(p->QueryMplexID()).arg(q->QueryMplexID()));
+                     .arg(p->mplexid).arg(q->mplexid));
         }
 
         // if two inputs are in the same input group we have a conflict
         // unless the programs are on the same multiplex.
         if (p->GetCardID() != q->GetCardID())
         {
-            uint p_mplexid = p->QueryMplexID();
-            if (p_mplexid && (p_mplexid == q->QueryMplexID()))
+            if (p->mplexid && (p->mplexid == q->mplexid))
                 continue;
         }
 
@@ -1087,6 +1112,7 @@ const RecordingInfo *Scheduler::FindConflict(
     const RecordingInfo        *p,
     int openend) const
 {
+    RecList &conflictlist = *conflictlistmap[p->GetInputID()];
     RecConstIter k = conflictlist.begin();
     if (FindNextConflict(conflictlist, p, k, openend))
         return *k;
@@ -1334,6 +1360,7 @@ void Scheduler::MoveHigherRecords(bool livetv)
         p->SetRecordingStatus(rsWillRecord);
         MarkOtherShowings(p);
 
+        RecList &conflictlist = *conflictlistmap[p->GetInputID()];
         RecConstIter k = conflictlist.begin();
         for ( ; FindNextConflict(conflictlist, p, k); ++k)
         {
@@ -1366,6 +1393,7 @@ void Scheduler::MoveHigherRecords(bool livetv)
         if (!livetv)
             MarkOtherShowings(p);
 
+        RecList &conflictlist = *conflictlistmap[p->GetInputID()];
         RecConstIter k = conflictlist.begin();
         for ( ; FindNextConflict(conflictlist, p, k); ++k)
         {
@@ -1672,6 +1700,7 @@ void Scheduler::AddRecording(const RecordingInfo &pi)
         QString("Adding '%1' to reclist.").arg(pi.GetTitle()));
 
     RecordingInfo * new_pi = new RecordingInfo(pi);
+    new_pi->mplexid = new_pi->QueryMplexID();
     reclist.push_back(new_pi);
     reclist_changed = true;
 
@@ -1811,9 +1840,6 @@ void Scheduler::run(void)
 
     while (doRun)
     {
-        if (!doRun)
-            break;
-
         // If something changed, it might have short circuited a pass
         // through the list or changed the next run times.  Start a
         // new pass immediately to take care of anything that still
@@ -1827,46 +1853,54 @@ void Scheduler::run(void)
         nextWakeTime = min(nextWakeTime, nextStartTime);
         QDateTime curtime = MythDate::current();
         int secs_to_next =
-            (int) max(qint64(curtime.secsTo(nextStartTime)), qint64(0));
+            max(qint64(curtime.secsTo(nextStartTime)), qint64(0));
         int sched_sleep = max(curtime.msecsTo(nextWakeTime), qint64(0));
-        bool queuedRequests = HaveQueuedRequests();
+        bool haveRequests = HaveQueuedRequests();
+        bool checkSlaves = lastSleepCheck.secsTo(curtime) >= 300;
 
         // If we're about to start a recording don't do any reschedules...
         // instead sleep for a bit
-        if (secs_to_next < schedRunTime || !queuedRequests)
+        if (secs_to_next < schedRunTime ||
+            (!haveRequests && !checkSlaves))
         {
-            LOG(VB_SCHEDULE, LOG_INFO,
-                QString("sleeping for %1 ms (s2n: %2 sr: %3 qr: %4)")
-                .arg(sched_sleep).arg(secs_to_next).arg(schedRunTime)
-                .arg(HaveQueuedRequests()));
-            if (reschedWait.wait(&schedLock, sched_sleep))
-                continue;
+            if (sched_sleep)
+            {
+                LOG(VB_SCHEDULE, LOG_INFO,
+                    QString("sleeping for %1 ms "
+                            "(s2n: %2 sr: %3 qr: %4 cs: %5)")
+                    .arg(sched_sleep).arg(secs_to_next).arg(schedRunTime)
+                    .arg(haveRequests).arg(checkSlaves));
+                if (reschedWait.wait(&schedLock, sched_sleep))
+                    continue;
+            }
         }
         else
         {
-            // The master backend is a long lived program, so
-            // we reload some key settings on each reschedule.
-            prerollseconds  =
-                gCoreContext->GetNumSetting("RecordPreRoll", 0);
-            wakeThreshold =
-                gCoreContext->GetNumSetting("WakeUpThreshold", 300);
-            idleTimeoutSecs =
-                gCoreContext->GetNumSetting("idleTimeoutSecs", 0);
-            idleWaitForRecordingTime =
-                gCoreContext->GetNumSetting("idleWaitForRecordingTime", 15);
-            tuningTimeout =
-                gCoreContext->GetNumSetting("tuningTimeout", 180);
-
-            QTime t; t.start();
-
-            if (HandleReschedule())
+            if (haveRequests)
             {
-                statuschanged = true;
-                startIter = reclist.begin();
-            }
+                // The master backend is a long lived program, so
+                // we reload some key settings on each reschedule.
+                prerollseconds  =
+                    gCoreContext->GetNumSetting("RecordPreRoll", 0);
+                wakeThreshold =
+                    gCoreContext->GetNumSetting("WakeUpThreshold", 300);
+                idleTimeoutSecs =
+                    gCoreContext->GetNumSetting("idleTimeoutSecs", 0);
+                idleWaitForRecordingTime =
+                    gCoreContext->GetNumSetting("idleWaitForRecordingTime",
+                                                15);
+                tuningTimeout =
+                    gCoreContext->GetNumSetting("tuningTimeout", 180);
 
-            schedRunTime = max(int(((t.elapsed() + 999) / 1000) * 1.5 + 2),
-                               schedRunTime);
+                QTime t; t.start();
+                if (HandleReschedule())
+                {
+                    statuschanged = true;
+                    startIter = reclist.begin();
+                }
+                schedRunTime = max(int(((t.elapsed() + 999) / 1000) * 1.5 + 2),
+                                   schedRunTime);
+            }
 
             if (firstRun)
             {
@@ -1881,22 +1915,16 @@ void Scheduler::run(void)
                     continue;
             }
 
-            // Unless a recording is about to start, check for slaves
-            // that can be put to sleep if it has been at least five
-            // minutes since we last put slaves to sleep.
-            curtime = MythDate::current();
-            secs_to_next = (startIter != reclist.end()) ?
-                curtime.secsTo((*startIter)->GetRecordingStartTime()) : 60*60;
-            if ((secs_to_next > schedRunTime * 1.5f) &&
-                (lastSleepCheck.secsTo(curtime) > 300))
+            if (checkSlaves)
             {
+                // Check for slaves that can be put to sleep.
                 PutInactiveSlavesToSleep();
                 lastSleepCheck = MythDate::current();
             }
         }
 
         nextStartTime = MythDate::current().addDays(14);
-        nextWakeTime = nextStartTime;
+        nextWakeTime = lastSleepCheck.addSecs(300);
 
         // Skip past recordings that are already history
         // (i.e. AddHistory() has been called setting oldrecstatus)
@@ -2284,7 +2312,7 @@ void Scheduler::HandleWakeSlave(RecordingInfo &ri, int prerollseconds)
         {
             if (!pendingEventSent)
             {
-                SendMythSystemLegacyRecEvent(
+                SendMythSystemRecEvent(
                     QString("REC_PENDING SECS %1").arg(secsleft), &ri);
             }
 
@@ -2406,7 +2434,7 @@ bool Scheduler::HandleRecording(
     // needs to be shorter than the related one in SchedLiveTV().
     if (secsleft - prerollseconds > 60)
     {
-        nextStartTime = min(nextStartTime, nextrectime);
+        nextStartTime = min(nextStartTime, nextrectime.addSecs(-30));
         nextWakeTime = min(nextWakeTime,
                             nextrectime.addSecs(-prerollseconds - 60));
         return true;
@@ -2425,7 +2453,7 @@ bool Scheduler::HandleRecording(
 
     if (secsleft - prerollseconds > 35)
     {
-        nextStartTime = min(nextStartTime, nextrectime);
+        nextStartTime = min(nextStartTime, nextrectime.addSecs(-30));
         nextWakeTime = min(nextWakeTime,
                             nextrectime.addSecs(-prerollseconds - 35));
         return false;
@@ -2488,7 +2516,7 @@ bool Scheduler::HandleRecording(
 
     if (secsleft - prerollseconds > 30)
     {
-        nextStartTime = min(nextStartTime, nextrectime);
+        nextStartTime = min(nextStartTime, nextrectime.addSecs(-30));
         nextWakeTime = min(nextWakeTime,
                             nextrectime.addSecs(-prerollseconds - 30));
         return false;
@@ -3970,7 +3998,8 @@ void Scheduler::AddNewRecords(void)
         "    p.subtitletypes+0, p.audioprop+0,   RECTABLE.storagegroup, "//40-42
         "    capturecard.hostname, recordmatch.oldrecstatus, NULL, "//43-45
         "    oldrecstatus.future, cardinput.schedorder, " //46-47
-        "    p.syndicatedepisodenumber, p.partnumber, p.parttotal, ") + //48-50
+        "    p.syndicatedepisodenumber, p.partnumber, p.parttotal, " //48-50
+        "    c.mplexid, ") +                                         //51
         pwrpri + QString(
         "FROM recordmatch "
         "INNER JOIN RECTABLE ON (recordmatch.recordid = RECTABLE.recordid) "
@@ -4028,6 +4057,10 @@ void Scheduler::AddNewRecords(void)
             && title == lastp->GetTitle()
             && callsign == lastp->GetChannelSchedulingID())
             continue;
+
+        uint mplexid = result.value(51).toUInt();
+        if (mplexid == 32767)
+            mplexid = 0;
 
         RecordingInfo *p = new RecordingInfo(
             title,
@@ -4092,7 +4125,8 @@ void Scheduler::AddNewRecords(void)
             result.value(39).toUInt(),//videoproperties
             result.value(41).toUInt(),//audioproperties
             result.value(46).toInt(),//future
-            result.value(47).toInt());//schedorder
+            result.value(47).toInt(),//schedorder
+            mplexid);                //mplexid
 
         if (!p->future && !p->IsReactivated() &&
             p->oldrecstatus != rsAborted &&
@@ -4101,7 +4135,7 @@ void Scheduler::AddNewRecords(void)
             p->SetRecordingStatus(p->oldrecstatus);
         }
 
-        p->SetRecordingPriority2(result.value(51).toInt());
+        p->SetRecordingPriority2(result.value(52).toInt());
 
         // Check to see if the program is currently recording and if
         // the end time was changed.  Ideally, checking for a new end
@@ -4468,11 +4502,19 @@ static bool comp_storage_free_space(FileSystemInfo *a, FileSystemInfo *b)
     return false;
 }
 
-// prefer dirs with less weight (disk I/O) over dirs with more weight
+// prefer dirs with less weight (disk I/O) over dirs with more weight.
+// if weights are equal, prefer dirs with more absolute free space over less
 static bool comp_storage_disk_io(FileSystemInfo *a, FileSystemInfo *b)
 {
     if (a->getWeight() < b->getWeight())
+    {
         return true;
+    }
+    else if (a->getWeight() == b->getWeight())
+    {
+        if (a->getFreeSpace() > b->getFreeSpace())
+            return true;
+    }
 
     return false;
 }
@@ -5112,6 +5154,86 @@ bool Scheduler::WasStartedAutomatically()
                 .arg(s));
 
     return autoStart;
+}
+
+void Scheduler::CreateConflictLists(void)
+{
+    // For each input, build a set of inputs that it can conflict
+    // with, including itself.
+    QStringList queryStrs;
+    queryStrs <<
+        QString("SELECT ci1.cardinputid, ci2.cardinputid "
+                "FROM cardinput ci1, cardinput ci2 "
+                "WHERE ci1.cardid = ci2.cardid AND "
+                "      ci1.cardinputid <= ci2.cardinputid "
+                "ORDER BY ci1.cardinputid, ci2.cardinputid");
+    queryStrs <<
+        QString("SELECT DISTINCT ci1.cardinputid, ci2.cardinputid "
+                "FROM cardinput ci1, cardinput ci2, "
+                "     inputgroup ig1, inputgroup ig2 "
+                "WHERE ci1.cardinputid = ig1.cardinputid AND "
+                "      ci2.cardinputid = ig2.cardinputid AND"
+                "      ig1.inputgroupid = ig2.inputgroupid AND "
+                "      ci1.cardinputid < ci2.cardinputid "
+                "ORDER BY ci1.cardinputid, ci2.cardinputid");
+
+    MSqlQuery query(MSqlQuery::InitCon());
+    QMap<uint, QSet<uint> > inputSets;
+
+    // For each input, create a set containing all of the inputs
+    // (including itself) that are grouped with it.  Inputs can either
+    // be implicitly group by belonging to the same card or explicitly
+    // grouped by belonging to the same input group.
+    for (int i = 0; i < queryStrs.size(); ++i)
+    {
+        query.prepare(queryStrs[i]);
+        if (!query.exec())
+        {
+            MythDB::DBError(QString("BuildConflictLists%1").arg(i), query);
+            return;
+        }
+        while (query.next())
+        {
+            uint id0 = query.value(0).toUInt();
+            uint id1 = query.value(1).toUInt();
+            inputSets[id0].insert(id1);
+            inputSets[id1].insert(id0);
+        }
+    }
+
+    QMap<uint, QSet<uint> >::iterator mit;
+    for (mit = inputSets.begin(); mit != inputSets.end(); ++mit)
+    {
+        uint inputid = mit.key();
+        if (conflictlistmap.contains(inputid))
+            continue;
+
+        // Find the union of all inputs grouped with those already in
+        // the set.  Keep doing so until no new inputs get added.
+        // This might not be the most efficient way, but it's simple
+        // and more than fast enough for our needs.
+        QSet<uint> fullset = mit.value();
+        QSet<uint> checkset;
+        QSet<uint>::const_iterator sit;
+        while (checkset != fullset)
+        {
+            checkset = fullset;
+            for (sit = checkset.begin(); sit != checkset.end(); ++sit)
+                fullset += inputSets[*sit];
+        }
+
+        // Create a new conflict list for the resulting set of inputs
+        // and point each inputs list at it.
+        RecList *conflictlist = new RecList();
+        conflictlists.push_back(conflictlist);
+        for (sit = checkset.begin(); sit != checkset.end(); ++sit)
+        {
+            LOG(VB_SCHEDULE, LOG_INFO,
+                QString("Assigning input %1 to conflict set %2")
+                .arg(*sit).arg(conflictlists.size()));
+            conflictlistmap[*sit] = conflictlists.back();
+        }
+    }
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

@@ -73,10 +73,11 @@ class Dvr : public DvrServices
 
         QStringList       GetTitleList        ( );
 
+        DTC::TitleInfoList* GetTitleInfoList  ( );
 
         // Recording Rules
 
-        int               AddRecordSchedule   ( QString   Title,
+        uint              AddRecordSchedule   ( QString   Title,
                                                 QString   Subtitle,
                                                 QString   Description,
                                                 QString   Category,
@@ -118,47 +119,47 @@ class Dvr : public DvrServices
                                                 bool      AutoUserJob4,
                                                 int       Transcoder);
 
-        bool               UpdateRecordSchedule ( int       RecordId,
-        		                                  QString   Title,
+        bool               UpdateRecordSchedule ( uint    RecordId,
+                                                  QString   Title,
                                                   QString   Subtitle,
-        		                                  QString   Description,
-        		                                  QString   Category,
-        		                                  QDateTime StartTime,
-        		                                  QDateTime EndTime,
-        		                                  QString   SeriesId,
-        		                                  QString   ProgramId,
-        		                                  int       ChanId,
-        		                                  QString   Station,
-        		                                  int       FindDay,
-        		                                  QTime     FindTime,
-        		                                  bool      Inactive,
-        		                                  uint      Season,
-        		                                  uint      Episode,
-        		                                  QString   Inetref,
-        		                                  QString   Type,
-        		                                  QString   SearchType,
-        		                                  int       RecPriority,
-        		                                  uint      PreferredInput,
-        		                                  int       StartOffset,
-        		                                  int       EndOffset,
-        		                                  QString   DupMethod,
-        		                                  QString   DupIn,
-        		                                  uint      Filter,
-        		                                  QString   RecProfile,
-        		                                  QString   RecGroup,
-        		                                  QString   StorageGroup,
-        		                                  QString   PlayGroup,
-        		                                  bool      AutoExpire,
-        		                                  int       MaxEpisodes,
-        		                                  bool      MaxNewest,
-        		                                  bool      AutoCommflag,
-        		                                  bool      AutoTranscode,
-        		                                  bool      AutoMetaLookup,
-        		                                  bool      AutoUserJob1,
-        		                                  bool      AutoUserJob2,
-        		                                  bool      AutoUserJob3,
-        		                                  bool      AutoUserJob4,
-        		                                  int       Transcoder);
+                                                  QString   Description,
+                                                  QString   Category,
+                                                  QDateTime StartTime,
+                                                  QDateTime EndTime,
+                                                  QString   SeriesId,
+                                                  QString   ProgramId,
+                                                  int       ChanId,
+                                                  QString   Station,
+                                                  int       FindDay,
+                                                  QTime     FindTime,
+                                                  bool      Inactive,
+                                                  uint      Season,
+                                                  uint      Episode,
+                                                  QString   Inetref,
+                                                  QString   Type,
+                                                  QString   SearchType,
+                                                  int       RecPriority,
+                                                  uint      PreferredInput,
+                                                  int       StartOffset,
+                                                  int       EndOffset,
+                                                  QString   DupMethod,
+                                                  QString   DupIn,
+                                                  uint      Filter,
+                                                  QString   RecProfile,
+                                                  QString   RecGroup,
+                                                  QString   StorageGroup,
+                                                  QString   PlayGroup,
+                                                  bool      AutoExpire,
+                                                  int       MaxEpisodes,
+                                                  bool      MaxNewest,
+                                                  bool      AutoCommflag,
+                                                  bool      AutoTranscode,
+                                                  bool      AutoMetaLookup,
+                                                  bool      AutoUserJob1,
+                                                  bool      AutoUserJob2,
+                                                  bool      AutoUserJob3,
+                                                  bool      AutoUserJob4,
+                                                  int       Transcoder);
 
         bool              RemoveRecordSchedule ( uint             RecordId   );
 
@@ -247,6 +248,8 @@ class ScriptableDvr : public QObject
         QStringList GetRecGroupList () { return m_obj.GetRecGroupList(); }
 
         QStringList GetTitleList    () { return m_obj.GetTitleList(); }
+
+        QObject* GetTitleInfoList   () { return m_obj.GetTitleInfoList(); }
 
 };
 

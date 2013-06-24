@@ -129,6 +129,8 @@ typedef struct
     int palette;
     int controllable;
     int trackMotion;
+    int mapFile;
+    void *shm_ptr;
 
     string getIdStr()
     {
@@ -152,7 +154,7 @@ class ZMServer
     ZMServer(int sock, bool debug);
     ~ZMServer();
 
-    void processRequest(char* buf, int nbytes);
+    bool processRequest(char* buf, int nbytes);
 
   private:
     string getZMSetting(const string &setting);

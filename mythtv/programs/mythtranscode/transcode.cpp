@@ -277,6 +277,8 @@ int Transcode::TranscodeFile(const QString &inputname,
     {
         LOG(VB_GENERAL, LOG_ERR, "Transcoding aborted, error opening file.");
         SetPlayerContext(NULL);
+        if (hls)
+            delete hls;
         return REENCODE_ERROR;
     }
 
@@ -335,6 +337,8 @@ int Transcode::TranscodeFile(const QString &inputname,
         {
             LOG(VB_GENERAL, LOG_INFO, "Transcoding aborted, cutlist changed");
             SetPlayerContext(NULL);
+            if (hls)
+                delete hls;
             return REENCODE_CUTLIST_CHANGE;
         }
         m_proginfo->ClearMarkupFlag(MARK_UPDATED_CUT);
@@ -403,6 +407,8 @@ int Transcode::TranscodeFile(const QString &inputname,
             LOG(VB_GENERAL, LOG_ERR,
                 "Transcoding aborted, error creating AVFormatWriter.");
             SetPlayerContext(NULL);
+            if (hls)
+                delete hls;
             return REENCODE_ERROR;
         }
 
@@ -412,9 +418,8 @@ int Transcode::TranscodeFile(const QString &inputname,
         avfw->SetAspect(video_aspect);
         avfw->SetAudioBitrate(cmdAudioBitrate);
         avfw->SetAudioChannels(arb->m_channels);
-        avfw->SetAudioBits(16);
-        avfw->SetAudioSampleRate(arb->m_eff_audiorate);
-        avfw->SetAudioSampleBytes(2);
+        avfw->SetAudioFrameRate(arb->m_eff_audiorate);
+        avfw->SetAudioFormat(FORMAT_S16);
 
         if (hlsMode)
         {
@@ -426,13 +431,6 @@ int Transcode::TranscodeFile(const QString &inputname,
                 audioOnlyBitrate = 48000;
 
                 avfw2 = new AVFormatWriter();
-                if (!avfw2)
-                {
-                    LOG(VB_GENERAL, LOG_ERR, "Transcoding aborted, error "
-                        "creating low-bitrate AVFormatWriter.");
-                    SetPlayerContext(NULL);
-                    return REENCODE_ERROR;
-                }
 
                 avfw2->SetContainer("mpegts");
 
@@ -451,9 +449,8 @@ int Transcode::TranscodeFile(const QString &inputname,
 
                 avfw2->SetAudioBitrate(audioOnlyBitrate);
                 avfw2->SetAudioChannels(arb->m_channels);
-                avfw2->SetAudioBits(16);
-                avfw2->SetAudioSampleRate(arb->m_eff_audiorate);
-                avfw2->SetAudioSampleBytes(2);
+                avfw2->SetAudioFrameRate(arb->m_eff_audiorate);
+                avfw2->SetAudioFormat(FORMAT_S16);
             }
 
             avfw->SetContainer("mpegts");
@@ -484,6 +481,9 @@ int Transcode::TranscodeFile(const QString &inputname,
                 {
                     LOG(VB_GENERAL, LOG_ERR, "Unable to create new stream");
                     SetPlayerContext(NULL);
+                    delete avfw;
+                    if (avfw2)
+                        delete avfw2;
                     return REENCODE_ERROR;
                 }
             }
@@ -496,6 +496,10 @@ int Transcode::TranscodeFile(const QString &inputname,
             {
                 LOG(VB_GENERAL, LOG_ERR, "hls->InitForWrite() failed");
                 SetPlayerContext(NULL);
+                delete hls;
+                delete avfw;
+                if (avfw2)
+                    delete avfw2;
                 return REENCODE_ERROR;
             }
 
@@ -548,6 +552,11 @@ int Transcode::TranscodeFile(const QString &inputname,
         {
             LOG(VB_GENERAL, LOG_ERR, "avfw->Init() failed");
             SetPlayerContext(NULL);
+            if (hls)
+                delete hls;
+            delete avfw;
+            if (avfw2)
+                delete avfw2;
             return REENCODE_ERROR;
         }
 
@@ -555,6 +564,11 @@ int Transcode::TranscodeFile(const QString &inputname,
         {
             LOG(VB_GENERAL, LOG_ERR, "avfw->OpenFile() failed");
             SetPlayerContext(NULL);
+            if (hls)
+                delete hls;
+            delete avfw;
+            if (avfw2)
+                delete avfw2;
             return REENCODE_ERROR;
         }
 
@@ -562,6 +576,10 @@ int Transcode::TranscodeFile(const QString &inputname,
         {
             LOG(VB_GENERAL, LOG_ERR, "avfw2->Init() failed");
             SetPlayerContext(NULL);
+            if (hls)
+                delete hls;
+            delete avfw;
+            delete avfw2;
             return REENCODE_ERROR;
         }
 
@@ -569,6 +587,10 @@ int Transcode::TranscodeFile(const QString &inputname,
         {
             LOG(VB_GENERAL, LOG_ERR, "avfw2->OpenFile() failed");
             SetPlayerContext(NULL);
+            if (hls)
+                delete hls;
+            delete avfw;
+            delete avfw2;
             return REENCODE_ERROR;
         }
 
@@ -821,6 +843,12 @@ int Transcode::TranscodeFile(const QString &inputname,
         LOG(VB_GENERAL, LOG_ERR,
             "Unable to initialize MythPlayer for Transcode");
         SetPlayerContext(NULL);
+        if (hls)
+            delete hls;
+        if (avfw)
+            delete avfw;
+        if (avfw2)
+            delete avfw2;
         return REENCODE_ERROR;
     }
 

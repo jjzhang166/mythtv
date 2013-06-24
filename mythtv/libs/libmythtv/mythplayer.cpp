@@ -2659,7 +2659,7 @@ void MythPlayer::JumpToProgram(void)
         return;
     }
 
-    SendMythSystemLegacyPlayEvent("PLAY_CHANGED", pginfo);
+    SendMythSystemPlayEvent("PLAY_CHANGED", pginfo);
 
     if (player_ctx->buffer->GetType() == ICRingBuffer::kRingBufferType)
     {
@@ -3236,6 +3236,9 @@ void MythPlayer::DecoderLoop(bool pause)
 
 bool MythPlayer::DecoderGetFrameFFREW(void)
 {
+    if (!decoder)
+        return false;
+
     if (ffrew_skip > 0)
     {
         long long delta = decoder->GetFramesRead() - framesPlayed;

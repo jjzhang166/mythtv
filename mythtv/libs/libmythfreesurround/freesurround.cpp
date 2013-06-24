@@ -136,8 +136,6 @@ int channel_select = -1;
 
 FreeSurround::FreeSurround(uint srate, bool moviemode, SurroundMode smode) :
     srate(srate),
-    open_(false),
-    initialized_(false),
     bufs(NULL),
     decoder(0),
     in_count(0),
@@ -145,7 +143,8 @@ FreeSurround::FreeSurround(uint srate, bool moviemode, SurroundMode smode) :
     processed(true),
     processed_size(0),
     surround_mode(smode),
-    latency_frames(0)
+    latency_frames(0),
+    channels(0)
 {
     LOG(VB_AUDIO, LOG_DEBUG,
         QString("FreeSurround::FreeSurround rate %1 moviemode %2")
@@ -493,7 +492,7 @@ long long FreeSurround::getLatency()
     // returns in usec
     if (latency_frames == 0)
         return 0;
-    return decoder ? ((latency_frames + in_count)*1000000)/(2*srate) : 0;
+    return decoder ? ((long long)(latency_frames + in_count)*1000000)/(2*srate) : 0;
 }
 
 void FreeSurround::flush()

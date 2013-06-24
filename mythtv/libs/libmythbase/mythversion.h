@@ -12,7 +12,7 @@
 /// Update this whenever the plug-in ABI changes.
 /// Including changes in the libmythbase, libmyth, libmythtv, libmythav* and
 /// libmythui class methods in exported headers.
-#define MYTH_BINARY_VERSION "0.27.20130602-1"
+#define MYTH_BINARY_VERSION "0.27.20130609-2"
 
 /** \brief Increment this whenever the MythTV network protocol changes.
  *
@@ -61,7 +61,7 @@
  *      mythtv/bindings/php/MythBackend.php
 #endif
 
-#define MYTH_DATABASE_VERSION "1310"
+#define MYTH_DATABASE_VERSION "1313"
 
 
  MBASE_PUBLIC  const char *GetMythSourceVersion();
