@@ -15,6 +15,8 @@
 #include "mythraopconnection.h"
 #include "mythairplayserver.h"
 
+#include "mythuinotificationcenter.h"
+
 #define LOC QString("RAOP Conn: ")
 #define MAX_PACKET_SIZE  2048
 
@@ -82,6 +84,7 @@ MythRAOPConnection::MythRAOPConnection(QObject *parent, QTcpSocket *socket,
     m_audioTimer(NULL),
     m_progressStart(0),    m_progressCurrent(0),     m_progressEnd(0)
 {
+    m_id = MythUINotificationCenter::GetInstance()->Register(this);
 }
 
 MythRAOPConnection::~MythRAOPConnection()
@@ -116,6 +119,11 @@ MythRAOPConnection::~MythRAOPConnection()
     {
         delete m_textStream;
         m_textStream = NULL;
+    }
+
+    if (m_id > 0)
+    {
+        MythUINotificationCenter::GetInstance()->UnRegister(this, m_id);
     }
 }
 
@@ -259,8 +267,8 @@ void MythRAOPConnection::udpDataReady(QByteArray buf, QHostAddress peer,
             return;
 
         case FIRSTAUDIO_DATA:
-            m_nextSequence  = seq;
-            m_nextTimestamp = timestamp;
+            m_nextSequence      = seq;
+            m_nextTimestamp     = timestamp;
             // With iTunes we know what the first sequence is going to be.
             // iOS device do not tell us before streaming start what the first
             // packet is going to be.
@@ -296,9 +304,9 @@ void MythRAOPConnection::udpDataReady(QByteArray buf, QHostAddress peer,
         if (m_streamingStarted && seq != m_nextSequence)
             SendResendRequest(timestamp, m_nextSequence, seq);
 
-        m_nextSequence     = seq + 1;
-        m_nextTimestamp    = timestamp;
-        m_streamingStarted = true;
+        m_nextSequence      = seq + 1;
+        m_nextTimestamp     = timestamp;
+        m_streamingStarted  = true;
     }
 
     if (!m_streamingStarted)
@@ -351,6 +359,12 @@ void MythRAOPConnection::ProcessSync(const QByteArray &buf)
     m_currentTimestamp  = current;
     m_nextTimestamp     = next;
     m_bufferLength      = m_nextTimestamp - m_currentTimestamp;
+
+    if (current_ts > m_progressStart)
+    {
+        m_progressCurrent = next_ts;
+        SendNotification(false);
+    }
 
     if (first)
     {
@@ -1310,7 +1324,7 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
         if (gotRTP)
         {
             m_nextSequence     = RTPseq;
-            m_nextTimestamp    = RTPtimestamp;
+            m_nextTimestamp    = framesToMs(RTPtimestamp);
             m_currentTimestamp = m_nextTimestamp - m_bufferLength;
         }
         // determine RTP timestamp of last sample played
@@ -1361,21 +1375,29 @@ void MythRAOPConnection::ProcessRequest(const QStringList &header,
                         LOC +QString("Progress: %1/%2")
                         .arg(stringFromSeconds(current))
                         .arg(stringFromSeconds(length)));
+                    SendNotification(true);
                 }
             }
-            else if(tags["Content-Type"] == "image/jpeg")
+            else if(tags["Content-Type"] == "image/none")
+            {
+                m_artwork.clear();
+                SendNotification(false);
+            }
+            else if(tags["Content-Type"].startsWith("image/"))
             {
                 // Receiving image coverart
                 m_artwork = content;
+                SendNotification(false);
             }
             else if (tags["Content-Type"] == "application/x-dmap-tagged")
             {
                 // Receiving DMAP metadata
-                QMap<QString,QString> map = decodeDMAP(content);
+                m_dmap = decodeDMAP(content);
                 LOG(VB_GENERAL, LOG_INFO,
                     QString("Receiving Title:%1 Artist:%2 Album:%3 Format:%4")
-                    .arg(map["minm"]).arg(map["asar"])
-                    .arg(map["asal"]).arg(map["asfm"]));
+                    .arg(m_dmap["minm"]).arg(m_dmap["asar"])
+                    .arg(m_dmap["asal"]).arg(m_dmap["asfm"]));
+                SendNotification(false);
             }
         }
     }
@@ -1737,4 +1759,30 @@ void MythRAOPConnection::deleteEventClient(void)
     LOG(VB_GENERAL, LOG_DEBUG, LOC +
         QString("%1:%2 disconnected from RAOP events server.")
         .arg(client->peerAddress().toString()).arg(client->peerPort()));
+}
+
+void MythRAOPConnection::SendNotification(bool update)
+{
+    QImage image = m_artwork.isEmpty() ? QImage() : QImage::fromData(m_artwork);
+    int duration  =
+        (float)(m_progressEnd-m_progressStart) / m_frameRate + 0.5f;
+    int position =
+        (m_progressCurrent-m_progressStart) / m_frameRate;
+
+    MythNotification *n;
+
+    if (!update)
+    {
+        n = new MythMediaNotification(MythNotification::New,
+                                      image, m_dmap, duration, position);
+    }
+    else
+    {
+        n = new MythPlaybackNotification(MythNotification::Update,
+                                         duration, position);
+    }
+    n->SetId(m_id);
+    n->SetParent(this);
+    MythUINotificationCenter::GetInstance()->Queue(*n);
+    delete n;
 }
