@@ -80,6 +80,7 @@ MythSystemLegacyIOHandler::MythSystemLegacyIOHandler(bool read) :
     m_pWaitLock(), m_pWait(), m_pLock(), m_pMap(PMap_t()), m_maxfd(-1),
     m_read(read)
 {
+    FD_ZERO(&m_fds);
     m_readbuf[0] = '\0';
 }
 
@@ -535,15 +536,15 @@ void MythSystemLegacySignalManager::run(void)
                 ms->m_parent->HandlePostRun();
             }
 
-            if (ms->m_stdpipe[0] > 0)
+            if (ms->m_stdpipe[0] >= 0)
                 writeThread->remove(ms->m_stdpipe[0]);
             CLOSE(ms->m_stdpipe[0]);
 
-            if (ms->m_stdpipe[1] > 0)
+            if (ms->m_stdpipe[1] >= 0)
                 readThread->remove(ms->m_stdpipe[1]);
             CLOSE(ms->m_stdpipe[1]);
 
-            if (ms->m_stdpipe[2] > 0)
+            if (ms->m_stdpipe[2] >= 0)
                 readThread->remove(ms->m_stdpipe[2]);
             CLOSE(ms->m_stdpipe[2]);
 

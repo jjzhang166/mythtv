@@ -41,7 +41,8 @@ HEADERS += mythrender_base.h mythfontmanager.h mythuieditbar.h
 HEADERS += mythdisplay.h mythuivideo.h mythudplistener.h
 HEADERS += mythuiexp.h mythuisimpletext.h mythuistatetracker.h
 HEADERS += mythuianimation.h mythuiscrollbar.h
-HEADERS += mythuinotificationcenter.h mythnotification.h
+HEADERS += mythuinotificationcenter.h mythuinotificationcenter_private.h
+HEADERS += mythnotification.h
 
 SOURCES  = mythmainwindow.cpp mythpainter.cpp mythimage.cpp mythrect.cpp
 SOURCES += myththemebase.cpp  mythpainter_qimage.cpp mythpainter_yuva.cpp
@@ -83,6 +84,7 @@ inc.files += mythvirtualkeyboard.h mythuishape.h mythuiguidegrid.h
 inc.files += mythuieditbar.h mythuifilebrowser.h mythuivideo.h
 inc.files += mythuiexp.h mythuisimpletext.h mythuiactions.h
 inc.files += mythuistatetracker.h mythuianimation.h mythuiscrollbar.h
+inc.files += mythuinotificationcenter.h mythnotification.h
 
 INSTALLS += inc
 

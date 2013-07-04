@@ -2676,8 +2676,9 @@ void MythPlayer::JumpToProgram(void)
     TVState desiredState = player_ctx->GetState();
     bool isInProgress =
         desiredState == kState_WatchingRecording || kState_WatchingLiveTV;
-    if (!subfn.isEmpty() && GetSubReader())
-        GetSubReader()->LoadExternalSubtitles(subfn, isInProgress);
+    if (GetSubReader())
+        GetSubReader()->LoadExternalSubtitles(subfn, isInProgress &&
+                                              !subfn.isEmpty());
 
     if (!player_ctx->buffer->IsOpen())
     {
@@ -3087,15 +3088,18 @@ void MythPlayer::UnpauseDecoder(void)
         return;
     }
 
-    int tries = 0;
-    unpauseDecoder = true;
-    while (decoderThread && !killdecoder && (tries++ < 100) &&
-          !decoderThreadUnpause.wait(&decoderPauseLock, 100))
+    if (!IsInStillFrame())
     {
-        LOG(VB_GENERAL, LOG_WARNING, LOC +
-            "Waited 100ms for decoder to unpause");
+        int tries = 0;
+        unpauseDecoder = true;
+        while (decoderThread && !killdecoder && (tries++ < 100) &&
+              !decoderThreadUnpause.wait(&decoderPauseLock, 100))
+        {
+            LOG(VB_GENERAL, LOG_WARNING, LOC +
+                "Waited 100ms for decoder to unpause");
+        }
+        unpauseDecoder = false;
     }
-    unpauseDecoder = false;
     decoderPauseLock.unlock();
 }
 
