@@ -28,22 +28,22 @@
             <font>baselarge</font>
         </textarea>
 
-        <textarea name="artist" from="basetextarea">
+        <textarea name="origin" from="basetextarea">
             <area>18,45,-10,30</area>
             <font>basesmall</font>
         </textarea>
 
-        <textarea name="album" from="basetextarea">
+        <textarea name="description" from="basetextarea">
             <area>18,75,-10,30</area>
             <font>basesmall</font>
         </textarea>
 
-        <textarea name="info" from="basetextarea">
+        <textarea name="extra" from="basetextarea">
             <area>18,105,300,30</area>
             <font>basesmall</font>
         </textarea>
 
-        <textarea name="time" from="basetextarea">
+        <textarea name="progress_text" from="basetextarea">
             <area>370,105,-10,30</area>
             <font>basesmall</font>
             <align>right</align>
@@ -72,7 +72,7 @@
             <area>0,0,100%,100%</area>
         </shape>
         
-        <imagetype name="coverart">
+        <imagetype name="image">
             <filename>damaged.png</filename>
             <area>18,18,144,144</area>
         </imagetype>
@@ -82,22 +82,22 @@
             <font>baselarge</font>
         </textarea>
         
-        <textarea name="artist" from="basetextarea">
+        <textarea name="origin" from="basetextarea">
             <area>170,45,-10,30</area>
             <font>basesmall</font>
         </textarea>
         
-        <textarea name="album" from="basetextarea">
+        <textarea name="description" from="basetextarea">
             <area>170,75,-10,30</area>
             <font>basesmall</font>
         </textarea>
         
-        <textarea name="info" from="basetextarea">
+        <textarea name="extra" from="basetextarea">
             <area>170,105,300,30</area>
             <font>basesmall</font>
         </textarea>
         
-        <textarea name="time" from="basetextarea">
+        <textarea name="progress_text" from="basetextarea">
             <area>370,105,-10,30</area>
             <font>basesmall</font>
             <align>right</align>
@@ -116,40 +116,40 @@
             <fill color="#000000"/>
         </shape>
 
-        <imagetype name="coverart">
+        <imagetype name="image">
             <filename>damaged.png</filename>
             <area>-1,-1,100%,100%</area>
             <preserveaspect>true</preserveaspect>
         </imagetype>
 
         <textarea name="title" from="basetextarea">
-            <area>170,10,-10,35</area>
-            <font>mysmall</font>
+            <area>170,100%-245,-10,35</area>
+            <font>baseextralarge</font>
         </textarea>
 
-        <textarea name="artist" from="basetextarea">
-            <area>170,45,-10,30</area>
-            <font>myverysmall</font>
+        <textarea name="origin" from="basetextarea">
+            <area>170,100%-195,-10,30</area>
+            <font>baselarge</font>
         </textarea>
 
-        <textarea name="album" from="basetextarea">
-            <area>170,75,-10,30</area>
-            <font>myverysmall</font>
+        <textarea name="description" from="basetextarea">
+            <area>170,100%-165,-10,30</area>
+            <font>basemedium</font>
         </textarea>
 
-        <textarea name="info" from="basetextarea">
-            <area>170,105,300,30</area>
-            <font>myverysmall</font>
+        <textarea name="extra" from="basetextarea">
+            <area>170,100%-135,300,30</area>
+            <font>basemedium</font>
         </textarea>
 
-        <textarea name="time" from="basetextarea">
-            <area>370,105,-10,30</area>
-            <font>myverysmall</font>
+        <textarea name="progress_text" from="basetextarea">
+            <area>370,100%-135,-10,30</area>
+            <font>basemedium</font>
             <align>right</align>
         </textarea>
 
         <progressbar name="progress" from="baseprogressbar">
-            <area>170,140,10,10</area>
+            <area>170,100%-100,10,10</area>
         </progressbar>
     </window>
 
