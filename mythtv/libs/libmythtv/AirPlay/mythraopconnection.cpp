@@ -1784,6 +1784,8 @@ void MythRAOPConnection::SendNotification(bool update)
     }
     n->SetId(m_id);
     n->SetParent(this);
+    n->SetDuration(5);
+    n->SetFullScreen(gCoreContext->GetNumSetting("AirPlayFullScreen"));
     MythUINotificationCenter::GetInstance()->Queue(*n);
     m_firstsend = true;
     delete n;

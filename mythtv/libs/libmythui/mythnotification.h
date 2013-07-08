@@ -17,6 +17,8 @@
 #include "mythuiexp.h"
 
 typedef QMap<QString,QString> DMAP;
+typedef unsigned int    PNMask;
+typedef unsigned int    VNMask;
 
 class MUI_PUBLIC MythNotification : public MythEvent
 {
@@ -121,7 +123,7 @@ public:
     /**
      * contains a short description of the notification
      */
-    void SetDescription(const QString desc) { m_description = desc; }
+    void SetDescription(const QString &desc) { m_description = desc; }
     /**
      * metadata of the notification.
      * In DMAP format. DMAP can contains various information such as artist,
@@ -129,14 +131,26 @@ public:
      */
     void SetMetaData(const DMAP &data)      { m_metadata = data; }
     /**
-     * contains a duration during which the notification will be displayed.
+     * contains a duration during which the notification will be displayed for.
      * The duration is informative only as the MythUINotificationCenter will
      * determine automatically how long a notification can be displayed for
      * and will depend on priority, visibility and other factors
      */
     void SetDuration(int duration)          { m_duration = duration; };
-    void SetVisibility(Visibility n)        { m_visibility = n; }
-    void SetPriority(Priority n)            { m_priority = n; }
+    /**
+     * contains an alternative notification style.
+     * Should a style be defined, the Notification Center will attempt to load
+     * an alternative theme and fall back to the default one if unsuccessful
+     */
+    void SetStyle(const QString &style)     { m_style = style; }
+    /**
+     * define a bitmask of Visibility
+     */
+    void SetVisibility(VNMask n)            { m_visibility = n; }
+    /**
+     * For future use, not implemented at this stage
+     */
+    void SetPriority(PNMask n)              { m_priority = n; }
 
     // Getter
     int         GetId(void)                 { return m_id; }
@@ -145,8 +159,9 @@ public:
     QString     GetDescription(void)        { return m_description; }
     DMAP        GetMetaData(void)           { return m_metadata; }
     int         GetDuration(void)           { return m_duration; };
-    Visibility  GetVisibility(void)         { return m_visibility; }
-    Priority    GetPriority(void)           { return m_priority; }
+    QString     GetStyle(void)              { return m_style; }
+    VNMask      GetVisibility(void)         { return m_visibility; }
+    PNMask      GetPriority(void)           { return m_priority; }
 
 protected:
     MythNotification(const MythNotification &o)
@@ -167,8 +182,9 @@ protected:
     QString     m_description;
     int         m_duration;
     DMAP        m_metadata;
-    Visibility  m_visibility;
-    Priority    m_priority;
+    QString     m_style;
+    VNMask      m_visibility;
+    PNMask      m_priority;
 };
 
 class MUI_PUBLIC MythImageNotification : public virtual MythNotification
@@ -323,4 +339,23 @@ protected:
     MythMediaNotification &operator=(const MythMediaNotification&);
 };
 
+class MUI_PUBLIC MythErrorNotification : public MythImageNotification
+{
+public:
+    MythErrorNotification(const QString &title, const QString &author,
+                          const QString &details = QString())
+        : MythNotification(title, author, details), MythImageNotification(New, "error.png")
+    {
+    }
+
+    virtual MythEvent *clone(void) const { return new MythErrorNotification(*this); }
+
+protected:
+    MythErrorNotification(const MythErrorNotification &o)
+        : MythNotification(o), MythImageNotification(o)
+    {
+    }
+
+    MythErrorNotification &operator=(const MythErrorNotification&);
+};
 #endif /* defined(__MythTV__mythnotification__) */
