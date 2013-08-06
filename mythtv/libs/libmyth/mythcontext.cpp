@@ -39,7 +39,6 @@ using namespace std;
 #include "mythlogging.h"
 #include "mythsystemlegacy.h"
 #include "mythmiscutil.h"
-#include "mythuinotificationcenter.h"
 
 #include "mythplugin.h"
 
@@ -182,20 +181,28 @@ static void exec_program_tv_cb(const QString &cmd)
 static void configplugin_cb(const QString &cmd)
 {
     MythPluginManager *pmanager = gCoreContext->GetPluginManager();
-    if (pmanager)
-        if (pmanager->config_plugin(cmd.trimmed()))
-            ShowNotificationError(cmd, _Location,
-                                  QObject::tr("Failed to configure plugin"));
+    if (!pmanager)
+        return;
+
+    if (GetNotificationCenter() && pmanager->config_plugin(cmd.trimmed()))
+    {
+        ShowNotificationError(cmd, _Location,
+                              QObject::tr("Failed to configure plugin"));
+    }
 }
 
 static void plugin_cb(const QString &cmd)
 {
     MythPluginManager *pmanager = gCoreContext->GetPluginManager();
-    if (pmanager)
-        if (pmanager->run_plugin(cmd.trimmed()))
-            ShowNotificationError(QObject::tr("Plugin failure"),
-                                  _Location,
-                                  QObject::tr("%1 failed to run for some reason").arg(cmd));
+    if (!pmanager)
+        return;
+
+    if (GetNotificationCenter() && pmanager->run_plugin(cmd.trimmed()))
+    {
+        ShowNotificationError(QObject::tr("Plugin failure"),
+                              _Location,
+                              QObject::tr("%1 failed to run for some reason").arg(cmd));
+    }
 }
 
 static void eject_cb(void)
@@ -206,7 +213,7 @@ static void eject_cb(void)
 MythContextPrivate::MythContextPrivate(MythContext *lparent)
     : parent(lparent),
       m_gui(false),
-      m_pConfig(NULL), 
+      m_pConfig(NULL),
       disableeventpopup(false),
       m_ui(NULL),
       m_sh(new MythContextSlotHandler(this)),
@@ -220,14 +227,14 @@ MythContextPrivate::~MythContextPrivate()
 {
     if (m_pConfig)
         delete m_pConfig;
+    if (GetNotificationCenter() && m_registration > 0)
+    {
+        GetNotificationCenter()->UnRegister(this, m_registration, true);
+    }
     if (m_ui)
         DestroyMythUI();
     if (m_sh)
         m_sh->deleteLater();
-    if (HasMythMainWindow() && m_registration > 0)
-    {
-        MythUINotificationCenter::GetInstance()->UnRegister(this, m_registration, true);
-    }
 }
 
 /**
@@ -985,10 +992,9 @@ bool MythContextPrivate::event(QEvent *e)
         if (disableeventpopup)
             return true;
 
-        if (HasMythMainWindow() && m_registration < 0)
+        if (GetNotificationCenter() && m_registration < 0)
         {
-            m_registration =
-                MythUINotificationCenter::GetInstance()->Register(this);
+            m_registration = GetNotificationCenter()->Register(this);
         }
 
         MythEvent *me = (MythEvent*)e;
@@ -1010,29 +1016,45 @@ void MythContextPrivate::ShowConnectionFailurePopup(bool persistent)
 {
     QDateTime now = MythDate::current();
 
+    if (!GetNotificationCenter() || !m_ui || !m_ui->IsScreenSetup())
+        return;
+
     if (m_lastCheck.isValid() && now < m_lastCheck)
         return;
 
     m_lastCheck = now.addMSecs(5000); // don't refresh notification more than every 5s
 
+    QString description = (persistent) ?
+        QObject::tr(
+            "The connection to the master backend "
+            "server has gone away for some reason. "
+            "Is it running?") :
+        QObject::tr(
+            "Could not connect to the master backend server. Is "
+            "it running?  Is the IP address set for it in "
+            "mythtv-setup correct?");
+
     QString message = QObject::tr("Could not connect to master backend");
-    if (HasMythMainWindow() && m_ui && m_ui->IsScreenSetup())
-    {
-        MythErrorNotification n(message, _Location,
-                                QObject::tr("Is it running? Check IP address set in mythtv-setup"));
-        n.SetId(m_registration);
-        n.SetParent(this);
-        MythUINotificationCenter::GetInstance()->Queue(n);
-    }
+    MythErrorNotification n(message, _Location, description);
+    n.SetId(m_registration);
+    n.SetParent(this);
+    GetNotificationCenter()->Queue(n);
 }
 
 void MythContextPrivate::HideConnectionFailurePopup(void)
 {
-    MythNotification n(QObject::tr("Backend is online"), _Location);
+    if (!GetNotificationCenter())
+        return;
+
+    if (!m_lastCheck.isValid())
+        return;
+
+    MythCheckNotification n(QObject::tr("Backend is online"), _Location);
     n.SetId(m_registration);
     n.SetParent(this);
     n.SetDuration(5);
-    MythUINotificationCenter::GetInstance()->Queue(n);
+    GetNotificationCenter()->Queue(n);
+    m_lastCheck = QDateTime();
 }
 
 void MythContextPrivate::ShowVersionMismatchPopup(uint remote_version)
@@ -1074,7 +1096,7 @@ MythContext::MythContext(const QString &binversion)
     if (!WSAStarted) {
         WSADATA wsadata;
         int res = WSAStartup(MAKEWORD(2, 0), &wsadata);
-        LOG(VB_SOCKET, LOG_INFO, 
+        LOG(VB_SOCKET, LOG_INFO,
                  QString("WSAStartup returned %1").arg(res));
     }
 #endif
@@ -1103,7 +1125,7 @@ bool MythContext::Init(const bool gui,
 
     if (app_binary_version != MYTH_BINARY_VERSION)
     {
-        LOG(VB_GENERAL, LOG_EMERG, 
+        LOG(VB_GENERAL, LOG_EMERG,
                  QString("Application binary version (%1) does not "
                          "match libraries (%2)")
                      .arg(app_binary_version) .arg(MYTH_BINARY_VERSION));

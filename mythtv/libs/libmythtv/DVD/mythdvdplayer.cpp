@@ -163,10 +163,9 @@ bool MythDVDPlayer::VideoLoop(void)
     if (player_ctx->buffer->DVD()->DVDWaitingForPlayer())
     {
         LOG(VB_PLAYBACK, LOG_INFO, LOC + "Clearing MythTV DVD wait state");
-        bool inStillFrame = player_ctx->buffer->DVD()->IsInStillFrame();
         player_ctx->buffer->DVD()->SkipDVDWaitingForPlayer();
         ClearAfterSeek(true);
-        if (!inStillFrame && videoPaused && !allpaused)
+        if (videoPaused && !allpaused)
             UnpauseVideo();
         return !IsErrored();
     }
@@ -178,15 +177,14 @@ bool MythDVDPlayer::VideoLoop(void)
         if (player_ctx->buffer->DVD()->IsWaiting())
         {
             LOG(VB_PLAYBACK, LOG_INFO, LOC + "Clearing DVD wait state");
-            bool inStillFrame = player_ctx->buffer->DVD()->IsInStillFrame();
             player_ctx->buffer->DVD()->WaitSkip();
-            if (!inStillFrame && videoPaused && !allpaused)
+            if (videoPaused && !allpaused)
                 UnpauseVideo();
             return !IsErrored();
         }
 
         // the still frame is treated as a pause frame
-        if (player_ctx->buffer->DVD()->IsInStillFrame())
+        if (player_ctx->buffer->DVD()->IsStillFramePending())
         {
             // ensure we refresh the pause frame
             if (!dvd_stillframe_showing)
@@ -196,6 +194,7 @@ bool MythDVDPlayer::VideoLoop(void)
             if (!videoPaused)
             {
                 PauseVideo();
+                dvd_stillframe_showing = true;
                 return !IsErrored();
             }
 
@@ -212,10 +211,6 @@ bool MythDVDPlayer::VideoLoop(void)
             }
 
             dvd_stillframe_showing = true;
-        }
-        else
-        {
-            dvd_stillframe_showing = false;
         }
     }
 
@@ -264,6 +259,9 @@ bool MythDVDPlayer::Rewind(float seconds)
 
 bool MythDVDPlayer::JumpToFrame(uint64_t frame)
 {
+    if (frame == ~0x0ULL)
+        return false;
+
     if (decoder)
         decoder->UpdateFramesPlayed();
     return MythPlayer::JumpToFrame(frame);
@@ -350,7 +348,8 @@ void MythDVDPlayer::SetBookmark(bool clear)
     QString serialid;
     QString dvdstate;
 
-    if (player_ctx->buffer->IsBookmarkAllowed() || clear)
+    if (!player_ctx->buffer->IsInMenu() &&
+        (player_ctx->buffer->IsBookmarkAllowed() || clear))
     {
         if (!player_ctx->buffer->DVD()->GetNameAndSerialNum(name, serialid))
         {
@@ -395,7 +394,7 @@ uint64_t MythDVDPlayer::GetBookmark(void)
     QStringList dvdbookmark = QStringList();
     QString name;
     QString serialid;
-    long long frames = 0;
+    uint64_t frames = 0;
     player_ctx->LockPlayingInfo(__FILE__, __LINE__);
     if (player_ctx->playingInfo)
     {
@@ -414,13 +413,14 @@ uint64_t MythDVDPlayer::GetBookmark(void)
             if (dvdbookmark.count() == 1)
             {
                 m_initial_dvdstate = *it;
+                frames = ~0x0ULL;
                 LOG(VB_PLAYBACK, LOG_INFO, LOC + "Get Bookmark: bookmark found");
             }
             else
             {
                 // Legacy bookmarks
                 m_initial_title = (*it).toInt();
-                frames = (long long)((*++it).toLongLong() & 0xffffffffLL);
+                frames = (uint64_t)((*++it).toLongLong() & 0xffffffffLL);
                 m_initial_audio_track    = (*++it).toInt();
                 m_initial_subtitle_track = (*++it).toInt();
                 LOG(VB_PLAYBACK, LOG_INFO, LOC +
@@ -618,6 +618,7 @@ void MythDVDPlayer::DisplayDVDButton(void)
     }
 
     if (dvdSubtitle &&
+        (dvdSubtitle->end_display_time > dvdSubtitle->start_display_time) &&
         (dvdSubtitle->end_display_time < currentFrame->timecode))
     {
         expired = true;
@@ -667,7 +668,7 @@ bool MythDVDPlayer::GoToMenu(QString str)
 
     if (!ret)
     {
-        SetOSDMessage(QObject::tr("DVD Menu Not Available"), kOSDTimeout_Med);
+        SetOSDMessage(tr("DVD Menu Not Available"), kOSDTimeout_Med);
         LOG(VB_GENERAL, LOG_ERR, "No DVD Menu available.");
         return false;
     }
@@ -708,7 +709,7 @@ QString MythDVDPlayer::GetAngleName(int angle) const
 {
     if (angle >= 1 && angle <= GetNumAngles())
     {
-        QString name = QObject::tr("Angle %1").arg(angle);
+        QString name = tr("Angle %1").arg(angle);
         return name;
     }
     return QString();

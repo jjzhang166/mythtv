@@ -862,8 +862,8 @@ void DecoderIOFactoryShoutCast::periodicallyCheckBuffered(void)
         doConnectDecoder("create-aac-decoder.aac");
     else
     {
-        doFailed(QObject::tr("Unsupported content type for ShoutCast stream: %1")
-                             .arg (response.getContent()));
+        doFailed(tr("Unsupported content type for ShoutCast stream: %1")
+                    .arg (response.getContent()));
     }
 
     m_timer->disconnect();
@@ -878,9 +878,7 @@ void DecoderIOFactoryShoutCast::shoutcastMeta(const QString &metadata)
         QString("DecoderIOFactoryShoutCast: metadata changed - %1")
             .arg(metadata));
     ShoutCastMetaParser parser;
-    // FIXME: 
-    //parser.setMetaFormat(getMetadata().MetadataFormat());
-    parser.setMetaFormat("%a - %t");
+    parser.setMetaFormat(getMetadata().MetadataFormat());
 
     ShoutCastMetaMap meta_map = parser.parseMeta(metadata);
 

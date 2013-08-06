@@ -47,6 +47,8 @@
 #define LOC_WARN QString("PlaybackBox Warning: ")
 #define LOC_ERR  QString("PlaybackBox Error: ")
 
+static const QString _Location = "Playback Box";
+
 static int comp_programid(const ProgramInfo *a, const ProgramInfo *b)
 {
     if (a->GetProgramID() == b->GetProgramID())
@@ -2417,7 +2419,7 @@ void PlaybackBox::ShowGroupPopup()
 
     if (m_playList.size())
     {
-        m_popupMenu->AddItem(tr("Playlist options"), NULL, createPlaylistMenu());
+        m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
     }
     else if (!m_player)
     {
@@ -2663,41 +2665,48 @@ void PlaybackBox::ShowAvailabilityPopup(const ProgramInfo &pginfo)
         case asAvailable:
             if (pginfo.QueryIsInUse(byWho))
             {
-                ShowOkPopup(tr("Recording Available\n") + msg +
-                            tr("This recording is currently in "
-                               "use by:") + "\n" + byWho);
+                ShowNotification(tr("Recording Available\n"),
+                                      _Location, msg +
+                                 tr("This recording is currently in "
+                                    "use by:") + "\n" + byWho);
             }
             else
             {
-                ShowOkPopup(tr("Recording Available\n") + msg +
-                            tr("This recording is currently "
-                               "Available"));
+                ShowNotification(tr("Recording Available\n"),
+                                      _Location, msg +
+                                 tr("This recording is currently "
+                                    "Available"));
             }
             break;
         case asPendingDelete:
-            ShowOkPopup(tr("Recording Unavailable\n") + msg +
-                        tr("This recording is currently being "
-                           "deleted and is unavailable"));
+            ShowNotificationError(tr("Recording Unavailable\n"),
+                                  _Location, msg +
+                                  tr("This recording is currently being "
+                                     "deleted and is unavailable"));
             break;
         case asDeleted:
-            ShowOkPopup(tr("Recording Unavailable\n") + msg +
-                        tr("This recording has been "
-                           "deleted and is unavailable"));
+            ShowNotificationError(tr("Recording Unavailable\n"),
+                                  _Location, msg +
+                                  tr("This recording has been "
+                                     "deleted and is unavailable"));
             break;
         case asFileNotFound:
-            ShowOkPopup(tr("Recording Unavailable\n") + msg +
-                        tr("The file for this recording can "
-                           "not be found"));
+            ShowNotificationError(tr("Recording Unavailable\n"),
+                                  _Location, msg +
+                                  tr("The file for this recording can "
+                                     "not be found"));
             break;
         case asZeroByte:
-            ShowOkPopup(tr("Recording Unavailable\n") + msg +
-                        tr("The file for this recording is "
-                           "empty."));
+            ShowNotificationError(tr("Recording Unavailable\n"),
+                                  _Location, msg +
+                                  tr("The file for this recording is "
+                                     "empty."));
             break;
         case asNotYetAvailable:
-            ShowOkPopup(tr("Recording Unavailable\n") + msg +
-                        tr("This recording is not yet "
-                           "available."));
+            ShowNotificationError(tr("Recording Unavailable\n"),
+                                  _Location, msg +
+                                  tr("This recording is not yet "
+                                     "available."));
     }
 }
 
@@ -3139,17 +3148,17 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
     if ((asFileNotFound  == pginfo.GetAvailableStatus()) ||
         (asZeroByte      == pginfo.GetAvailableStatus()))
     {
-        m_popupMenu->AddItem(tr("Show Recording Details"), SLOT(showProgramDetails()));
-        m_popupMenu->AddItem(tr("Delete"), SLOT(askDelete()));
-
         if (m_playList.filter(pginfo.MakeUniqueKey()).size())
-        {
             m_popupMenu->AddItem(tr("Remove from Playlist"), SLOT(togglePlayListItem()));
-        }
         else
-        {
             m_popupMenu->AddItem(tr("Add to Playlist"), SLOT(togglePlayListItem()));
-        }
+
+        if (m_playList.size())
+            m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
+
+        m_popupMenu->AddItem(tr("Recording Options"), NULL, createRecordingMenu());
+
+        m_popupMenu->AddItem(tr("Delete"), SLOT(askDelete()));
 
         DisplayPopupMenu();
 
@@ -3181,7 +3190,7 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
                                  SLOT(togglePlayListItem()));
         if (m_playList.size())
         {
-            m_popupMenu->AddItem(tr("Playlist options"), NULL, createPlaylistMenu());
+            m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
         }
     }
 

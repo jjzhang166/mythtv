@@ -7,6 +7,7 @@
 
 #include <QObject>
 #include <QEvent>
+#include <QCoreApplication>
 
 #include "playercontext.h"
 #include "volumebase.h"
@@ -551,7 +552,8 @@ class MTV_PUBLIC MythPlayer
     // Private Sets
     void SetPlayingInfo(const ProgramInfo &pginfo);
     void SetPlaying(bool is_playing);
-    void SetErrored(const QString &reason) const;
+    void SetErrored(const QString &reason);
+    void ResetErrored(void);
 
     // Private Gets
     int  GetStatusbarPos(void) const;
@@ -659,8 +661,8 @@ class MTV_PUBLIC MythPlayer
     bool     hasFullPositionMap;
     mutable bool     limitKeyRepeat;
     mutable QMutex   errorLock;
-    mutable QString  errorMsg;   ///< Reason why NVP exited with a error
-    mutable int errorType;
+    QString  errorMsg;   ///< Reason why NVP exited with a error
+    int errorType;
 
     // Chapter stuff
     int jumpchapter;

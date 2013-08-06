@@ -15,7 +15,6 @@
 #include "mythuibutton.h"
 #include "mythuieditbar.h"
 #include "mythuistatetype.h"
-#include "mythuinotificationcenter.h"
 
 // libmythtv
 #include "channelutil.h"
@@ -81,7 +80,7 @@ void ChannelEditor::Probe(void)
     sendResult(2);
 }
 
-void ChannelEditor::SetText(QHash<QString,QString>&map)
+void ChannelEditor::SetText(const InfoMap &map)
 {
     if (map.contains("callsign"))
         m_callsignEdit->SetText(map.value("callsign"));
@@ -93,7 +92,7 @@ void ChannelEditor::SetText(QHash<QString,QString>&map)
         m_xmltvidEdit->SetText(map.value("XMLTV"));
 }
 
-void ChannelEditor::GetText(QHash<QString,QString>&map)
+void ChannelEditor::GetText(InfoMap &map)
 {
     map["callsign"] = m_callsignEdit->GetText();
     map["channum"]  = m_channumEdit->GetText();
@@ -269,6 +268,9 @@ bool OSD::Reinit(const QRect &rect, float font_aspect)
 
 bool OSD::IsVisible(void)
 {
+    if (GetNotificationCenter()->DisplayedNotifications() > 0)
+        return true;
+
     foreach(MythScreenType* child, m_Children)
     {
         if (child->IsVisible() &&
@@ -282,8 +284,13 @@ bool OSD::IsVisible(void)
     return false;
 }
 
-void OSD::HideAll(bool keepsubs, MythScreenType* except)
+void OSD::HideAll(bool keepsubs, MythScreenType* except, bool dropnotification)
 {
+    if (dropnotification)
+    {
+        if (GetNotificationCenter()->RemoveFirst())
+            return; // we've removed the top window, don't process any further
+    }
     QMutableMapIterator<QString, MythScreenType*> it(m_Children);
     while (it.hasNext())
     {
@@ -327,7 +334,7 @@ void OSD::LoadWindows(void)
     }
 }
 
-void OSD::SetValues(const QString &window, QHash<QString,int> &map,
+void OSD::SetValues(const QString &window, const QHash<QString,int> &map,
                     OSDTimeout timeout)
 {
     MythScreenType *win = GetWindow(window);
@@ -364,7 +371,7 @@ void OSD::SetValues(const QString &window, QHash<QString,int> &map,
         SetExpiry(window, timeout);
 }
 
-void OSD::SetValues(const QString &window, QHash<QString,float> &map,
+void OSD::SetValues(const QString &window, const QHash<QString,float> &map,
                     OSDTimeout timeout)
 {
     MythScreenType *win = GetWindow(window);
@@ -383,7 +390,7 @@ void OSD::SetValues(const QString &window, QHash<QString,float> &map,
         SetExpiry(window, timeout);
 }
 
-void OSD::SetText(const QString &window, QHash<QString,QString> &map,
+void OSD::SetText(const QString &window, const InfoMap &map,
                   OSDTimeout timeout)
 {
     MythScreenType *win = GetWindow(window);
@@ -634,13 +641,13 @@ bool OSD::DrawDirect(MythPainter* painter, QSize size, bool repaint)
         }
     }
 
-    MythUINotificationCenter *nc = MythUINotificationCenter::GetInstance();
+    MythNotificationCenter *nc = GetNotificationCenter();
     QList<MythScreenType*> notifications;
     nc->GetNotificationScreens(notifications);
     QList<MythScreenType*>::iterator it2 = notifications.begin();
     while (it2 != notifications.end())
     {
-        if (!MythUINotificationCenter::GetInstance()->ScreenCreated(*it2))
+        if (!GetNotificationCenter()->ScreenCreated(*it2))
         {
             if (!m_UIScaleOverride)
             {
@@ -752,13 +759,13 @@ QRegion OSD::Draw(MythPainter* painter, QPaintDevice *device, QSize size,
         }
     }
 
-    MythUINotificationCenter *nc = MythUINotificationCenter::GetInstance();
+    MythNotificationCenter *nc = GetNotificationCenter();
     QList<MythScreenType*> notifications;
     nc->GetNotificationScreens(notifications);
     QList<MythScreenType*>::iterator it2 = notifications.begin();
     while (it2 != notifications.end())
     {
-        if (!MythUINotificationCenter::GetInstance()->ScreenCreated(*it2))
+        if (!GetNotificationCenter()->ScreenCreated(*it2))
         {
             if (!m_UIScaleOverride)
             {
@@ -906,8 +913,13 @@ void OSD::CheckExpiry(void)
                 MythDialogBox *dialog = dynamic_cast<MythDialogBox*>(m_Dialog);
                 if (dialog)
                 {
-                    QString replace = QObject::tr("%n second(s)", NULL,
-                                                  now.secsTo(it.value()));
+                    // The disambiguation string must be an empty string and not a
+                    // NULL to get extracted by the Qt tools.
+                    QString replace = QCoreApplication::translate("(Common)", 
+                                          "%n second(s)", 
+                                          "", 
+                                          QCoreApplication::UnicodeUTF8, 
+                                          now.secsTo(it.value()));
                     dialog->SetText(newtext.replace("%d", replace));
                 }
                 MythConfirmationDialog *cdialog = dynamic_cast<MythConfirmationDialog*>(m_Dialog);
@@ -1184,7 +1196,7 @@ void OSD::DialogAddButton(QString text, QVariant data, bool menu, bool current)
         dialog->AddButton(text, data, menu, current);
 }
 
-void OSD::DialogGetText(QHash<QString,QString> &map)
+void OSD::DialogGetText(InfoMap &map)
 {
     ChannelEditor *edit = dynamic_cast<ChannelEditor*>(m_Dialog);
     if (edit)

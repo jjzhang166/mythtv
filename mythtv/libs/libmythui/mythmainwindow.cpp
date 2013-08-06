@@ -83,8 +83,6 @@ using namespace std;
 #include "mythpainter_d3d9.h"
 #endif
 
-#include "mythuinotificationcenter.h"
-
 #define GESTURE_TIMEOUT 1000
 #define STANDBY_TIMEOUT 90 // Minutes
 
@@ -193,7 +191,8 @@ class MythMainWindowPrivate
 
         idleTimer(NULL),
         standby(false),
-        enteringStandby(false)
+        enteringStandby(false),
+        NC(NULL)
     {
     }
 
@@ -286,6 +285,7 @@ class MythMainWindowPrivate
     QTimer *idleTimer;
     bool standby;
     bool enteringStandby;
+    MythNotificationCenter *NC;
 };
 
 // Make keynum in QKeyEvent be equivalent to what's in QKeySequence
@@ -371,6 +371,14 @@ void DestroyMythMainWindow(void)
 MythPainter *GetMythPainter(void)
 {
     return MythMainWindow::getMainWindow()->GetCurrentPainter();
+}
+
+MythNotificationCenter *GetNotificationCenter(void)
+{
+    if (!mainWin ||
+        !mainWin->GetCurrentNotificationCenter())
+        return NULL;
+    return mainWin->GetCurrentNotificationCenter();
 }
 
 #ifdef USE_OPENGL_PAINTER
@@ -585,14 +593,20 @@ MythMainWindow::~MythMainWindow()
         delete d->cecAdapter;
 #endif
 
+    delete d->NC;
+
     delete d;
 
-    delete MythUINotificationCenter::GetInstance();
 }
 
 MythPainter *MythMainWindow::GetCurrentPainter(void)
 {
     return d->painter;
+}
+
+MythNotificationCenter *MythMainWindow::GetCurrentNotificationCenter(void)
+{
+    return d->NC;
 }
 
 QWidget *MythMainWindow::GetPaintWindow(void)
@@ -1091,8 +1105,10 @@ void MythMainWindow::Init(QString forcedpainter)
     else
         d->m_themeBase = new MythThemeBase();
 
-    // Will create Notification Center singleton
-    (void)MythUINotificationCenter::GetInstance();
+    if (!d->NC)
+    {
+        d->NC = new MythNotificationCenter();
+    }
 }
 
 void MythMainWindow::InitKeys()
@@ -1308,13 +1324,12 @@ void MythMainWindow::attach(QWidget *child)
         currentWidget()->setEnabled(false);
 
     d->widgetList.push_back(child);
-#ifndef Q_OS_MAC
     child->winId();
-#endif
     child->raise();
     child->setFocus();
     child->setMouseTracking(true);
 }
+
 
 void MythMainWindow::detach(QWidget *child)
 {
@@ -1329,13 +1344,12 @@ void MythMainWindow::detach(QWidget *child)
 
     d->widgetList.erase(it);
     QWidget *current = currentWidget();
+    if (!current)
+        current = this;
 
-    if (current)
-    {
-        current->setEnabled(true);
-        current->setFocus();
-        current->setMouseTracking(true);
-    }
+    current->setEnabled(true);
+    current->setFocus();
+    current->setMouseTracking(true);
 
     if (d->exitingtomain)
     {
@@ -2411,9 +2425,9 @@ void MythMainWindow::customEvent(QEvent *ce)
         if (!message.isEmpty())
             ShowOkPopup(message);
     }
-    else if ((MythEvent::Type)(ce->type()) == MythUINotificationCenterEvent::kEventType)
+    else if ((MythEvent::Type)(ce->type()) == MythNotificationCenterEvent::kEventType)
     {
-        MythUINotificationCenter::GetInstance()->ProcessQueue();
+        GetNotificationCenter()->ProcessQueue();
     }
 }
 

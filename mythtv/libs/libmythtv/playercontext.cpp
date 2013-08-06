@@ -450,8 +450,13 @@ bool PlayerContext::StartPlaying(int maxWait)
     if (!player)
         return false;
 
-    player->StartPlaying();
-
+    if (!player->StartPlaying())
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC + "StartPlaying() Failed to start player");
+        // no need to call StopPlaying here as the player context will be deleted
+        // later following the error
+        return false;
+    }
     maxWait = (maxWait <= 0) ? 20000 : maxWait;
 #ifdef USING_VALGRIND
     maxWait = (1<<30);
@@ -817,7 +822,7 @@ void PlayerContext::SetTVChain(LiveTVChain *chain)
     if (tvchain)
     {
         tvchain->DestroyChain();
-        delete tvchain;
+        tvchain->DecrRef();
         tvchain = NULL;
     }
 

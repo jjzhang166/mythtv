@@ -5,11 +5,14 @@
 #define DVD_BLOCK_SIZE 2048LL
 #define DVD_MENU_MAX 7
 
+// Qt headers
 #include <QMap>
 #include <QString>
 #include <QMutex>
 #include <QRect>
+#include <QCoreApplication>
 
+// MythTV headers
 #include "ringbuffer.h"
 #include "mythdate.h"
 #include "referencecounter.h"
@@ -43,6 +46,10 @@ class MTV_PUBLIC MythDVDContext : public ReferenceCounter
     int      GetFPS()               const { return (m_pci.pci_gi.e_eltm.frame_u & 0x80) ? 30 : 25; }
 
   protected:
+    MythDVDContext(const dsi_t& dsi, const pci_t& pci);
+
+  private:
+    // Default constructor should not be called
     MythDVDContext();
 
   protected:
@@ -60,6 +67,8 @@ class MythDVDPlayer;
 
 class MTV_PUBLIC DVDInfo
 {
+    Q_DECLARE_TR_FUNCTIONS(DVDInfo)
+
   public:
     DVDInfo(const QString &filename);
    ~DVDInfo(void);
@@ -76,6 +85,8 @@ class MTV_PUBLIC DVDInfo
 
 class MTV_PUBLIC DVDRingBuffer : public RingBuffer
 {
+    Q_DECLARE_TR_FUNCTIONS(DVDRingBuffer)
+
   public:
     DVDRingBuffer(const QString &lfilename);
     virtual ~DVDRingBuffer();
@@ -98,6 +109,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     uint GetTotalTimeOfTitle(void);
     float GetAspectOverride(void)     { return m_forcedAspect; }
     virtual bool IsBookmarkAllowed(void);
+    virtual bool IsSeekingAllowed(void);
     virtual bool IsStreamed(void)     { return true; }
     virtual int  BestBufferSize(void) { return 2048; }
 
@@ -105,6 +117,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     bool PGCLengthChanged(void);
     bool CellChanged(void);
     virtual bool IsInStillFrame(void)   const { return m_still > 0;             }
+    bool IsStillFramePending(void) const { return dvdnav_get_next_still_flag(m_dvdnav) > 0; }
     bool AudioStreamsChanged(void) const { return m_audioStreamsChanged; }
     bool IsWaiting(void) const           { return m_dvdWaiting;          }
     int  NumPartsInTitle(void)     const { return m_titleParts;          }
@@ -164,6 +177,7 @@ class MTV_PUBLIC DVDRingBuffer : public RingBuffer
     bool GoToMenu(const QString str);
     void GoToNextProgram(void);
     void GoToPreviousProgram(void);
+    bool GoBack(void);
 
     virtual void IgnoreWaitStates(bool ignore) { m_skipstillorwait = ignore; }
     void AudioStreamsChanged(bool change) { m_audioStreamsChanged = change; }

@@ -38,7 +38,7 @@ HEADERS += logging/loglevelinfo.h logging/verboseinfo.h
 HEADERS += logging/loghandler.h logging/debugloghandler.h
 HEADERS += logging/threadinfo.h logging/logeventhandler.h
 HEADERS += logging/syslogloghandler.h
-HEADERS += mythsystemlegacy.h
+HEADERS += mythsystemlegacy.h mythtypes.h
 
 SOURCES += mthread.cpp mthreadpool.cpp
 SOURCES += mythsocket.cpp
@@ -53,9 +53,8 @@ SOURCES += mythhdd.cpp mythcdrom.cpp dbutil.cpp
 SOURCES += mythbaseutil.cpp referencecounter.cpp mythcommandlineparser.cpp
 SOURCES += filesysteminfo.cpp hardwareprofile.cpp serverpool.cpp
 SOURCES += plist.cpp signalhandling.cpp mythtimezone.cpp mythdate.cpp
-SOURCES += mythplugin.cpp
-SOURCES += mythsystemlegacy.cpp
-SOURCES += housekeeper.cpp
+SOURCES += mythplugin.cpp housekeeper.cpp
+SOURCES += mythsystemlegacy.cpp mythtypes.cpp
 SOURCES += mythlogging.cpp
 SOURCES += logging/logdeque.cpp logging/logentry.cpp
 SOURCES += logging/loghandler.cpp logging/debugloghandler.cpp
@@ -94,7 +93,7 @@ inc.files += referencecounter.h mythcommandlineparser.h mthread.h mthreadpool.h
 inc.files += filesysteminfo.h hardwareprofile.h bonjourregister.h serverpool.h
 inc.files += plist.h bswap.h signalhandling.h ffmpeg-mmx.h mythdate.h
 inc.files += mythplugin.h mythpluginapi.h mythqtcompat.h
-inc.files += remotefile.h mythsystemlegacy.h
+inc.files += remotefile.h mythsystemlegacy.h mythtypes.h
 
 # Allow both #include <blah.h> and #include <libmythbase/blah.h>
 inc2.path  = $${PREFIX}/include/mythtv/libmythbase
