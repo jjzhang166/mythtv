@@ -347,7 +347,18 @@ bool MythDB::SaveSettingOnHost(const QString &key,
         LOG(VB_GENERAL, LOG_ERR, loc + "- database not open");
     }
 
-    ClearSettingsCache(host + ' ' + key);
+    d->settingsCacheLock.lockForWrite();
+
+    QString lkey = key.toLower();
+    SettingsMap::const_iterator it = d->overriddenSettings.find(lkey);
+    if (it == d->overriddenSettings.end())
+    {
+        d->settingsCache.insert(lkey, newValue);
+        if (!host.isEmpty())
+            d->settingsCache.insert(host + ' ' + lkey, newValue);
+    }
+
+    d->settingsCacheLock.unlock();
 
     return success;
 }
