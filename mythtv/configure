@@ -163,6 +163,8 @@ External codec library options (used for mythffmpeg and streaming transcode):
   --enable-libxvid         enable Xvid encoding via xvidcore,
                            native MPEG-4/Xvid encoder exists [no]
   --enable-sdl             enable Simple DirectMedia Layer (required for ffplay)
+  --enable-eglfs           enable EGL FullScreen (requires OpenGL ES)
+  --disable-openglescheck  disable extra Qt OpenGL ES check
 EOF
 
 #following is ffmpeg's configure help text
@@ -856,11 +858,33 @@ check_cxx(){
     check_cmd $cxx $CPPFLAGS $CXXFLAGS "$@" $CXX_C -o $TMPO $TMPCPP
 }
 
-check_ecxx(){
-    log check_cxx "$@"
+check_qt(){
+    log check_qt "$@"
     cat > $TMPCPP
     log_file $TMPCPP
-    check_cmd $cxx $CPPFLAGS $CXXFLAGS $ECXXFLAGS "$@" $CXX_C -o $TMPO $TMPCPP
+    cat > $TMPPRO <<EOF
+QT += $@
+TARGET = $TMPO
+SOURCES += $TMPCPP
+CC=$cc
+CXX=$cxx
+AS=$as
+QMAKE=$qmakeconf
+QMAKE_CC=$cc
+QMAKE_CXX=$cxx
+QMAKE_LINK=$cxx
+LD=$ld
+CPPFLAGS=$CPPFLAGS
+CFLAGS=$CFLAGS
+CXXFLAGS=$CXXFLAGS
+ASFLAGS=$ASFLAGS
+CXXPPFLAGS=$CXXPPFLAGS
+ECXXFLAGS=$ECXXFLAGS
+LDFLAGS=$LDFLAGS
+EOF
+    log_file $TMPPRO
+    check_cmd $qmakeconf $TMPPRO -o $TMPMAKE || return
+    check_cmd $gmake -C $(dirname $TMPMAKE) -f $TMPMAKE
 }
 
 check_cpp(){
@@ -1780,10 +1804,12 @@ MYTHTV_CONFIG_LIST='
     bindings_perl
     bindings_python
     bindings_php
+    ccache
     crystalhd
     cygwin
     darwin
     disable_mmx_for_debugging
+    distcc
     dvb
     firewire
     frontend
@@ -1819,6 +1845,8 @@ MYTHTV_CONFIG_LIST='
     profiletype
     debugtype
     mythlogserver
+    eglfs
+    openglescheck
 '
 
 MYTHTV_HAVE_LIST='
@@ -2477,7 +2505,7 @@ hdhomerun_deps="backend"
 ceton_deps="backend"
 mpegtsraw_demuxer_deps="merge_libavformat_mpegts_c"
 mythtranscode_deps="backend frontend"
-opengl_deps_any="agl_h GL_gl_h GLES2_gl2_h darwin windows x11"
+opengl_deps_any="agl_h GL_gl_h GLES2_gl2_h darwin windows"
 opengles_deps="GLES2_gl2_h"
 opengl_video_deps="opengl"
 v4l2_deps="backend linux_videodev2_h"
@@ -2485,6 +2513,7 @@ v4l1_deps="backend v4l2 linux_videodev_h"
 xrandr_deps="x11"
 xv_deps="x11"
 asi_deps="backend"
+eglfs_deps="opengles"
 
 <<EOF
 # documentation
@@ -2531,8 +2560,6 @@ yasmexe_default="yasm"
 nogas=":"
 
 # MythTV toolchain
-ccache="yes"
-distcc="yes"
 qmake_default="qmake"
 qmakespecs_default=""
 python_default="python"
@@ -2611,6 +2638,8 @@ enable audio_oss
 enable bindings_perl
 enable bindings_python
 enable bindings_php
+enable ccache
+enable distcc
 enable dvb
 enable ffmpeg_pthreads
 enable firewire
@@ -2646,6 +2675,8 @@ enable libfftw3
 enable taglib
 enable mythlogserver
 enable exiv2
+disable eglfs
+enable openglescheck
 
 # mythtv paths
 dvb_path_default="${sysroot}/usr/include"
@@ -2841,23 +2872,11 @@ for opt do
         ;;
         --tune=*) tune=$optval
         ;;
-        --disable-ccache) disable ccache
-        ;;
-        --disable-distcc) disable distcc
-        ;;
-        --enable-quartz-video) enable quartz_video
-        ;;
-        --disable-quartz-video) disable quartz_video
-        ;;
 # disabled due to abuse in Gentoo ebuild
         --disable-frontend)
         ;;
 # disabled due to abuse in Gentoo ebuild
         --disable-backend)
-        ;;
-        --enable-mac-bundle) enable mac_bundle
-        ;;
-        --disable-mythlogserver) disable mythlogserver
         ;;
         --previous|--prev)
             echo "No history of previous configure parameters."
@@ -3090,6 +3109,7 @@ tmpfile TMPSH .sh
 tmpfile TMPV  .ver
 tmpfile TMPMAK .mak
 tmpfile TMPPRO .pro
+tmpfile TMPMAKE .make
 
 unset -f mktemp
 
@@ -4486,6 +4506,8 @@ else
     qmakeconf="$qmake"
 fi
 
+gmake="make"
+
 enabled pic && enable_pic
 
 check_cc <<EOF || die "Symbol mangling check failed."
@@ -5197,6 +5219,14 @@ enabled jack_indev && check_lib2 jack/jack.h jack_client_open -ljack && check_fu
 
 enabled_any sndio_indev sndio_outdev && check_lib2 sndio.h sio_open -lsndio
 
+if ! enabled x11; then
+    #Those can't run without X11, and no need for the libs, so disable early
+    disable vaapi
+    disable vdpau
+    disable xv
+    disable xrandr
+fi
+
 # PulseAudio probe
 ! disabled audio_pulse &&
     check_lib pulse/version.h pa_get_library_version -lpulse &&
@@ -5398,8 +5428,8 @@ fi
 if $(pkg-config --exists QtWebKit) ; then
     enable qtwebkit
 else
-    check_ecxx ${qt_inc} ${qt_inc}/QtCore <<EOF && enable qtwebkit
-#include <QtWebKit/QtWebKit>
+    check_qt webkit <<EOF && enable qtwebkit
+#include <QtWebKit>
 int main(void){ return 0; }
 EOF
 fi
@@ -5409,8 +5439,8 @@ enabled qtwebkit || die "Error! QtWebkit headers not found"
 if $(pkg-config --exists QtScript) ; then
     enable qtscript
 else
-    check_ecxx ${qt_inc} <<EOF && enable qtscript
-#include <QtScript/QtScript>
+    check_qt script <<EOF && enable qtscript
+#include <QtScript>
 int main(void){ return 0; }
 EOF
 fi
@@ -5422,9 +5452,9 @@ if ! disabled qtdbus; then
     if $(pkg-config --exists QtDBus) ; then
         enable qtdbus
     else
-        check_ecxx ${qt_inc} <<EOF && enable qtdbus
-#include <QtDBus/QtDBus>
-#include <QtDBus/QDBusInterface>
+        check_qt dbus <<EOF && enable qtdbus
+#include <QtDBus>
+#include <QDBusInterface>
 int main(void)
 {
     QDBusInterface test("org.kde.test", "/test", "org.kde.blah");
@@ -5435,9 +5465,11 @@ EOF
 fi
 
 # Disable OpenGL ES support if Qt does not support it
-QTGL=$(pkg-config --list-all | grep Qt | grep OpenGL | awk '{print $1}')
-if $(pkg-config --variable=qt_config $QTGL | grep -qv opengles2) ; then
-    disable opengles
+if enabled openglescheck; then
+    QTGL=$(pkg-config --list-all | grep Qt | grep OpenGL | awk '{print $1}')
+    if $(pkg-config --variable=qt_config $QTGL | grep -qv opengles2) ; then
+	disable opengles
+    fi
 fi
 
 if enabled firewire; then
@@ -5477,8 +5509,9 @@ using namespace std;
 using namespace CEC;
 #include <libcec/cecloader.h>
 int main(void) {
-    if (CEC_LIB_VERSION_MAJOR < 1 || (CEC_LIB_VERSION_MAJOR == 1 &&
-                                      CEC_LIB_VERSION_MINOR < 5))
+    // version 1.6.1 segfault, can't detect x.x.N version, so ignore all <= 6
+    if (CEC_LIB_VERSION_MAJOR < 1 ||
+        (CEC_LIB_VERSION_MAJOR == 1 && CEC_LIB_VERSION_MINOR < 7))
         return 0;
     return (long) LibCecInit;
 }
@@ -5527,14 +5560,12 @@ if enabled x11; then
     require libXext X11/extensions/Xext.h XMissingExtension -lXext
 fi
 
-if enabled x11; then
-    if disabled opengles; then
-        # Qt was compiled without OpenGL ES support, so GLES2 isn't usable
-        check_libx gl_lib GL/gl.h glBegin -lGL || check_libx gl_lib GL/gl.h glBegin -lopengl32 || disable opengl
-    else
-        # Qt was compiled with OpenGL ES support, so OpenGL support requires ES
-        check_libx gl_lib GLES2/gl2.h glClear -lGLESv2 || disable opengl
-    fi
+if disabled opengles; then
+    # Qt was compiled without OpenGL ES support, so GLES2 isn't usable
+    check_libx gl_lib GL/gl.h glBegin -lGL || check_libx gl_lib GL/gl.h glBegin -lopengl32 || disable opengl
+else
+    # Qt was compiled with OpenGL ES support, so OpenGL support requires ES
+    check_libx gl_lib GLES2/gl2.h glClear -lGLESv2 || disable opengl
 fi
 
 # Quartz video is Mac only and requires Carbon which is 32bit only

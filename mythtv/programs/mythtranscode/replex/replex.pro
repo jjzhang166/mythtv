@@ -30,8 +30,8 @@ LIBS += -L../../../libs/libmythbase
 LIBS += -lmythavformat
 LIBS += -lmythavcodec
 LIBS += -lmythavutil
+LIBS += -lmythqjson
 LIBS += -lmythbase-$$LIBVERSION
-LIBS += $$EXTRA_LIBS
 
 isEmpty(QMAKE_EXTENSION_SHLIB) {
   QMAKE_EXTENSION_SHLIB=so
