@@ -56,6 +56,7 @@ PreviewGeneratorQueue::~PreviewGeneratorQueue()
     {
         if ((*it).gen)
             (*it).gen->deleteLater();
+        (*it).gen = NULL;
     }
     locker.unlock();
     wait();
@@ -231,7 +232,7 @@ void PreviewGeneratorQueue::SendEvent(
     list.push_back(pginfo.MakeUniqueKey());
     list.push_back(fn);
     list.push_back(msg);
-    list.push_back(dt.toString(Qt::ISODate));
+    list.push_back(dt.toUTC().toString(Qt::ISODate));
     list.push_back(token);
 
     QMutexLocker locker(&m_lock);

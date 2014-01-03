@@ -28,7 +28,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
 // POSIX headers
@@ -362,7 +362,12 @@ void DVBChannel::CheckOptions(DTVMultiplex &tuning) const
 
     // DVB-S needs a fully initialized diseqc tree and is checked later in Tune
     if (!diseqc_tree)
-        CheckFrequency(tuning.frequency);
+    {
+        const DVBChannel *master = GetMasterLock();
+        if (master == NULL || !master->diseqc_tree)
+            CheckFrequency(tuning.frequency);
+        ReturnMasterLock(master);
+    }
 
     if (tunerType.IsFECVariable() &&
         symbol_rate_minimum && symbol_rate_maximum &&

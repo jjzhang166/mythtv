@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -58,6 +58,11 @@ class Myth : public MythServices
                                                    const QString   &HostName );
 
         DTC::TimeZoneInfo*  GetTimeZone         ( );
+
+        QString             GetFormatDate       ( const QDateTime Date,
+                                                  bool            ShortDate );
+        QString             GetFormatTime       ( const QDateTime Time );
+        QDateTime           ParseISODateString  ( const QString   &DateTime );
 
         DTC::LogMessageList* GetLogs            ( const QString   &HostName,
                                                   const QString   &Application,
@@ -186,6 +191,22 @@ class ScriptableMyth : public QObject
         }
 
         QObject* GetTimeZone() { return m_obj.GetTimeZone( ); }
+
+        QString   GetFormatDate( const QDateTime Date,
+                                 bool            ShortDate = false )
+        {
+            return m_obj.GetFormatDate( Date, ShortDate );
+        }
+
+        QString   GetFormatTime( const QDateTime Time )
+        {
+            return m_obj.GetFormatTime( Time );
+        }
+
+        QDateTime ParseISODateString( const QString &DateTime )
+        {
+            return m_obj.ParseISODateString(DateTime);
+        }
 
         QObject* GetLogs( const QString   &HostName,
                           const QString   &Application,

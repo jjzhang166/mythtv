@@ -1,6 +1,7 @@
 // Qt headers
 #include <QLocale>
 #include <QCoreApplication>
+#include <QMetaType>
 
 #include "rssparse.h"
 #include "programinfo.h"
@@ -10,8 +11,12 @@
 #include "mythlocale.h"
 #include "mythmiscutil.h"
 
+static int x0 = qRegisterMetaType< RefCountHandler<MetadataLookup> >();
+
 // null constructor
 MetadataLookup::MetadataLookup(void) :
+    ReferenceCounter("MetadataLookup"),
+
     m_type(kMetadataVideo),
     m_subtype(kUnknownVideo),
     m_data(),
@@ -114,10 +119,10 @@ MetadataLookup::MetadataLookup(
     const QString &seriesid,
     const QString &programid,
     const QString &storagegroup,
-    const QDateTime startts,
-    const QDateTime endts,
-    const QDateTime recstartts,
-    const QDateTime recendts,
+    const QDateTime &startts,
+    const QDateTime &endts,
+    const QDateTime &recstartts,
+    const QDateTime &recendts,
     uint programflags,
     uint audioproperties,
     uint videoproperties,
@@ -131,8 +136,8 @@ MetadataLookup::MetadataLookup(
     uint tracknum,
     const QString &system,
     const uint year,
-    const QDate releasedate,
-    const QDateTime lastupdated,
+    const QDate &releasedate,
+    const QDateTime &lastupdated,
     const uint runtime,
     const uint runtimesecs,
     const QString &inetref,
@@ -145,6 +150,7 @@ MetadataLookup::MetadataLookup(
     const QString &trailerURL,
     const ArtworkMap artwork,
     DownloadMap downloads) :
+    ReferenceCounter("MetadataLookup"),
 
     m_type(type),
     m_subtype(subtype),
@@ -241,19 +247,20 @@ MetadataLookup::MetadataLookup(
     const QString &seriesid,
     const QString &programid,
     const QString &storagegroup,
-    const QDateTime startts,
-    const QDateTime endts,
-    const QDateTime recstartts,
-    const QDateTime recendts,
+    const QDateTime &startts,
+    const QDateTime &endts,
+    const QDateTime &recstartts,
+    const QDateTime &recendts,
     uint programflags,
     uint audioproperties,
     uint videoproperties,
     uint subtitletype,
     const uint year,
-    const QDate releasedate,
-    const QDateTime lastupdated,
+    const QDate &releasedate,
+    const QDateTime &lastupdated,
     const uint runtime,
     const uint runtimesecs) :
+    ReferenceCounter("MetadataLookup"),
 
     m_type(type),
     m_subtype(subtype),
@@ -335,6 +342,7 @@ MetadataLookup::MetadataLookup(
     const QString &trailerURL,
     const ArtworkMap artwork,
     DownloadMap downloads) :
+    ReferenceCounter("MetadataLookup"),
 
     m_type(type),
     m_subtype(subtype),
@@ -385,14 +393,33 @@ MetadataLookup::~MetadataLookup()
 QList<PersonInfo> MetadataLookup::GetPeople(PeopleType type) const
 {
     QList<PersonInfo> ret;
-    ret = m_people.values(type);
+    // QMultiMap::values() returns items in reverse order which we need to
+    // correct by iterating back over the list
+    // See http://qt-project.org/doc/qt-4.8/qmultimap.html#details
+    // Specifically "The items that share the same key are available from "
+    //              "most recently to least recently inserted."
+    QListIterator<PersonInfo> it(m_people.values(type));
+    it.toBack();
+    while (it.hasPrevious())
+        ret.append(it.previous());
+
     return ret;
 }
 
 ArtworkList MetadataLookup::GetArtwork(VideoArtworkType type) const
 {
     ArtworkList ret;
-    ret = m_artwork.values(type);
+
+    // QMultiMap::values() returns items in reverse order which we need to
+    // correct by iterating back over the list
+    // See http://qt-project.org/doc/qt-4.8/qmultimap.html#details
+    // Specifically "The items that share the same key are available from "
+    //              "most recently to least recently inserted."
+    QListIterator<ArtworkInfo> it(m_artwork.values(type));
+    it.toBack();
+    while (it.hasPrevious())
+        ret.append(it.previous());
+
     return ret;
 }
 
@@ -439,17 +466,31 @@ void MetadataLookup::toMap(InfoMap &metadataMap)
         m_releasedate, MythDate::kDateFull);
     metadataMap["lastupdated"] = MythDate::toString(m_lastupdated, MythDate::kDateFull);
 
+#if QT_VERSION < 0x050000
     metadataMap["runtime"] = QCoreApplication::translate("(Common)",
                                                          "%n minute(s)",
                                                          "",
                                                          QCoreApplication::UnicodeUTF8,
                                                          m_runtime);
 
+
     metadataMap["runtimesecs"] = QCoreApplication::translate("(Common)",
                                                              "%n second(s)",
                                                              "",
                                                              QCoreApplication::UnicodeUTF8,
                                                              m_runtimesecs);
+#else
+    metadataMap["runtime"] = QCoreApplication::translate("(Common)",
+                                                         "%n minute(s)",
+                                                         "",
+                                                         m_runtime);
+
+
+    metadataMap["runtimesecs"] = QCoreApplication::translate("(Common)",
+                                                             "%n second(s)",
+                                                             "",
+                                                             m_runtimesecs);
+#endif
     metadataMap["inetref"] = m_inetref;
     metadataMap["collectionref"] = m_collectionref;
     metadataMap["tmsref"] = m_tmsref;
@@ -524,7 +565,7 @@ QDomDocument CreateMetadataXML(ProgramInfo *pginfo)
     if (lookup)
         doc = CreateMetadataXML(lookup);
 
-    delete lookup;
+    lookup->DecrRef();
     lookup = NULL;
 
     return doc;

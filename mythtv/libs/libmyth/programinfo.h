@@ -30,7 +30,7 @@
    mythtv/bindings/python/MythTV/static.py (version number)
    mythtv/bindings/python/MythTV/mythproto.py (layout)
 */
-#define NUMPROGRAMLINES 47
+#define NUMPROGRAMLINES 49
 
 class ProgramInfo;
 typedef AutoDeleteDeque<ProgramInfo*> ProgramList;
@@ -88,6 +88,7 @@ class MPUBLIC ProgramInfo
                 const QString &description,
                 uint season,
                 uint episode,
+                uint totalepisodes,
                 const QString &syndicatedepisode,
                 const QString &category,
 
@@ -108,6 +109,7 @@ class MPUBLIC ProgramInfo
                 const QString &seriesid,
                 const QString &programid,
                 const QString &inetref,
+                CategoryType  catType,
 
                 int recpriority,
 
@@ -212,6 +214,10 @@ class MPUBLIC ProgramInfo
                 uint audioprops,
                 uint subtitletype,
 
+                uint season,
+                uint episode,
+                uint totalepisodes,
+
                 const ProgramList &schedList);
     /// Constructs a basic ProgramInfo (used by RecordingInfo)
     ProgramInfo(const QString &title,
@@ -219,6 +225,7 @@ class MPUBLIC ProgramInfo
                 const QString &description,
                 uint season,
                 uint episode,
+                uint totalepisodes,
                 const QString &category,
 
                 uint chanid,
@@ -292,8 +299,9 @@ class MPUBLIC ProgramInfo
 
     // Used for scheduling recordings
     bool IsSameProgram(const ProgramInfo &other) const;
-    bool IsSameTimeslot(const ProgramInfo &other) const;
-    bool IsSameProgramTimeslot(const ProgramInfo &other) const;//sched only
+    bool IsSameProgramAndStartTime(const ProgramInfo &other) const; // Exact same program and same starttime, Any channel
+    bool IsSameTitleStartTimeAndChannel(const ProgramInfo &other) const; // Same title, starttime and channel
+    bool IsSameTitleTimeslotAndChannel(const ProgramInfo &other) const;//sched only - Same title, starttime, endtime and channel
     static bool UsingProgramIDAuthority(void)
     {
         return usingProgIDAuth;
@@ -335,6 +343,7 @@ class MPUBLIC ProgramInfo
     QString GetDescription(void)  const { return description; }
     uint    GetSeason(void)       const { return season; }
     uint    GetEpisode(void)      const { return episode; }
+    uint    GetEpisodeTotal(void) const { return totalepisodes; }
     QString GetCategory(void)     const { return category; }
     /// This is the unique key used in the database to locate tuning
     /// information. [1..2^32] are valid keys, 0 is not.
@@ -599,6 +608,23 @@ class MPUBLIC ProgramInfo
                          int64_t min_frm = -1, int64_t max_frm = -1) const;
     void SavePositionMapDelta(frm_pos_map_t &, MarkTypes type) const;
 
+    // Get/set all markup
+    struct MarkupEntry
+    {
+        int type; // MarkTypes
+        uint64_t frame;
+        uint64_t data;
+        bool isDataNull;
+        MarkupEntry(int t, uint64_t f, uint64_t d, bool n)
+            : type(t), frame(f), data(d), isDataNull(n) {}
+        MarkupEntry(void)
+            : type(-1), frame(0), data(0), isDataNull(true) {}
+    };
+    void QueryMarkup(QVector<MarkupEntry> &mapMark,
+                     QVector<MarkupEntry> &mapSeek) const;
+    void SaveMarkup(const QVector<MarkupEntry> &mapMark,
+                    const QVector<MarkupEntry> &mapSeek) const;
+
     /// Sends event out that the ProgramInfo should be reloaded.
     void SendUpdateEvent(void);
     /// Sends event out that the ProgramInfo should be added to lists.
@@ -656,14 +682,16 @@ class MPUBLIC ProgramInfo
     QString description;
     uint    season;
     uint    episode;
+    uint    totalepisodes;
     QString syndicatedepisode;
     QString category;
+    QString director;
 
     int32_t recpriority;
 
     uint32_t chanid;
-    QString chanstr;
-    QString chansign;
+    QString chanstr; // Channum
+    QString chansign; // Callsign
     QString channame;
     QString chanplaybackfilters;
 
@@ -743,6 +771,9 @@ MPUBLIC bool LoadFromProgram(
     const MSqlBindings &bindings,
     const ProgramList  &schedList);
 
+MPUBLIC ProgramInfo*  LoadProgramFromProgram(
+        const uint chanid, const QDateTime &starttime);
+
 MPUBLIC bool LoadFromOldRecorded(
     ProgramList        &destination,
     const QString      &sql,
@@ -764,6 +795,7 @@ bool LoadFromScheduler(
     int                 recordid = -1)
 {
     destination.clear();
+    QList<TYPE> tmpList;
     hasConflicts = false;
 
     QStringList slist = ProgramInfo::LoadFromScheduler(altTable, recordid);
@@ -773,18 +805,53 @@ bool LoadFromScheduler(
     hasConflicts = slist[0].toInt();
 
     QStringList::const_iterator sit = slist.begin()+2;
+    uint programCount = 0;
     while (sit != slist.end())
     {
         TYPE *p = new TYPE(sit, slist.end());
-        destination.push_back(p);
+
         if (!p->HasPathname() && !p->GetChanID())
         {
+            delete p;
             destination.clear();
             return false;
         }
+
+        tmpList.push_back(*p);
+        programCount++;
+
+        if (recordid > 0 && p->GetRecordingRuleID() != static_cast<uint>(recordid))
+        {
+            delete p;
+            continue;
+        }
+
+        destination.push_back(p);
     }
 
-    if (destination.size() != slist[1].toUInt())
+    typename AutoDeleteDeque<TYPE*>::const_iterator dit = destination.begin();
+    for (; dit != destination.end(); ++dit)
+    {
+        typename QList<TYPE>::const_iterator it = tmpList.begin();
+        for (; it != tmpList.end(); ++it)
+        {
+            const ProgramInfo &other = *it;
+            if (!(*dit)->IsSameProgramAndStartTime(other))
+                continue;
+
+            if ((*dit)->GetChannelSchedulingID() != other.GetChannelSchedulingID())
+            {
+                if (other.GetRecordingStatus() == rsWillRecord)
+                    (*dit)->SetRecordingStatus(rsOtherShowing);
+                else if (other.GetRecordingStatus() == rsRecording)
+                    (*dit)->SetRecordingStatus(rsOtherRecording);
+                else if (other.GetRecordingStatus() == rsTuning)
+                    (*dit)->SetRecordingStatus(rsOtherTuning);
+            }
+        }
+    }
+
+    if (programCount != slist[1].toUInt())
     {
         destination.clear();
         return false;

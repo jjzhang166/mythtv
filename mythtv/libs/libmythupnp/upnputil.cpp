@@ -26,10 +26,10 @@
 #include "mythlogging.h"
 
 // POSIX headers 2, needs to be after compat.h for OS X
-#ifndef USING_MINGW
+#ifndef _WIN32
 #include <net/if.h>
 #include <sys/ioctl.h>
-#endif // USING_MINGW
+#endif // _WIN32
 #if HAVE_GETIFADDRS
 #include <ifaddrs.h>
 #endif
@@ -58,10 +58,13 @@ QString LookupUDN( QString sDeviceType )
 
     LOG(VB_UPNP, LOG_INFO, sLoc + " sName=" + sName + ", sUDN=" + sUDN);
 
-    if (sUDN.isEmpty()) 
+    // Generate new UUID if current is missing or broken
+    if (sUDN.isEmpty() || sUDN.startsWith("{"))
     {
         sUDN = QUuid::createUuid().toString();
-	sUDN.chop(2);
+        // QUuid returns the uuid enclosed with braces {} which is not
+        // DLNA compliant, we need to remove them
+        sUDN = sUDN.mid(1, 36);
 
         Configuration *pConfig = UPnp::GetConfiguration();
 
@@ -130,7 +133,7 @@ long GetIPAddressList(QStringList &sStrList)
 
 long GetIPAddressList( QStringList &sStrList )
 {
-#ifdef USING_MINGW
+#ifdef _WIN32
     LOG(VB_UPNP, LOG_NOTICE, "GetIPAddressList() not implemented in MinGW");
     return 0;
 #else
@@ -196,7 +199,7 @@ long GetIPAddressList( QStringList &sStrList )
     }
 
     return( sStrList.count() );
-#endif // !USING_MINGW
+#endif // !_WIN32
 }
 
 #endif // HAVE_GETIFADDRS

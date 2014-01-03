@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -33,6 +33,7 @@
 #include "scheduler.h"
 #include "autoexpire.h"
 #include "channelutil.h"
+#include "channelgroup.h"
 
 extern AutoExpire  *expirer;
 extern Scheduler   *sched;
@@ -45,7 +46,8 @@ DTC::ProgramGuide *Guide::GetProgramGuide( const QDateTime &rawStartTime ,
                                            const QDateTime &rawEndTime   ,
                                            int              nStartChanId,
                                            int              nNumChannels,
-                                           bool             bDetails      )
+                                           bool             bDetails,
+                                           int              nChannelGroupId )
 {     
     if (!rawStartTime.isValid())
         throw( "StartTime is invalid" );
@@ -90,13 +92,29 @@ DTC::ProgramGuide *Guide::GetProgramGuide( const QDateTime &rawStartTime ,
     ProgramList  schedList;
     MSqlBindings bindings;
 
-    QString      sSQL = "WHERE program.chanid >= :StartChanId "
-                         "AND program.chanid <= :EndChanId "
-                         "AND program.endtime >= :StartDate "
-                         "AND program.starttime <= :EndDate "
-                        "GROUP BY program.starttime, channel.channum, "
-                         "channel.callsign, program.title "
-                        "ORDER BY program.chanid ";
+    // lpad is to allow natural sorting of numbers
+    QString      sSQL;
+
+    if (nChannelGroupId > 0)
+    {
+        sSQL = "LEFT JOIN channelgroup ON program.chanid = channelgroup.chanid "
+                         "WHERE channelgroup.grpid = :CHANGRPID AND ";
+        bindings[":CHANGRPID"  ] = nChannelGroupId;
+    }
+    else
+        sSQL = "WHERE ";
+
+    sSQL +=     "visible != 0 "
+                "AND program.chanid >= :StartChanId "
+                "AND program.chanid <= :EndChanId "
+                "AND program.endtime >= :StartDate "
+                "AND program.starttime <= :EndDate "
+                "GROUP BY program.starttime, channel.chanid "
+                "ORDER BY LPAD(CAST(channum AS UNSIGNED), 10, 0), "
+                "         LPAD(channum,  10, 0),             "
+                "         callsign,                          "
+                "         LPAD(program.chanid, 10, 0),       "
+                "         program.starttime ";
 
     bindings[":StartChanId"] = nStartChanId;
     bindings[":EndChanId"  ] = nEndChanId;
@@ -123,10 +141,15 @@ DTC::ProgramGuide *Guide::GetProgramGuide( const QDateTime &rawStartTime ,
     int               nChanCount = 0;
     uint              nCurChanId = 0;
     DTC::ChannelInfo *pChannel   = NULL;
+    QString           sCurCallsign;
+    uint              nSkipChanId = 0;
 
     for( uint n = 0; n < progList.size(); n++)
     {
         ProgramInfo *pInfo = progList[ n ];
+
+        if ( nSkipChanId == pInfo->GetChanID())
+            continue;
 
         if ( nCurChanId != pInfo->GetChanID() )
         {
@@ -134,15 +157,24 @@ DTC::ProgramGuide *Guide::GetProgramGuide( const QDateTime &rawStartTime ,
 
             nCurChanId = pInfo->GetChanID();
 
+            // Filter out channels with the same callsign, keeping just the
+            // first seen
+            if (sCurCallsign == pInfo->GetChannelSchedulingID())
+            {
+                nSkipChanId = pInfo->GetChanID();
+                continue;
+            }
+
             pChannel = pGuide->AddNewChannel();
 
-            FillChannelInfo( pChannel, pInfo, bDetails );
-        }
+            FillChannelInfo( pChannel, pInfo->GetChanID(), bDetails );
 
+            sCurCallsign = pChannel->CallSign();
+        }
         
         DTC::Program *pProgram = pChannel->AddNewProgram();
 
-        FillProgramInfo( pProgram, pInfo, false, bDetails );
+        FillProgramInfo( pProgram, pInfo, false, bDetails, false ); // No cast info
     }
 
     // ----------------------------------------------------------------------
@@ -180,36 +212,14 @@ DTC::Program* Guide::GetProgramDetails( int              nChanId,
     // -=>TODO: Add support for getting Recorded Program Info
     // ----------------------------------------------------------------------
 
-    // Build add'l SQL statement for Program Listing
-
-    MSqlBindings bindings;
-    QString      sSQL = "WHERE program.chanid = :ChanId "
-                          "AND program.starttime = :StartTime ";
-
-    bindings[":ChanId"   ] = nChanId;
-    bindings[":StartTime"] = dtStartTime;
-
-    // Get all Pending Scheduled Programs
-
-    ProgramList  schedList;
-    bool hasConflicts;
-    LoadFromScheduler(schedList, hasConflicts);
-
-    // ----------------------------------------------------------------------
-
-    ProgramList progList;
-
-    LoadFromProgram( progList, sSQL, bindings, schedList );
-
-    if ( progList.size() == 0)
-        throw( "Error Reading Program Info" );
-
     // Build Response
 
     DTC::Program *pProgram = new DTC::Program();
-    ProgramInfo  *pInfo    = progList[ 0 ];
+    ProgramInfo  *pInfo    = LoadProgramFromProgram(nChanId, dtStartTime);
 
-    FillProgramInfo( pProgram, pInfo, true );
+    FillProgramInfo( pProgram, pInfo, true, true, true );
+
+    delete pInfo;
 
     return pProgram;
 }
@@ -229,15 +239,41 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     if (sFileName.isEmpty())
         return QFileInfo();
 
-    if ((nWidth <= 0) && (nHeight <= 0))
+    // ------------------------------------------------------------------
+    // Search for the filename
+    // ------------------------------------------------------------------
+
+    StorageGroup storage( "ChannelIcons" );
+    QString sFullFileName = storage.FindFile( sFileName );
+
+    if (sFullFileName.isEmpty())
     {
-        // Use default pixmap
-        return QFileInfo( sFileName );  
+        LOG(VB_UPNP, LOG_ERR,
+            QString("GetImageFile - Unable to find %1.").arg(sFileName));
+
+        return QFileInfo();
     }
 
+    // ----------------------------------------------------------------------
+    // check to see if the file (still) exists
+    // ----------------------------------------------------------------------
+
+    if ((nWidth == 0) && (nHeight == 0))
+    {
+        if (QFile::exists( sFullFileName ))
+        {
+            return QFileInfo( sFullFileName );
+        }
+
+        LOG(VB_UPNP, LOG_ERR,
+            QString("GetImageFile - File Does not exist %1.").arg(sFullFileName));
+
+        return QFileInfo();
+    }
+    // -------------------------------------------------------------------
 
     QString sNewFileName = QString( "%1.%2x%3.png" )
-                              .arg( sFileName )
+                              .arg( sFullFileName )
                               .arg( nWidth    )
                               .arg( nHeight   );
 
@@ -254,7 +290,7 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
 
     float fAspect = 0.0;
 
-    QImage *pImage = new QImage( sFileName );
+    QImage *pImage = new QImage( sFullFileName );
 
     if (!pImage)
         return QFileInfo();
@@ -284,3 +320,17 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     return QFileInfo( sNewFileName );
 }
 
+DTC::ChannelGroupList* Guide::GetChannelGroupList( bool IncludeEmpty )
+{
+    ChannelGroupList list = ChannelGroup::GetChannelGroups(IncludeEmpty);
+    DTC::ChannelGroupList *pGroupList = new DTC::ChannelGroupList();
+
+    ChannelGroupList::iterator it;
+    for (it = list.begin(); it < list.end(); ++it)
+    {
+        DTC::ChannelGroup *pGroup = pGroupList->AddNewChannelGroup();
+        FillChannelGroup(pGroup, (*it));
+    }
+
+    return pGroupList;
+}

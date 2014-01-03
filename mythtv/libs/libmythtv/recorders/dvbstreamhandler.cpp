@@ -304,7 +304,7 @@ void DVBStreamHandler::RunTS(void)
 void DVBStreamHandler::RunSR(void)
 {
     int buffer_size = 4192;  // maximum size of Section we handle
-    unsigned char *buffer = new unsigned char[buffer_size];
+    unsigned char *buffer = pes_alloc(buffer_size);
     if (!buffer)
     {
         _error = true;
@@ -351,7 +351,7 @@ void DVBStreamHandler::RunSR(void)
 
     RemoveAllPIDFilters();
 
-    delete[] buffer;
+    pes_free(buffer);
 
     SetRunning(false, _needs_buffering, true);
 

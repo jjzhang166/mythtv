@@ -98,6 +98,22 @@ bool ZMLivePlayer::hideAll(void)
             GetMythUIType(QString("status3-%1").arg(x))->SetVisible(false);
             GetMythUIType(QString("frame3-%1").arg(x))->SetVisible(false);
         }
+
+        // six player layout
+        for (int x = 1; x < 7; x++)
+        {
+            GetMythUIType(QString("name4-%1").arg(x))->SetVisible(false);
+            GetMythUIType(QString("status4-%1").arg(x))->SetVisible(false);
+            GetMythUIType(QString("frame4-%1").arg(x))->SetVisible(false);
+        }
+
+        // eight player layout
+        for (int x = 1; x < 9; x++)
+        {
+            GetMythUIType(QString("name5-%1").arg(x))->SetVisible(false);
+            GetMythUIType(QString("status5-%1").arg(x))->SetVisible(false);
+            GetMythUIType(QString("frame5-%1").arg(x))->SetVisible(false);
+        }
     }
     catch (const QString &name)
     {
@@ -189,7 +205,7 @@ bool ZMLivePlayer::keyPressEvent(QKeyEvent *event)
         else if (action == "INFO")
         {
             m_monitorLayout++;
-            if (m_monitorLayout > 3)
+            if (m_monitorLayout > 5)
                 m_monitorLayout = 1;
             setMonitorLayout(m_monitorLayout);
         }
@@ -319,7 +335,9 @@ void ZMLivePlayer::setMonitorLayout(int layout, bool restore)
     else if (layout == 3)
         m_monitorCount = 4;
     else if (layout == 4)
-        m_monitorCount = 9;
+        m_monitorCount = 6;
+    else if (layout == 5)
+        m_monitorCount = 8;
 
     hideAll();
 
@@ -423,47 +441,7 @@ void Player::setWidgets(MythUIImage *image, MythUIText *status, MythUIText  *cam
 
 void Player::updateFrame(const unsigned char* buffer)
 {
-    unsigned int pos_data;
-    unsigned int pos_rgba = 0;
-    unsigned int r,g,b;
-
-    if (m_monitor.palette == MP_GREY)
-    {
-        // grey palette
-        for (pos_data = 0; pos_data < (unsigned int) (m_monitor.width * m_monitor.height); )
-        {
-            m_rgba[pos_rgba++] = buffer[pos_data];   //b
-            m_rgba[pos_rgba++] = buffer[pos_data];   //g
-            m_rgba[pos_rgba++] = buffer[pos_data++]; //r
-            m_rgba[pos_rgba++] = 0xff;               //a
-        }
-    }
-    else
-    {
-        // all other color palettes
-        for (pos_data = 0; pos_data < (unsigned int) (m_monitor.width * m_monitor.height * 3); )
-        {
-            r = buffer[pos_data++];
-            g = buffer[pos_data++];
-            b = buffer[pos_data++];
-            if (m_monitor.isV4L2)
-            {
-                m_rgba[pos_rgba++] = g;
-                m_rgba[pos_rgba++] = r;
-                m_rgba[pos_rgba++] = b;
-                m_rgba[pos_rgba++] = 0xff;
-            }
-            else
-            {
-                m_rgba[pos_rgba++] = b;
-                m_rgba[pos_rgba++] = g;
-                m_rgba[pos_rgba++] = r;
-                m_rgba[pos_rgba++] = 0xff;
-            }
-        }
-    }
-
-    QImage image(m_rgba, m_monitor.width, m_monitor.height, QImage::Format_ARGB32);
+    QImage image(buffer, m_monitor.width, m_monitor.height, QImage::Format_RGB888);
 
     MythImage *img = GetMythMainWindow()->GetCurrentPainter()->GetFormatImage();
     img->Assign(image);

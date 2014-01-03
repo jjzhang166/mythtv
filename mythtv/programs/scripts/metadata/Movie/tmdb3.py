@@ -11,7 +11,7 @@
 #-----------------------
 __title__ = "TheMovieDB.org V3"
 __author__ = "Raymond Wagner"
-__version__ = "0.3.5"
+__version__ = "0.3.7"
 # 0.1.0 Initial version
 # 0.2.0 Add language support, move cache to home directory
 # 0.3.0 Enable version detection to allow use in MythTV
@@ -21,6 +21,11 @@ __version__ = "0.3.5"
 # 0.3.3 Use translated title if available
 # 0.3.4 Add support for finding by IMDB under -D (simulate previous version)
 # 0.3.5 Add debugging mode
+# 0.3.6 Add handling for TMDB site and library returning null results in
+#       search. This should only need to be a temporary fix, and should be
+#       resolved upstream.
+# 0.3.7 Add handling for TMDB site returning insufficient results from a
+#       query
 
 from optparse import OptionParser
 import sys
@@ -89,10 +94,14 @@ def buildSingle(inetref, opts):
         m.people.append(d)
     for backdrop in movie.backdrops:
         m.images.append({'type':'fanart', 'url':backdrop.geturl(),
-                        'thumb':backdrop.geturl(backdrop.sizes()[0])})
+                        'thumb':backdrop.geturl(backdrop.sizes()[0]),
+                        'height':str(backdrop.height),
+                        'width':str(backdrop.width)})
     for poster in movie.posters:
         m.images.append({'type':'coverart', 'url':poster.geturl(),
-                        'thumb':poster.geturl(poster.sizes()[0])})
+                        'thumb':poster.geturl(poster.sizes()[0]),
+                        'height':str(poster.height),
+                        'width':str(poster.width)})
     tree.append(m.toXML())
     sys.stdout.write(etree.tostring(tree, encoding='UTF-8', pretty_print=True,
                                     xml_declaration=True))
@@ -107,7 +116,7 @@ def buildList(query, opts):
     from MythTV.tmdb3 import searchMovie
     from MythTV import VideoMetadata
     from lxml import etree
-    results = searchMovie(query)
+    results = iter(searchMovie(query))
     tree = etree.XML(u'<metadata></metadata>')
     mapping = [['runtime',      'runtime'],     ['title',       'originaltitle'],
                ['releasedate',  'releasedate'], ['tagline',     'tagline'],
@@ -115,7 +124,21 @@ def buildList(query, opts):
                ['userrating',   'userrating'],  ['popularity',  'popularity']]
 
     count = 0
-    for res in results:
+    while True:
+        try:
+            res = results.next()
+        except StopIteration:
+            # end of results
+            break
+        except IndexError:
+            # unexpected end of results
+            # we still want to return whatever we have so far
+            break
+
+        if res is None:
+            # faulty data, skip it and continue
+            continue
+
         m = VideoMetadata()
         for i,j in mapping:
             if getattr(res, j):

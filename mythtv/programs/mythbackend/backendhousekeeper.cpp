@@ -396,17 +396,19 @@ bool ThemeUpdateTask::DoRun(void)
     QString remoteThemesFile = remoteThemesDir;
     remoteThemesFile.append("/themes.zip");
 
-    QString url = QString("%1/%2/themes.zip")
+    m_url = QString("%1/%2/themes.zip")
         .arg(gCoreContext->GetSetting("ThemeRepositoryURL",
              "http://themes.mythtv.org/themes/repository")).arg(MythVersion);
 
-    bool result = GetMythDownloadManager()->download(url, remoteThemesFile);
+    m_running = true;
+    bool result = GetMythDownloadManager()->download(m_url, remoteThemesFile);
+    m_running = false;
 
     if (!result)
     {
         LOG(VB_GENERAL, LOG_ERR,
             QString("HouseKeeper: Error downloading %1"
-                    "remote themes info package.").arg(url));
+                    "remote themes info package.").arg(m_url));
         return false;
     }
 
@@ -422,9 +424,31 @@ bool ThemeUpdateTask::DoRun(void)
     return true;
 }
 
+void ThemeUpdateTask::Terminate(void)
+{
+    if (m_running)
+        GetMythDownloadManager()->cancelDownload(m_url);
+    m_running = false;
+}
+
+ArtworkTask::ArtworkTask(void) : DailyHouseKeeperTask("RecordedArtworkUpdate",
+                                         kHKGlobal, kHKRunOnStartup),
+    m_msMML(NULL)
+{
+}
+
 bool ArtworkTask::DoRun(void)
 {
-    QString command = GetInstallPrefix() + "/bin/mythmetadatalookup";
+    if (m_msMML)
+    {
+        // this should never be defined, but terminate it anyway
+        if (m_msMML->GetStatus() == GENERIC_EXIT_RUNNING)
+            m_msMML->Term(true);
+        delete m_msMML;
+        m_msMML = NULL;
+    }
+
+    QString command = GetAppBinDir() + "mythmetadatalookup";
     QStringList args;
     args << "--refresh-all-artwork";
     args << myth_logging::command_line_arguments();
@@ -432,13 +456,43 @@ bool ArtworkTask::DoRun(void)
     LOG(VB_GENERAL, LOG_INFO, QString("Performing Artwork Refresh: %1 %2")
         .arg(command).arg(args.join(" ")));
 
-    MythSystemLegacy artupd(command, args, kMSRunShell | kMSAutoCleanup);
+    m_msMML = new MythSystemLegacy(command, args, kMSRunShell | kMSAutoCleanup);
 
-    artupd.Run();
-    artupd.Wait();
+    m_msMML->Run();
+    uint result = m_msMML->Wait();
 
+    delete m_msMML;
+    m_msMML = NULL;
+
+    if (result != GENERIC_EXIT_OK)
+    {
+        LOG(VB_GENERAL, LOG_ERR, QString("Artwork command '%1' failed")
+            .arg(command));
+        return false;
+    }
     LOG(VB_GENERAL, LOG_INFO, QString("Artwork Refresh Complete"));
     return true;
+}
+
+ArtworkTask::~ArtworkTask(void)
+{
+    delete m_msMML;
+    m_msMML = NULL;
+}
+
+bool ArtworkTask::DoCheckRun(QDateTime now)
+{
+    if (gCoreContext->GetNumSetting("DailyArtworkUpdates", 0) &&
+            PeriodicHouseKeeperTask::DoCheckRun(now))
+        return true;
+    return false;
+}
+
+void ArtworkTask::Terminate(void)
+{
+    if (m_msMML && (m_msMML->GetStatus() == GENERIC_EXIT_RUNNING))
+        // just kill it, the runner thread will handle any necessary cleanup
+        m_msMML->Term(true);
 }
 
 bool JobQueueRecoverTask::DoRun(void)
@@ -477,27 +531,27 @@ void MythFillDatabaseTask::SetHourWindowFromDB(void)
 
 bool MythFillDatabaseTask::UseSuggestedTime(void)
 {
-    if (!gCoreContext->GetNumSetting("MythFillGrabberSuggestsTime", 1))
-        // this feature is disabled, so don't bother with a deeper check
-        return false;
+//     if (!gCoreContext->GetNumSetting("MythFillGrabberSuggestsTime", 1))
+//         // this feature is disabled, so don't bother with a deeper check
+//         return false;
+//
+//     MSqlQuery result(MSqlQuery::InitCon());
+//     if (result.isConnected())
+//     {
+//         // check to see if we have any of a list of supported grabbers in use
+//         // TODO: this is really cludgy. there has to be a better way to test
+//         result.prepare("SELECT COUNT(*) FROM videosource"
+//                        " WHERE xmltvgrabber IN"
+//                        "        ( 'datadirect',"
+//                        "          'technovera',"
+//                        "          'schedulesdirect1' );");
+//         if ((result.exec()) &&
+//             (result.next()) &&
+//             (result.value(0).toInt() > 0))
+//                 return true;
+//     }
 
-    MSqlQuery result(MSqlQuery::InitCon());
-    if (result.isConnected())
-    {
-        // check to see if we have any of a list of supported grabbers in use
-        // TODO: this is really cludgy. there has to be a better way to test
-        result.prepare("SELECT COUNT(*) FROM videosource"
-                       " WHERE xmltvgrabber IN"
-                       "        ( 'datadirect',"
-                       "          'technovera',"
-                       "          'schedulesdirect1' );");
-        if ((result.exec()) &&
-            (result.next()) &&
-            (result.value(0).toInt() > 0))
-                return true;
-    }
-
-    return false;
+    return gCoreContext->GetNumSetting("MythFillGrabberSuggestsTime", 1);
 }
 
 bool MythFillDatabaseTask::DoCheckRun(QDateTime now)
@@ -558,14 +612,17 @@ bool MythFillDatabaseTask::DoRun(void)
     if (mfpath == "mythfilldatabase")
     {
         opts |= kMSPropagateLogs;
-        mfpath = GetInstallPrefix() + "/bin/mythfilldatabase";
+        mfpath = GetAppBinDir() + "mythfilldatabase";
     }
 
     QString cmd = QString("%1 %2").arg(mfpath).arg(mfarg);
 
     m_msMFD = new MythSystemLegacy(cmd, opts);
+
     m_msMFD->Run();
     uint result = m_msMFD->Wait();
+
+    delete m_msMFD;
     m_msMFD = NULL;
 
     if (result != GENERIC_EXIT_OK)
@@ -576,6 +633,12 @@ bool MythFillDatabaseTask::DoRun(void)
     }
 
     return true;
+}
+
+MythFillDatabaseTask::~MythFillDatabaseTask(void)
+{
+    delete m_msMFD;
+    m_msMFD = NULL;
 }
 
 void MythFillDatabaseTask::Terminate(void)

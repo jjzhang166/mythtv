@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -54,20 +54,41 @@ class Dvr : public DvrServices
                                                 const QDateTime &StartTime  );
 
         bool              RemoveRecorded      ( int              ChanId,
-                                                const QDateTime &StartTime  );
+                                                const QDateTime &StartTime,
+                                                bool             ForceDelete,
+                                                bool             AllowRerecord  );
+
+        bool              DeleteRecording     ( int              ChanId,
+                                                const QDateTime &StartTime,
+                                                bool             ForceDelete,
+                                                bool             AllowRerecord  );
+
+        bool              UnDeleteRecording   ( int              ChanId,
+                                                const QDateTime &StartTime );
 
         DTC::ProgramList* GetConflictList     ( int              StartIndex,
-                                                int              Count      );
+                                                int              Count,
+                                                int              RecordId );
 
         DTC::ProgramList* GetUpcomingList     ( int              StartIndex,
                                                 int              Count,
-                                                bool             ShowAll );
+                                                bool             ShowAll,
+                                                int              RecordId,
+                                                int              RecStatus );
 
         DTC::EncoderList* GetEncoderList      ( );
 
+        DTC::InputList*   GetInputList        ( );
+
         QStringList       GetRecGroupList     ( );
 
-        QStringList       GetTitleList        ( );
+        QStringList       GetRecStorageGroupList ( );
+
+        QStringList       GetPlayGroupList    ( );
+
+        DTC::RecRuleFilterList* GetRecRuleFilterList ( );
+
+        QStringList       GetTitleList        ( const QString   &RecGroup );
 
         DTC::TitleInfoList* GetTitleInfoList  ( );
 
@@ -159,6 +180,10 @@ class Dvr : public DvrServices
 
         bool              RemoveRecordSchedule ( uint             RecordId   );
 
+        bool              AddDontRecordSchedule( int              ChanId,
+                                                 const QDateTime &StartTime,
+                                                 bool             NeverRecord );
+
         DTC::RecRuleList* GetRecordScheduleList( int              StartIndex,
                                                  int              Count      );
 
@@ -171,6 +196,24 @@ class Dvr : public DvrServices
         bool              EnableRecordSchedule ( uint             RecordId   );
 
         bool              DisableRecordSchedule( uint             RecordId   );
+
+        QString           RecStatusToString    ( int              RecStatus );
+
+        QString           RecStatusToDescription ( int            RecStatus,
+                                                   int            RecType,
+                                                   const QDateTime &StartTime );
+
+        QString           RecTypeToString      ( QString          RecType   );
+
+        QString           RecTypeToDescription ( QString          RecType   );
+
+        QString           DupMethodToString    ( QString          DupMethod );
+
+        QString           DupMethodToDescription ( QString        DupMethod );
+
+        QString           DupInToString        ( QString          DupIn     );
+
+        QString           DupInToDescription   ( QString          DupIn     );
 };
 
 // --------------------------------------------------------------------------
@@ -226,20 +269,202 @@ class ScriptableDvr : public QObject
             return m_obj.GetRecorded( ChanId, StartTime );
         }
 
-        QObject* GetConflictList    ( int              StartIndex,
-                                       int              Count      )
+        bool RemoveRecorded           ( int              ChanId,
+                                        const QDateTime &StartTime,
+                                        bool             ForceDelete,
+                                        bool             AllowRerecord )
         {
-            return m_obj.GetConflictList( StartIndex, Count );
+            return m_obj.RemoveRecorded( ChanId, StartTime,
+                                         ForceDelete, AllowRerecord);
+        }
+
+        bool DeleteRecording          ( int              ChanId,
+                                        const QDateTime &StartTime,
+                                        bool             ForceDelete,
+                                        bool             AllowRerecord  )
+        {
+            return m_obj.DeleteRecording(ChanId, StartTime,
+                                         ForceDelete, AllowRerecord);
+        }
+
+        bool UnDeleteRecording        ( int              ChanId,
+                                        const QDateTime &StartTime )
+        {
+            return m_obj.UnDeleteRecording(ChanId, StartTime);
+        }
+
+        QObject* GetConflictList    ( int              StartIndex,
+                                      int              Count,
+                                      int              RecordId )
+        {
+            return m_obj.GetConflictList( StartIndex, Count, RecordId );
+        }
+
+        QObject* GetUpcomingList    ( int              StartIndex,
+                                      int              Count,
+                                      bool             ShowAll,
+                                      int              RecordId,
+                                      int              RecStatus )
+        {
+            return m_obj.GetUpcomingList( StartIndex, Count, ShowAll,
+                                          RecordId, RecStatus );
         }
 
         QObject* GetEncoderList     () { return m_obj.GetEncoderList(); }
 
-        QStringList GetRecGroupList () { return m_obj.GetRecGroupList(); }
+        QObject* GetInputList       () { return m_obj.GetInputList();   }
 
-        QStringList GetTitleList    () { return m_obj.GetTitleList(); }
+        QStringList GetRecGroupList        () { return m_obj.GetRecGroupList(); }
+
+        QStringList GetRecStorageGroupList () { return m_obj.GetRecStorageGroupList(); }
+
+        QStringList GetPlayGroupList       () { return m_obj.GetPlayGroupList(); }
+
+        QObject* GetRecRuleFilterList      () { return m_obj.GetRecRuleFilterList(); }
+
+        QStringList GetTitleList    ( const QString   &RecGroup )
+        {
+            return m_obj.GetTitleList( RecGroup );
+        }
 
         QObject* GetTitleInfoList   () { return m_obj.GetTitleInfoList(); }
 
+        uint AddRecordSchedule ( DTC::RecRule *rule )
+        {
+            return m_obj.AddRecordSchedule(
+                                    rule->Title(),          rule->SubTitle(),
+                                    rule->Description(),    rule->Category(),
+                                    rule->StartTime(),      rule->EndTime(),
+                                    rule->SeriesId(),       rule->ProgramId(),
+                                    rule->ChanId(),         rule->CallSign(),
+                                    rule->FindDay(),        rule->FindTime(),
+                                    rule->ParentId(),       rule->Inactive(),
+                                    rule->Season(),         rule->Episode(),
+                                    rule->Inetref(),        rule->Type(),
+                                    rule->SearchType(),     rule->RecPriority(),
+                                    rule->PreferredInput(), rule->StartOffset(),
+                                    rule->EndOffset(),      rule->DupMethod(),
+                                    rule->DupIn(),          rule->Filter(),
+                                    rule->RecProfile(),     rule->RecGroup(),
+                                    rule->StorageGroup(),   rule->PlayGroup(),
+                                    rule->AutoExpire(),     rule->MaxEpisodes(),
+                                    rule->MaxNewest(),      rule->AutoCommflag(),
+                                    rule->AutoTranscode(),  rule->AutoMetaLookup(),
+                                    rule->AutoUserJob1(),   rule->AutoUserJob2(),
+                                    rule->AutoUserJob3(),   rule->AutoUserJob4(),
+                                    rule->Transcoder());
+        }
+
+        bool UpdateRecordSchedule ( DTC::RecRule *rule )
+        {
+            if (rule->Id() <= 0)
+                throw QString("Record ID cannot be <= zero");
+
+            return m_obj.UpdateRecordSchedule(
+                                    static_cast<uint>(rule->Id()),
+                                    rule->Title(),          rule->SubTitle(),
+                                    rule->Description(),    rule->Category(),
+                                    rule->StartTime(),      rule->EndTime(),
+                                    rule->SeriesId(),       rule->ProgramId(),
+                                    rule->ChanId(),         rule->CallSign(),
+                                    rule->FindDay(),        rule->FindTime(),
+                                    rule->Inactive(),
+                                    rule->Season(),         rule->Episode(),
+                                    rule->Inetref(),        rule->Type(),
+                                    rule->SearchType(),     rule->RecPriority(),
+                                    rule->PreferredInput(), rule->StartOffset(),
+                                    rule->EndOffset(),      rule->DupMethod(),
+                                    rule->DupIn(),          rule->Filter(),
+                                    rule->RecProfile(),     rule->RecGroup(),
+                                    rule->StorageGroup(),   rule->PlayGroup(),
+                                    rule->AutoExpire(),     rule->MaxEpisodes(),
+                                    rule->MaxNewest(),      rule->AutoCommflag(),
+                                    rule->AutoTranscode(),  rule->AutoMetaLookup(),
+                                    rule->AutoUserJob1(),   rule->AutoUserJob2(),
+                                    rule->AutoUserJob3(),   rule->AutoUserJob4(),
+                                    rule->Transcoder());
+        }
+
+        bool RemoveRecordSchedule ( uint RecordId )
+        {
+            return m_obj.RemoveRecordSchedule(RecordId);
+        }
+
+        bool AddDontRecordSchedule( int              ChanId,
+                                    const QDateTime &StartTime,
+                                    bool             NeverRecord )
+        {
+            return m_obj.AddDontRecordSchedule(ChanId, StartTime, NeverRecord);
+        }
+
+        QObject* GetRecordScheduleList( int StartIndex, int Count )
+        {
+            return m_obj.GetRecordScheduleList(StartIndex, Count);
+        }
+
+        QObject* GetRecordSchedule ( uint      RecordId,
+                                     QString   Template,
+                                     int       ChanId,
+                                     QDateTime StartTime,
+                                     bool      MakeOverride )
+        {
+            return m_obj.GetRecordSchedule( RecordId,  Template, ChanId,
+                                            StartTime, MakeOverride);
+        }
+
+        bool EnableRecordSchedule ( uint RecordId )
+        {
+            return m_obj.EnableRecordSchedule(RecordId);
+        }
+
+        bool DisableRecordSchedule( uint RecordId )
+        {
+            return m_obj.DisableRecordSchedule(RecordId);
+        }
+
+        QString RecStatusToString( int RecStatus )
+        {
+            return m_obj.RecStatusToString(RecStatus);
+        }
+
+        QString RecStatusToDescription( int RecStatus,
+                                        int RecType,
+                                        const QDateTime &StartTime )
+        {
+            return m_obj.RecStatusToDescription(RecStatus,
+                                                RecType,
+                                                StartTime );
+        }
+
+        QString RecTypeToString( QString RecType )
+        {
+            return m_obj.RecTypeToString( RecType );
+        }
+
+        QString RecTypeToDescription( QString RecType )
+        {
+            return m_obj.RecTypeToDescription( RecType );
+        }
+
+        QString DupMethodToString( QString DupMethod )
+        {
+            return m_obj.DupMethodToString( DupMethod );
+        }
+
+        QString DupMethodToDescription( QString DupMethod )
+        {
+            return m_obj.DupMethodToDescription( DupMethod );
+        }
+
+        QString DupInToString( QString DupIn )
+        {
+            return m_obj.DupInToString( DupIn );
+        }
+
+        QString DupInToDescription( QString DupIn )
+        {
+            return m_obj.DupInToDescription( DupIn );
+        }
 };
 
 Q_SCRIPT_DECLARE_QMETAOBJECT( ScriptableDvr, QObject*);

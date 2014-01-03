@@ -179,18 +179,6 @@ class MTV_PUBLIC ChannelUtil
         uint    &atsc_major,      uint          &atsc_minor,
         uint    &dvb_transportid, uint          &dvb_networkid,
         uint    &mplexid,         bool          &commfree);
-    static bool    GetExtendedChannelData(
-        uint sourceid,            const QString &channum,
-        QString &tvformat,        QString       &modulation,
-        QString &freqtable,       QString       &freqid,
-        int     &finetune,        uint64_t      &frequency,
-        QString &dtv_si_std,      int           &mpeg_prog_num,
-        uint    &atsc_major,      uint          &atsc_minor,
-        uint    &dvb_transportid, uint          &dvb_networkid,
-        uint    &mplexid,         bool          &commfree,
-        bool    &use_on_air_guide,bool          &visible,
-        QString &xmltvid,         QString       &default_authority,
-        QString &icon);
     static int     GetProgramNumber(uint sourceid, const QString &channum)
         { return GetChannelValueInt("serviceid", sourceid, channum); }
     static QString GetVideoFilters(uint sourceid, const QString &channum)
@@ -214,6 +202,8 @@ class MTV_PUBLIC ChannelUtil
     static uint    GetChannelCount(int sourceid = -1);
     static void    SortChannels(ChannelInfoList &list, const QString &order,
                                 bool eliminate_duplicates = false);
+    static int     GetNearestChannel(const ChannelInfoList &list,
+                                     const QString &channum);
 
     static uint    GetNextChannel(const ChannelInfoList &sorted,
                                   uint old_chanid,
@@ -253,16 +243,7 @@ class MTV_PUBLIC ChannelUtil
      * \param chanid primary key for channel record
      */
     static QString GetChanNum(int chanid);
-    /**
-     * \brief Returns the callsign of the given channel.
-     * \param chanid primary key for channel record
-     */
-    static QString GetCallsign(int chanid);
-    /**
-     * \brief Returns the service name of the given channel.
-     * \param chanid primary key for channel record
-     */
-    static QString GetServiceName(int chanid);
+
     /**
      * \brief Returns the listings time offset in minutes for given channel.
      * \param chanid primary key for channel record

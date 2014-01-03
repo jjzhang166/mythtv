@@ -192,6 +192,10 @@ protected:
     {
     }
 
+#ifndef _MSC_VER
+    MythNotification &operator=(const MythNotification&);
+#endif
+
 protected:
     int         m_id;
     void       *m_parent;

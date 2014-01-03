@@ -515,14 +515,17 @@ bool ChannelBase::IsInputAvailable(
     QMap<uint,bool>           busyrec;
     QMap<uint,TunedInputInfo> busyin;
 
-    // Cache our busy input if applicable
     uint cid = GetCardID();
-    TunedInputInfo info;
-    busyrec[cid] = m_pParent->IsBusy(&info);
-    if (busyrec[cid])
+    // Cache our busy input if applicable
+    if (m_pParent)
     {
-        busyin[cid] = info;
-        info.chanid = GetChanID();
+        TunedInputInfo info;
+        busyrec[cid] = m_pParent->IsBusy(&info);
+        if (busyrec[cid])
+        {
+            busyin[cid] = info;
+            info.chanid = GetChanID();
+        }
     }
 
     vector<uint> excluded_cardids;
@@ -559,14 +562,18 @@ vector<InputInfo> ChannelBase::GetFreeInputs(
     QMap<uint,bool>           busyrec;
     QMap<uint,TunedInputInfo> busyin;
 
-    // Cache our busy input if applicable
-    TunedInputInfo info;
+
     uint cid = GetCardID();
-    busyrec[cid] = m_pParent->IsBusy(&info);
-    if (busyrec[cid])
+    // Cache our busy input if applicable
+    if (m_pParent)
     {
-        busyin[cid] = info;
-        info.chanid = GetChanID();
+        TunedInputInfo info;
+        busyrec[cid] = m_pParent->IsBusy(&info);
+        if (busyrec[cid])
+        {
+            busyin[cid] = info;
+            info.chanid = GetChanID();
+        }
     }
 
     // If we're busy and not excluded, all inputs are busy
@@ -810,7 +817,7 @@ uint ChannelBase::GetScriptStatus(bool holding_lock)
         HandleScriptEnd(m_system_status == GENERIC_EXIT_OK);
     }
 
-    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("GetScriptStatus() %1")
+    LOG(VB_CHANNEL, LOG_DEBUG, LOC + QString("GetScriptStatus() %1")
         .arg(m_system_status));
 
     uint ret;
@@ -828,7 +835,7 @@ uint ChannelBase::GetScriptStatus(bool holding_lock)
             break;
     }
 
-    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("GetScriptStatus() %1 -> %2")
+    LOG(VB_CHANNEL, LOG_DEBUG, LOC + QString("GetScriptStatus() %1 -> %2")
             .arg(m_system_status). arg(ret));
 
     m_system_status = ret;
@@ -1250,3 +1257,19 @@ ChannelBase *ChannelBase::CreateChannel(
     return channel;
 }
 
+bool ChannelBase::IsExternalChannelChangeInUse(void)
+{
+    if (!IsExternalChannelChangeSupported())
+        return false;
+
+    InputMap::const_iterator it = m_inputs.find(m_currentInputID);
+    if (it == m_inputs.end())
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("IsExternalChannelChangeInUse: "
+                    "non-existant input id '%1'").arg(m_currentInputID));
+        return false;
+    }
+
+    return !(*it)->externalChanger.isEmpty();
+}

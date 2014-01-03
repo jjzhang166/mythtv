@@ -40,9 +40,9 @@ extern "C" {
  *  The O_NONBLOCK flag will be missing on myflags[0] if this fails
  *  to make the read pipe non-blocking.
  */
-#ifdef USING_MINGW
+#ifdef _WIN32
 void setup_pipe(int[2], long[2]) {}
-#else // !USING_MINGW
+#else // !_WIN32
 void setup_pipe(int mypipe[2], long myflags[2])
 {
     int pipe_ret = pipe(mypipe);

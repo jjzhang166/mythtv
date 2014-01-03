@@ -224,6 +224,7 @@ static void parse_dvb_event_descriptors(desc_list_t list, uint fix,
 
     // from EN 300 468, Appendix A.2 - Selection of character table
     unsigned char enc_1[3]  = { 0x10, 0x00, 0x01 };
+    unsigned char enc_2[3]  = { 0x10, 0x00, 0x02 };
     unsigned char enc_9[3]  = { 0x10, 0x00, 0x09 }; // could use { 0x05 } instead
     unsigned char enc_15[3] = { 0x10, 0x00, 0x0f }; // could use { 0x0B } instead
     int enc_len = 0;
@@ -235,6 +236,14 @@ static void parse_dvb_event_descriptors(desc_list_t list, uint fix,
     {
         enc = enc_1;
         enc_len = sizeof(enc_1);
+    }
+
+    // Is this broken DVB provider in Central Europe?
+    // Use an encoding override of ISO 8859-2 (Latin2)
+    if (fix & EITFixUp::kEFixForceISO8859_2)
+    {
+        enc = enc_2;
+        enc_len = sizeof(enc_2);
     }
 
     // Is this broken DVB provider in Western Europe?
@@ -354,6 +363,7 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
         QString category      = QString("");
         ProgramInfo::CategoryType category_type = ProgramInfo::kCategoryNone;
         unsigned char subtitle_type=0, audio_props=0, video_props=0;
+        uint season = 0, episode = 0, totalepisodes = 0;
 
         // Parse descriptors
         desc_list_t list = MPEGDescriptor::Parse(
@@ -550,17 +560,20 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
         for (uint j = 0; j < contentIds.size(); j++)
         {
             DVBContentIdentifierDescriptor desc(contentIds[j]);
-            if (desc.ContentEncoding() == 0)
+            for (uint k = 0; k < desc.CRIDCount(); k++)
             {
-                // The CRID is a URI.  It could contain UTF8 sequences encoded
-                // as %XX but there's no advantage in decoding them.
-                // The BBC currently uses private types 0x31 and 0x32.
-                if (desc.ContentType() == 0x01 || desc.ContentType() == 0x31)
-                    programId = desc.ContentId();
-                else if (desc.ContentType() == 0x02 || desc.ContentType() == 0x32)
+                if (desc.ContentEncoding(k) == 0)
                 {
-                    seriesId = desc.ContentId();
-                    category_type = ProgramInfo::kCategorySeries;
+                    // The CRID is a URI.  It could contain UTF8 sequences encoded
+                    // as %XX but there's no advantage in decoding them.
+                    // The BBC currently uses private types 0x31 and 0x32.
+                    if (desc.ContentType(k) == 0x01 || desc.ContentType(k) == 0x31)
+                        programId = desc.ContentId(k);
+                    else if (desc.ContentType(k) == 0x02 || desc.ContentType(k) == 0x32)
+                    {
+                        seriesId = desc.ContentId(k);
+                        category_type = ProgramInfo::kCategorySeries;
+                    }
                 }
             }
         }
@@ -579,7 +592,8 @@ void EITHelper::AddEIT(const DVBEventInformationTable *eit)
             subtitle_type,
             audio_props,
             video_props, stars,
-            seriesId,  programId);
+            seriesId,  programId,
+            season, episode, totalepisodes);
 
         db_events.enqueue(event);
     }
@@ -599,6 +613,7 @@ void EITHelper::AddEIT(const PremiereContentInformationTable *cit)
     QString category      = QString("");
     ProgramInfo::CategoryType category_type = ProgramInfo::kCategoryNone;
     unsigned char subtitle_type=0, audio_props=0, video_props=0;
+    uint season = 0, episode = 0, totalepisodes = 0;
 
     // Parse descriptors
     desc_list_t list = MPEGDescriptor::Parse(
@@ -686,7 +701,8 @@ void EITHelper::AddEIT(const PremiereContentInformationTable *cit)
                 subtitle_type,
                 audio_props,
                 video_props, 0.0,
-                "",  "");
+                "",  "",
+                season, episode, totalepisodes);
 
             db_events.enqueue(event);
         }
@@ -956,11 +972,12 @@ static void init_fixup(QMap<uint64_t,uint> &fix)
 
     // United Kingdom
     fix[ 9018U << 16] = EITFixUp::kFixUK;
-    // UK Freesat
+    // UK BBC
     fix[ 2013LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2017LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2018LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2026LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2036LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2041LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2042LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2043LL << 32 | 2U << 16] = EITFixUp::kFixUK;
@@ -971,11 +988,10 @@ static void init_fixup(QMap<uint64_t,uint> &fix)
     fix[ 2048LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2049LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2050LL << 32 | 2U << 16] = EITFixUp::kFixUK;
-    fix[ 2051LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2053LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2054LL << 32 | 2U << 16] = EITFixUp::kFixUK;
-    fix[ 2056LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2057LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2061LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2063LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2068LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2301LL << 32 | 2U << 16] = EITFixUp::kFixUK;
@@ -989,10 +1005,33 @@ static void init_fixup(QMap<uint64_t,uint> &fix)
     fix[ 2313LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2314LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2401LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2411LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2412LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2413LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2602LL << 32 | 2U << 16] = EITFixUp::kFixUK;
     fix[ 2612LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2614LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    // R.caroline
+    fix[ 2315LL << 32 | 59U << 16] = EITFixUp::kFixUK;
+    // UK Sky
+    fix[ 2051LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2052LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2055LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2056LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2315LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2316LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    for (int i = 2402; i <= 2412; ++i)
+        fix[ (long long)i << 32 | 2U << 16] = EITFixUp::kFixUK;
+    for (int i = 2001; i <= 2012; ++i)
+       fix[ (long long)i << 32 | 2U << 16] = EITFixUp::kFixUK;
+    for (int i = 2014; i <= 2040; ++i)
+       fix[ (long long)i << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2611LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2612LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2601LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2613LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2603LL << 32 | 2U << 16] = EITFixUp::kFixUK;
+    fix[ 2604LL << 32 | 2U << 16] = EITFixUp::kFixUK;
 
     // ComHem Sweden
     fix[40999U << 16       ] = EITFixUp::kFixComHem;
@@ -1208,6 +1247,10 @@ static void init_fixup(QMap<uint64_t,uint> &fix)
         fix[ 1094LL << 32 | 1 << 16 | 17028 ] = // NT1
         fix[ 1100LL << 32 | 1 << 16 |  8710 ] = // NRJ 12
         EITFixUp::kEFixForceISO8859_15;
+
+    // DVB-C T-Kábel Hungary
+    // FIXME this should be more specific. Is the encoding really wrong for all services?
+    fix[  100 << 16] = EITFixUp::kEFixForceISO8859_2; 
 }
 
 /** \fn EITHelper::RescheduleRecordings(void)

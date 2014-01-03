@@ -200,7 +200,7 @@ void SelectSetting::setValue(int which)
     if ((which >= ((int) values.size())) || (which < 0))
     {
         LOG(VB_GENERAL, LOG_ERR,
-                 QString("SelectSetting::setValue(): invalid index: %1 size: ")
+                 QString("SelectSetting::setValue(): invalid index: %1 size: %2")
                      .arg(which).arg(values.size()));
     }
     else
@@ -930,6 +930,9 @@ void CheckBoxSetting::setVisible(bool b)
 
 void CheckBoxSetting::setLabel(QString str)
 {
+    // QT treats a single ampersand as special,
+    // we must double up ampersands to display them
+    str = str.replace(" & ", " && ");
     BooleanSetting::setLabel(str);
     if (widget)
         widget->setText(str);

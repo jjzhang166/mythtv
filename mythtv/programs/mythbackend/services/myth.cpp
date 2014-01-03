@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -381,6 +381,46 @@ DTC::TimeZoneInfo *Myth::GetTimeZone(  )
 //
 /////////////////////////////////////////////////////////////////////////////
 
+QString Myth::GetFormatDate(const QDateTime Date, bool ShortDate)
+{
+    QString dateFormat;
+    if (ShortDate)
+        dateFormat = gCoreContext->GetSetting("ShortDateFormat", "ddd d");
+    else
+        dateFormat = GetMythDB()->GetSetting("DateFormat", "ddd d MMMM");
+
+    return gCoreContext->GetQLocale().toString(Date, dateFormat);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QString Myth::GetFormatTime(const QDateTime Time)
+{
+    QString timeFormat = GetMythDB()->GetSetting("TimeFormat", "hh:mm");
+
+    return gCoreContext->GetQLocale().toString(Time, timeFormat);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QDateTime Myth::ParseISODateString(const QString& DateTimeString)
+{
+    QDateTime dateTime = QDateTime().fromString(DateTimeString, Qt::ISODate);
+
+    if (!dateTime.isValid())
+        throw( "Unable to parse DateTimeString" );
+
+    return dateTime;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
 DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
                                      const QString   &Application,
                                      int             PID,
@@ -543,7 +583,7 @@ DTC::SettingList *Myth::GetSetting( const QString &sHostName,
         // Key Supplied, lookup just its value.
         // ------------------------------------------------------------------
 
-        query.prepare("SELECT data, hostname from settings "
+        query.prepare("SELECT data, hostname FROM settings "
                       "WHERE value = :KEY AND "
                       "(hostname = :HOSTNAME OR hostname IS NULL) "
                       "ORDER BY hostname DESC;" );

@@ -19,7 +19,7 @@ using namespace std;
 #include "iptvstreamhandler.h"
 
 class MPEGStreamData;
-class HLSRingBuffer;
+class HLSReader;
 
 class HLSStreamHandler : public IPTVStreamHandler
 {
@@ -35,8 +35,9 @@ class HLSStreamHandler : public IPTVStreamHandler
 
   protected:
     IPTVTuningData m_tuning;
-    HLSRingBuffer* m_hls;
+    HLSReader*     m_hls;
     uint8_t*       m_buffer;
+    bool           m_throttle;
 
     // for implementing Get & Return
     static QMutex                            s_handlers_lock;

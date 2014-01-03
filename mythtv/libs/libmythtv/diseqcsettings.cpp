@@ -20,8 +20,7 @@ static GlobalLineEdit *DiSEqCLatitude(void)
     gc->setLabel("Latitude");
     gc->setHelpText(
         DeviceTree::tr("The Cartesian latitude for your location. "
-                       "Use negative numbers for southern "
-                       "and western coordinates."));
+                       "Use negative numbers for southern coordinates."));
     return gc;
 }
 
@@ -31,8 +30,7 @@ static GlobalLineEdit *DiSEqCLongitude(void)
     gc->setLabel("Longitude");
     gc->setHelpText(
         DeviceTree::tr("The Cartesian longitude for your location. "
-                       "Use negative numbers for southern "
-                       "and western coordinates."));
+                       "Use negative numbers for western coordinates."));
     return gc;
 }
 
@@ -584,19 +582,20 @@ class lnb_preset
 
 static lnb_preset lnb_presets[] =
 {
+
     /* description, type, LOF switch, LOF low, LOF high, inverted polarity */
-    lnb_preset(DeviceTree::tr("Universal (Europe)"),
+    lnb_preset(QT_TRANSLATE_NOOP("DeviceTree", "Universal (Europe)"),
                DiSEqCDevLNB::kTypeVoltageAndToneControl,
                11700000,  9750000, 10600000),
-    lnb_preset(DeviceTree::tr("Single (Europe)"),
+    lnb_preset(QT_TRANSLATE_NOOP("DeviceTree", "Single (Europe)"),
                DiSEqCDevLNB::kTypeVoltageControl,       0,  9750000),
-    lnb_preset(DeviceTree::tr("Circular (N. America)"),
+    lnb_preset(QT_TRANSLATE_NOOP("DeviceTree", "Circular (N. America)"),
                DiSEqCDevLNB::kTypeVoltageControl,       0, 11250000),
-    lnb_preset(DeviceTree::tr("Linear (N. America)"),
+    lnb_preset(QT_TRANSLATE_NOOP("DeviceTree", "Linear (N. America)"),
                DiSEqCDevLNB::kTypeVoltageControl,       0, 10750000),
-    lnb_preset(DeviceTree::tr("C Band"),
+    lnb_preset(QT_TRANSLATE_NOOP("DeviceTree", "C Band"),
                DiSEqCDevLNB::kTypeVoltageControl,       0,  5150000),
-    lnb_preset(DeviceTree::tr("DishPro Bandstacked"),
+    lnb_preset(QT_TRANSLATE_NOOP("DeviceTree", "DishPro Bandstacked"),
                DiSEqCDevLNB::kTypeBandstacked,          0, 11250000, 14350000),
     lnb_preset(QString::null, DiSEqCDevLNB::kTypeVoltageControl),
 };
@@ -631,7 +630,8 @@ class LNBPresetSetting : public ComboBoxSetting, public Storage
 
         uint i = 0;
         for (; !lnb_presets[i].name.isEmpty(); i++)
-            addSelection(lnb_presets[i].name, QString::number(i));
+			addSelection(DeviceTree::tr( lnb_presets[i].name.toUtf8() ), 
+                         QString::number(i));
         addSelection(DeviceTree::tr("Custom"), QString::number(i));
     }
 

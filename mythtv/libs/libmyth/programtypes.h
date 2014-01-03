@@ -191,7 +191,7 @@ typedef enum VideoProps {
 } VideoProperty; // has 7 bits in ProgramInfo::properties
 #define kVideoPropertyBits 7
 #define kVideoPropertyOffset kAudioPropertyBits
-#define kVideoPropertyMask (0x3f<<kVideoPropertyOffset)
+#define kVideoPropertyMask (0x7f<<kVideoPropertyOffset)
 
 /// if SubtitleTypes changes, the subtitletypes column in program and
 /// recordedprogram has to changed accordingly
@@ -238,7 +238,7 @@ typedef enum RecStatusTypes {
 } RecStatusType; // note stored in int8_t in ProgramInfo
 MPUBLIC QString toUIState(RecStatusType);
 MPUBLIC QString toString(RecStatusType, uint id);
-MPUBLIC QString toString(RecStatusType, RecordingType);
+MPUBLIC QString toString(RecStatusType, RecordingType type = kNotRecording);
 MPUBLIC QString toDescription(RecStatusType, RecordingType,
                               const QDateTime &recstartts);
 

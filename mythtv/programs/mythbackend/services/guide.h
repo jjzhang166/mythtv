@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -33,6 +33,7 @@
 #include "services/guideServices.h"
 
 #include "datacontracts/programAndChannel.h"
+#include "datacontracts/channelGroupList.h"
 #include "programinfo.h"
 
 class Guide : public GuideServices
@@ -50,7 +51,8 @@ class Guide : public GuideServices
                                                   const QDateTime &EndTime    ,
                                                   int              StartChanId,
                                                   int              NumChannels,
-                                                  bool             Details     );
+                                                  bool             Details,
+                                                  int              ChannelGroupId );
 
         DTC::Program*       GetProgramDetails   ( int              ChanId,
                                                   const QDateTime &StartTime );
@@ -58,6 +60,8 @@ class Guide : public GuideServices
         QFileInfo           GetChannelIcon      ( int              ChanId,
                                                   int              Width ,
                                                   int              Height );
+
+        DTC::ChannelGroupList*  GetChannelGroupList ( bool IncludeEmpty );
 };
 
 // --------------------------------------------------------------------------
@@ -93,9 +97,10 @@ class ScriptableGuide : public QObject
                                   const QDateTime &EndTime    ,
                                   int              StartChanId,
                                   int              NumChannels,
-                                  bool             Details     )
+                                  bool             Details,
+                                  int              ChannelGroupId )
         {
-            return m_obj.GetProgramGuide( StartTime, EndTime, StartChanId, NumChannels, Details );
+            return m_obj.GetProgramGuide( StartTime, EndTime, StartChanId, NumChannels, Details, ChannelGroupId );
         }
 
         QObject* GetProgramDetails( int ChanId, const QDateTime &StartTime )
@@ -106,6 +111,11 @@ class ScriptableGuide : public QObject
         QFileInfo GetChannelIcon( int ChanId, int Width, int Height )
         {
             return m_obj.GetChannelIcon( ChanId, Width, Height );
+        }
+
+        QObject* GetChannelGroupList( bool IncludeEmpty )
+        {
+            return m_obj.GetChannelGroupList( IncludeEmpty );
         }
 };
 

@@ -255,7 +255,6 @@
                 </imagetype>
             </state>
         </statetype>
-        </statetype>
 
         <imagetype name="image" depends="!mediastate&amp;!errorstate">
             <filename>damaged.png</filename>
@@ -263,7 +262,7 @@
             <preserveaspect>true</preserveaspect>
         </imagetype>
 
-        <shape name="textbackground">
+        <shape name="textbackground" depends="description|description_noprogress|extra|title|origin">
             <area>85,100%-260,-85,-55</area>
             <fill color="#000000" alpha="100" />
         </shape>

@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
    Or, point your browser to http://www.gnu.org/copyleft/gpl.html
 
 */
@@ -707,6 +707,19 @@ void MHUnion::CheckType(enum UnionTypes t) const
     }
 }
 
+QString MHUnion::Printable() const
+{
+    switch (m_Type)
+    {
+    case U_Int: return QString::number(m_nIntVal);
+    case U_Bool: return m_fBoolVal ? "true" : "false";
+    case U_String: return m_StrVal.Printable();
+    case U_ObjRef: return m_ObjRefVal.Printable();
+    case U_ContentRef: return m_ContentRefVal.Printable();
+    case U_None: break;
+    }
+    return "";
+}
 
 // A parameter is a generic whose argument is either the value itself or an indirect reference.
 void MHParameter::Initialise(MHParseNode *p, MHEngine *engine)

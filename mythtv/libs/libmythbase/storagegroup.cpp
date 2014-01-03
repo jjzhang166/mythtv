@@ -30,6 +30,7 @@ const QStringList StorageGroup::kSpecialGroups = QStringList()
     <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Fanart")
     <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Screenshots")
     <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Banners")
+    <<  QT_TRANSLATE_NOOP("(StorageGroups)", "Photographs")
     ;
 
 /****************************************************************************/
@@ -42,7 +43,7 @@ const QStringList StorageGroup::kSpecialGroups = QStringList()
  *  \param allowFallback allow the storage group search code to fall back if
  *                  no dirs exist for the specified group/host
  */
-StorageGroup::StorageGroup(const QString group, const QString hostname,
+StorageGroup::StorageGroup(const QString &group, const QString &hostname,
                            bool allowFallback) :
     m_groupname(group), m_hostname(hostname), m_allowFallback(allowFallback)
 {
@@ -98,7 +99,7 @@ void StorageGroup::StaticInit(void)
  *  \param group    The name of the Storage Group
  *  \param hostname The host whose Storage Group definition is desired
  */
-void StorageGroup::Init(const QString group, const QString hostname,
+void StorageGroup::Init(const QString &group, const QString &hostname,
                         const bool allowFallback)
 {
     bool found = false;
@@ -200,10 +201,12 @@ QString StorageGroup::GetFirstDir(bool appendSlash) const
     return tmp;
 }
 
-QStringList StorageGroup::GetDirFileList(QString dir, QString base,
-                                         bool recursive)
+QStringList StorageGroup::GetDirFileList(const QString &dir,
+                                         const QString &lbase,
+                                         bool recursive, bool onlyDirs)
 {
     QStringList files;
+    QString base = lbase;
     QDir d(dir);
 
     if (!d.exists())
@@ -228,25 +231,46 @@ QStringList StorageGroup::GetDirFileList(QString dir, QString base,
         {
             LOG(VB_FILE, LOG_DEBUG, LOC +
                 QString("GetDirFileList: Dir: %1/%2").arg(base).arg(*p));
-            files << GetDirFileList(dir + "/" + *p, base + *p, true);
+
+            if (onlyDirs)
+                files.append(base + *p);
+
+            files << GetDirFileList(dir + "/" + *p, base + *p, true, onlyDirs);
         }
     }
 
-    QStringList list = d.entryList(QDir::Files|QDir::Readable);
-    for (QStringList::iterator p = list.begin(); p != list.end(); ++p)
+    if (!onlyDirs)
     {
-        LOG(VB_FILE, LOG_DEBUG, LOC +
-            QString("GetDirFileList: File: %1%2").arg(base).arg(*p));
-        if (recursive)
-            files.append(base + *p);
-        else
-            files.append(*p);
+        QStringList list = d.entryList(QDir::Files|QDir::Readable);
+        for (QStringList::iterator p = list.begin(); p != list.end(); ++p)
+        {
+            LOG(VB_FILE, LOG_DEBUG, LOC +
+                QString("GetDirFileList: File: %1%2").arg(base).arg(*p));
+            if (recursive)
+                files.append(base + *p);
+            else
+                files.append(*p);
+        }
     }
-
     return files;
 }
 
-QStringList StorageGroup::GetFileList(QString Path, bool recursive)
+QStringList StorageGroup::GetDirList(const QString &Path, bool recursive)
+{
+    QStringList files;
+    QString tmpDir;
+    QDir d;
+    for (QStringList::Iterator it = m_dirlist.begin(); it != m_dirlist.end(); ++it)
+    {
+        tmpDir = *it + Path;
+        d.setPath(tmpDir);
+        if (d.exists())
+            files << GetDirFileList(tmpDir, Path, recursive, true);
+    }
+    return files;
+}
+
+QStringList StorageGroup::GetFileList(const QString &Path, bool recursive)
 {
     QStringList files;
     QString tmpDir;
@@ -258,13 +282,13 @@ QStringList StorageGroup::GetFileList(QString Path, bool recursive)
 
         d.setPath(tmpDir);
         if (d.exists())
-            files << GetDirFileList(tmpDir, Path, recursive);
+            files << GetDirFileList(tmpDir, Path, recursive, false);
     }
 
     return files;
 }
 
-QStringList StorageGroup::GetFileInfoList(QString Path)
+QStringList StorageGroup::GetFileInfoList(const QString &Path)
 {
     QStringList files;
     QString relPath;
@@ -326,7 +350,7 @@ QStringList StorageGroup::GetFileInfoList(QString Path)
     return files;
 }
 
-bool StorageGroup::FileExists(QString filename)
+bool StorageGroup::FileExists(const QString &filename)
 {
     LOG(VB_FILE, LOG_DEBUG, LOC +
         QString("FileExist: Testing for '%1'").arg(filename));
@@ -358,8 +382,9 @@ bool StorageGroup::FileExists(QString filename)
 
 // Returns a string list of details about the file
 // in the order EXISTS, DATE, SIZE
-QStringList StorageGroup::GetFileInfo(QString filename)
+QStringList StorageGroup::GetFileInfo(const QString &lfilename)
 {
+    QString filename;
     LOG(VB_FILE, LOG_DEBUG, LOC +
         QString("GetFileInfo: For '%1'") .arg(filename));
 
@@ -509,7 +534,7 @@ QString StorageGroup::GetRelativePathname(const QString &filename)
  *  \param dirlist  Optional pointer to a QStringList to hold found dir list
  *  \return         true if directories were found
  */
-bool StorageGroup::FindDirs(const QString group, const QString hostname,
+bool StorageGroup::FindDirs(const QString &group, const QString &hostname,
                             QStringList *dirlist)
 {
     bool found = false;
@@ -575,7 +600,7 @@ bool StorageGroup::FindDirs(const QString group, const QString hostname,
     return found;
 }
 
-QString StorageGroup::FindFile(QString filename)
+QString StorageGroup::FindFile(const QString &filename)
 {
     LOG(VB_FILE, LOG_DEBUG, LOC + QString("FindFile: Searching for '%1'")
                                       .arg(filename));
@@ -598,7 +623,7 @@ QString StorageGroup::FindFile(QString filename)
     return result;
 }
 
-QString StorageGroup::FindFileDir(QString filename)
+QString StorageGroup::FindFileDir(const QString &filename)
 {
     QString result = "";
     QFileInfo checkFile("");
@@ -781,9 +806,13 @@ QStringList StorageGroup::getRecordingsGroups(void)
     sql.append(" );");
 
     query.prepare(sql);
-    if (query.exec() && query.isActive() && query.size() > 0)
+    if (query.exec())
+    {
         while (query.next())
+        {
             groups += query.value(0).toString();
+        }
+    }
 
     groups.sort();
     groups.detach();
@@ -791,7 +820,8 @@ QStringList StorageGroup::getRecordingsGroups(void)
     return groups;
 }
 
-QStringList StorageGroup::getGroupDirs(QString groupname, QString host)
+QStringList StorageGroup::getGroupDirs(const QString &groupname,
+                                       const QString &host)
 {
     QStringList groups;
     QString addHost;
@@ -813,7 +843,7 @@ QStringList StorageGroup::getGroupDirs(QString groupname, QString host)
     if (!host.isEmpty())
         query.bindValue(":HOSTNAME", host);
 
-    if (query.exec() && query.isActive() && query.size() > 0)
+    if (query.exec())
     {
         QString dirname;
         while (query.next())

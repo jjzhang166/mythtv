@@ -192,7 +192,7 @@ class LinkageDescriptor : public MPEGDescriptor
     //      for (i=0;i<N;i++)
     //        { private_data_byte 8 bslbf }
     const unsigned char *PrivateData(void) const
-        { return _data + m_offset; }
+        { return &_data[m_offset]; }
     uint PrivateDataLength(void) const
         { return DescriptorLength() + 2 - m_offset; }
 
@@ -654,7 +654,7 @@ class DataBroadcastDescriptor : public MPEGDescriptor
     // for (i=0; i<selector_length; i++)
     // {
     //   selector_byte          8
-    const unsigned char *Selector(void) const { return _data + 6; }
+    const unsigned char *Selector(void) const { return &_data[6]; }
     // }
     // ISO_639_language_code   24
     int LanguageKey(void) const
@@ -2000,20 +2000,54 @@ class DVBContentIdentifierDescriptor : public MPEGDescriptor
 {
   public:
     DVBContentIdentifierDescriptor(const unsigned char *data, int len = 300) :
-        MPEGDescriptor(data, len, DescriptorID::dvb_content_identifier) { }
+        MPEGDescriptor(data, len, DescriptorID::dvb_content_identifier)
+    {
+        size_t length;
+        size_t count  = 0;
+        uint8_t position = 2; /// position points to the first byte of the "sub"descriptor
+
+        memset ((void *) m_crid, 0, sizeof(m_crid));
+
+        while (_data[1] >= position)
+        {
+           length = _data[position+1];
+           m_crid[count] = &_data[position];
+           count++;
+           position+=length+2;
+        }
+        m_cridCount = count;
+    }
     //       Name             bits  loc  expected value
     // descriptor_tag           8   0.0       0x76
     // descriptor_length        8   1.0
 
-    uint ContentType(void) const { return _data[2] >> 2; }
+    uint ContentType(size_t n=0) const { return m_crid[n][0] >> 2; }
 
-    uint ContentEncoding(void) const { return _data[2] & 0x03; }
+    uint ContentEncoding(size_t n=0) const { return m_crid[n][0] & 0x03; }
 
     // A content identifier is a URI.  It may contain UTF-8 encoded using %XX.
-    QString ContentId(void) const
+    QString ContentId(size_t n=0) const
     {
-        return QString::fromLatin1((const char *)_data+4, _data[3]);
+        int length = m_crid[n][1];
+        int positionOfHash = length-1;
+        while (positionOfHash >= 0) {
+            if (m_crid[n][2 + positionOfHash] == '#') {
+                length = positionOfHash; /* remove the hash and the following IMI */
+                break;
+            }
+            positionOfHash--;
+        }
+        return QString::fromLatin1((const char *)&m_crid[n][2], length);
     }
+
+    size_t CRIDCount() const
+    {
+        return m_cridCount;
+    }
+
+  private:
+    size_t m_cridCount;
+    const uint8_t *m_crid[8];
 };
 
 // ETSI TS 102 323 (TV Anytime)

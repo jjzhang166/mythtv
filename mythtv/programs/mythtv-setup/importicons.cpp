@@ -10,6 +10,8 @@
 #include "importicons.h"
 #include "mythdate.h"
 #include "mythdownloadmanager.h"
+#include "remotefile.h"
+#include "mythcorecontext.h"
 
 // MythUI
 #include "mythuitext.h"
@@ -32,8 +34,11 @@ ImportIconsWizard::ImportIconsWizard(MythScreenStack *parent, bool fRefresh,
     m_preview(NULL),               m_previewtitle(NULL)
 {
     m_strChannelname.detach();
-    LOG(VB_GENERAL, LOG_INFO,
-        QString("Fetch Icons for channel %1").arg(m_strChannelname));
+    if (!m_strChannelname.isEmpty())
+        LOG(VB_GENERAL, LOG_INFO,
+            QString("Fetching icon for channel %1").arg(m_strChannelname));
+    else
+        LOG(VB_GENERAL, LOG_INFO, "Fetching icons for multiple channels");
 
     m_popupStack = GetMythMainWindow()->GetStack("popup stack");
 
@@ -58,10 +63,6 @@ ImportIconsWizard::~ImportIconsWizard()
 
 bool ImportIconsWizard::Create()
 {
-    if (!initialLoad(m_strChannelname))
-        return false;
-
-
     bool foundtheme = false;
 
     // Load the theme for this screen
@@ -107,6 +108,12 @@ bool ImportIconsWizard::Create()
     enableControls(STATE_NORMAL);
 
     return true;
+}
+
+void ImportIconsWizard::Load()
+{
+    if (!initialLoad(m_strChannelname))
+        Close();
 }
 
 void ImportIconsWizard::Init()
@@ -186,7 +193,7 @@ void ImportIconsWizard::menuSelection(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    SearchEntry entry = qVariantValue<SearchEntry>(item->GetData());
+    SearchEntry entry = item->GetData().value<SearchEntry>();
 
     LOG(VB_GENERAL, LOG_INFO, QString("Menu Selection: %1 %2 %3")
             .arg(entry.strID) .arg(entry.strName) .arg(entry.strLogo));
@@ -263,6 +270,7 @@ void ImportIconsWizard::itemChanged(MythUIButtonListItem *item)
 
 bool ImportIconsWizard::initialLoad(QString name)
 {
+
     QString dirpath = GetConfDir();
     QDir configDir(dirpath);
     if (!configDir.exists() && !configDir.mkdir(dirpath))
@@ -314,6 +322,7 @@ bool ImportIconsWizard::initialLoad(QString name)
         {
             m_popupStack->AddScreen(m_progressDialog);
             m_progressDialog->SetTotal(query.size());
+            QCoreApplication::processEvents();
         }
         else
         {
@@ -324,40 +333,50 @@ bool ImportIconsWizard::initialLoad(QString name)
         while(query.next())
         {
             CSVEntry entry;
+            QString relativeIconPath = query.value(11).toString();
+            QString absoluteIconPath = QString("%1%2").arg(m_strChannelDir)
+                                                      .arg(relativeIconPath);
 
-            if (m_fRefresh)
+            if (m_fRefresh && !relativeIconPath.isEmpty() &&
+                QFile(absoluteIconPath).exists() &&
+                !QImage(absoluteIconPath).isNull())
             {
-                if (QFile(query.value(11).toString()).exists())
-                    continue;
+                LOG(VB_GENERAL, LOG_NOTICE, QString("Icon already exists, skipping (%1)").arg(absoluteIconPath));
+            }
+            else
+            {
+                entry.strChanId=query.value(0).toString();
+                entry.strName=query.value(1).toString();
+                entry.strXmlTvId=query.value(2).toString();
+                entry.strCallsign=query.value(3).toString();
+                entry.strTransportId=query.value(4).toString();
+                entry.strAtscMajorChan=query.value(5).toString();
+                entry.strAtscMinorChan=query.value(6).toString();
+                entry.strNetworkId=query.value(7).toString();
+                entry.strServiceId=query.value(8).toString();
+                entry.strIconCSV= QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n").
+                                arg(escape_csv(entry.strChanId)).
+                                arg(escape_csv(entry.strName)).
+                                arg(escape_csv(entry.strXmlTvId)).
+                                arg(escape_csv(entry.strCallsign)).
+                                arg(escape_csv(entry.strTransportId)).
+                                arg(escape_csv(entry.strAtscMajorChan)).
+                                arg(escape_csv(entry.strAtscMinorChan)).
+                                arg(escape_csv(entry.strNetworkId)).
+                                arg(escape_csv(entry.strServiceId));
+                entry.strNameCSV=escape_csv(entry.strName);
+                LOG(VB_CHANNEL, LOG_INFO,
+                    QString("chanid %1").arg(entry.strIconCSV));
+
+                m_listEntries.append(entry);
             }
 
-            entry.strChanId=query.value(0).toString();
-            entry.strName=query.value(1).toString();
-            entry.strXmlTvId=query.value(2).toString();
-            entry.strCallsign=query.value(3).toString();
-            entry.strTransportId=query.value(4).toString();
-            entry.strAtscMajorChan=query.value(5).toString();
-            entry.strAtscMinorChan=query.value(6).toString();
-            entry.strNetworkId=query.value(7).toString();
-            entry.strServiceId=query.value(8).toString();
-            entry.strIconCSV= QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n").
-                              arg(escape_csv(entry.strChanId)).
-                              arg(escape_csv(entry.strName)).
-                              arg(escape_csv(entry.strXmlTvId)).
-                              arg(escape_csv(entry.strCallsign)).
-                              arg(escape_csv(entry.strTransportId)).
-                              arg(escape_csv(entry.strAtscMajorChan)).
-                              arg(escape_csv(entry.strAtscMinorChan)).
-                              arg(escape_csv(entry.strNetworkId)).
-                              arg(escape_csv(entry.strServiceId));
-            entry.strNameCSV=escape_csv(entry.strName);
-            LOG(VB_CHANNEL, LOG_INFO,
-                QString("chanid %1").arg(entry.strIconCSV));
-
-            m_listEntries.append(entry);
             m_nMaxCount++;
             if (m_progressDialog)
+            {
                 m_progressDialog->SetProgress(m_nMaxCount);
+                QCoreApplication::processEvents();
+            }
         }
 
         if (m_progressDialog)
@@ -377,6 +396,7 @@ bool ImportIconsWizard::initialLoad(QString name)
     {
         m_popupStack->AddScreen(m_progressDialog);
         m_progressDialog->SetTotal(m_listEntries.size());
+        QCoreApplication::processEvents();
     }
     else
     {
@@ -384,16 +404,18 @@ bool ImportIconsWizard::initialLoad(QString name)
         m_progressDialog = NULL;
     }
 
+    QString downloadMessage = tr("Downloading %1 of %2");
+
     while (!closeDialog && (m_iter != m_listEntries.end()))
     {
         /*: %1 is the current channel position,
          *  %2 is the total number of channels,
          *  %3 is the channel name
          */
-        QString message = tr("Downloading %1 / %2 : %3")
-                            .arg(m_nCount+1)
-                            .arg(m_listEntries.size())
-                            .arg((*m_iter).strName);
+        QString message = downloadMessage.arg(m_nCount+1)
+                                         .arg(m_listEntries.size());
+
+        LOG(VB_GENERAL, LOG_NOTICE, message);
 
         if (m_missingEntries.size() > 0)
         {
@@ -414,6 +436,7 @@ bool ImportIconsWizard::initialLoad(QString name)
         {
             m_progressDialog->SetMessage(message);
             m_progressDialog->SetProgress(m_nCount);
+            QCoreApplication::processEvents();
         }
     }
 
@@ -543,11 +566,10 @@ bool ImportIconsWizard::checkAndDownload(const QString& url, const QString& loca
     QString filename = url.section('/', -1);
     QFileInfo file(m_strChannelDir+filename);
 
-    bool fRet;
-    if (!file.exists())
-        fRet = GetMythDownloadManager()->download(iconUrl, file.absoluteFilePath());
-    else
-        fRet = true;
+    // If we get to this point we've already checked whether the icon already
+    // exist locally, we want to download anyway to fix a broken image or
+    // get the latest version of the icon
+    bool fRet = GetMythDownloadManager()->download(iconUrl, file.absoluteFilePath());
 
     if (fRet)
     {
@@ -564,7 +586,6 @@ bool ImportIconsWizard::checkAndDownload(const QString& url, const QString& loca
             MythDB::DBError("Error inserting channel icon", query);
             return false;
         }
-
     }
 
     return fRet;
@@ -633,13 +654,14 @@ bool ImportIconsWizard::search(const QString& strParam)
         // HACK HACK HACK -- begin
         // This is needed since the user can't escape out of the progress dialog
         // and the result set may contain thousands of channels.
-        if (strSplit.size() > 36*3)
+        if (strSplit.size() > 150)
         {
             LOG(VB_GENERAL, LOG_WARNING,
                 QString("Warning: Result set contains %1 items, "
                         "truncating to the first %2 results")
-                    .arg(strSplit.size()).arg(18*3));
-            while (strSplit.size() > 18*3) strSplit.removeLast();
+                    .arg(strSplit.size()).arg(150));
+            while (strSplit.size() > 150)
+                strSplit.removeLast();
         }
         // HACK HACK HACK -- end
 

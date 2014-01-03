@@ -90,6 +90,7 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
         const QString &description,
         uint season,
         uint episode,
+        uint totalepisodes,
         const QString &syndicatedepisode,
         const QString &category,
 
@@ -200,6 +201,12 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
                   bool genUnknown, uint maxHours = 0,
                   LoadStatus *status = NULL);
 
+    typedef enum {
+        kDefaultRecGroup     = 1, // Auto-increment columns start at one
+        kLiveTVRecGroup      = 2,
+        kDeletedRecGroup     = 3,
+    } SpecialRecordingGroups;
+
   public:
     RecordingInfo &operator=(const RecordingInfo &other)
         { clone(other); return *this; }
@@ -254,6 +261,7 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
     void ReactivateRecording(void);//pi
     void ApplyRecordRecID(void);//pi
     void ApplyRecordRecGroupChange(const QString &newrecgroup);
+    void ApplyRecordRecGroupChange(int newrecgroupid);
     void ApplyRecordPlayGroupChange(const QString &newrecgroup);
     void ApplyStorageGroupChange(const QString &newstoragegroup);
     void ApplyRecordRecTitleChange(const QString &newTitle,
@@ -261,6 +269,11 @@ class MTV_PUBLIC RecordingInfo : public ProgramInfo
                                    const QString &newDescription);
     void ApplyTranscoderProfileChange(const QString &profile) const;//pi
     void ApplyTranscoderProfileChangeById(int);
+    void ApplyNeverRecord(void);
+
+    // Temporary while we transition from string to integer
+    static QString GetRecgroupString(uint recGroupID);
+    static uint GetRecgroupID(const QString &recGroup);
 
     RecStatusType oldrecstatus;
     RecStatusType savedrecstatus;

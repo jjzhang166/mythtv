@@ -631,6 +631,8 @@ static dvd_file_t *DVDOpenFileUDF( dvd_reader_t *dvd, char *filename )
  *     or -1 on file not found.
  *     or -2 on path not found.
  */
+#ifndef _MSC_VER
+
 static int findDirFile( const char *path, const char *file, char *filename )
 {
   DIR *dir;
@@ -659,6 +661,43 @@ static int findDirFile( const char *path, const char *file, char *filename )
   closedir(dir);
   return -1;
 }
+#else
+static int findDirFile( const char *path, const char *file, char *filename )
+{
+	HANDLE           dir;
+	WIN32_FIND_DATAA ent;
+
+	if (!strncmp(path, "myth://", 7) && mythfile_exists(path, file))
+	{
+		sprintf(filename, "%s%s%s", path,
+			((path[strlen(path) - 1] == '/') ? "" : "/"),
+			file);
+		return 0;
+	}
+
+	dir = FindFirstFileA(path, &ent);
+
+	if (dir == INVALID_HANDLE_VALUE)
+		return -2;
+
+	while (dir != INVALID_HANDLE_VALUE)
+	{
+		if (!strcasecmp(ent.cFileName, file)) {
+			sprintf(filename, "%s%s%s", path,
+				((path[strlen(path) - 1] == '/') ? "" : "/"),
+				ent.cFileName);
+			FindClose(dir);
+			return 0;
+		}
+		if (FindNextFileA(dir, &ent) == FALSE)
+		{
+			FindClose(dir);
+			dir = INVALID_HANDLE_VALUE;
+		}
+	}
+	return -1;
+}
+#endif
 
 static int findDVDFile( dvd_reader_t *dvd, const char *file, char *filename )
 {
@@ -1118,14 +1157,14 @@ int UDFReadBlocksRaw( dvd_reader_t *device, uint32_t lb_number,
     return 0;
   }
 
-  ret = dvdinput_seek( device->dev, (int) lb_number );
+  ret = dvdinput_seek( device->dev, (int) lb_number, encrypted & DVDCSS_SEEK_KEY );
   if( ret != (int) lb_number ) {
     fprintf( stderr, "libdvdread: Can't seek to block %u\n", lb_number );
     return 0;
   }
 
   ret = dvdinput_read( device->dev, (char *) data,
-                       (int) block_count, encrypted );
+                       (int) block_count, encrypted & DVDINPUT_READ_DECRYPT );
   return ret;
 }
 
@@ -1163,7 +1202,7 @@ static int DVDReadBlocksPath( dvd_file_t *dvd_file, unsigned int offset,
 
     if( offset < dvd_file->title_sizes[ i ] ) {
       if( ( offset + block_count ) <= dvd_file->title_sizes[ i ] ) {
-        off = dvdinput_seek( dvd_file->title_devs[ i ], (int)offset );
+        off = dvdinput_seek( dvd_file->title_devs[ i ], (int)offset, DVDINPUT_NOFLAGS );
         if( off < 0 || off != (int)offset ) {
           fprintf( stderr, "libdvdread: Can't seek to block %d\n",
                    offset );
@@ -1178,7 +1217,7 @@ static int DVDReadBlocksPath( dvd_file_t *dvd_file, unsigned int offset,
          * (This is only true if you try and read >1GB at a time) */
 
         /* Read part 1 */
-        off = dvdinput_seek( dvd_file->title_devs[ i ], (int)offset );
+        off = dvdinput_seek( dvd_file->title_devs[ i ], (int)offset, DVDINPUT_NOFLAGS );
         if( off < 0 || off != (int)offset ) {
           fprintf( stderr, "libdvdread: Can't seek to block %d\n",
                    offset );
@@ -1195,7 +1234,7 @@ static int DVDReadBlocksPath( dvd_file_t *dvd_file, unsigned int offset,
           return ret;
 
         /* Read part 2 */
-        off = dvdinput_seek( dvd_file->title_devs[ i + 1 ], 0 );
+        off = dvdinput_seek( dvd_file->title_devs[ i + 1 ], 0, DVDINPUT_NOFLAGS );
         if( off < 0 || off != 0 ) {
           fprintf( stderr, "libdvdread: Can't seek to block %d\n",
                    0 );

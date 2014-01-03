@@ -643,22 +643,17 @@ void PlaybackBox::displayRecGroup(const QString &newRecGroup)
 
 void PlaybackBox::checkPassword(const QString &password)
 {
-    m_passwordEntered = true;
-
-    QString grouppass = m_recGroupPwCache[m_newRecGroup];
-    if (password == grouppass)
+    if (password == m_recGroupPwCache[m_newRecGroup])
+    {
+        m_passwordEntered = true;
         setGroupFilter(m_newRecGroup);
-    else
-        qApp->postEvent(this, new MythEvent("DISPLAY_RECGROUP",
-                                            m_newRecGroup));
+    }
 }
 
 void PlaybackBox::passwordClosed(void)
 {
-    if (m_passwordEntered)
-        return;
-
-    if (m_usingGroupSelector || m_firstGroup)
+    if (!m_passwordEntered &&
+        (m_usingGroupSelector || m_firstGroup))
         showGroupFilter();
 }
 
@@ -810,7 +805,7 @@ void PlaybackBox::UpdateUIListItem(MythUIButtonListItem *item,
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return;
@@ -916,7 +911,7 @@ void PlaybackBox::UpdateUIListItem(MythUIButtonListItem *item,
 
 void PlaybackBox::ItemLoaded(MythUIButtonListItem *item)
 {
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
     if (item->GetText("is_item_initialized").isNull())
     {
         QMap<AudioProps, QString> audioFlags;
@@ -991,7 +986,7 @@ void PlaybackBox::ItemLoaded(MythUIButtonListItem *item)
 
 void PlaybackBox::ItemVisible(MythUIButtonListItem *item)
 {
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
 
     ItemLoaded(item);
     // Job status (recording, transcoding, flagging)
@@ -1012,7 +1007,7 @@ void PlaybackBox::ItemVisible(MythUIButtonListItem *item)
         m_preview_tokens.insert(token);
         // now make sure selected item is still at the top of the queue
         ProgramInfo *sel_pginfo =
-            qVariantValue<ProgramInfo*>(sel_item->GetData());
+            sel_item->GetData().value<ProgramInfo*>();
         if (sel_pginfo && sel_item->GetImageFilename("preview").isEmpty() &&
             (asAvailable == sel_pginfo->GetAvailableStatus()))
         {
@@ -1470,14 +1465,14 @@ static bool save_position(
     for (int i = curPos; (i >= 0) && (i < recordingList->GetCount()); i++)
     {
         MythUIButtonListItem *item = recordingList->GetItemAt(i);
-        ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+        ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
         itemSelPref.push_back(groupSelPref.front());
         itemSelPref.push_back(pginfo->MakeUniqueKey());
     }
     for (int i = curPos; (i >= 0) && (i < recordingList->GetCount()); i--)
     {
         MythUIButtonListItem *item = recordingList->GetItemAt(i);
-        ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+        ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
         itemSelPref.push_back(groupSelPref.front());
         itemSelPref.push_back(pginfo->MakeUniqueKey());
     }
@@ -1488,7 +1483,7 @@ static bool save_position(
         if (i >= 0 && i < recordingList->GetCount())
         {
             MythUIButtonListItem *item = recordingList->GetItemAt(i);
-            ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+            ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
             if (i == topPos)
             {
                 itemTopPref.push_front(pginfo->MakeUniqueKey());
@@ -1534,7 +1529,7 @@ static void restore_position(
         for (uint j = 0; j < (uint)recordingList->GetCount(); j++)
         {
             MythUIButtonListItem *item = recordingList->GetItemAt(j);
-            ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+            ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
             if (pginfo && (pginfo->MakeUniqueKey() == key))
             {
                 sel = j;
@@ -1555,7 +1550,7 @@ static void restore_position(
         for (uint j = 0; j < (uint)recordingList->GetCount(); j++)
         {
             MythUIButtonListItem *item = recordingList->GetItemAt(j);
-            ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+            ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
             if (pginfo && (pginfo->MakeUniqueKey() == key))
             {
                 top = j;
@@ -2202,7 +2197,7 @@ void PlaybackBox::PlayFromBookmark(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (pginfo)
         PlayX(*pginfo, false, false);
@@ -2216,7 +2211,7 @@ void PlaybackBox::PlayFromBeginning(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (pginfo)
         PlayX(*pginfo, true, false);
@@ -2255,7 +2250,7 @@ void PlaybackBox::deleteSelected(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return;
@@ -2329,7 +2324,7 @@ ProgramInfo *PlaybackBox::CurrentItem(void)
     if (!item)
         return NULL;
 
-    pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return NULL;
@@ -2378,7 +2373,9 @@ void PlaybackBox::popupClosed(QString which, int result)
             {
                 m_helper.CheckAvailability(*pginfo, kCheckForMenuAction);
 
-                if (asPendingDelete == pginfo->GetAvailableStatus())
+                if ((asPendingDelete == pginfo->GetAvailableStatus()) ||
+                    (asDeleted == pginfo->GetAvailableStatus()) ||
+                    (asNotYetAvailable == pginfo->GetAvailableStatus()))
                 {
                     ShowAvailabilityPopup(*pginfo);
                 }
@@ -2756,6 +2753,7 @@ MythMenu* PlaybackBox::createPlaylistStorageMenu()
     menu->AddItem(tr("Enable Auto Expire"), SLOT(doPlaylistExpireSetOn()));
     menu->AddItem(tr("Mark as Watched"), SLOT(doPlaylistWatchedSetOn()));
     menu->AddItem(tr("Mark as Unwatched"), SLOT(doPlaylistWatchedSetOff()));
+    menu->AddItem(tr("Allow Re-record"), SLOT(doPlaylistAllowRerecord()));
 
     return menu;
 }
@@ -2920,7 +2918,8 @@ void PlaybackBox::ShowMenu()
                 *pginfo, kCheckForMenuAction);
 
             if ((asPendingDelete == pginfo->GetAvailableStatus()) ||
-                (asPendingDelete == pginfo->GetAvailableStatus()))
+                (asDeleted == pginfo->GetAvailableStatus()) ||
+                (asNotYetAvailable == pginfo->GetAvailableStatus()))
             {
                 ShowAvailabilityPopup(*pginfo);
             }
@@ -3325,6 +3324,25 @@ void PlaybackBox::doAllowRerecord()
     *pginfo = ri;
 }
 
+void PlaybackBox::doPlaylistAllowRerecord()
+{
+    ProgramInfo *pginfo;
+    QStringList::Iterator it;
+
+    for (it = m_playList.begin(); it != m_playList.end(); ++it)
+    {
+        if ((pginfo = FindProgramInUILists(*it)))
+        {
+            RecordingInfo ri(*pginfo);
+            ri.ForgetHistory();
+            *pginfo = ri;
+        }
+    }
+
+    doClearPlaylist();
+    UpdateUILists();
+}
+
 void PlaybackBox::doJobQueueJob(int jobType, int jobFlags)
 {
    ProgramInfo *pginfo = CurrentItem();
@@ -3554,7 +3572,7 @@ void PlaybackBox::toggleWatched(void)
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return;
@@ -3580,7 +3598,7 @@ void PlaybackBox::toggleAutoExpire()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return;
@@ -3602,7 +3620,7 @@ void PlaybackBox::togglePreserveEpisode()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return;
@@ -3646,7 +3664,7 @@ void PlaybackBox::togglePlayListItem(void)
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return;
@@ -4223,12 +4241,6 @@ void PlaybackBox::customEvent(QEvent *event)
         {
             m_playListPlay.clear();
         }
-        else if ((message == "DISPLAY_RECGROUP") &&
-                 (me->ExtraDataCount() >= 1))
-        {
-            QString recGroup = me->ExtraData(0);
-            displayRecGroup(recGroup);
-        }
     }
     else
         ScheduleCommon::customEvent(event);
@@ -4576,7 +4588,7 @@ void PlaybackBox::fillRecGroupPasswordCache(void)
     m_recGroupPwCache.clear();
 
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare("SELECT recgroup, password FROM recgrouppassword "
+    query.prepare("SELECT recgroup, password FROM recgroups "
                   "WHERE password IS NOT NULL AND password <> '';");
 
     if (query.exec())
@@ -4618,8 +4630,10 @@ void PlaybackBox::ShowRecGroupChanger(bool use_playlist)
 
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare(
-        "SELECT recgroup, COUNT(title) FROM recorded "
-        "WHERE deletepending = 0 GROUP BY recgroup ORDER BY recgroup");
+        "SELECT g.recgroup, COUNT(r.title) FROM recgroups g "
+        "LEFT JOIN recorded r ON g.recgroupid=r.recgroupid AND r.deletepending = 0 "
+        "WHERE g.recgroupid != 2 AND g.recgroupid != 3 "
+        "GROUP BY g.recgroupid ORDER BY g.recgroup");
 
     QStringList displayNames(tr("Add New"));
     QStringList groupNames("addnewgroup");
@@ -4770,7 +4784,7 @@ void PlaybackBox::saveRecMetadata(const QString &newTitle,
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo *>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo *>();
 
     if (!pginfo)
         return;
@@ -4959,26 +4973,14 @@ void PlaybackBox::SetRecGroupPassword(const QString &newPassword)
 {
     MSqlQuery query(MSqlQuery::InitCon());
 
-    query.prepare("DELETE FROM recgrouppassword "
-                        "WHERE recgroup = :RECGROUP ;");
+    query.prepare("UPDATE recgroups SET password = :PASSWD WHERE "
+                  "recgroup = :RECGROUP");
     query.bindValue(":RECGROUP", m_recGroup);
+    query.bindValue(":PASSWD", newPassword);
 
     if (!query.exec())
-        MythDB::DBError("PlaybackBox::SetRecGroupPassword -- delete",
+        MythDB::DBError("PlaybackBox::SetRecGroupPassword",
                         query);
-
-    if (!newPassword.isEmpty())
-    {
-        query.prepare("INSERT INTO recgrouppassword "
-                        "(recgroup, password) VALUES "
-                        "( :RECGROUP , :PASSWD )");
-        query.bindValue(":RECGROUP", m_recGroup);
-        query.bindValue(":PASSWD", newPassword);
-
-        if (!query.exec())
-            MythDB::DBError("PlaybackBox::SetRecGroupPassword -- insert",
-                            query);
-    }
 
     m_recGroupPwCache[m_recGroup] = newPassword;
 }
@@ -5170,6 +5172,8 @@ bool PasswordChange::Create()
 
     m_oldPasswordEdit->SetPassword(true);
     m_oldPasswordEdit->SetMaxLength(10);
+//     if (m_oldPassword.isEmpty())
+//         m_oldPasswordEdit->SetDisabled(true);
     m_newPasswordEdit->SetPassword(true);
     m_newPasswordEdit->SetMaxLength(10);
 

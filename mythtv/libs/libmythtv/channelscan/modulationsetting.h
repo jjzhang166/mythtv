@@ -22,7 +22,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  * Or, point your browser to http://www.gnu.org/copyleft/gpl.html
  *
  */
@@ -56,7 +56,7 @@ class ScanATSCModulation: public ComboBoxSetting, public TransientStorage
         setLabel(QCoreApplication::translate("(ModulationSettings)",
                                              "Modulation"));
 
-        setHelpText(QCoreApplication::translate("(ModulationSettings)", 
+        setHelpText(QCoreApplication::translate("(ModulationSettings)",
             "Modulation, 8-VSB, QAM-256, etc. Most cable systems in the "
             "United States use QAM-256 or QAM-64, but some mixed systems "
             "may use 8-VSB for over-the-air channels."));
@@ -70,7 +70,7 @@ class ScanModulationSetting: public ComboBoxSetting
     {
         addSelection(QCoreApplication::translate("(Common)",
                                                  "Auto",
-                                                 "Automatic"), 
+                                                 "Automatic"),
                                                  "auto", true);
         addSelection("QPSK","qpsk");
         addSelection("QAM 16","qam_16");
@@ -121,7 +121,7 @@ class ScanDVBSModulation: public ComboBoxSetting, public TransientStorage
         setLabel(QCoreApplication::translate("(ModulationSettings)",
                                              "Modulation"));
 
-        setHelpText(QCoreApplication::translate("(ModulationSettings)", 
+        setHelpText(QCoreApplication::translate("(ModulationSettings)",
             "Modulation, QPSK, 8PSK, QAM-16. Most DVB-S transponders use QPSK, "
             "while DVB-S2 use 8PSK. QAM-16 is not available for DVB-S2 "
             "transports."));
@@ -129,4 +129,3 @@ class ScanDVBSModulation: public ComboBoxSetting, public TransientStorage
 };
 
 #endif // _MODULATION_SETTING_H_
-

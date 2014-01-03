@@ -66,11 +66,14 @@ void ImageProperties::Init()
     isGreyscale = false;
     isReflected = false;
     isMasked = false;
+    isOriented = false;
     reflectAxis = ReflectVertical;
     reflectScale = 100;
     reflectLength = 100;
     reflectShear = 0;
-    reflectSpacing = 0,
+    reflectSpacing = 0;
+    orientation = 1;
+    isThemeImage = false;
     maskImage = NULL;
 }
 
@@ -86,12 +89,16 @@ void ImageProperties::Copy(const ImageProperties &other)
     isGreyscale = other.isGreyscale;
     isReflected = other.isReflected;
     isMasked = other.isMasked;
+    isOriented = other.isOriented;
 
     reflectAxis = other.reflectAxis;
     reflectScale = other.reflectScale;
     reflectLength = other.reflectLength;
     reflectShear = other.reflectShear;
     reflectSpacing = other.reflectSpacing;
+    orientation = other.orientation;
+
+    isThemeImage = other.isThemeImage;
 
     SetMaskImage(other.maskImage);
 }
@@ -185,6 +192,12 @@ class ImageLoader
         if (imProps.isGreyscale)
             s_Attrib += "greyscale";
 
+        if (imProps.isOriented)
+        {
+            s_Attrib += "orientation";
+            s_Attrib += QString("%1").arg(imProps.orientation);
+        }
+
         int w = -1;
         int h = -1;
         if (!imProps.forceSize.isNull())
@@ -228,7 +241,7 @@ class ImageLoader
         QString filename = imProps.filename;
         MythImage *image = NULL;
 
-        bool bForceResize = false;
+        bool bResize = false;
         bool bFoundInCache = false;
 
         int w = -1;
@@ -242,7 +255,7 @@ class ImageLoader
             if (imProps.forceSize.height() != -1)
                 h = imProps.forceSize.height();
 
-            bForceResize = true;
+            bResize = true;
         }
 
         if (!imageReader)
@@ -265,6 +278,9 @@ class ImageLoader
 
             if (imProps.isReflected)
                 image->setIsReflected(true);
+
+            if (imProps.isOriented)
+                image->setIsOriented(true);
 
             bFoundInCache = true;
         }
@@ -301,7 +317,23 @@ class ImageLoader
 
         if (image && !bFoundInCache)
         {
-            if (bForceResize)
+            // Even if an explicit size wasn't defined this image may still need
+            // to be scaled because of a difference between the theme resolution
+            // and the screen resolution. We want to avoid scaling twice.
+            if (!bResize && imProps.isThemeImage)
+            {
+                float wmult; // Width multipler
+                float hmult; // Height multipler
+                GetMythUI()->GetScreenSettings(wmult, hmult);
+                if (wmult != 1.0f || hmult != 1.0f)
+                {
+                    w = image->size().width() * wmult;
+                    h = image->size().height() * hmult;
+                    bResize = true;
+                }
+            }
+
+            if (bResize)
                 image->Resize(QSize(w, h), imProps.preserveAspect);
 
             if (imProps.isMasked)
@@ -333,6 +365,9 @@ class ImageLoader
 
             if (imProps.isGreyscale)
                 image->ToGreyscale();
+
+            if (imProps.isOriented)
+                image->Orientation(imProps.orientation);
 
             if (!imageReader)
                 GetMythUI()->CacheImage(cacheKey, image);
@@ -617,6 +652,7 @@ void MythUIImage::Reset(void)
 
     if (m_imageProperties.filename != m_OrigFilename)
     {
+        m_imageProperties.isThemeImage = true;
         m_imageProperties.filename = m_OrigFilename;
 
         if (m_animatedImage)
@@ -659,6 +695,7 @@ void MythUIImage::Init(void)
 void MythUIImage::SetFilename(const QString &filename)
 {
     QWriteLocker updateLocker(&d->m_UpdateLock);
+    m_imageProperties.isThemeImage = false;
     m_imageProperties.filename = filename;
     if (filename == m_OrigFilename)
         emit DependChanged(true);
@@ -674,6 +711,7 @@ void MythUIImage::SetFilepattern(const QString &filepattern, int low,
                                  int high)
 {
     QWriteLocker updateLocker(&d->m_UpdateLock);
+    m_imageProperties.isThemeImage = false;
     m_imageProperties.filename = filepattern;
     m_LowNum = low;
     m_HighNum = high;
@@ -738,6 +776,7 @@ void MythUIImage::SetImage(MythImage *img)
         return;
     }
 
+    m_imageProperties.isThemeImage = false;
     m_imageProperties.filename = img->GetFileName();
 
     img->IncrRef();
@@ -762,6 +801,11 @@ void MythUIImage::SetImage(MythImage *img)
 
     Clear();
     m_Delay = -1;
+
+    if (m_imageProperties.isOriented && !img->IsOriented() &&
+        (m_imageProperties.orientation >= 1 &&
+         m_imageProperties.orientation <= 8))
+        img->Orientation(m_imageProperties.orientation);
 
     if (m_imageProperties.forceSize.isNull())
         SetSize(img->size());
@@ -789,6 +833,8 @@ void MythUIImage::SetImages(QVector<MythImage *> *images)
 
     QWriteLocker updateLocker(&d->m_UpdateLock);
     QSize aSize = GetFullArea().size();
+
+    m_imageProperties.isThemeImage = false;
 
     QVector<MythImage *>::iterator it;
 
@@ -823,6 +869,11 @@ void MythUIImage::SetImages(QVector<MythImage *> *images)
 
         if (m_imageProperties.isGreyscale && !im->isGrayscale())
             im->ToGreyscale();
+
+        if (m_imageProperties.isOriented && !im->IsOriented() &&
+            (m_imageProperties.orientation >= 1 &&
+             m_imageProperties.orientation <= 8))
+            im->Orientation(m_imageProperties.orientation);
 
         m_ImagesLock.lock();
         m_Images[m_Images.size()] = im;
@@ -889,6 +940,15 @@ void MythUIImage::ForceSize(const QSize &size)
 
     Load();
     return;
+}
+
+/**
+ *  \brief Saves the exif orientation value of the first image in the widget
+ */
+void MythUIImage::SetOrientation(int orientation)
+{
+    m_imageProperties.isOriented = true;
+    m_imageProperties.orientation = orientation;
 }
 
 /**
@@ -1238,6 +1298,7 @@ bool MythUIImage::ParseElement(
 
     if (element.tagName() == "filename")
     {
+        m_imageProperties.isThemeImage = true; // This is an image distributed with the them
         m_OrigFilename = m_imageProperties.filename = getFirstText(element);
 
         if (m_imageProperties.filename.endsWith('/'))
@@ -1274,6 +1335,7 @@ bool MythUIImage::ParseElement(
     }
     else if (element.tagName() == "filepattern")
     {
+        m_imageProperties.isThemeImage = true; // This is an image distributed with the theme
         m_OrigFilename = m_imageProperties.filename = getFirstText(element);
         QString tmp = element.attribute("low");
 
@@ -1374,7 +1436,19 @@ bool MythUIImage::ParseElement(
 
         MythImage *newMaskImage = GetPainter()->GetFormatImage();
         if (newMaskImage->Load(maskfile))
+        {
+            float wmult; // Width multipler
+            float hmult; // Height multipler
+            GetMythUI()->GetScreenSettings(wmult, hmult);
+            if (wmult != 1.0f || hmult != 1.0f)
+            {
+                int width = newMaskImage->size().width() * wmult;
+                int height = newMaskImage->size().height() * hmult;
+                newMaskImage->Resize(QSize(width, height));
+            }
+
             m_imageProperties.SetMaskImage(newMaskImage);
+        }
         else
             m_imageProperties.SetMaskImage(NULL);
         newMaskImage->DecrRef();
@@ -1430,6 +1504,11 @@ void MythUIImage::CopyFrom(MythUIType *base)
     m_animatedImage = im->m_animatedImage;
 
     MythUIType::CopyFrom(base);
+
+    // We need to update forceSize in case the parent area has changed
+    // however we only want to set forceSize if it was previously in use
+    if (!m_imageProperties.forceSize.isNull())
+        m_imageProperties.forceSize = m_Area.size();
 
     m_NeedLoad = im->m_NeedLoad;
 

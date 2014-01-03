@@ -8,13 +8,13 @@
 // MythTV headers
 #include "hlsstreamhandler.h"
 #include "mythlogging.h"
-#include "HLS/httplivestreambuffer.h"
+#include "recorders/HLS/HLSReader.h"
 
 #define LOC QString("HLSSH(%1): ").arg(_device)
 
 // BUFFER_SIZE is a multiple of TS_SIZE
-#define TS_SIZE        188
-#define BUFFER_SIZE (128 * TS_SIZE)
+#define TS_SIZE     188
+#define BUFFER_SIZE (512 * TS_SIZE)
 
 QMap<QString,HLSStreamHandler*>  HLSStreamHandler::s_handlers;
 QMap<QString,uint>               HLSStreamHandler::s_handlers_refcnt;
@@ -98,14 +98,15 @@ HLSStreamHandler::HLSStreamHandler(const IPTVTuningData& tuning) :
     IPTVStreamHandler(tuning),
     m_tuning(tuning)
 {
-    m_hls       = new HLSRingBuffer(m_tuning.GetURL(0).toString(), false);
+    m_hls       = new HLSReader();
     m_buffer    = new uint8_t[BUFFER_SIZE];
+    m_throttle  = true;
 }
 
 HLSStreamHandler::~HLSStreamHandler(void)
 {
+    LOG(VB_CHANNEL, LOG_INFO, LOC + "dtor");
     Stop();
-    m_hls->Interrupt();
     delete m_hls;
     delete[] m_buffer;
 }
@@ -114,33 +115,60 @@ void HLSStreamHandler::run(void)
 {
     RunProlog();
 
-    LOG(VB_GENERAL, LOG_INFO, LOC + "run()");
+    QString url = m_tuning.GetURL(0).toString();
+    int cnt = 0;
+
+    LOG(VB_GENERAL, LOG_INFO, LOC + "run() -- begin");
 
     SetRunning(true, false, false);
 
-    // TODO Error handling..
+    if (!m_hls)
+        return;
+    m_hls->Throttle(false);
 
-    if (!m_hls->IsOpen())
+    while (_running_desired)
     {
-        m_hls->OpenFile(m_tuning.GetURL(0).toString());
-    }
+        if (!m_hls->IsOpen(url))
+        {
+            if (!m_hls->Open(url))
+            {
+                LOG(VB_CHANNEL, LOG_INFO, LOC +
+                    "run: HLS OpenFile() failed");
+                usleep(500000);
+                continue;
+            }
+            m_hls->Throttle(m_throttle);
+            m_throttle = false;
+        }
 
-    uint64_t startup    = MythDate::current().toMSecsSinceEpoch();
-    uint64_t expected   = 0;
-
-    while (m_hls->IsOpen() && _running_desired)
-    {
-        int size = m_hls->Read((void*)m_buffer, BUFFER_SIZE);
+        int size = m_hls->Read(m_buffer, BUFFER_SIZE);
 
         if (size < 0)
         {
-            break; // error
+            // error
+            if (++cnt > 10)
+            {
+                LOG(VB_RECORD, LOG_ERR, LOC + "HLSReader failed");
+                Stop();
+                break;
+            }
+            continue;
         }
+        else
+            cnt = 0;
+
+        if (size == 0)
+        {
+            usleep(250000);  // .25 second
+            continue;
+        }
+
         if (m_buffer[0] != 0x47)
         {
             LOG(VB_RECORD, LOG_INFO, LOC +
                 QString("Packet not starting with SYNC Byte (got 0x%1)")
                 .arg((char)m_buffer[0], 2, QLatin1Char('0')));
+            continue;
         }
 
         int remainder = 0;
@@ -153,7 +181,7 @@ void HLSStreamHandler::run(void)
                 remainder = sit.key()->ProcessData(m_buffer, size);
             }
         }
-        
+
         if (remainder != 0)
         {
             LOG(VB_RECORD, LOG_INFO, LOC +
@@ -161,25 +189,18 @@ void HLSStreamHandler::run(void)
                 .arg(size).arg(remainder));
         }
 
-        expected        += m_hls->DurationForBytes(size);
-        uint64_t actual  = MythDate::current().toMSecsSinceEpoch() - startup;
-        uint64_t waiting = 0;
-        if (expected > actual)
-        {
-            waiting = expected-actual;
-        }
-        // The HLS Stream Handler feeds data to the MPEGStreamData, however it feeds
-        // data as fast as the MPEGStream can accept it, which quickly exhausts the HLS buffer.
-        // The data fed however is lost by the time the recorder starts,
-        // forcing the HLS ringbuffer to wait for new data to arrive.
-        // The frontend will usually timeout by then.
-        // So we simulate a live mechanism by pausing before feeding new data
-        // to the MPEGStreamData
-        LOG(VB_RECORD, LOG_DEBUG, LOC + QString("waiting %1ms (actual:%2, expected:%3)")
-            .arg(waiting).arg(actual).arg(expected));
-        usleep(waiting * 1000);
+        if (m_hls->IsThrottled())
+            usleep(999999);
+        else if (size < BUFFER_SIZE)
+            usleep(100000); // tenth of a second.
+        else
+            usleep(1000);
     }
+
+    m_hls->Throttle(false);
 
     SetRunning(false, false, false);
     RunEpilog();
+
+    LOG(VB_GENERAL, LOG_INFO, LOC + "run() -- done");
 }

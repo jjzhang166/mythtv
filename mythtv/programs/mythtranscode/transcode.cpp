@@ -999,8 +999,11 @@ int Transcode::TranscodeFile(const QString &inputname,
     long lastKeyFrame = 0;
     long totalAudio = 0;
     int dropvideo = 0;
+    // timecode of the last read video frame in input time
     long long lasttimecode = 0;
+    // timecode of the last writte video frame in input or output time
     long long lastWrittenTime = 0;
+    // delta between the same video frame in input and output due to applying the cut list
     long long timecodeOffset = 0;
 
     float rateTimeConv = arb->m_eff_audiorate / 1000.0f;
@@ -1058,8 +1061,10 @@ int Transcode::TranscodeFile(const QString &inputname,
         if (cutter)
             cutter->NewFrame(lastDecode->frameNumber);
 
+// frame timecode is on input time base
         frame.timecode = lastDecode->timecode;
 
+        // if the timecode jumps backwards just use the last frame's timecode plus the duration of a frame
         if (frame.timecode < lasttimecode)
             frame.timecode = (long long)(lasttimecode + vidFrameTime);
 
@@ -1217,6 +1222,7 @@ int Transcode::TranscodeFile(const QString &inputname,
                     (frame.timecode - lasttimecode - (int)vidFrameTime);
             }
             lasttimecode = frame.timecode;
+// from here on the timecode is on the output time base
             frame.timecode -= timecodeOffset;
 
             if (!GetPlayer()->WriteStoredData(
@@ -1274,7 +1280,6 @@ int Transcode::TranscodeFile(const QString &inputname,
                 }
 
                 nvr->WriteVideo(&frame, true, writekeyframe);
-                lastWrittenTime = frame.timecode;
             }
             GetPlayer()->GetCC608Reader()->FlushTxtBuffers();
         }
@@ -1417,7 +1422,7 @@ int Transcode::TranscodeFile(const QString &inputname,
 
                     if (avfw->WriteVideoFrame(&frame) > 0)
                     {
-                        lastWrittenTime = frame.timecode;
+                        lastWrittenTime = frame.timecode + timecodeOffset;
                         if (hls)
                             ++hlsSegmentFrames;
                     }
@@ -1430,7 +1435,7 @@ int Transcode::TranscodeFile(const QString &inputname,
                     nvr->WriteVideo(&frame, true, true);
                 else
                     nvr->WriteVideo(&frame);
-                lastWrittenTime = frame.timecode;
+                lastWrittenTime = frame.timecode + timecodeOffset;
             }
         }
         if (MythDate::current() > statustime)

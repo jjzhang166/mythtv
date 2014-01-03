@@ -49,7 +49,7 @@ RecordingRule::RecordingRule()
     m_dupIn(kDupsInAll),
     m_filter(GetDefaultFilter()),
     m_recProfile(tr("Default")),
-    m_recGroup("Default"),
+    m_recGroupID(RecordingInfo::kDefaultRecGroup),
     m_storageGroup("Default"),
     m_playGroup("Default"),
     m_autoExpire(gCoreContext->GetNumSetting("AutoExpireDefault", 0)),
@@ -95,7 +95,7 @@ bool RecordingRule::Load(bool asTemplate)
     "autometadata, parentid, title, subtitle, description, season, episode, "
     "category, starttime, startdate, endtime, enddate, seriesid, programid, "
     "inetref, chanid, station, findday, findtime, findid, "
-    "next_record, last_record, last_delete, avg_delay, filter "
+    "next_record, last_record, last_delete, avg_delay, filter, recgroupid "
     "FROM record WHERE recordid = :RECORDID ;");
 
     query.bindValue(":RECORDID", m_recordID);
@@ -127,7 +127,7 @@ bool RecordingRule::Load(bool asTemplate)
 
     // Storage
     m_recProfile = query.value(9).toString();
-    m_recGroup = query.value(10).toString();
+    m_recGroupID = query.value(48).toUInt();
     m_storageGroup = query.value(11).toString();
     m_playGroup = query.value(12).toString();
     m_autoExpire = query.value(13).toBool();
@@ -391,7 +391,9 @@ bool RecordingRule::Save(bool sendSig)
                     "dupmethod = :DUPMETHOD, dupin = :DUPIN, "
                     "filter = :FILTER, "
                     "inactive = :INACTIVE, profile = :RECPROFILE, "
-                    "recgroup = :RECGROUP, storagegroup = :STORAGEGROUP, "
+                    "recgroup = :RECGROUP, "
+                    "recgroupid = :RECGROUPID, "
+                    "storagegroup = :STORAGEGROUP, "
                     "playgroup = :PLAYGROUP, autoexpire = :AUTOEXPIRE, "
                     "maxepisodes = :MAXEPISODES, maxnewest = :MAXNEWEST, "
                     "autocommflag = :AUTOCOMMFLAG, "
@@ -432,7 +434,9 @@ bool RecordingRule::Save(bool sendSig)
     query.bindValue(":FILTER", m_filter);
     query.bindValue(":INACTIVE", m_isInactive);
     query.bindValue(":RECPROFILE", null_to_empty(m_recProfile));
-    query.bindValue(":RECGROUP", null_to_empty(m_recGroup));
+    // Temporary, remove once transition to recgroupid is complete
+    query.bindValue(":RECGROUP", null_to_empty(RecordingInfo::GetRecgroupString(m_recGroupID)));
+    query.bindValue(":RECGROUPID", m_recGroupID);
     query.bindValue(":STORAGEGROUP", null_to_empty(m_storageGroup));
     query.bindValue(":PLAYGROUP", null_to_empty(m_playGroup));
     query.bindValue(":AUTOEXPIRE", m_autoExpire);
@@ -572,16 +576,30 @@ void RecordingRule::ToMap(InfoMap &infoMap) const
     seconds = startts.secsTo(endts);
 
     minutes = seconds / 60;
-    infoMap["lenmins"] = QCoreApplication::translate("(Common)", "%n minute(s)",
-        "", QCoreApplication::UnicodeUTF8, minutes);
     hours   = minutes / 60;
     minutes = minutes % 60;
+
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+
+    infoMap["lenmins"] = QCoreApplication::translate("(Common)", "%n minute(s)",
+        "", QCoreApplication::UnicodeUTF8, minutes);
 
     QString minstring  = QCoreApplication::translate("(Common)", "%n minute(s)",
         "",QCoreApplication::UnicodeUTF8, minutes);
 
     QString hourstring = QCoreApplication::translate("(Common)", "%n hour(s)",
         "", QCoreApplication::UnicodeUTF8, hours);
+#else
+    infoMap["lenmins"] = QCoreApplication::translate("(Common)", "%n minute(s)",
+        "", minutes);
+
+    QString minstring  = QCoreApplication::translate("(Common)", "%n minute(s)",
+        "", minutes);
+
+    QString hourstring = QCoreApplication::translate("(Common)", "%n hour(s)",
+        "", hours);
+
+#endif
 
     if (hours > 0)
     {
@@ -971,7 +989,7 @@ bool RecordingRule::IsValid(QString &msg)
         return false;
     }
 
-    if (m_recProfile.isEmpty() || m_recGroup.isEmpty() ||
+    if (m_recProfile.isEmpty() || (m_recGroupID == 0) ||
         m_storageGroup.isEmpty() || m_playGroup.isEmpty())
     {
         msg = QString("Invalid group value.");

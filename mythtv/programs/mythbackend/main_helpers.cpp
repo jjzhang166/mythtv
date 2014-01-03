@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <libgen.h>
+//#include <libgen.h>
 #include <signal.h>
 
 #include "mythconfig.h"
@@ -219,6 +219,11 @@ bool setupTVs(bool ismaster, bool &error)
 
 void cleanup(void)
 {
+    if (gCoreContext)
+    {
+        gCoreContext->SetExiting();
+    }
+
     if (mainServer)
         mainServer->Stop();
 
@@ -354,9 +359,14 @@ int handle_command(const MythBackendCommandLineParser &cmdline)
         cmdline.toBool("testsched"))
     {
         Scheduler *sched = new Scheduler(false, &tvList);
-        if (!cmdline.toBool("testsched") &&
-            gCoreContext->ConnectToMasterServer())
+        if (cmdline.toBool("printsched"))
         {
+            if (!gCoreContext->ConnectToMasterServer())
+            {
+                LOG(VB_GENERAL, LOG_ERR, "Cannot connect to master");
+                delete sched;
+                return GENERIC_EXIT_CONNECT_ERROR;
+            }
             cout << "Retrieving Schedule from Master backend.\n";
             sched->FillRecordListFromMaster();
         }

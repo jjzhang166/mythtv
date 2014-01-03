@@ -402,7 +402,8 @@ QString CardUtil::ProbeDVBType(const QString &device)
 #ifdef USING_DVB
     QString dvbdev = CardUtil::GetDeviceName(DVB_DEV_FRONTEND, device);
     QByteArray dev = dvbdev.toLatin1();
-    int fd_frontend = open(dev.constData(), O_RDONLY | O_NONBLOCK);
+    
+    int fd_frontend = open(dev.constData(), O_RDWR | O_NONBLOCK);
     if (fd_frontend < 0)
     {
         LOG(VB_GENERAL, LOG_ERR, QString("Can't open DVB frontend (%1) for %2.")
@@ -411,6 +412,7 @@ QString CardUtil::ProbeDVBType(const QString &device)
     }
 
     struct dvb_frontend_info info;
+    memset(&info, 0, sizeof(info));
     int err = ioctl(fd_frontend, FE_GET_INFO, &info);
     if (err < 0)
     {
@@ -449,6 +451,7 @@ QString CardUtil::ProbeDVBFrontendName(const QString &device)
         return "ERROR_OPEN";
 
     struct dvb_frontend_info info;
+    memset(&info, 0, sizeof(info));
     int err = ioctl(fd_frontend, FE_GET_INFO, &info);
     if (err < 0)
     {
@@ -1109,7 +1112,7 @@ QString CardUtil::GetStartInput(uint nCardID)
     MSqlQuery query(MSqlQuery::InitCon());
     query.prepare("SELECT inputname "
                   "FROM cardinput "
-                  "WHERE cardinput.cardid = :CARDID " 
+                  "WHERE cardinput.cardid = :CARDID "
                   "ORDER BY livetvorder = 0, livetvorder, cardinputid "
                   "LIMIT 1");
     query.bindValue(":CARDID", nCardID);
@@ -1162,7 +1165,9 @@ bool CardUtil::GetInputInfo(InputInfo &input, vector<uint> *groupids)
         return false;
 
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare("SELECT inputname, sourceid, cardid, livetvorder "
+    query.prepare("SELECT "
+                  "inputname, sourceid, cardid, livetvorder, "
+                  "schedorder, displayname, recpriority, quicktune "
                   "FROM cardinput "
                   "WHERE cardinputid = :INPUTID");
     query.bindValue(":INPUTID", input.inputid);
@@ -1180,11 +1185,50 @@ bool CardUtil::GetInputInfo(InputInfo &input, vector<uint> *groupids)
     input.sourceid = query.value(1).toUInt();
     input.cardid   = query.value(2).toUInt();
     input.livetvorder = query.value(3).toUInt();
+    input.scheduleOrder = query.value(4).toUInt();
+    input.displayName = query.value(5).toString();
+    input.recPriority = query.value(6).toInt();
+    input.quickTune = query.value(7).toBool();
 
     if (groupids)
         *groupids = GetInputGroups(input.inputid);
 
     return true;
+}
+
+QList<InputInfo> CardUtil::GetAllInputInfo()
+{
+    QList<InputInfo> infoInputList;
+
+    MSqlQuery query(MSqlQuery::InitCon());
+    query.prepare("SELECT cardinputid, "
+                  "inputname, sourceid, cardid, livetvorder, "
+                  "schedorder, displayname, recpriority, quicktune "
+                  "FROM cardinput");
+
+    if (!query.exec())
+    {
+        MythDB::DBError("CardUtil::GetAllInputInfo()", query);
+        return infoInputList;
+    }
+
+    while (query.next())
+    {
+        InputInfo input;
+        input.inputid  = query.value(0).toUInt();
+        input.name     = query.value(1).toString();
+        input.sourceid = query.value(2).toUInt();
+        input.cardid   = query.value(3).toUInt();
+        input.livetvorder = query.value(4).toUInt();
+        input.scheduleOrder = query.value(5).toUInt();
+        input.displayName = query.value(6).toString();
+        input.recPriority = query.value(7).toInt();
+        input.quickTune = query.value(8).toBool();
+
+        infoInputList.push_back(input);
+    }
+
+    return infoInputList;
 }
 
 uint CardUtil::GetCardID(uint inputid)
@@ -2072,7 +2116,6 @@ void CardUtil::GetCardInputs(
     vector<CardInput*> &cardInputs)
 {
     QStringList inputs;
-    bool is_dtv = !IsEncoder(cardtype) && !IsUnscanable(cardtype);
 
     if (IsSingleInputCard(cardtype))
         inputs += "MPEG2TS";
@@ -2084,7 +2127,7 @@ void CardUtil::GetCardInputs(
     QStringList::iterator it = inputs.begin();
     for (; it != inputs.end(); ++it)
     {
-        CardInput *cardinput = new CardInput(is_dtv, false, false, cardid);
+        CardInput *cardinput = new CardInput(cardtype, false, cardid);
         cardinput->loadByInput(cardid, (*it));
         inputLabels.push_back(
             dev_label + QString(" (%1) -> %2")
@@ -2103,7 +2146,7 @@ void CardUtil::GetCardInputs(
         InputNames::const_iterator it;
         for (it = list.begin(); it != list.end(); ++it)
         {
-            CardInput *cardinput = new CardInput(is_dtv, true, false, cardid);
+            CardInput *cardinput = new CardInput(cardtype, false, cardid);
             cardinput->loadByInput(cardid, *it);
             inputLabels.push_back(
                 dev_label + QString(" (%1) -> %2")
@@ -2114,7 +2157,7 @@ void CardUtil::GetCardInputs(
         // plus add one "new" input
         if (needs_conf)
         {
-            CardInput *newcard = new CardInput(is_dtv, true, true, cardid);
+            CardInput *newcard = new CardInput(cardtype, true, cardid);
             QString newname = QString("DVBInput #%1").arg(list.size() + 1);
             newcard->loadByInput(cardid, newname);
             inputLabels.push_back(dev_label + " " + QObject::tr("New Input"));
@@ -2303,6 +2346,28 @@ vector<uint> CardUtil::GetCardList(void)
         "SELECT cardid "
         "FROM capturecard "
         "ORDER BY cardid");
+
+    if (!query.exec())
+        MythDB::DBError("CardUtil::GetCardList()", query);
+    else
+    {
+        while (query.next())
+            list.push_back(query.value(0).toUInt());
+    }
+
+    return list;
+}
+
+vector<uint> CardUtil::GetLiveTVCardList(void)
+{
+    vector<uint> list;
+
+    MSqlQuery query(MSqlQuery::InitCon());
+    query.prepare(
+        "SELECT DISTINCT cardid "
+        "FROM cardinput "
+        "WHERE livetvorder <> 0 "
+        "ORDER BY livetvorder");
 
     if (!query.exec())
         MythDB::DBError("CardUtil::GetCardList()", query);

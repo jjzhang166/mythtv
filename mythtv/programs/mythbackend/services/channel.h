@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -42,11 +42,11 @@ class Channel : public ChannelServices
 
         /* Channel Methods */
 
-        DTC::ChannelInfoList*  GetChannelInfoList  ( int      SourceID,
-                                                     int      StartIndex,
-                                                     int      Count      );
+        DTC::ChannelInfoList*  GetChannelInfoList  ( uint      SourceID,
+                                                     uint      StartIndex,
+                                                     uint      Count      );
 
-        DTC::ChannelInfo*      GetChannelInfo      ( int      ChanID     );
+        DTC::ChannelInfo*      GetChannelInfo      ( uint     ChanID     );
 
         bool                   UpdateDBChannel     ( uint          MplexID,
                                                      uint          SourceID,
@@ -123,13 +123,13 @@ class Channel : public ChannelServices
 
         /* Multiplex Methods */
 
-        DTC::VideoMultiplexList*  GetVideoMultiplexList  ( int SourceID,
-                                                           int StartIndex,
-                                                           int Count      );
+        DTC::VideoMultiplexList*  GetVideoMultiplexList  ( uint SourceID,
+                                                           uint StartIndex,
+                                                           uint Count      );
 
-        DTC::VideoMultiplex*      GetVideoMultiplex      ( int MplexID    );
+        DTC::VideoMultiplex*      GetVideoMultiplex      ( uint MplexID    );
 
-        QStringList               GetXMLTVIdList         ( int SourceID );
+        QStringList               GetXMLTVIdList         ( uint SourceID );
 
 };
 

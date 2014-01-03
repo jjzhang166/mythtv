@@ -9,9 +9,9 @@ using namespace std;
 #  include <sys/vfs.h>
 #else // if !__linux__
 #  include <sys/param.h>
-#  ifndef USING_MINGW
+#  ifndef _WIN32
 #    include <sys/mount.h>
-#  endif // USING_MINGW
+#  endif // _WIN32
 #endif // !__linux__
 
 #include <sys/stat.h>
@@ -627,7 +627,7 @@ void Scheduler::UpdateRecStatus(RecordingInfo *pginfo)
     for (; dreciter != reclist.end(); ++dreciter)
     {
         RecordingInfo *p = *dreciter;
-        if (p->IsSameProgramTimeslot(*pginfo))
+        if (p->IsSameTitleTimeslotAndChannel(*pginfo))
         {
             // FIXME!  If we are passed an rsUnknown recstatus, an
             // in-progress recording might be being stopped.  Try
@@ -775,7 +775,7 @@ bool Scheduler::ChangeRecordingEnd(RecordingInfo *oldp, RecordingInfo *newp)
         for (; i != reclist.end(); ++i)
         {
             RecordingInfo *recp = *i;
-            if (recp->IsSameTimeslot(*oldp))
+            if (recp->IsSameTitleStartTimeAndChannel(*oldp))
             {
                 *recp = *oldp;
                 break;
@@ -953,7 +953,7 @@ void Scheduler::PruneOverlaps(void)
     {
         RecordingInfo *p = *dreciter;
         if (!lastp || lastp->GetRecordingRuleID() == p->GetRecordingRuleID() ||
-            !lastp->IsSameTimeslot(*p))
+            !lastp->IsSameTitleStartTimeAndChannel(*p))
         {
             lastp = p;
             ++dreciter;
@@ -1154,7 +1154,7 @@ void Scheduler::MarkShowingsList(RecList &showinglist, RecordingInfo *p)
             q->GetRecordingStatus() != rsEarlierShowing &&
             q->GetRecordingStatus() != rsLaterShowing)
             continue;
-        if (q->IsSameTimeslot(*p))
+        if (q->IsSameTitleStartTimeAndChannel(*p))
             q->SetRecordingStatus(rsLaterShowing);
         else if (q->GetRecordingRuleType() != kSingleRecord &&
                  q->GetRecordingRuleType() != kOverrideRecord &&
@@ -1224,7 +1224,7 @@ bool Scheduler::TryAnotherShowing(RecordingInfo *p, bool samePriority,
             continue;
         }
 
-        if (!p->IsSameTimeslot(*q))
+        if (!p->IsSameTitleStartTimeAndChannel(*q))
         {
             if (!IsSameProgram(p,q))
                 continue;
@@ -1465,7 +1465,7 @@ void Scheduler::PruneRedundants(void)
 
         // Check for redundant against last non-deleted
         if (!lastp || lastp->GetRecordingRuleID() != p->GetRecordingRuleID() ||
-            !lastp->IsSameTimeslot(*p))
+            !lastp->IsSameTitleStartTimeAndChannel(*p))
         {
             lastp = p;
             lastrecpri2 = lastp->GetRecordingPriority2();
@@ -1687,7 +1687,7 @@ void Scheduler::AddRecording(const RecordingInfo &pi)
     {
         RecordingInfo *p = *it;
         if (p->GetRecordingStatus() == rsRecording &&
-            p->IsSameProgramTimeslot(pi))
+            p->IsSameTitleTimeslotAndChannel(pi))
         {
             LOG(VB_GENERAL, LOG_INFO, LOC + "Not adding recording, " +
                 QString("'%1' is already in reclist.")
@@ -1854,15 +1854,16 @@ void Scheduler::run(void)
 
         nextWakeTime = min(nextWakeTime, nextStartTime);
         QDateTime curtime = MythDate::current();
-        int secs_to_next =
-            max(qint64(curtime.secsTo(nextStartTime)), qint64(0));
+        int secs_to_next = curtime.secsTo(nextStartTime);
         int sched_sleep = max(curtime.msecsTo(nextWakeTime), qint64(0));
+        if (idleTimeoutSecs > 0)
+            sched_sleep = min(sched_sleep, 15000);
         bool haveRequests = HaveQueuedRequests();
         bool checkSlaves = lastSleepCheck.secsTo(curtime) >= 300;
 
         // If we're about to start a recording don't do any reschedules...
         // instead sleep for a bit
-        if (secs_to_next < schedRunTime ||
+        if ((secs_to_next > -60 && secs_to_next < schedRunTime) ||
             (!haveRequests && !checkSlaves))
         {
             if (sched_sleep)
@@ -2666,8 +2667,16 @@ void Scheduler::HandleIdleShutdown(
         return;
 
     // we release the block when a client connects
+    // Allow the presence of a non-blocking client to release this,
+    // the frontend may have connected then gone idle between scheduler runs
     if (blockShutdown)
-        blockShutdown &= !m_mainServer->isClientConnected();
+    {
+        if (m_mainServer->isClientConnected())
+        {
+            LOG(VB_GENERAL, LOG_NOTICE, "Client is connected, removing startup block on shutdown");
+            blockShutdown = false;
+        }
+    }
     else
     {
         QDateTime curtime = MythDate::current();
@@ -2682,7 +2691,8 @@ void Scheduler::HandleIdleShutdown(
                 recording = true;
         }
 
-        if (!(m_mainServer->isClientConnected()) && !recording)
+        // If there are BLOCKING clients, then we're not idle
+        if (!(m_mainServer->isClientConnected(true)) && !recording)
         {
             // have we received a RESET_IDLETIME message?
             resetIdleTime_lock.lock();
@@ -2707,12 +2717,32 @@ void Scheduler::HandleIdleShutdown(
 
                 if (idleIter != reclist.end())
                 {
-                    if (curtime.secsTo
-                        ((*idleIter)->GetRecordingStartTime()) -
-                        prerollseconds <
-                        (idleWaitForRecordingTime * 60) +
-                        idleTimeoutSecs)
+                    if ((curtime.secsTo((*idleIter)->GetRecordingStartTime()) -
+                        prerollseconds) <
+                        ((idleWaitForRecordingTime * 60) + idleTimeoutSecs))
                     {
+                        LOG(VB_GENERAL, LOG_NOTICE, "Blocking shutdown because "
+                                                    "a recording is due to "
+                                                    "start soon.");
+                        idleSince = QDateTime();
+                    }
+                }
+
+                // If we're due to grab guide data, then block shutdown
+                if (gCoreContext->GetNumSetting("MythFillGrabberSuggestsTime") &&
+                    gCoreContext->GetNumSetting("MythFillEnabled"))
+                {
+                    QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
+                    QDateTime guideRunTime = MythDate::fromString(str);
+
+                    if (guideRunTime.isValid() &&
+                        (guideRunTime > MythDate::current()) &&
+                        (curtime.secsTo(guideRunTime) <
+                        (idleWaitForRecordingTime * 60)))
+                    {
+                        LOG(VB_GENERAL, LOG_NOTICE, "Blocking shutdown because "
+                                                    "mythfilldatabase is due to "
+                                                    "run soon.");
                         idleSince = QDateTime();
                     }
                 }
@@ -2859,6 +2889,16 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
         QDateTime restarttime = nextRecording->GetRecordingStartTime()
             .addSecs((-1) * prerollseconds);
 
+        // Check if we need to wake up to grab guide date before the next recording
+        QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
+        QDateTime guideRefreshTime = MythDate::fromString(str);
+
+        if (gCoreContext->GetNumSetting("MythFillGrabberSuggestsTime") &&
+            guideRefreshTime.isValid() &&
+            (guideRefreshTime > MythDate::current()) &&
+            (guideRefreshTime < restarttime))
+            restarttime = guideRefreshTime;
+
         int add = gCoreContext->GetNumSetting("StartupSecsBeforeRecording", 240);
         if (add)
             restarttime = restarttime.addSecs((-1) * add);
@@ -2901,6 +2941,10 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
             m_isShuttingDown = false;
             return;
         }
+
+        gCoreContext->SaveSettingOnHost("MythShutdownWakeupTime",
+                                        MythDate::toString(restarttime, MythDate::kDatabase),
+                                        NULL);
     }
 
     // tell anyone who is listening the master server is going down now
@@ -3440,7 +3484,7 @@ static QString progfindid = QString(
         .arg(kOverrideRecord);
 
 void Scheduler::UpdateMatches(uint recordid, uint sourceid, uint mplexid,
-                              const QDateTime maxstarttime)
+                              const QDateTime &maxstarttime)
 {
     struct timeval dbstart, dbend;
 
@@ -4014,6 +4058,7 @@ void Scheduler::AddNewRecords(void)
             result.value(6).toString(),//description
             0, // season
             0, // episode
+            0, // total episodes
             result.value(48).toString(),//synidcatedepisode
             result.value(11).toString(),//category
 
@@ -4092,7 +4137,7 @@ void Scheduler::AddNewRecords(void)
         for ( ; rec != worklist.end(); ++rec)
         {
             RecordingInfo *r = *rec;
-            if (p->IsSameTimeslot(*r))
+            if (p->IsSameTitleStartTimeAndChannel(*r))
             {
                 if (r->GetInputID() == p->GetInputID() &&
                     r->GetRecordingEndTime() != p->GetRecordingEndTime() &&
@@ -5079,17 +5124,29 @@ bool Scheduler::WasStartedAutomatically()
     // if we don't have a valid startup time assume we were started manually
     if (startupTime.isValid())
     {
-        // if we started within 15mins of the saved wakeup time assume we
-        // started automatically to record or for a daily wakeup/shutdown period
-
-        if (abs(startupTime.secsTo(MythDate::current())) < (15 * 60))
+        int startupSecs = gCoreContext->GetNumSetting("StartupSecsBeforeRecording");
+        // If we started within 'StartupSecsBeforeRecording' OR 15 minutes
+        // of the saved wakeup time assume we either started automatically
+        // to record, to obtain guide data or or for a
+        // daily wakeup/shutdown period
+        if (abs(startupTime.secsTo(MythDate::current())) <
+            max(startupSecs, 15 * 60))
         {
-            LOG(VB_SCHEDULE, LOG_INFO,
+            LOG(VB_GENERAL, LOG_INFO,
                 "Close to auto-start time, AUTO-Startup assumed");
+
+            QString str = gCoreContext->GetSetting("MythFillSuggestedRunTime");
+            QDateTime guideRunTime = MythDate::fromString(str);
+            if (guideRunTime.secsTo(MythDate::current()) <
+                max(startupSecs, 15 * 60))
+            {
+                LOG(VB_GENERAL, LOG_INFO,
+                    "Close to MythFillDB suggested run time, AUTO-Startup to fetch guide data?");
+            }
             autoStart = true;
         }
         else
-            LOG(VB_SCHEDULE, LOG_DEBUG,
+            LOG(VB_GENERAL, LOG_DEBUG,
                 "NOT close to auto-start time, USER-initiated startup assumed");
     }
     else if (!s.isEmpty())

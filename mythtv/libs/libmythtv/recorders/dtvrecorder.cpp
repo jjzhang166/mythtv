@@ -15,7 +15,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
 #include "atscstreamdata.h"
@@ -921,6 +921,17 @@ bool DTVRecorder::FindH264Keyframes(const TSPacket *tspacket)
             }
         }
     } // for (; i < TSPacket::kSize; ++i)
+
+    // If it has been more than 511 frames since the last keyframe,
+    // pretend we have one.
+    if (hasFrame && !hasKeyFrame &&
+        (_frames_seen_count - _last_keyframe_seen) > 511)
+    {
+        hasKeyFrame = true;
+        LOG(VB_RECORD, LOG_WARNING, LOC +
+            QString("FindH264Keyframes: %1 frames without a keyframe.")
+            .arg(_frames_seen_count - _last_keyframe_seen));
+    }
 
     // _buffer_packets will only be true if a payload start has been seen
     if (hasKeyFrame && (_buffer_packets || _first_keyframe >= 0))

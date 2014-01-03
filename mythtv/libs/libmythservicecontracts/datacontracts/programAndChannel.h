@@ -19,6 +19,7 @@
 
 #include "recording.h"
 #include "artworkInfoList.h"
+#include "castMemberList.h"
 
 namespace DTC
 {
@@ -29,7 +30,7 @@ class Program;
 class SERVICE_PUBLIC ChannelInfo : public QObject
 {
     Q_OBJECT
-    Q_CLASSINFO( "version", "1.06" );
+    Q_CLASSINFO( "version", "1.07" );
 
     // Q_CLASSINFO Used to augment Metadata for properties. 
     // See datacontracthelper.h for details
@@ -58,7 +59,7 @@ class SERVICE_PUBLIC ChannelInfo : public QObject
     Q_PROPERTY( QString   ChanFilters     READ ChanFilters    WRITE setChanFilters    DESIGNABLE SerializeDetails )
     Q_PROPERTY( int       SourceId        READ SourceId       WRITE setSourceId       DESIGNABLE SerializeDetails )
     Q_PROPERTY( int       InputId         READ InputId        WRITE setInputId        DESIGNABLE SerializeDetails )
-    Q_PROPERTY( int       CommFree        READ CommFree       WRITE setCommFree       DESIGNABLE SerializeDetails )
+    Q_PROPERTY( bool      CommFree        READ CommFree       WRITE setCommFree       DESIGNABLE SerializeDetails )
     Q_PROPERTY( bool      UseEIT          READ UseEIT         WRITE setUseEIT         DESIGNABLE SerializeDetails )
     Q_PROPERTY( bool      Visible         READ Visible        WRITE setVisible        DESIGNABLE SerializeDetails )
     Q_PROPERTY( QString   XMLTVID         READ XMLTVID        WRITE setXMLTVID        DESIGNABLE SerializeDetails )
@@ -87,7 +88,7 @@ class SERVICE_PUBLIC ChannelInfo : public QObject
     PROPERTYIMP       ( QString     , ChanFilters    )
     PROPERTYIMP       ( int         , SourceId       )
     PROPERTYIMP       ( int         , InputId        )
-    PROPERTYIMP       ( int         , CommFree       )
+    PROPERTYIMP       ( bool        , CommFree       )
     PROPERTYIMP       ( bool        , UseEIT         )
     PROPERTYIMP       ( bool        , Visible        )
     PROPERTYIMP       ( QString     , XMLTVID        )
@@ -167,23 +168,25 @@ class SERVICE_PUBLIC Program : public QObject
     Q_PROPERTY( int         AudioProps   READ AudioProps   WRITE setAudioProps)
     Q_PROPERTY( int         SubProps     READ SubProps     WRITE setSubProps  )
 
-    Q_PROPERTY( QString     SeriesId     READ SeriesId     WRITE setSeriesId     DESIGNABLE SerializeDetails )
-    Q_PROPERTY( QString     ProgramId    READ ProgramId    WRITE setProgramId    DESIGNABLE SerializeDetails )
-    Q_PROPERTY( double      Stars        READ Stars        WRITE setStars        DESIGNABLE SerializeDetails )
-    Q_PROPERTY( qlonglong   FileSize     READ FileSize     WRITE setFileSize     DESIGNABLE SerializeDetails )
-    Q_PROPERTY( QDateTime   LastModified READ LastModified WRITE setLastModified DESIGNABLE SerializeDetails )
-    Q_PROPERTY( int         ProgramFlags READ ProgramFlags WRITE setProgramFlags DESIGNABLE SerializeDetails )
-    Q_PROPERTY( QString     FileName     READ FileName     WRITE setFileName     DESIGNABLE SerializeDetails )
-    Q_PROPERTY( QString     HostName     READ HostName     WRITE setHostName     DESIGNABLE SerializeDetails )
-    Q_PROPERTY( QDate       Airdate      READ Airdate      WRITE setAirdate      DESIGNABLE SerializeDetails )
-    Q_PROPERTY( QString     Description  READ Description  WRITE setDescription  DESIGNABLE SerializeDetails )
-    Q_PROPERTY( QString     Inetref      READ Inetref      WRITE setInetref      DESIGNABLE SerializeDetails )
-    Q_PROPERTY( int         Season       READ Season       WRITE setSeason       DESIGNABLE SerializeDetails )
-    Q_PROPERTY( int         Episode      READ Episode      WRITE setEpisode      DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QString     SeriesId      READ SeriesId      WRITE setSeriesId      DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QString     ProgramId     READ ProgramId     WRITE setProgramId     DESIGNABLE SerializeDetails )
+    Q_PROPERTY( double      Stars         READ Stars         WRITE setStars         DESIGNABLE SerializeDetails )
+    Q_PROPERTY( qlonglong   FileSize      READ FileSize      WRITE setFileSize      DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QDateTime   LastModified  READ LastModified  WRITE setLastModified  DESIGNABLE SerializeDetails )
+    Q_PROPERTY( int         ProgramFlags  READ ProgramFlags  WRITE setProgramFlags  DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QString     FileName      READ FileName      WRITE setFileName      DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QString     HostName      READ HostName      WRITE setHostName      DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QDate       Airdate       READ Airdate       WRITE setAirdate       DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QString     Description   READ Description   WRITE setDescription   DESIGNABLE SerializeDetails )
+    Q_PROPERTY( QString     Inetref       READ Inetref       WRITE setInetref       DESIGNABLE SerializeDetails )
+    Q_PROPERTY( int         Season        READ Season        WRITE setSeason        DESIGNABLE SerializeDetails )
+    Q_PROPERTY( int         Episode       READ Episode       WRITE setEpisode       DESIGNABLE SerializeDetails )
+    Q_PROPERTY( int         TotalEpisodes READ TotalEpisodes WRITE setTotalEpisodes DESIGNABLE SerializeDetails )
 
     Q_PROPERTY( QObject*    Channel      READ Channel   DESIGNABLE SerializeChannel )
     Q_PROPERTY( QObject*    Recording    READ Recording DESIGNABLE SerializeRecording )
     Q_PROPERTY( QObject*    Artwork      READ Artwork   DESIGNABLE SerializeArtwork )
+    Q_PROPERTY( QObject*    Cast         READ Cast      DESIGNABLE SerializeCast )
 
     PROPERTYIMP    ( QDateTime   , StartTime    )
     PROPERTYIMP    ( QDateTime   , EndTime      )
@@ -209,16 +212,19 @@ class SERVICE_PUBLIC Program : public QObject
     PROPERTYIMP    ( QString     , Inetref      )
     PROPERTYIMP    ( int         , Season       )
     PROPERTYIMP    ( int         , Episode      )
+    PROPERTYIMP    ( int         , TotalEpisodes)
 
     PROPERTYIMP_PTR( ChannelInfo    , Channel     )
     PROPERTYIMP_PTR( RecordingInfo  , Recording   )
     PROPERTYIMP_PTR( ArtworkInfoList, Artwork     )
+    PROPERTYIMP_PTR( CastMemberList , Cast        )
 
     // Used only by Serializer
     PROPERTYIMP( bool, SerializeDetails )
     PROPERTYIMP( bool, SerializeChannel )
     PROPERTYIMP( bool, SerializeRecording )
     PROPERTYIMP( bool, SerializeArtwork )
+    PROPERTYIMP( bool, SerializeCast )
 
     public:
 
@@ -237,13 +243,16 @@ class SERVICE_PUBLIC Program : public QObject
               m_SubProps            ( 0      ),
               m_Season              ( 0      ),
               m_Episode             ( 0      ),
+              m_TotalEpisodes       ( 0      ),
               m_Channel             ( NULL   ),
               m_Recording           ( NULL   ),
               m_Artwork             ( NULL   ),
+              m_Cast                ( NULL   ),
               m_SerializeDetails    ( true   ),
               m_SerializeChannel    ( true   ),
               m_SerializeRecording  ( true   ),
-              m_SerializeArtwork    ( true   )
+              m_SerializeArtwork    ( true   ),
+              m_SerializeCast       ( true   )
         {
         }
         
@@ -277,10 +286,12 @@ class SERVICE_PUBLIC Program : public QObject
             m_Inetref           = src.m_Inetref;
             m_Season            = src.m_Season;
             m_Episode           = src.m_Episode;
+            m_TotalEpisodes     = src.m_TotalEpisodes;
             m_SerializeDetails  = src.m_SerializeDetails;
             m_SerializeChannel  = src.m_SerializeChannel;    
             m_SerializeRecording= src.m_SerializeRecording;  
             m_SerializeArtwork  = src.m_SerializeArtwork;
+            m_SerializeCast     = src.m_SerializeCast;
 
             if ( src.m_Channel != NULL)
                 Channel()->Copy( src.m_Channel );
@@ -290,6 +301,9 @@ class SERVICE_PUBLIC Program : public QObject
 
             if ( src.m_Artwork != NULL)
                 Artwork()->Copy( src.m_Artwork );
+
+            if (src.m_Cast != NULL)
+                Cast()->Copy( src.m_Cast );
         }
 
 };
@@ -337,6 +351,9 @@ inline void Program::InitializeCustomTypes()
 
     if (QMetaType::type( "DTC::ArtworkInfoList" ) == 0)
         ArtworkInfoList::InitializeCustomTypes();
+
+     if (QMetaType::type( "DTC::CastMemberList" ) == 0)
+        CastMemberList::InitializeCustomTypes();
 }
 }
 

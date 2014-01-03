@@ -274,7 +274,7 @@ static void parseAudio(QDomElement &element, ProgInfo *pginfo)
 
 ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
 {
-    QString uniqueid, season, episode;
+    QString uniqueid, season, episode, totalepisodes;
     int dd_progid_done = 0;
     ProgInfo *pginfo = new ProgInfo();
 
@@ -446,6 +446,7 @@ ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
                     int tmp;
                     QString episodenum(getFirstText(info));
                     episode = episodenum.section('.',1,1);
+                    totalepisodes = episode.section('/',1,1).trimmed();
                     episode = episode.section('/',0,0).trimmed();
                     season = episodenum.section('.',0,0).trimmed();
                     QString part(episodenum.section('.',2,2));
@@ -454,18 +455,25 @@ ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
 
                     pginfo->categoryType = ProgramInfo::kCategorySeries;
 
-                    if (!episode.isEmpty())
-                    {
-                        tmp = episode.toInt() + 1;
-                        episode = QString::number(tmp);
-                        pginfo->syndicatedepisodenumber = QString('E' + episode);
-                    }
-
                     if (!season.isEmpty())
                     {
-                        tmp = season.toInt() + 1;
+                        tmp = season.toUInt() + 1;
+                        pginfo->season = tmp;
                         season = QString::number(tmp);
-                        pginfo->syndicatedepisodenumber.append(QString('S' + season));
+                        pginfo->syndicatedepisodenumber = QString('S' + season);
+                    }
+
+                    if (!episode.isEmpty())
+                    {
+                        tmp = episode.toUInt() + 1;
+                        pginfo->episode = tmp;
+                        episode = QString::number(tmp);
+                        pginfo->syndicatedepisodenumber.append(QString('E' + episode));
+                    }
+
+                    if (!totalepisodes.isEmpty())
+                    {
+                        pginfo->totalepisodes = totalepisodes.toUInt();
                     }
 
                     uint partno = 0;

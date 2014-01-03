@@ -22,7 +22,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  * Or, point your browser to http://www.gnu.org/copyleft/gpl.html
  *
  */
@@ -178,6 +178,24 @@ ChannelScanSM::ChannelScanSM(
         LOG(VB_CHANSCAN, LOG_INFO, LOC + "Connecting up DTVSignalMonitor");
         ScanStreamData *data = new ScanStreamData();
 
+        MSqlQuery query(MSqlQuery::InitCon());
+        query.prepare(
+                "SELECT dvb_nit_id "
+                "FROM videosource "
+                "WHERE videosource.sourceid = :SOURCEID");
+        query.bindValue(":SOURCEID", _sourceID);
+        if (!query.exec() || !query.isActive())
+        {
+            MythDB::DBError("ChannelScanSM", query);
+        }
+        else if (query.next())
+        {
+            uint nitid = query.value(0).toInt();
+            data->SetRealNetworkID(nitid);
+            LOG(VB_CHANSCAN, LOG_INFO, LOC +
+                QString("Setting NIT-ID to %1").arg(nitid));
+        }
+
         dtvSigMon->SetStreamData(data);
         dtvSigMon->AddFlags(SignalMonitor::kDTVSigMon_WaitForMGT |
                             SignalMonitor::kDTVSigMon_WaitForVCT |
@@ -323,7 +341,7 @@ bool ChannelScanSM::ScanExistingTransports(uint sourceid, bool follow_nit)
     extend_scan_list = follow_nit;
     waitingForTables  = false;
     transportsScanned = 0;
-    if (scanTransports.size())
+    if (!scanTransports.empty())
     {
         nextIt   = scanTransports.begin();
         scanning = true;
@@ -365,7 +383,8 @@ void ChannelScanSM::HandlePMT(uint, const ProgramMapTable *pmt)
     LOG(VB_CHANSCAN, LOG_INFO, LOC + QString("Got a Program Map Table for %1")
             .arg((*current).FriendlyName) + "\n" + pmt->toString());
 
-    if (!currentTestingDecryption && pmt->IsEncrypted(GetDTVChannel()->GetSIStandard()))
+    if (!currentTestingDecryption &&
+        pmt->IsEncrypted(GetDTVChannel()->GetSIStandard()))
         currentEncryptionStatus[pmt->ProgramNumber()] = kEncUnknown;
 }
 
@@ -414,7 +433,7 @@ void ChannelScanSM::HandleSDT(uint tsid, const ServiceDescriptionTable *sdt)
                                SetFreesatAdditionalSI(true);
         setOtherTables = true;
         // The whole BAT & SDTo group comes round in 10s
-        otherTableTimeout = 10000; 
+        otherTableTimeout = 10000;
         // Delay processing the SDT until we've seen BATs and SDTos
         otherTableTime = timer.elapsed() + otherTableTimeout;
 
@@ -426,7 +445,8 @@ void ChannelScanSM::HandleSDT(uint tsid, const ServiceDescriptionTable *sdt)
     if ((uint)timer.elapsed() < otherTableTime)
     {
         // Set the version for the SDT so we see it again.
-        GetDTVSignalMonitor()->GetDVBStreamData()->SetVersionSDT(sdt->TSID(), -1, 0);
+        GetDTVSignalMonitor()->GetDVBStreamData()->
+            SetVersionSDT(sdt->TSID(), -1, 0);
     }
 
     uint id = sdt->OriginalNetworkID() << 16 | sdt->TSID();
@@ -771,7 +791,8 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
     sd->ReturnCachedPATTables(pattmp);
 
     // Grab PMT tables
-    if ((!wait_until_complete || sd->HasCachedAllPMTs()) && currentInfo->pmts.empty())
+    if ((!wait_until_complete || sd->HasCachedAllPMTs()) &&
+        currentInfo->pmts.empty())
         currentInfo->pmts = sd->GetCachedPMTs();
 
     // ATSC
@@ -791,7 +812,8 @@ bool ChannelScanSM::UpdateChannelInfo(bool wait_until_complete)
     }
 
     // DVB
-    if ((!wait_until_complete || sd->HasCachedAllNIT()) && (currentInfo->nits.empty() ||
+    if ((!wait_until_complete || sd->HasCachedAllNIT()) &&
+        (currentInfo->nits.empty() ||
         timer.elapsed() > (int)otherTableTime))
     {
         currentInfo->nits = sd->GetCachedNIT();
@@ -1619,7 +1641,7 @@ tuning.toString());
     }
 }
 
-bool ChannelScanSM::Tune(const transport_scan_items_it_t transport)
+bool ChannelScanSM::Tune(const transport_scan_items_it_t &transport)
 {
     const TransportScanItem &item = *transport;
 
@@ -1644,7 +1666,7 @@ bool ChannelScanSM::Tune(const transport_scan_items_it_t transport)
     return GetDTVChannel()->Tune(tuning, inputname);
 }
 
-void ChannelScanSM::ScanTransport(const transport_scan_items_it_t transport)
+void ChannelScanSM::ScanTransport(const transport_scan_items_it_t &transport)
 {
     QString offset_str = (transport.offset()) ?
         QObject::tr(" offset %2").arg(transport.offset()) : "";
@@ -1985,7 +2007,7 @@ bool ChannelScanSM::ScanTransport(uint mplexid, bool follow_nit)
 
     extend_scan_list = follow_nit;
     transportsScanned = 0;
-    if (scanTransports.size())
+    if (!scanTransports.empty())
     {
         nextIt   = scanTransports.begin();
         scanning = true;

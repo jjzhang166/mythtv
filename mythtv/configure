@@ -2642,6 +2642,7 @@ disable indevs
 disable sdl
 enable libfftw3
 enable taglib
+enable exiv2
 
 # mythtv paths
 dvb_path_default="${sysroot}/usr/include"
@@ -2680,6 +2681,7 @@ CXX_C='-c'
 CXX_O='-o $@'
 LD_O='-o $@'
 LD_LIB='-l%'
+LD_MYTH_LIB='-lmyth%'
 LD_PATH='-L'
 HOSTCC_C='-c'
 HOSTCC_O='-o $@'
@@ -4948,16 +4950,16 @@ if enabled taglib; then
     if test x`which taglib-config` != x"" ; then
         taglib_minor=`taglib-config --version | cut -d. -f2`
         if test x"$taglib_minor" = x"" ; then
-            echo "Can't find taglib-config. Assuming 1.6 or later."
-            taglib_minor="6"
+            echo "Can't find taglib-config. Assuming 1.7 or later."
+            taglib_minor="7"
         fi
         tagprefix=`taglib-config --prefix`
         tagincludes="-I${tagprefix}/include"
         taglibs=`taglib-config --libs`
     fi
 
-    if test $taglib_minor -lt 6 || ! check_class_headers_cpp taglib/fileref.h TagLib::FileRef $tagincludes $taglibs -lstdc++; then
-        die "ERROR: cannot find taglib 1.6 or later."
+    if test $taglib_minor -lt 7 || ! check_class_headers_cpp taglib/fileref.h TagLib::FileRef $tagincludes $taglibs -lstdc++; then
+        die "ERROR: cannot find taglib 1.7 or later."
     fi
 fi
 
@@ -5211,6 +5213,7 @@ fi
 # JACK probe
 ! disabled audio_jack &&
     check_lib jack/jack.h jack_client_new -ljack &&
+    check_func jack_port_get_latency_range -ljack &&
     enable  audio_jack ||
     disable audio_jack
 
@@ -5368,6 +5371,9 @@ EOF
 enabled lamemp3 && check_lib2 lame/lame.h lame_init -lmp3lame -lm ||
     die "ERROR! You must have the Lame MP3 encoding library installed to compile MythTV."
 
+enabled exiv2 && $(pkg-config --exists exiv2) ||
+    die "ERROR! You must have the Exiv2 image tag reader library installed to compile MythTV."
+    
 # Qt dependency checks
 if test $target_os = mingw32 ; then
     qt_inc="-I`cd $(${qmake} -query QT_INSTALL_HEADERS); pwd`"
@@ -5615,6 +5621,7 @@ elif enabled gcc; then
 #    check_cflags -Werror=missing-prototypes
     check_cflags -Werror=return-type
     check_cflags -Werror=vla
+    check_cflags -Werror=format-security
 elif enabled llvm_gcc; then
     check_cflags -mllvm -stack-alignment=16
 elif enabled clang; then
@@ -6086,6 +6093,7 @@ CXX_C=$CXX_C
 CXX_O=$CXX_O
 LD_O=$LD_O
 LD_LIB=$LD_LIB
+LD_MYTH_LIB=$LD_MYTH_LIB
 LD_PATH=$LD_PATH
 DLLTOOL=$dlltool
 CXXPPFLAGS=$CXXPPFLAGS

@@ -11,7 +11,7 @@ using namespace std;
 #include <fcntl.h>
 #include "mythconfig.h"
 
-#ifndef USING_MINGW
+#ifndef _WIN32
 #include <sys/ioctl.h>
 #endif
 
@@ -20,9 +20,9 @@ using namespace std;
 #  include <sys/vfs.h>
 #else // if !__linux__
 #  include <sys/param.h>
-#  ifndef USING_MINGW
+#  ifndef _WIN32
 #    include <sys/mount.h>
-#  endif // USING_MINGW
+#  endif // _WIN32
 #endif // !__linux__
 
 #include <QCoreApplication>
@@ -286,8 +286,8 @@ MainServer::MainServer(bool master, int port,
         SetExitCode(GENERIC_EXIT_SOCKET_ERROR, false);
         return;
     }
-    connect(mythserver, SIGNAL(NewConnection(int)),
-            this,       SLOT(NewConnection(int)));
+    connect(mythserver, SIGNAL(NewConnection(qt_socket_fd_t)),
+            this,       SLOT(NewConnection(qt_socket_fd_t)));
 
     gCoreContext->addListener(this);
 
@@ -420,7 +420,7 @@ void MainServer::autoexpireUpdate(void)
     AutoExpire::Update(false);
 }
 
-void MainServer::NewConnection(int socketDescriptor)
+void MainServer::NewConnection(qt_socket_fd_t socketDescriptor)
 {
     QWriteLocker locker(&sockListLock);
     controlSocketList.insert(new MythSocket(socketDescriptor, this));
@@ -428,16 +428,6 @@ void MainServer::NewConnection(int socketDescriptor)
 
 void MainServer::readyRead(MythSocket *sock)
 {
-    sockListLock.lockForRead();
-    PlaybackSock *testsock = GetPlaybackBySock(sock);
-    bool expecting_reply = testsock && testsock->isExpectingReply();
-    sockListLock.unlock();
-    if (expecting_reply)
-    {
-        LOG(VB_GENERAL, LOG_INFO, "readyRead ignoring, expecting reply");
-        return;
-    }
-
     threadPool.startReserved(
         new ProcessRequestRunnable(*this, sock),
         "ProcessRequest", PRT_TIMEOUT);
@@ -1067,10 +1057,48 @@ void MainServer::customEvent(QEvent *e)
             QStringList tokens = me->Message()
                 .split(" ", QString::SkipEmptyParts);
 
-            if (tokens.size() != 3)
+
+            if (tokens.size() < 3 || tokens.size() > 5)
             {
                 LOG(VB_GENERAL, LOG_ERR,
                     QString("Bad %1 message").arg(tokens[0]));
+                return;
+            }
+
+            bool force = (tokens.size() >= 4) && (tokens[3] == "FORCE");
+            bool forget = (tokens.size() >= 5) && (tokens[4] == "FORGET");
+
+            QDateTime startts = MythDate::fromString(tokens[2]);
+            RecordingInfo recInfo(tokens[1].toUInt(), startts);
+
+            if (recInfo.GetChanID())
+            {
+                if (tokens[0] == "FORCE_DELETE_RECORDING")
+                    DoHandleDeleteRecording(recInfo, NULL, true, false, forget);
+                else
+                    DoHandleDeleteRecording(recInfo, NULL, false, force, forget);
+            }
+            else
+            {
+                LOG(VB_GENERAL, LOG_ERR,
+                    QString("Cannot find program info for '%1' while "
+                            "attempting to delete.").arg(me->Message()));
+            }
+
+            return;
+        }
+
+        if (me->Message().startsWith("UNDELETE_RECORDING"))
+        {
+            QStringList tokens = me->Message().split(" ",
+                                                     QString::SkipEmptyParts);
+
+
+            if (tokens.size() < 3 || tokens.size() > 3)
+            {
+                LOG(VB_GENERAL, LOG_ERR,
+                    QString("Bad UNDELETE_RECORDING message: %1")
+                        .arg(me->Message()));
                 return;
             }
 
@@ -1079,16 +1107,13 @@ void MainServer::customEvent(QEvent *e)
 
             if (recInfo.GetChanID())
             {
-                if (tokens[0] == "FORCE_DELETE_RECORDING")
-                    DoHandleDeleteRecording(recInfo, NULL, true, false, false);
-                else
-                    DoHandleDeleteRecording(recInfo, NULL, false, false, false);
+                DoHandleUndeleteRecording(recInfo, NULL);
             }
             else
             {
                 LOG(VB_GENERAL, LOG_ERR,
                     QString("Cannot find program info for '%1' while "
-                            "attempting to delete.").arg(me->Message()));
+                            "attempting to undelete.").arg(me->Message()));
             }
 
             return;
@@ -2434,7 +2459,28 @@ void MainServer::HandleStopRecording(QStringList &slist, PlaybackSock *pbs)
     QStringList::const_iterator it = slist.begin() + 1;
     RecordingInfo recinfo(it, slist.end());
     if (recinfo.GetChanID())
+    {
+        if (ismaster)
+        {
+            // Stop recording may have been called for the same program on
+            // different channel in the guide, we need to find the actual channel
+            // that the recording is occurring on. This only needs doing once
+            // on the master backend, as the correct chanid will then be sent
+            // to the slave
+            ProgramList schedList;
+            bool hasConflicts = false;
+            LoadFromScheduler(schedList, hasConflicts);
+            for( uint n = 0; n < schedList.size(); n++)
+            {
+                ProgramInfo *pInfo = schedList[n];
+                if ((pInfo->GetRecordingStatus() == rsTuning ||
+                    pInfo->GetRecordingStatus() == rsRecording)
+                    && recinfo.IsSameProgram(*pInfo))
+                    recinfo.SetChanID(pInfo->GetChanID());
+            }
+        }
         DoHandleStopRecording(recinfo, pbs);
+    }
 }
 
 void MainServer::DoHandleStopRecording(
@@ -3163,7 +3209,7 @@ void MainServer::HandleQueryFileExists(QStringList &slist, PlaybackSock *pbs)
             retlist << QString::number(fileinfo.st_gid);
             retlist << QString::number(fileinfo.st_rdev);
             retlist << QString::number(fileinfo.st_size);
-#ifdef USING_MINGW
+#ifdef _WIN32
             retlist << "0"; // st_blksize
             retlist << "0"; // st_blocks
 #else
@@ -5791,6 +5837,10 @@ void MainServer::DeletePBS(PlaybackSock *sock)
 
 void MainServer::connectionClosed(MythSocket *socket)
 {
+    // we're in the middle of stopping, prevent deadlock
+    if (m_stopped)
+        return;
+
     sockListLock.lockForWrite();
 
     // make sure these are not actually deleted in the callback
@@ -6198,7 +6248,7 @@ QString MainServer::LocalFilePath(const QUrl &url, const QString &wantgroup)
             else
             {
                 LOG(VB_GENERAL, LOG_ERR, QString("ERROR: LocalFilePath "
-                    "unable to find local path for '%1'.") .arg(opath));
+                    "unable to find local path for '%1'.") .arg(url.toString()));
                 lpath = "";
             }
 
@@ -6256,6 +6306,9 @@ void MainServer::reconnectTimeout(void)
         }
     }
 
+    // Calling SendReceiveStringList() with callbacks enabled is asking for
+    // trouble, our reply might be swallowed by readyRead
+    masterServerSock->SetReadyReadCallbackEnabled(false);
     if (!masterServerSock->SendReceiveStringList(strlist, 1) ||
         (strlist[0] == "ERROR"))
     {
@@ -6277,6 +6330,7 @@ void MainServer::reconnectTimeout(void)
         masterServerReconnect->start(kMasterServerReconnectTimeout);
         return;
     }
+    masterServerSock->SetReadyReadCallbackEnabled(true);
 
     masterServer = new PlaybackSock(this, masterServerSock, server,
                                     kPBSEvents_Normal);
@@ -6289,7 +6343,7 @@ void MainServer::reconnectTimeout(void)
 
 // returns true, if a client (slavebackends are not counted!)
 // is connected by checking the lists.
-bool MainServer::isClientConnected()
+bool MainServer::isClientConnected(bool onlyBlockingClients)
 {
     bool foundClient = false;
 
@@ -6300,10 +6354,16 @@ bool MainServer::isClientConnected()
     vector<PlaybackSock *>::iterator it = playbackList.begin();
     for (; !foundClient && (it != playbackList.end()); ++it)
     {
-        // we simply ignore slaveBackends!
-        // and clients that don't want to block shutdown
-        if (!(*it)->isSlaveBackend() && (*it)->getBlockShutdown())
-            foundClient = true;
+        // Ignore slave backends
+        if ((*it)->isSlaveBackend())
+            continue;
+
+        // If we are only interested in blocking clients then ignore
+        // non-blocking ones
+        if (onlyBlockingClients && !(*it)->getBlockShutdown())
+            continue;
+
+        foundClient = true;
     }
 
     sockListLock.unlock();

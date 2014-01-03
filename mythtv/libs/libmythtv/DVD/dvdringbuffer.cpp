@@ -675,7 +675,6 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
     char           *dest         = (char*) data;
     int             offset       = 0;
     bool            bReprocessing = false;
-    bool            stillSeen    = false;
     bool            waiting      = false;
 
     if (m_gotStop)
@@ -943,7 +942,10 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
                     m_endPts = pci->pci_gi.vobu_e_ptm;
                     m_inMenu = (pci->hli.hl_gi.btn_ns > 0);
 
-                    if (m_inMenu && (dsi->synci.sp_synca[0] & 0x80000000) && !m_buttonExists)
+                    if (m_inMenu &&
+                        m_seeking &&
+                        (dsi->synci.sp_synca[0] & 0x80000000) &&
+                        !m_buttonExists)
                     {
                         LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("Jumped into middle of menu: lba %1, dest %2")
                             .arg(pci->pci_gi.nv_pck_lbn)
@@ -1155,18 +1157,18 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
                 dvdnav_still_event_t* still =
                     (dvdnav_still_event_t*)(blockBuf);
 
-                m_still = still->length;
-
-                if (!bReprocessing && !m_skipstillorwait && !waiting)
+                if (!bReprocessing && !m_skipstillorwait)
                 {
-                    LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("DVDNAV_STILL_FRAME (%1) - waiting")
-                        .arg(m_still));
+                    if (m_still != still->length)
+                    {
+                        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("DVDNAV_STILL_FRAME (%1) - waiting")
+                            .arg(still->length));
+                    }
+
                     m_processState = PROCESS_WAIT;
                 }
                 else
                 {
-                    waiting = true;
-
                     // pause a little as the dvdnav VM will continue to return
                     // this event until it has been skipped
                     rwlock.unlock();
@@ -1176,18 +1178,23 @@ int DVDRingBuffer::safe_read(void *data, uint sz)
                     // when scanning the file or exiting playback, skip immediately
                     // otherwise update the timeout in the player
                     if (m_skipstillorwait)
+                    {
+                        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("Skipping DVDNAV_STILL_FRAME (%1)")
+                            .arg(still->length));
                         SkipStillFrame();
+                    }
                     else if (m_parent)
                     {
-                        m_parent->SetStillFrameTimeout(m_still);
-                    }
+                        // debug
+                        if (m_still != still->length)
+                        {
+                            LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("DVDNAV_STILL_FRAME (%1)")
+                                .arg(still->length));
+                        }
 
-                    // debug
-                    if (!stillSeen)
-                    {
-                        LOG(VB_PLAYBACK, LOG_DEBUG, LOC + QString("DVDNAV_STILL_FRAME (%1)")
-                            .arg(m_still));
-                        stillSeen = true;
+                        m_still = still->length;
+                        sz = tot;
+                        m_parent->SetStillFrameTimeout(m_still);
                     }
 
                     // release buffer
@@ -2120,7 +2127,7 @@ bool DVDRingBuffer::GetDVDStateSnapshot(QString& state)
  */
 bool DVDRingBuffer::RestoreDVDStateSnapshot(QString& state)
 {
-    QByteArray ba_state = state.toAscii();
+    QByteArray ba_state = state.toUtf8();
 
     return (dvdnav_set_state(m_dvdnav, ba_state.constData()) == DVDNAV_STATUS_OK);
 }

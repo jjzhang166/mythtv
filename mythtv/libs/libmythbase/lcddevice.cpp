@@ -751,7 +751,7 @@ QString LCD::quotedString(const QString &string)
 
 bool LCD::startLCDServer(void)
 {
-    QString command = GetInstallPrefix() + "/bin/mythlcdserver";
+    QString command = GetAppBinDir() + "mythlcdserver";
     command += myth_logging::command_line_arguments();
     uint flags = kMSDontBlockInputDevs | kMSDontDisableDrawing | 
                  kMSRunBackground;

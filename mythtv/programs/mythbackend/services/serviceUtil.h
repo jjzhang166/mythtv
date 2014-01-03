@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -30,19 +30,27 @@
 #include "datacontracts/recRule.h"
 #include "datacontracts/artworkInfoList.h"
 #include "datacontracts/videoMetadataInfo.h"
+#include "datacontracts/channelGroup.h"
+#include "datacontracts/input.h"
+#include "datacontracts/castMemberList.h"
 
 #include "programinfo.h"
 #include "recordingrule.h"
 #include "videometadatalistmanager.h"
+#include "channelgroup.h"
+#include "inputinfo.h"
 
 void FillProgramInfo( DTC::Program *pProgram,
                       ProgramInfo  *pInfo,
                       bool          bIncChannel = true,
-                      bool          bDetails    = true );
+                      bool          bDetails    = true,
+                      bool          bIncCast    = true);
 
-void FillChannelInfo( DTC::ChannelInfo *pChannel, 
-                      ProgramInfo      *pInfo,
+bool FillChannelInfo( DTC::ChannelInfo *pChannel,
+                      uint              nChanID,
                       bool              bDetails = true );
+
+void FillChannelGroup( DTC::ChannelGroup *pGroup, ChannelGroupItem pGroupItem);
 
 void FillRecRuleInfo( DTC::RecRule  *pRecRule,
                       RecordingRule *pRule              );
@@ -55,4 +63,9 @@ void FillVideoMetadataInfo (
                       DTC::VideoMetadataInfo *pVideoMetadataInfo,
                       VideoMetadataListManager::VideoMetadataPtr pMetadata,
                       bool          bDetails);
+
+void FillInputInfo( DTC::Input *input, InputInfo inputInfo);
+
+void FillCastMemberList( DTC::CastMemberList *pCastMemberList,
+                         ProgramInfo  *pInfo);
 #endif

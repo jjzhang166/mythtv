@@ -540,13 +540,13 @@ MythImage *MythUIHelper::GetImageFromCache(const QString &url)
 void MythUIHelper::IncludeInCacheSize(MythImage *im)
 {
     if (im)
-        d->m_cacheSize.fetchAndAddOrdered(im->numBytes());
+        d->m_cacheSize.fetchAndAddOrdered(im->byteCount());
 }
 
 void MythUIHelper::ExcludeFromCacheSize(MythImage *im)
 {
     if (im)
-        d->m_cacheSize.fetchAndAddOrdered(-im->numBytes());
+        d->m_cacheSize.fetchAndAddOrdered(-im->byteCount());
 }
 
 MythImage *MythUIHelper::CacheImage(const QString &url, MythImage *im,
@@ -576,7 +576,7 @@ MythImage *MythUIHelper::CacheImage(const QString &url, MythImage *im,
     // delete the oldest cached images until we fall below threshold.
     QMutexLocker locker(d->m_cacheLock);
 
-    while (d->m_cacheSize.fetchAndAddOrdered(0) + im->numBytes() >=
+    while (d->m_cacheSize.fetchAndAddOrdered(0) + im->byteCount() >=
            d->m_maxCacheSize.fetchAndAddOrdered(0) &&
            d->imageCache.size())
     {
@@ -607,7 +607,7 @@ MythImage *MythUIHelper::CacheImage(const QString &url, MythImage *im,
         {
             LOG(VB_GUI | VB_FILE, LOG_INFO, LOC +
                 QString("Cache too big (%1), removing :%2:")
-                .arg(d->m_cacheSize.fetchAndAddOrdered(0) + im->numBytes())
+                .arg(d->m_cacheSize.fetchAndAddOrdered(0) + im->byteCount())
                 .arg(oldestKey));
 
             d->imageCache[oldestKey]->SetIsInCache(false);
@@ -632,7 +632,7 @@ MythImage *MythUIHelper::CacheImage(const QString &url, MythImage *im,
         im->SetIsInCache(true);
         LOG(VB_GUI | VB_FILE, LOG_INFO, LOC +
             QString("NOT IN RAM CACHE, Adding, and adding to size :%1: :%2:")
-            .arg(url).arg(im->numBytes()));
+            .arg(url).arg(im->byteCount()));
     }
 
     LOG(VB_GUI | VB_FILE, LOG_INFO, LOC +
@@ -1522,6 +1522,11 @@ MythImage *MythUIHelper::LoadCacheImage(QString srcfile, QString label,
         QString cachefilepath = GetThemeCacheDir() + '/' + label;
         QFileInfo cacheFileInfo(cachefilepath);
 
+        // If the file isn't in the disk cache, then we don't want to bother
+        // checking the last modified times of the original
+        if (!cacheFileInfo.exists())
+            return NULL;
+
         // Now compare the time on the source versus our cached copy
         QDateTime srcLastModified;
 
@@ -1571,7 +1576,7 @@ MythImage *MythUIHelper::LoadCacheImage(QString srcfile, QString label,
                     ret = painter->GetFormatImage();
 
                 // Load file from disk cache to memory cache
-                if (ret && ret->Load(cachefilepath, false))
+                if (ret->Load(cachefilepath))
                 {
                     // Add to ram cache, and skip saving to disk since that is
                     // where we found this in the first place.

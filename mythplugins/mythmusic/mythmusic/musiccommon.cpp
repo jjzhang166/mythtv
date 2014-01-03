@@ -362,15 +362,11 @@ void MusicCommon::updateShuffleMode(bool updateUIList)
 
     if (updateUIList)
     {
-        // store id of current track
-        int curTrackID = -1;
-        if (gPlayer->getCurrentMetadata())
-            curTrackID = gPlayer->getCurrentMetadata()->ID();
-
         updateUIPlaylist();
 
-        if (!restorePosition(curTrackID))
-            playFirstTrack();
+        gPlayer->getPlaylist()->getStats(&m_playlistTrackCount, &m_playlistMaxTime,
+                                         gPlayer->getCurrentTrackPos(), &m_playlistPlayedTime);
+        updatePlaylistStats();
 
         // need this to update the next track info
         MusicMetadata *curMeta = gPlayer->getCurrentMetadata();
@@ -1501,11 +1497,7 @@ void MusicCommon::customEvent(QEvent *event)
                 MusicMetadata *mdata = qVariantValue<MusicMetadata*> (item->GetData());
                 if (mdata && mdata->ID() == (MusicMetadata::IdType) trackID)
                 {
-                    // work around a bug in MythUIButtonlist not updating properly after removing the last item
-                    if (m_currentPlaylist->GetCount() == 1)
-                        m_currentPlaylist->Reset();
-                    else
-                        m_currentPlaylist->RemoveItem(item);
+                    m_currentPlaylist->RemoveItem(item);
                     break;
                 }
             }
@@ -1875,10 +1867,13 @@ void MusicCommon::updateUIPlaylist(void)
 
     m_currentPlaylist->Reset();
 
+    m_currentTrack = -1;
+
     Playlist *playlist = gPlayer->getPlaylist();
 
     QList<MusicMetadata*> songlist = playlist->getSongs();
     QList<MusicMetadata*>::iterator it = songlist.begin();
+
     for (; it != songlist.end(); ++it)
     {
         MusicMetadata *mdata = (*it);
@@ -1911,6 +1906,7 @@ void MusicCommon::updateUIPlaylist(void)
                 }
 
                 m_currentPlaylist->SetItemCurrent(item);
+                m_currentTrack = m_currentPlaylist->GetCurrentPos();
             }
         }
     }
@@ -2180,6 +2176,8 @@ MythMenu* MusicCommon::createRepeatMenu(void)
     menu->AddItem(tr("Track"), qVariantFromValue((int)MusicPlayer::REPEAT_TRACK));
     menu->AddItem(tr("All"),   qVariantFromValue((int)MusicPlayer::REPEAT_ALL));
 
+    menu->SetSelectedByData(static_cast<int>(gPlayer->getRepeatMode()));
+
     return menu;
 }
 
@@ -2194,6 +2192,8 @@ MythMenu* MusicCommon::createShuffleMenu(void)
     menu->AddItem(tr("Smart"),  qVariantFromValue((int)MusicPlayer::SHUFFLE_INTELLIGENT));
     menu->AddItem(tr("Album"),  qVariantFromValue((int)MusicPlayer::SHUFFLE_ALBUM));
     menu->AddItem(tr("Artist"), qVariantFromValue((int)MusicPlayer::SHUFFLE_ARTIST));
+
+    menu->SetSelectedByData(static_cast<int>(gPlayer->getShuffleMode()));
 
     return menu;
 }
@@ -2227,8 +2227,10 @@ MythMenu* MusicCommon::createVisualizerMenu(void)
 
     MythMenu *menu = new MythMenu(label, this, "visualizermenu");
 
-    for (int x = 0; x < m_visualModes.count(); x++)
+    for (uint x = 0; x < static_cast<uint>(m_visualModes.count()); x++)
         menu->AddItem(m_visualModes.at(x), qVariantFromValue(x));
+
+    menu->SetSelectedByData(m_currentVisual);
 
     return menu;
 }
@@ -2392,6 +2394,8 @@ void MusicCommon::doUpdatePlaylist(bool startPlayback)
         m_songList.clear();
     }
 
+    m_currentTrack = gPlayer->getCurrentTrackPos();
+
     updateUIPlaylist();
 
     if (startPlayback || gPlayer->isPlaying())
@@ -2441,16 +2445,13 @@ void MusicCommon::doUpdatePlaylist(bool startPlayback)
     }
     else
     {
-        int trackPos = 0;
-
         switch (m_playlistOptions.playPLOption)
         {
             case PL_CURRENT:
-                trackPos = curPos;
                 break;
 
             case PL_FIRST:
-                trackPos = 0;
+                m_currentTrack = 0;
                 break;
 
             case PL_FIRSTNEW:
@@ -2458,31 +2459,33 @@ void MusicCommon::doUpdatePlaylist(bool startPlayback)
                 switch (m_playlistOptions.insertPLOption)
                 {
                     case PL_REPLACE:
-                        trackPos = 0;
+                        m_currentTrack = 0;
                         break;
 
                     case PL_INSERTATEND:
-                        trackPos = 0;
+                        m_currentTrack = 0;
                         break;
 
                     case PL_INSERTAFTERCURRENT:
-                        trackPos = curPos + 1;
+                        // this wont work if the track are shuffled
+                        m_currentTrack = m_currentTrack + 1;
                         break;
 
                     default:
-                        trackPos = 0;
+                        m_currentTrack = 0;
                 }
 
                 break;
             }
         }
 
-        gPlayer->changeCurrentTrack(trackPos);
-        m_currentTrack = trackPos;
+        gPlayer->changeCurrentTrack(m_currentTrack);
     }
 
     gPlayer->getPlaylist()->getStats(&m_playlistTrackCount, &m_playlistMaxTime,
                                       m_currentTrack, &m_playlistPlayedTime);
+    updatePlaylistStats();
+    updateTrackInfo(gPlayer->getCurrentMetadata());
 }
 
 bool MusicCommon::restorePosition(int trackID)

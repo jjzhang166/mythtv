@@ -31,17 +31,26 @@ class ThemeUpdateTask : public DailyHouseKeeperTask
 {
   public:
     ThemeUpdateTask(void) : DailyHouseKeeperTask("ThemeUpdateNotifications",
-                                            kHKGlobal, kHKRunOnStartup) {};
+                                            kHKGlobal, kHKRunOnStartup),
+                            m_running(false) {};
     bool DoRun(void);
+    virtual void Terminate(void);
+  private:
+    bool m_running;
+    QString m_url;
 };
 
 
 class ArtworkTask : public DailyHouseKeeperTask
 {
   public:
-    ArtworkTask(void) : DailyHouseKeeperTask("RecordedArtworkUpdate",
-                                             kHKGlobal, kHKRunOnStartup) {};
+    ArtworkTask(void);
+    virtual ~ArtworkTask(void);
     bool DoRun(void);
+    virtual bool DoCheckRun(QDateTime now);
+    virtual void Terminate(void);
+  private:
+    MythSystemLegacy *m_msMML;
 };
 
 
@@ -58,6 +67,7 @@ class MythFillDatabaseTask : public DailyHouseKeeperTask
 {
   public:
     MythFillDatabaseTask(void);
+    virtual ~MythFillDatabaseTask(void);
 
     static bool UseSuggestedTime(void);
 

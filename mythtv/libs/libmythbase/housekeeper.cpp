@@ -18,7 +18,7 @@
 *
 * You should have received a copy of the GNU General Public License
 * along with this program; if not, write to the Free Software
-* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 */
 
 
@@ -96,7 +96,7 @@
 HouseKeeperTask::HouseKeeperTask(const QString &dbTag, HouseKeeperScope scope,
                                  HouseKeeperStartup startup):
     ReferenceCounter(dbTag), m_dbTag(dbTag), m_confirm(false), m_scope(scope),
-    m_startup(startup), m_lastRun(MythDate::fromTime_t(0))
+    m_startup(startup), m_running(false), m_lastRun(MythDate::fromTime_t(0))
 {
 }
 
@@ -104,7 +104,7 @@ bool HouseKeeperTask::CheckRun(QDateTime now)
 {
     LOG(VB_GENERAL, LOG_DEBUG, QString("Checking to run %1").arg(GetTag()));
     bool check = false;
-    if (!m_confirm && (check = DoCheckRun(now)))
+    if (!m_confirm && !m_running && (check = DoCheckRun(now)))
         // if m_confirm is already set, the task is already in the queue
         // and should not be queued a second time
         m_confirm = true;
@@ -113,12 +113,13 @@ bool HouseKeeperTask::CheckRun(QDateTime now)
 
 bool HouseKeeperTask::CheckImmediate(void)
 {
-    return (m_startup == kHKRunImmediateOnStartup);
+    return ((m_startup == kHKRunImmediateOnStartup) &&
+            DoCheckRun(MythDate::current()));
 }
 
 bool HouseKeeperTask::CheckStartup(void)
 {
-    if (m_startup == kHKRunOnStartup)
+    if ((m_startup == kHKRunOnStartup) && DoCheckRun(MythDate::current()))
     {
         m_confirm = true;
         return true;
@@ -130,7 +131,17 @@ bool HouseKeeperTask::Run(void)
 {
     LOG(VB_GENERAL, LOG_INFO, QString("Running HouseKeeperTask '%1'.")
                                 .arg(m_dbTag));
+    if (m_running)
+    {
+        // something else is already running me, bail out
+        LOG(VB_GENERAL, LOG_WARNING, QString("HouseKeeperTask '%1' already "
+                "running. Refusing to run concurrently").arg(m_dbTag));
+        return false;
+    }
+
+    m_running = true;
     bool res = DoRun();
+    m_running = false;
     if (!res)
         LOG(VB_GENERAL, LOG_INFO, QString("HouseKeeperTask '%1' Failed.")
                                 .arg(m_dbTag));
@@ -581,7 +592,6 @@ HouseKeeperTask* HouseKeeper::GetQueuedTask(void)
     if (!m_taskQueue.isEmpty())
     {
         task = m_taskQueue.dequeue();
-        task->IncrRef();
     }
 
     // returning NULL tells the thread that the queue is empty and
@@ -688,7 +698,10 @@ void HouseKeeper::Run(void)
             if ((*it)->isRunning())
                 ++it;
             else
+            {
+                delete *it;
                 it = m_threadList.erase(it);
+            }
         }
 
         int count2 = m_threadList.size();

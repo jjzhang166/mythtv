@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -38,9 +38,17 @@
 #include "encoderlink.h"
 #include "remoteutil.h"
 #include "mythdate.h"
+#include "recordinginfo.h"
+#include "cardutil.h"
+#include "inputinfo.h"
+#include "programtypes.h"
+#include "recordingtypes.h"
 
 #include "serviceUtil.h"
-#include <mythscheduler.h>
+#include "mythscheduler.h"
+#include "storagegroup.h"
+#include "playgroup.h"
+#include "recordingprofile.h"
 
 extern QMap<int, EncoderLink *> tvList;
 extern AutoExpire  *expirer;
@@ -66,7 +74,7 @@ DTC::ProgramList* Dvr::GetRecordedList( bool           bDescending,
 
     ProgramList progList;
 
-    int desc = 0;
+    int desc = 1;
     if (bDescending)
         desc = -1;
 
@@ -100,12 +108,14 @@ DTC::ProgramList* Dvr::GetRecordedList( bool           bDescending,
             (!sStorageGroup.isEmpty() && sStorageGroup != pInfo->GetStorageGroup()))
             continue;
 
-        ++nAvailable;
-
         if ((nAvailable < nStartIndex) ||
             (nCount >= nMax))
+        {
+            ++nAvailable;
             continue;
+        }
 
+        ++nAvailable;
         ++nCount;
 
         DTC::Program *pProgram = pPrograms->AddNewProgram();
@@ -146,7 +156,15 @@ DTC::Program* Dvr::GetRecorded(int chanid, const QDateTime &recstarttsRaw)
 //
 /////////////////////////////////////////////////////////////////////////////
 
-bool Dvr::RemoveRecorded(int chanid, const QDateTime &recstarttsRaw)
+bool Dvr::RemoveRecorded(int chanid, const QDateTime &recstarttsRaw,
+                         bool forceDelete, bool allowRerecord)
+{
+    return DeleteRecording(chanid, recstarttsRaw, forceDelete, allowRerecord);
+}
+
+
+bool Dvr::DeleteRecording(int chanid, const QDateTime &recstarttsRaw,
+                          bool forceDelete, bool allowRerecord)
 {
     if (chanid <= 0 || !recstarttsRaw.isValid())
         throw QString("Channel ID or StartTime appears invalid.");
@@ -155,9 +173,36 @@ bool Dvr::RemoveRecorded(int chanid, const QDateTime &recstarttsRaw)
 
     if (pi.GetChanID() && pi.HasPathname())
     {
-        QString cmd = QString("DELETE_RECORDING %1 %2")
+        QString cmd = QString("DELETE_RECORDING %1 %2 %3 %4")
             .arg(pi.GetChanID())
-            .arg(pi.GetRecordingStartTime(MythDate::ISODate));
+            .arg(pi.GetRecordingStartTime(MythDate::ISODate))
+            .arg(forceDelete ? "FORCE" : "NO_FORCE")
+            .arg(allowRerecord ? "FORGET" : "NO_FORGET");
+        MythEvent me(cmd);
+
+        gCoreContext->dispatch(me);
+        return true;
+    }
+
+    return false;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+bool Dvr::UnDeleteRecording(int chanid, const QDateTime &recstarttsRaw)
+{
+    if (chanid <= 0 || !recstarttsRaw.isValid())
+        throw QString("Channel ID or StartTime appears invalid.");
+
+    RecordingInfo ri(chanid, recstarttsRaw.toUTC());
+
+    if (ri.GetChanID() && ri.HasPathname())
+    {
+        QString cmd = QString("UNDELETE_RECORDING %1 %2")
+            .arg(ri.GetChanID())
+            .arg(ri.GetRecordingStartTime(MythDate::ISODate));
         MythEvent me(cmd);
 
         gCoreContext->dispatch(me);
@@ -221,8 +266,10 @@ DTC::ProgramList* Dvr::GetExpiringList( int nStartIndex,
 
 DTC::EncoderList* Dvr::GetEncoderList()
 {
+
     DTC::EncoderList* pList = new DTC::EncoderList();
 
+    QList<InputInfo> inputInfoList = CardUtil::GetAllInputInfo();
     QMap<int, EncoderLink *>::Iterator iter = tvList.begin();
 
     for (; iter != tvList.end(); ++iter)
@@ -244,6 +291,17 @@ DTC::EncoderList* Dvr::GetEncoderList()
                 pEncoder->setHostName( gCoreContext->GetHostName() );
             else
                 pEncoder->setHostName( elink->GetHostName() );
+
+            QList<InputInfo>::iterator it = inputInfoList.begin();
+            for (; it < inputInfoList.end(); ++it)
+            {
+                InputInfo inputInfo = *it;
+                if (inputInfo.cardid == static_cast<uint>(elink->GetCardID()))
+                {
+                    DTC::Input *input = pEncoder->AddNewInput();
+                    FillInputInfo(input, inputInfo);
+                }
+            }
 
             switch ( pEncoder->State() )
             {
@@ -277,43 +335,41 @@ DTC::EncoderList* Dvr::GetEncoderList()
 //
 /////////////////////////////////////////////////////////////////////////////
 
+DTC::InputList* Dvr::GetInputList()
+{
+    DTC::InputList *pList = new DTC::InputList();
+
+    QList<InputInfo> inputInfoList = CardUtil::GetAllInputInfo();
+    QList<InputInfo>::iterator it = inputInfoList.begin();
+    for (; it < inputInfoList.end(); ++it)
+    {
+        InputInfo inputInfo = *it;
+        DTC::Input *input = pList->AddNewInput();
+        FillInputInfo(input, inputInfo);
+    }
+
+    return pList;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
 QStringList Dvr::GetRecGroupList()
 {
     MSqlQuery query(MSqlQuery::InitCon());
-
-    QString querystr = QString("SELECT DISTINCT recgroup FROM record");
-
-    query.prepare(querystr);
+    query.prepare("SELECT recgroup FROM recgroups WHERE recgroup <> 'Deleted' "
+                  "ORDER BY recgroup");
 
     QStringList result;
     if (!query.exec())
     {
-        MythDB::DBError("GetRecGroupList record", query);
+        MythDB::DBError("GetRecGroupList", query);
         return result;
     }
 
     while (query.next())
         result << query.value(0).toString();
-
-    querystr = QString("SELECT DISTINCT recgroup FROM recorded");
-
-    query.prepare(querystr);
-
-    if (!query.exec())
-    {
-        MythDB::DBError("GetRecGroupList recorded", query);
-        return result;
-    }
-
-    while (query.next())
-    {
-        QString value = query.value(0).toString();
-
-        if (!result.contains(value))
-            result << value;
-    }
-
-    result.sort();
 
     return result;
 }
@@ -322,13 +378,66 @@ QStringList Dvr::GetRecGroupList()
 //
 /////////////////////////////////////////////////////////////////////////////
 
-QStringList Dvr::GetTitleList()
+QStringList Dvr::GetRecStorageGroupList()
+{
+    return StorageGroup::getRecordingsGroups();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QStringList Dvr::GetPlayGroupList()
+{
+    return PlayGroup::GetNames();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+DTC::RecRuleFilterList* Dvr::GetRecRuleFilterList()
+{
+    DTC::RecRuleFilterList* filterList = new DTC::RecRuleFilterList();
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("SELECT filterid, description, newruledefault "
+                    "FROM recordfilter ORDER BY filterid");
+
+    if (query.exec())
+    {
+        while (query.next())
+        {
+            DTC::RecRuleFilter* ruleFilter = filterList->AddNewRecRuleFilter();
+            ruleFilter->setId(query.value(0).toInt());
+            ruleFilter->setDescription(QObject::tr(query.value(1).toString()
+                                         .toUtf8().constData()));
+        }
+    }
+
+    return filterList;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QStringList Dvr::GetTitleList(const QString& RecGroup)
 {
     MSqlQuery query(MSqlQuery::InitCon());
 
-    QString querystr = QString("SELECT DISTINCT title FROM recorded");
+    QString querystr = "SELECT DISTINCT title FROM recorded";
+
+    if (!RecGroup.isEmpty())
+        querystr += " WHERE recgroup = :RECGROUP";
+
+    querystr += " ORDER BY title";
 
     query.prepare(querystr);
+
+    if (!RecGroup.isEmpty())
+        query.bindValue(":RECGROUP", RecGroup);
 
     QStringList result;
     if (!query.exec())
@@ -339,8 +448,6 @@ QStringList Dvr::GetTitleList()
 
     while (query.next())
         result << query.value(0).toString();
-
-    result.sort();
 
     return result;
 }
@@ -385,24 +492,36 @@ DTC::TitleInfoList* Dvr::GetTitleInfoList()
 
 DTC::ProgramList* Dvr::GetUpcomingList( int  nStartIndex,
                                         int  nCount,
-                                        bool bShowAll )
+                                        bool bShowAll,
+                                        int  nRecordId,
+                                        int  nRecStatus )
 {
     RecordingList  recordingList;
     RecordingList  tmpList;
     bool hasConflicts;
-    LoadFromScheduler(tmpList, hasConflicts);
+
+    if (nRecordId <= 0)
+        nRecordId = -1;
+
+    LoadFromScheduler(tmpList, hasConflicts, "", nRecordId);
 
     // Sort the upcoming into only those which will record
     RecordingList::iterator it = tmpList.begin();
     for(; it < tmpList.end(); ++it)
     {
-        if (!bShowAll && ((*it)->GetRecordingStatus() <= rsWillRecord) &&
-            ((*it)->GetRecordingStartTime() >= MythDate::current()))
+        if ((nRecStatus != 0) &&
+            ((*it)->GetRecordingStatus() != nRecStatus))
+            continue;
+
+        if (!bShowAll && ((((*it)->GetRecordingStatus() >= rsTuning) &&
+                           ((*it)->GetRecordingStatus() <= rsWillRecord)) ||
+                          ((*it)->GetRecordingStatus() == rsConflict)) &&
+            ((*it)->GetRecordingEndTime() > MythDate::current()))
         {
             recordingList.push_back(new RecordingInfo(**it));
         }
         else if (bShowAll &&
-                 ((*it)->GetRecordingStartTime() >= MythDate::current()))
+                 ((*it)->GetRecordingEndTime() > MythDate::current()))
         {
             recordingList.push_back(new RecordingInfo(**it));
         }
@@ -444,12 +563,17 @@ DTC::ProgramList* Dvr::GetUpcomingList( int  nStartIndex,
 /////////////////////////////////////////////////////////////////////////////
 
 DTC::ProgramList* Dvr::GetConflictList( int  nStartIndex,
-                                        int  nCount       )
+                                        int  nCount,
+                                        int  nRecordId       )
 {
     RecordingList  recordingList;
     RecordingList  tmpList;
     bool hasConflicts;
-    LoadFromScheduler(tmpList, hasConflicts);
+
+    if (nRecordId <= 0)
+        nRecordId = -1;
+
+    LoadFromScheduler(tmpList, hasConflicts, "", nRecordId);
 
     // Sort the upcoming into only those which are conflicts
     RecordingList::iterator it = tmpList.begin();
@@ -557,6 +681,11 @@ uint Dvr::AddRecordSchedule   (
     rule.m_subtitle = sSubtitle;
     rule.m_description = sDescription;
 
+    rule.m_startdate = recstartts.date();
+    rule.m_starttime = recstartts.time();
+    rule.m_enddate = recendts.date();
+    rule.m_endtime = recendts.time();
+
     rule.m_type = recTypeFromString(sType);
     rule.m_searchType = searchTypeFromString(sSearchType);
     rule.m_dupMethod = dupMethodFromString(sDupMethod);
@@ -578,13 +707,15 @@ uint Dvr::AddRecordSchedule   (
     rule.m_seriesid = sSeriesId;
     rule.m_programid = sProgramId;
 
+    rule.m_channelid = nChanId;
     rule.m_station = sStation;
 
     rule.m_findday = nFindDay;
     rule.m_findtime = tFindTime;
 
     rule.m_recProfile = sRecProfile;
-    rule.m_recGroup = sRecGroup;
+    rule.m_recGroupID = RecordingInfo::GetRecgroupID(sRecGroup) > 0 ? RecordingInfo::GetRecgroupID(sRecGroup) :
+                                                                      RecordingInfo::kDefaultRecGroup;
     rule.m_storageGroup = sStorageGroup;
     rule.m_playGroup = sPlayGroup;
 
@@ -722,7 +853,7 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
         pRule.m_description = sDescription;
 
     if (!sCategory.isEmpty())
-            pRule.m_category = sCategory;
+        pRule.m_category = sCategory;
 
     if (!sSeriesId.isEmpty())
         pRule.m_seriesid = sSeriesId;
@@ -730,12 +861,13 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
     if (!sProgramId.isEmpty())
         pRule.m_programid = sProgramId;
 
+    if (nChanId)
+        pRule.m_channelid = nChanId;
     if (!sStation.isEmpty())
         pRule.m_station = sStation;
 
     pRule.m_startdate = recstartts.date();
     pRule.m_starttime = recstartts.time();
-
     pRule.m_enddate = recendts.date();
     pRule.m_endtime = recendts.time();
 
@@ -743,7 +875,8 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
     pRule.m_findtime = tFindTime;
 
     pRule.m_recProfile = sRecProfile;
-    pRule.m_recGroup = sRecGroup;
+    pRule.m_recGroupID = RecordingInfo::GetRecgroupID(sRecGroup) > 0 ? RecordingInfo::GetRecgroupID(sRecGroup) :
+                                                                      RecordingInfo::kDefaultRecGroup;
     pRule.m_storageGroup = sStorageGroup;
     pRule.m_playGroup = sPlayGroup;
 
@@ -794,6 +927,34 @@ bool Dvr::RemoveRecordSchedule ( uint nRecordId )
     pRule.m_recordID = nRecordId;
 
     bResult = pRule.Delete();
+
+    return bResult;
+}
+
+bool Dvr::AddDontRecordSchedule(int nChanId, const QDateTime &dStartTime,
+                                bool bNeverRecord)
+{
+    bool bResult = true;
+
+    if (nChanId <= 0 || !dStartTime.isValid())
+        throw QString("Program does not exist.");
+
+    ProgramInfo *pi = LoadProgramFromProgram(nChanId, dStartTime.toUTC());
+
+    if (!pi)
+        throw QString("Program does not exist.");
+
+    // Why RecordingInfo instead of ProgramInfo? Good question ...
+    RecordingInfo recInfo = RecordingInfo(*pi);
+
+    delete pi;
+
+    if (bNeverRecord)
+    {
+        recInfo.ApplyNeverRecord();
+    }
+    else
+        recInfo.ApplyRecordStateChange(kDontRecord);
 
     return bResult;
 }
@@ -851,6 +1012,7 @@ DTC::RecRule* Dvr::GetRecordSchedule( uint      nRecordId,
                                       bool      bMakeOverride )
 {
     RecordingRule rule;
+    QDateTime dStartTime = dStartTimeRaw.toUTC();
 
     if (nRecordId > 0)
     {
@@ -863,10 +1025,10 @@ DTC::RecRule* Dvr::GetRecordSchedule( uint      nRecordId,
         if (!rule.LoadTemplate(sTemplate))
             throw QString("Template does not exist.");
     }
-    else if (nChanId > 0 && dStartTimeRaw.isValid())
+    else if (nChanId > 0 && dStartTime.isValid())
     {
         RecordingInfo::LoadStatus status;
-        RecordingInfo info(nChanId, dStartTimeRaw, false, 0, &status);
+        RecordingInfo info(nChanId, dStartTime, false, 0, &status);
         if (status != RecordingInfo::kFoundProgram)
             throw QString("Program does not exist.");
         RecordingRule *pRule = info.GetRecordingRule();
@@ -928,3 +1090,56 @@ bool Dvr::DisableRecordSchedule( uint nRecordId )
     return bResult;
 }
 
+QString Dvr::RecStatusToString(int RecStatus)
+{
+    RecStatusType type = static_cast<RecStatusType>(RecStatus);
+    return toString(type);
+}
+
+QString Dvr::RecStatusToDescription(int RecStatus, int recType,
+                                    const QDateTime &StartTime)
+{
+    //if (!StartTime.isValid())
+    //    throw QString("StartTime appears invalid.");
+    RecStatusType rsType = static_cast<RecStatusType>(RecStatus);
+    RecordingType recordingType = static_cast<RecordingType>(recType);
+    return toDescription(rsType, recordingType, StartTime);
+}
+
+QString Dvr::RecTypeToString(QString recType)
+{
+    // RecordingType type = static_cast<RecordingType>(recType);
+    return toString(recTypeFromString(recType));
+}
+
+QString Dvr::RecTypeToDescription(QString recType)
+{
+    // RecordingType type = static_cast<RecordingType>(recType);
+    return toDescription(recTypeFromString(recType));
+}
+
+QString Dvr::DupInToString(QString DupIn)
+{
+    // RecordingDupInType type= static_cast<RecordingDupInType>(DupIn);
+    // return toString(type);
+    return toString(dupInFromString(DupIn));
+}
+
+QString Dvr::DupInToDescription(QString DupIn)
+{
+    // RecordingDupInType type= static_cast<RecordingDupInType>(DupIn);
+    //return toDescription(type);
+    return toDescription(dupInFromString(DupIn));
+}
+
+QString Dvr::DupMethodToString(QString DupMethod)
+{
+    // RecordingDupMethodType method = static_cast<RecordingDupMethodType>(DupMethod);
+    return toString(dupMethodFromString(DupMethod));
+}
+
+QString Dvr::DupMethodToDescription(QString DupMethod)
+{
+    // RecordingDupMethodType method = static_cast<RecordingDupMethodType>(DupMethod);
+    return toDescription(dupMethodFromString(DupMethod));
+}

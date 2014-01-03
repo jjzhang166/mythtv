@@ -261,7 +261,10 @@ bool DecoderBase::PosMapFromEnc(void)
 
     // append this new position map to class's
     m_positionMap.reserve(m_positionMap.size() + posMap.size());
-    uint64_t last_index = m_positionMap.back().index;
+
+    uint64_t last_index = 0;
+    if (!m_positionMap.empty())
+        last_index = m_positionMap.back().index;
     for (frm_pos_map_t::const_iterator it = posMap.begin();
          it != posMap.end(); ++it)
     {
@@ -816,7 +819,7 @@ bool DecoderBase::DoFastForward(long long desiredFrame, bool discardFrames)
     normalframes = max(normalframes, 0);
     SeekReset(lastKey, normalframes, needflush, discardFrames);
 
-    if (discardFrames)
+    if (discardFrames || transcoding)
         m_parent->SetFramesPlayed(framesPlayed+1);
 
     // Re-enable rawframe state if it was enabled before FF

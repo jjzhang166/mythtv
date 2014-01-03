@@ -1921,7 +1921,7 @@ void JobQueue::DoTranscodeThread(int jobID)
     runningJobsLock->lock();
     if (runningJobs[jobID].command == "mythtranscode")
     {
-        path = GetInstallPrefix() + "/bin/mythtranscode";
+        path = GetAppBinDir() + "mythtranscode";
         command = QString("%1 -j %2 --profile %3")
                   .arg(path).arg(jobID).arg(profilearg);
         if (useCutlist)
@@ -2161,7 +2161,7 @@ void JobQueue::DoMetadataLookupThread(int jobID)
     QString path;
     QString command;
 
-    path = GetInstallPrefix() + "/bin/mythmetadatalookup";
+    path = GetAppBinDir() + "mythmetadatalookup";
     command = QString("%1 -j %2")
                       .arg(path).arg(jobID);
     command += myth_logging::command_line_arguments();
@@ -2289,7 +2289,7 @@ void JobQueue::DoFlagCommercialsThread(int jobID)
     runningJobsLock->lock();
     if (runningJobs[jobID].command == "mythcommflag")
     {
-        path = GetInstallPrefix() + "/bin/mythcommflag";
+        path = GetAppBinDir() + "mythcommflag";
         command = QString("%1 -j %2 --noprogress")
                           .arg(path).arg(jobID);
         command += myth_logging::command_line_arguments();

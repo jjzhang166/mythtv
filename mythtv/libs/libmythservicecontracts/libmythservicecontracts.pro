@@ -21,6 +21,7 @@ HEADERS += services/contentServices.h services/dvrServices.h
 HEADERS += services/channelServices.h services/videoServices.h
 HEADERS += services/captureServices.h
 HEADERS += services/frontendServices.h
+HEADERS += services/imageServices.h
 
 HEADERS += datacontracts/connectionInfo.h        datacontracts/databaseInfo.h
 HEADERS += datacontracts/programAndChannel.h     datacontracts/programGuide.h
@@ -43,6 +44,12 @@ HEADERS += datacontracts/liveStreamInfo.h        datacontracts/liveStreamInfoLis
 HEADERS += datacontracts/titleInfo.h             datacontracts/titleInfoList.h
 HEADERS += datacontracts/labelValue.h
 HEADERS += datacontracts/logMessage.h            datacontracts/logMessageList.h
+HEADERS += datacontracts/imageMetadataInfoList.h datacontracts/imageMetadataInfo.h
+HEADERS += datacontracts/imageSyncInfo.h         datacontracts/channelGroup.h
+HEADERS += datacontracts/channelGroupList.h      datacontracts/input.h
+HEADERS += datacontracts/inputList.h
+HEADERS += datacontracts/recRuleFilter.h         datacontracts/recRuleFilterList.h
+HEADERS += datacontracts/castMember.h            datacontracts/castMemberList.h
 
 SOURCES += service.cpp
 
@@ -53,8 +60,6 @@ INCLUDEPATH += ./services
 DEPENDPATH += ../libmyth
 INCLUDEPATH += $$DEPENDPATH
 
-LIBS += $$EXTRA_LIBS
-
 inc.path = $${PREFIX}/include/mythtv/libmythservicecontracts/
 inc.files = serviceexp.h service.h datacontracthelper.h
 
@@ -64,6 +69,7 @@ incServices.files += services/contentServices.h services/dvrServices.h
 incServices.files += services/channelServices.h services/videoServices.h
 incServices.files += services/captureServices.h
 incServices.files += services/frontendServices.h
+incServices.files += services/imageServices.h
 
 incDatacontracts.path = $${PREFIX}/include/mythtv/libmythservicecontracts/datacontracts/
 incDatacontracts.files  = datacontracts/connectionInfo.h      datacontracts/databaseInfo.h
@@ -84,6 +90,12 @@ incDatacontracts.files += datacontracts/liveStreamInfo.h      datacontracts/live
 incDatacontracts.files += datacontracts/titleInfo.h           datacontracts/titleInfoList.h
 incDatacontracts.files += datacontracts/labelValue.h
 incDatacontracts.files += datacontracts/logMessage.h          datacontracts/logMessageList.h
+incDatacontracts.files += datacontracts/imageMetadataInfoList.h datacontracts/imageMetadataInfo.h
+incDatacontracts.files += datacontracts/imageSyncInfo.h       datacontracts/channelGroup.h
+incDatacontracts.files += datacontracts/channelGroupList.h    datacontracts/input.h
+incDatacontracts.files += datacontracts/inputList.h
+incDatacontracts.files += datacontracts/recRuleFilter.h       datacontracts/recRuleFilterList.h
+incDatacontracts.files += datacontracts/castMember.h          datacontracts/castMemberList.h
 
 INSTALLS += inc incServices incDatacontracts
 
@@ -97,4 +109,4 @@ use_hidesyms {
 
 include ( ../libs-targetfix.pro )
 
-LIBS += $$LATE_LIBS
+LIBS += $$EXTRA_LIBS $$LATE_LIBS

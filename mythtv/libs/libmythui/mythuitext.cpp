@@ -142,9 +142,7 @@ void MythUIText::ResetMap(const InfoMap &map)
         int pos = 0;
 
         QString translatedTemplate = qApp->translate("ThemeUI",
-                                                     newText.toUtf8(),
-                                                     NULL,
-                                                     QCoreApplication::UnicodeUTF8);
+                                                     newText.toUtf8());
 
         while ((pos = regexp.indexIn(translatedTemplate, pos)) != -1)
         {
@@ -204,9 +202,7 @@ void MythUIText::SetTextFromMap(const InfoMap &map)
         int pos = 0;
 
         QString translatedTemplate = qApp->translate("ThemeUI",
-                                                     newText.toUtf8(),
-                                                     NULL,
-                                             QCoreApplication::UnicodeUTF8);
+                                                     newText.toUtf8());
 
         QString tempString = translatedTemplate;
         bool replaced = map.contains(objectName());
@@ -763,15 +759,20 @@ void MythUIText::FillCutMessage(void)
 
         if (isNumber && m_TemplateText.contains("%n"))
         {
+#if QT_VERSION < 0x050000
             m_CutMessage = qApp->translate("ThemeUI",
                                            m_TemplateText.toUtf8(), NULL,
                                            QCoreApplication::UnicodeUTF8,
                                            qAbs(value));
+#else
+			m_CutMessage = qApp->translate("ThemeUI",
+				m_TemplateText.toUtf8(), NULL, qAbs(value));
+#endif
+
         }
         else if (m_TemplateText.contains("%1"))
         {
-            QString tmp = qApp->translate("ThemeUI", m_TemplateText.toUtf8(),
-                                          NULL, QCoreApplication::UnicodeUTF8);
+            QString tmp = qApp->translate("ThemeUI", m_TemplateText.toUtf8());
             m_CutMessage = tmp.arg(m_Message);
         }
     }
@@ -1381,8 +1382,7 @@ bool MythUIText::ParseElement(
         if (element.attribute("lang", "").isEmpty())
         {
             m_Message = qApp->translate("ThemeUI",
-                                        parseText(element).toUtf8(), NULL,
-                                        QCoreApplication::UnicodeUTF8);
+                                        parseText(element).toUtf8());
         }
         else if (element.attribute("lang", "").toLower() ==
                  gCoreContext->GetLanguageAndVariant())

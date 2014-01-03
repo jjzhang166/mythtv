@@ -22,7 +22,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  * Or, point your browser to http://www.gnu.org/copyleft/gpl.html
  *
  */
@@ -50,7 +50,7 @@ class ChannelBase;
 
 class MTV_PUBLIC ChannelScanner
 {
-    Q_DECLARE_TR_FUNCTIONS(ChannelScanner) 
+    Q_DECLARE_TR_FUNCTIONS(ChannelScanner)
 
     friend class ScanMonitor;
 

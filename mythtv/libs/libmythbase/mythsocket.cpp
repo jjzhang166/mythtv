@@ -330,6 +330,18 @@ bool MythSocket::ReadStringList(QStringList &list, uint timeoutMS)
 bool MythSocket::SendReceiveStringList(
     QStringList &strlist, uint min_reply_length, uint timeoutMS)
 {
+    if (m_callback && m_disableReadyReadCallback.testAndSetOrdered(0,0))
+    {
+        // If callbacks are enabled then SendReceiveStringList() will conflict
+        // causing failed reads and socket disconnections - see #11777
+        // SendReceiveStringList() should NOT be used with an event socket, only
+        // the control socket
+        LOG(VB_GENERAL, LOG_EMERG, QString("Programmer Error! "
+                                           "SendReceiveStringList(%1) used on "
+                                           "socket with callbacks enabled.")
+                                .arg(strlist.isEmpty() ? "empty" : strlist[0]));
+    }
+
     if (!WriteStringList(strlist))
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to send command.");
@@ -348,11 +360,13 @@ bool MythSocket::SendReceiveStringList(
         return false;
     }
 
+#if 0
     if (!strlist.empty() && strlist[0] == "BACKEND_MESSAGE")
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + "Got MythEvent on non-event socket");
         return false;
     }
+#endif
 
     return true;
 }
@@ -484,6 +498,14 @@ void MythSocket::SetAnnounce(const QStringList &new_announce)
 
 void MythSocket::DisconnectFromHost(void)
 {
+    if (QThread::currentThread() != m_thread->qthread() &&
+        gCoreContext && gCoreContext->IsExiting())
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            QString("Programmer error, QEventLoop isn't running and deleting "
+                    "MythSocket(0x%1)").arg(reinterpret_cast<intptr_t>(this),0,16));
+        return;
+    }
     QMetaObject::invokeMethod(
         this, "DisconnectFromHostReal",
         (QThread::currentThread() != m_thread->qthread()) ?

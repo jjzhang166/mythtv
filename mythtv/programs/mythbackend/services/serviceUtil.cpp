@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -31,8 +31,10 @@
 #include "recordinginfo.h"
 #include "recordingtypes.h"
 #include "channelutil.h"
+#include "channelinfo.h"
 #include "videoutils.h"
 #include "metadataimagehelper.h"
+#include "cardutil.h"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -41,7 +43,8 @@
 void FillProgramInfo( DTC::Program *pProgram,
                       ProgramInfo  *pInfo,
                       bool          bIncChannel /* = true */,
-                      bool          bDetails    /* = true */)
+                      bool          bDetails    /* = true */,
+                      bool          bIncCast    /* = true */)
 {
     if ((pProgram == NULL) || (pInfo == NULL))
         return;
@@ -72,11 +75,24 @@ void FillProgramInfo( DTC::Program *pProgram,
 
         if (pInfo->GetOriginalAirDate().isValid())
             pProgram->setAirdate( pInfo->GetOriginalAirDate() );
+        else if (pInfo->GetYearOfInitialRelease() > 0)
+        {
+            QDate year;
+            year.setDate(pInfo->GetYearOfInitialRelease(), 1, 1);
+            pProgram->setAirdate( year );
+        }
 
         pProgram->setDescription( pInfo->GetDescription() );
         pProgram->setInetref    ( pInfo->GetInetRef()     );
         pProgram->setSeason     ( pInfo->GetSeason()      );
         pProgram->setEpisode    ( pInfo->GetEpisode()     );
+        pProgram->setTotalEpisodes( pInfo->GetEpisodeTotal() );
+    }
+
+    pProgram->setSerializeCast(bIncCast);
+    if (bIncCast)
+    {
+        FillCastMemberList( pProgram->Cast(), pInfo );
     }
 
     pProgram->setSerializeChannel( bIncChannel );
@@ -84,8 +100,13 @@ void FillProgramInfo( DTC::Program *pProgram,
     if ( bIncChannel )
     {
         // Build Channel Child Element
-
-        FillChannelInfo( pProgram->Channel(), pInfo, bDetails );
+        if (!FillChannelInfo( pProgram->Channel(), pInfo->GetChanID(), bDetails ))
+        {
+            // The channel associated with a given recording may no longer exist
+            // however the ChanID is one half of the unique identifier for the
+            // recording and therefore MUST be included in the return data
+            pProgram->Channel()->setChanId(pInfo->GetChanID());
+        }
     }
 
     // Build Recording Child Element
@@ -113,6 +134,12 @@ void FillProgramInfo( DTC::Program *pProgram,
             pRecording->setDupInType   ( pInfo->GetDuplicateCheckSource() );
             pRecording->setDupMethod   ( pInfo->GetDuplicateCheckMethod() );
             pRecording->setEncoderId   ( pInfo->GetCardID()               );
+            if (pProgram->Channel())
+            {
+                QString encoderName = CardUtil::GetDisplayName(pInfo->GetCardID(),
+                                                               pProgram->Channel()->SourceId());
+                pRecording->setEncoderName( encoderName );
+            }
 
             const RecordingInfo ri(*pInfo);
             pRecording->setProfile( ri.GetProgramRecordingProfile() );
@@ -132,35 +159,79 @@ void FillProgramInfo( DTC::Program *pProgram,
 //
 /////////////////////////////////////////////////////////////////////////////
 
-void FillChannelInfo( DTC::ChannelInfo *pChannel,
-                      ProgramInfo      *pInfo,
+bool FillChannelInfo( DTC::ChannelInfo *pChannel,
+                      uint              nChanID,
                       bool              bDetails  /* = true */ )
 {
-    if (pInfo)
+    ChannelInfo channel;
+    if (channel.Load(nChanID))
     {
-        if (!ChannelUtil::GetIcon(pInfo->GetChanID()).isEmpty())
+        // TODO update DTC::ChannelInfo to match functionality of ChannelInfo,
+        //      ultimately replacing it's progenitor?
+        pChannel->setChanId(channel.chanid);
+        pChannel->setChanNum(channel.channum);
+        pChannel->setCallSign(channel.callsign);
+        if (!channel.icon.isEmpty())
         {
             QString sIconURL  = QString( "/Guide/GetChannelIcon?ChanId=%3")
-                                       .arg( pInfo->GetChanID() );
-            pChannel->setIconURL    ( sIconURL                    );
+                                       .arg( nChanID );
+            pChannel->setIconURL( sIconURL );
         }
-
-        pChannel->setChanId     ( pInfo->GetChanID()              );
-        pChannel->setChanNum    ( pInfo->GetChanNum()             );
-        pChannel->setCallSign   ( pInfo->GetChannelSchedulingID() );
-        pChannel->setChannelName( pInfo->GetChannelName()         );
+        pChannel->setChannelName(channel.name);
+        pChannel->setVisible(channel.visible);
 
         pChannel->setSerializeDetails( bDetails );
 
         if (bDetails)
         {
-            pChannel->setChanFilters( pInfo->GetChannelPlaybackFilters() );
-            pChannel->setSourceId   ( pInfo->GetSourceID()               );
-            pChannel->setInputId    ( pInfo->GetInputID()                );
-            pChannel->setCommFree   ( (pInfo->IsCommercialFree()) ? 1 : 0);
+            pChannel->setMplexId(channel.mplexid);
+            pChannel->setServiceId(channel.serviceid);
+            pChannel->setATSCMajorChan(channel.atsc_major_chan);
+            pChannel->setATSCMinorChan(channel.atsc_minor_chan);
+            pChannel->setFormat(channel.tvformat);
+            pChannel->setFineTune(channel.finetune);
+            pChannel->setFrequencyId(channel.freqid);
+            pChannel->setChanFilters(channel.videofilters);
+            pChannel->setSourceId(channel.sourceid);
+            pChannel->setCommFree(channel.commmethod == -2);
+            pChannel->setUseEIT(channel.useonairguide);
+            pChannel->setXMLTVID(channel.xmltvid);
+            pChannel->setDefaultAuth(channel.default_authority);
+
+            // Extended data - This doesn't come from the channel table but the
+            // dtv_multiplex table
+            QString format, modulation, freqtable, freqid, dtv_si_std;
+            uint64_t frequency = 0;
+            uint transportid = 0;
+            uint networkid = 0;
+            ChannelUtil::GetTuningParams(channel.mplexid, modulation, frequency,
+                                        transportid, networkid, dtv_si_std);
+
+            pChannel->setModulation(modulation);
+            pChannel->setFrequencyTable(freqtable);
+            pChannel->setFrequency((long)frequency);
+            pChannel->setSIStandard(dtv_si_std);
+            pChannel->setTransportId(transportid);
+            pChannel->setNetworkId(networkid);
         }
+
+        return true;
     }
 
+    return false;
+}
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+void FillChannelGroup(DTC::ChannelGroup* pGroup, ChannelGroupItem pGroupItem)
+{
+    if (!pGroup)
+        return;
+
+    pGroup->setGroupId(pGroupItem.grpid);
+    pGroup->setName(pGroupItem.name);
+    pGroup->setPassword(""); // Not currently supported
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -203,7 +274,7 @@ void FillRecRuleInfo( DTC::RecRule  *pRecRule,
     pRecRule->setDupIn          (  toRawString(pRule->m_dupIn)     );
     pRecRule->setFilter         (  pRule->m_filter                 );
     pRecRule->setRecProfile     (  pRule->m_recProfile             );
-    pRecRule->setRecGroup       (  pRule->m_recGroup               );
+    pRecRule->setRecGroup       (  RecordingInfo::GetRecgroupString(pRule->m_recGroupID) );
     pRecRule->setStorageGroup   (  pRule->m_storageGroup           );
     pRecRule->setPlayGroup      (  pRule->m_playGroup              );
     pRecRule->setAutoExpire     (  pRule->m_autoExpire             );
@@ -356,4 +427,95 @@ void FillVideoMetadataInfo (
                               .arg(pMetadata->GetScreenshot()));
         }
     }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+void FillInputInfo(DTC::Input* input, InputInfo inputInfo)
+{
+    input->setId(inputInfo.inputid);
+    input->setInputName(inputInfo.name);
+    input->setCardId(inputInfo.cardid);
+    input->setSourceId(inputInfo.sourceid);
+    input->setDisplayName(inputInfo.displayName);
+    input->setLiveTVOrder(inputInfo.livetvorder);
+    input->setScheduleOrder(inputInfo.scheduleOrder);
+    input->setRecPriority(inputInfo.recPriority);
+    input->setQuickTune(inputInfo.quickTune);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+void FillCastMemberList(DTC::CastMemberList* pCastMemberList,
+                        ProgramInfo* pInfo)
+{
+    if (!pCastMemberList || !pInfo)
+        return;
+
+    MSqlQuery query(MSqlQuery::InitCon());
+    if (pInfo->GetFilesize() > 0) // FIXME: This shouldn't be the way to determine what is or isn't a recording!
+        query.prepare("SELECT role, people.name FROM recordedcredits"
+                        " AS credits"
+                        " LEFT JOIN people ON credits.person = people.person"
+                        " WHERE credits.chanid = :CHANID"
+                        " AND credits.starttime = :STARTTIME"
+                        " ORDER BY role;");
+    else
+        query.prepare("SELECT role, people.name FROM credits"
+                        " LEFT JOIN people ON credits.person = people.person"
+                        " WHERE credits.chanid = :CHANID"
+                        " AND credits.starttime = :STARTTIME"
+                        " ORDER BY role;");
+    query.bindValue(":CHANID",    pInfo->GetChanID());
+    query.bindValue(":STARTTIME", pInfo->GetScheduledStartTime());
+
+    if (query.exec() && query.size() > 0)
+    {
+        QMap<QString, QString> translations;
+        translations["ACTOR"] = QObject::tr("Actors");
+        translations["DIRECTOR"] = QObject::tr("Director");
+        translations["PRODUCER"] = QObject::tr("Producer");
+        translations["EXECUTIVE_PRODUCER"] = QObject::tr("Executive Producer");
+        translations["WRITER"] = QObject::tr("Writer");
+        translations["GUEST_STAR"] = QObject::tr("Guest Star");
+        translations["HOST"] = QObject::tr("Host");
+        translations["ADAPTER"] = QObject::tr("Adapter");
+        translations["PRESENTER"] = QObject::tr("Presenter");
+        translations["COMMENTATOR"] = QObject::tr("Commentator");
+        translations["GUEST"] = QObject::tr("Guest");
+
+        while (query.next())
+        {
+            DTC::CastMember *pCastMember = pCastMemberList->AddNewCastMember();
+
+            QString role = query.value(0).toString();
+            pCastMember->setRole(role);
+            pCastMember->setTranslatedRole(translations.value(role.toUpper()));
+            /* The people.name column uses utf8_bin collation.
+                * Qt-MySQL drivers use QVariant::ByteArray for string-type
+                * MySQL fields marked with the BINARY attribute (those using a
+                * *_bin collation) and QVariant::String for all others.
+                * Since QVariant::toString() uses QString::fromAscii()
+                * (through QVariant::convert()) when the QVariant's type is
+                * QVariant::ByteArray, we have to use QString::fromUtf8()
+                * explicitly to prevent corrupting characters.
+                * The following code should be changed to use the simpler
+                * toString() approach, as above, if we do a DB update to
+                * coalesce the people.name values that differ only in case and
+                * change the collation to utf8_general_ci, to match the
+                * majority of other columns, or we'll have the same problem in
+                * reverse.
+                */
+            pCastMember->setName(QString::fromUtf8(query.value(1)
+                                        .toByteArray().constData()));
+
+        }
+    }
+
+    //pCastMemberList->setCount(query.size());
+    //pCastMemberList->setTotalAvailable(query.size());
 }

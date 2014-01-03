@@ -70,7 +70,9 @@ class StoreOptMixin
     void RuleChanged(void);
     void MaxEpisodesChanged(MythUIButtonListItem *);
     void PromptForRecGroup(void);
-    void SetRecGroup(QString recgroup);
+    void SetRecGroup(int recgroupID, QString recgroup);
+
+    int CreateRecordingGroup(const QString &groupName);
 
     MythUIButtonList *m_recprofileList;
     MythUIButtonList *m_recgroupList;
@@ -340,7 +342,7 @@ class MetadataOptions : public SchedEditChild
     void SelectOnlineCoverart();
     void SelectOnlineBanner();
     void QueryComplete(MetadataLookup *lookup);
-    void OnSearchListSelection(MetadataLookup *lookup);
+    void OnSearchListSelection(RefCountHandler<MetadataLookup> lookup);
     void OnImageSearchListSelection(ArtworkInfo info,
                                VideoArtworkType type);
     void OnArtworkSearchDone(MetadataLookup *lookup);
@@ -371,8 +373,6 @@ class MetadataOptions : public SchedEditChild
     // For image picking
     MetadataDownload *m_imageLookup;
     MetadataImageDownload *m_imageDownload;
-
-    MetadataLookup  *m_lookup;
 
     MythScreenStack  *m_popupStack;
     MythUIBusyDialog *m_busyPopup;

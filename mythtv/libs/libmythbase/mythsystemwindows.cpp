@@ -81,6 +81,7 @@ MythSystemLegacyIOHandler::MythSystemLegacyIOHandler(bool read) :
     m_pWaitLock(), m_pWait(), m_pLock(), m_pMap(PMap_t()),
     m_read(read)
 {
+    m_readbuf[0] = '\0';
 }
 
 void MythSystemLegacyIOHandler::run(void)
@@ -596,6 +597,8 @@ void MythSystemLegacyWindows::Signal( int sig )
 #define MAX_BUFLEN 1024
 void MythSystemLegacyWindows::Fork(time_t timeout)
 {
+	BOOL bInherit = FALSE;
+
     QString LOC_ERR = QString("myth_system('%1'): Error: ").arg(GetLogCmd());
 
     // For use in the child
@@ -623,6 +626,8 @@ void MythSystemLegacyWindows::Fork(time_t timeout)
     /* set up pipes */
     if( GetSetting("UseStdin") )
     {
+		bInherit = TRUE;
+
         if (!CreatePipe(&p_stdin[0], &p_stdin[1], &saAttr, 0)) 
         {
             LOG(VB_GENERAL, LOG_ERR, LOC_ERR + "stdin pipe() failed");
@@ -646,6 +651,8 @@ void MythSystemLegacyWindows::Fork(time_t timeout)
 
     if( GetSetting("UseStdout") )
     {
+		bInherit = TRUE;
+
         if (!CreatePipe(&p_stdout[0], &p_stdout[1], &saAttr, 0)) 
         {
             LOG(VB_SYSTEM, LOG_ERR, LOC_ERR + "stdout pipe() failed");
@@ -669,6 +676,8 @@ void MythSystemLegacyWindows::Fork(time_t timeout)
 
     if( GetSetting("UseStderr") )
     {
+		bInherit = TRUE;
+
         if (!CreatePipe(&p_stderr[0], &p_stderr[1], &saAttr, 0)) 
         {
             LOG(VB_SYSTEM, LOG_ERR, LOC_ERR + "stderr pipe() failed");
@@ -691,19 +700,16 @@ void MythSystemLegacyWindows::Fork(time_t timeout)
     }
 
     // set up command args
-    QString cmd = GetCommand().replace('/','\\') + " " + GetArgs().join(" ");
+    QString cmd = GetCommand() + " " + GetArgs().join(" ");
+
     if (GetSetting("UseShell"))
         cmd.prepend("cmd.exe /c ");
 
     SetCommand( cmd );
 
-    QByteArray cmdUTF8 = GetCommand().toUtf8();
-    TCHAR *command = TEXT((char *)cmdUTF8.constData());
-
-    const char *directory = NULL;
+	QString sCmd = GetCommand();
+    
     QString dir = GetDirectory();
-    if (GetSetting("SetDirectory") && !dir.isEmpty())
-        directory = strdup(dir.toUtf8().constData());
 
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
@@ -712,20 +718,28 @@ void MythSystemLegacyWindows::Fork(time_t timeout)
     if( timeout )
         m_timeout += time(NULL);
 
-    bool success = CreateProcess(NULL, 
-                    command,       // command line 
+    LPCWSTR pDir = NULL;
+    if (dir.length() > 0)
+        pDir = (LPCWSTR)dir.utf16();
+
+    bool success = CreateProcess( NULL,
+                    (LPWSTR)sCmd.utf16(),       // command line 
                     NULL,          // process security attributes 
                     NULL,          // primary thread security attributes 
-                    TRUE,          // handles are inherited 
+                    bInherit,      // handles are inherited
                     0,             // creation flags 
                     NULL,          // use parent's environment 
-                    directory,     // use parent's current directory 
+                    pDir,          // use parent's current directory
                    &si,            // STARTUPINFO pointer 
                    &pi);           // receives PROCESS_INFORMATION 
 
     if (!success)
     {
-        LOG(VB_SYSTEM, LOG_ERR, LOC_ERR + "CreateProcess() failed");
+        DWORD dwErr = GetLastError();
+        LOG(VB_SYSTEM, LOG_ERR,
+                QString( "%1 CreateProcess() failed (%2)")
+                    .arg( LOC_ERR )
+                    .arg( dwErr ));
         SetStatus( GENERIC_EXIT_NOT_OK );
     }
     else
@@ -752,9 +766,6 @@ void MythSystemLegacyWindows::Fork(time_t timeout)
         m_stdpipe[1] = p_stdout[0];
         m_stdpipe[2] = p_stderr[0];
 
-        // clean up the memory use
-        if( directory )
-            free((void *)directory);
     }
 
     /* Parent */

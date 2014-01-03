@@ -27,7 +27,7 @@ HEADERS += mythcoreutil.h mythdownloadmanager.h mythtranslation.h
 HEADERS += unzip.h unzip_p.h zipentry_p.h iso639.h iso3166.h mythmedia.h
 HEADERS += mythmiscutil.h mythhdd.h mythcdrom.h autodeletedeque.h dbutil.h
 HEADERS += mythdeque.h
-HEADERS += mythbaseutil.h referencecounter.h version.h mythcommandlineparser.h
+HEADERS += mythbaseutil.h referencecounter.h referencecounterlist.h version.h mythcommandlineparser.h
 HEADERS += mythscheduler.h filesysteminfo.h hardwareprofile.h serverpool.h
 HEADERS += plist.h bswap.h signalhandling.h mythtimezone.h mythdate.h
 HEADERS += mythplugin.h mythpluginapi.h housekeeper.h
@@ -39,6 +39,7 @@ HEADERS += logging/loghandler.h logging/debugloghandler.h
 HEADERS += logging/threadinfo.h logging/logeventhandler.h
 HEADERS += logging/syslogloghandler.h
 HEADERS += mythsystemlegacy.h mythtypes.h
+HEADERS += threadedfilewriter.h mythsingledownload.h
 
 SOURCES += mthread.cpp mthreadpool.cpp
 SOURCES += mythsocket.cpp
@@ -60,6 +61,7 @@ SOURCES += logging/logdeque.cpp logging/logentry.cpp
 SOURCES += logging/loghandler.cpp logging/debugloghandler.cpp
 SOURCES += logging/logeventhandler.cpp
 SOURCES += logging/syslogloghandler.cpp
+SOURCES += threadedfilewriter.cpp mythsingledownload.cpp
 
 # This stuff is not Qt5 compatible..
 contains(QT_VERSION, ^4\\.[0-9]\\..*) {
@@ -72,7 +74,7 @@ unix {
     HEADERS += mythsystemunix.h
 }
 
-mingw {
+mingw | win32-msvc* {
     SOURCES += mythsystemwindows.cpp
     HEADERS += mythsystemwindows.h
 }
@@ -89,11 +91,14 @@ inc.files += mythcorecontext.h mythsystem.h storagegroup.h
 inc.files += mythcoreutil.h mythlocale.h mythdownloadmanager.h
 inc.files += mythtranslation.h iso639.h iso3166.h mythmedia.h mythmiscutil.h
 inc.files += mythcdrom.h autodeletedeque.h dbutil.h mythdeque.h
-inc.files += referencecounter.h mythcommandlineparser.h mthread.h mthreadpool.h
+inc.files += referencecounter.h referencecounterlist.h
+inf.files += mythcommandlineparser.h
+inc.files += mthread.h mthreadpool.h
 inc.files += filesysteminfo.h hardwareprofile.h bonjourregister.h serverpool.h
 inc.files += plist.h bswap.h signalhandling.h ffmpeg-mmx.h mythdate.h
 inc.files += mythplugin.h mythpluginapi.h mythqtcompat.h
 inc.files += remotefile.h mythsystemlegacy.h mythtypes.h
+inc.files += threadedfilewriter.h mythsingledownload.h
 
 # Allow both #include <blah.h> and #include <libmythbase/blah.h>
 inc2.path  = $${PREFIX}/include/mythtv/libmythbase
@@ -145,6 +150,22 @@ using_libudf {
 using_x11:DEFINES += USING_X11
 
 mingw:LIBS += -lws2_32
+
+win32-msvc* {
+
+    LIBS += -lws2_32
+    EXTRA_LIBS += -lzlib
+    DEFINES += NOLOGSERVER
+
+    # we need to make sure version.h is generated.
+
+    versionTarget.target  = version.h
+    versionTarget.depends = FORCE
+    versionTarget.commands = powershell -noprofile -executionpolicy bypass -File ..\..\version.ps1 ..\..
+
+    PRE_TARGETDEPS += version.h
+    QMAKE_EXTRA_TARGETS += versionTarget
+}
 
 QT += xml sql network
 

@@ -64,7 +64,9 @@ const QString ProgramInfo::kFromRecordedQuery =
     "       r.editing,          r.bookmark,     r.watched,         "//39-41
     "       p.audioprop+0,      p.videoprop+0,  p.subtitletypes+0, "//42-44
     "       r.findid,           rec.dupin,      rec.dupmethod,     "//45-47
-    "       p.syndicatedepisodenumber, p.partnumber, p.parttotal   "//48-50
+    "       p.syndicatedepisodenumber, p.partnumber, p.parttotal,  "//48-50
+    "       p.season,           p.episode,      p.totalepisodes,   "//51-53
+    "       p.category_type                                        "//54
     "FROM recorded AS r "
     "LEFT JOIN channel AS c "
     "ON (r.chanid    = c.chanid) "
@@ -115,8 +117,10 @@ ProgramInfo::ProgramInfo(void) :
     description(),
     season(0),
     episode(0),
+    totalepisodes(0),
     syndicatedepisode(),
     category(),
+    director(),
 
     recpriority(0),
 
@@ -197,8 +201,10 @@ ProgramInfo::ProgramInfo(const ProgramInfo &other) :
     description(other.description),
     season(other.season),
     episode(other.episode),
+    totalepisodes(other.totalepisodes),
     syndicatedepisode(other.syndicatedepisode),
     category(other.category),
+    director(other.director),
 
     recpriority(other.recpriority),
 
@@ -287,6 +293,7 @@ ProgramInfo::ProgramInfo(
     const QString &_description,
     uint  _season,
     uint  _episode,
+    uint  _totalepisodes,
     const QString &_syndicatedepisode,
     const QString &_category,
 
@@ -307,6 +314,7 @@ ProgramInfo::ProgramInfo(
     const QString &_seriesid,
     const QString &_programid,
     const QString &_inetref,
+    CategoryType  _catType,
 
     int _recpriority,
 
@@ -343,8 +351,10 @@ ProgramInfo::ProgramInfo(
     description(_description),
     season(_season),
     episode(_episode),
+    totalepisodes(_totalepisodes),
     syndicatedepisode(_syndicatedepisode),
     category(_category),
+    director(),
 
     recpriority(_recpriority),
 
@@ -365,7 +375,7 @@ ProgramInfo::ProgramInfo(
     seriesid(_seriesid),
     programid(_programid),
     inetref(_inetref),
-    catType(kCategoryNone),
+    catType(_catType),
 
     filesize(_filesize),
 
@@ -460,7 +470,9 @@ ProgramInfo::ProgramInfo(
     description(_description),
     season(_season),
     episode(_episode),
+    totalepisodes(0),
     category(_category),
+    director(),
 
     recpriority(0),
 
@@ -516,8 +528,8 @@ ProgramInfo::ProgramInfo(
     recstatus(_recstatus),
     oldrecstatus(rsUnknown),
     rectype(_rectype),
-    dupin(kDupsInAll),
-    dupmethod(kDupCheckSubDesc),
+    dupin(0),
+    dupmethod(0),
 
     // everything below this line is not serialized
     availableStatus(asAvailable),
@@ -574,14 +586,20 @@ ProgramInfo::ProgramInfo(
     uint _audioproperties,
     uint _subtitleType,
 
+    uint _season,
+    uint _episode,
+    uint _totalepisodes,
+
     const ProgramList &schedList) :
     title(_title),
     subtitle(_subtitle),
     description(_description),
-    season(0),
-    episode(0),
+    season(_season),
+    episode(_episode),
+    totalepisodes(_totalepisodes),
     syndicatedepisode(_syndicatedepisode),
     category(_category),
+    director(),
 
     recpriority(0),
 
@@ -661,7 +679,7 @@ ProgramInfo::ProgramInfo(
     ProgramList::const_iterator it = schedList.begin();
     for (; it != schedList.end(); ++it)
     {
-        if (!IsSameTimeslot(**it))
+        if (!IsSameProgramAndStartTime(**it))
             continue;
 
         const ProgramInfo &s = **it;
@@ -677,7 +695,7 @@ ProgramInfo::ProgramInfo(
         dupmethod   = s.dupmethod;
         findid      = s.findid;
 
-        if (chanstr != s.chanstr)
+        if (chansign != s.chansign)
         {
             if (s.recstatus == rsWillRecord)
                 recstatus = rsOtherShowing;
@@ -685,17 +703,6 @@ ProgramInfo::ProgramInfo(
                 recstatus = rsOtherRecording;
             else if (s.recstatus == rsTuning)
                 recstatus = rsOtherTuning;
-        }
-
-        // Stop recording keys on chanid (and recstarts).  If the
-        // recording is running, override the chanid, so we can stop
-        // it from any matching program.  Remove this hack when we
-        // replace chanid/recstartts as the primary key for the
-        // recorded and related tables with something better.
-        if (s.recstatus == rsRecording ||
-            s.recstatus == rsTuning)
-        {
-            chanid = s.chanid;
         }
     }
 }
@@ -709,6 +716,7 @@ ProgramInfo::ProgramInfo(
     const QString &_description,
     uint  _season,
     uint  _episode,
+    uint  _totalepisodes,
     const QString &_category,
 
     uint _chanid,
@@ -733,7 +741,9 @@ ProgramInfo::ProgramInfo(
     description(_description),
     season(_season),
     episode(_episode),
+    totalepisodes(_totalepisodes),
     category(_category),
+    director(),
 
     recpriority(0),
 
@@ -858,6 +868,15 @@ ProgramInfo::ProgramInfo(const QString &_pathname,
 {
     clear();
 
+    title = _title;
+    subtitle = _subtitle;
+    description = _plot;
+    season = _season;
+    episode = _episode;
+    director = _director;
+    programid = _programid;
+    inetref = _inetref;
+
     QDateTime cur = MythDate::current();
     recstartts = cur.addSecs(((int)_length_in_minutes + 1) * -60);
     recendts   = recstartts.addSecs(_length_in_minutes * 60);
@@ -877,23 +896,6 @@ ProgramInfo::ProgramInfo(const QString &_pathname,
         pn = QString("bd:%1").arg(_pathname);
     }
     SetPathname(pn);
-
-    if (!_director.isEmpty())
-    {
-        description = QString("%1: %2.  ")
-            .arg(QObject::tr("Directed By")).arg(_director);
-    }
-
-    description += _plot;
-
-    if (!_subtitle.isEmpty())
-        subtitle = _subtitle;
-
-    season = _season;
-    episode = _episode;
-    inetref = _inetref;
-    title = _title;
-    programid = _programid;
 }
 
 /** \fn ProgramInfo::ProgramInfo()
@@ -979,8 +981,10 @@ void ProgramInfo::clone(const ProgramInfo &other,
     description = other.description;
     season = other.season;
     episode = other.episode;
+    totalepisodes = other.totalepisodes;
     syndicatedepisode = other.syndicatedepisode;
     category = other.category;
+    director = other.director;
 
     chanid = other.chanid;
     chanstr = other.chanstr;
@@ -1086,8 +1090,10 @@ void ProgramInfo::clear(void)
     description.clear();
     season = 0;
     episode = 0;
+    totalepisodes = 0;
     syndicatedepisode.clear();
     category.clear();
+    director.clear();
 
     chanid = 0;
     chanstr.clear();
@@ -1257,52 +1263,54 @@ void ProgramInfo::ToStringList(QStringList &list) const
     STR_TO_LIST(description);  // 2
     INT_TO_LIST(season);       // 3
     INT_TO_LIST(episode);      // 4
-    STR_TO_LIST(syndicatedepisode); // 5
-    STR_TO_LIST(category);     // 6
-    INT_TO_LIST(chanid);       // 7
-    STR_TO_LIST(chanstr);      // 8
-    STR_TO_LIST(chansign);     // 9
-    STR_TO_LIST(channame);     // 10
-    STR_TO_LIST(pathname);     // 11
-    INT_TO_LIST(filesize);     // 12
+    INT_TO_LIST(totalepisodes); // 5
+    STR_TO_LIST(syndicatedepisode); // 6
+    STR_TO_LIST(category);     // 7
+    INT_TO_LIST(chanid);       // 8
+    STR_TO_LIST(chanstr);      // 9
+    STR_TO_LIST(chansign);     // 10
+    STR_TO_LIST(channame);     // 11
+    STR_TO_LIST(pathname);     // 12
+    INT_TO_LIST(filesize);     // 13
 
-    DATETIME_TO_LIST(startts); // 13
-    DATETIME_TO_LIST(endts);   // 14
-    INT_TO_LIST(findid);       // 15
-    STR_TO_LIST(hostname);     // 16
-    INT_TO_LIST(sourceid);     // 17
-    INT_TO_LIST(cardid);       // 18
-    INT_TO_LIST(inputid);      // 19
-    INT_TO_LIST(recpriority);  // 20
-    INT_TO_LIST(recstatus);    // 21
-    INT_TO_LIST(recordid);     // 22
+    DATETIME_TO_LIST(startts); // 14
+    DATETIME_TO_LIST(endts);   // 15
+    INT_TO_LIST(findid);       // 16
+    STR_TO_LIST(hostname);     // 17
+    INT_TO_LIST(sourceid);     // 18
+    INT_TO_LIST(cardid);       // 19
+    INT_TO_LIST(inputid);      // 20
+    INT_TO_LIST(recpriority);  // 21
+    INT_TO_LIST(recstatus);    // 22
+    INT_TO_LIST(recordid);     // 23
 
-    INT_TO_LIST(rectype);      // 23
-    INT_TO_LIST(dupin);        // 24
-    INT_TO_LIST(dupmethod);    // 25
-    DATETIME_TO_LIST(recstartts);//26
-    DATETIME_TO_LIST(recendts);// 27
-    INT_TO_LIST(programflags); // 28
-    STR_TO_LIST((!recgroup.isEmpty()) ? recgroup : "Default"); // 29
-    STR_TO_LIST(chanplaybackfilters); // 30
-    STR_TO_LIST(seriesid);     // 31
-    STR_TO_LIST(programid);    // 32
-    STR_TO_LIST(inetref);      // 33
+    INT_TO_LIST(rectype);      // 24
+    INT_TO_LIST(dupin);        // 25
+    INT_TO_LIST(dupmethod);    // 26
+    DATETIME_TO_LIST(recstartts);//27
+    DATETIME_TO_LIST(recendts);// 28
+    INT_TO_LIST(programflags); // 29
+    STR_TO_LIST((!recgroup.isEmpty()) ? recgroup : "Default"); // 30
+    STR_TO_LIST(chanplaybackfilters); // 31
+    STR_TO_LIST(seriesid);     // 32
+    STR_TO_LIST(programid);    // 33
+    STR_TO_LIST(inetref);      // 34
 
-    DATETIME_TO_LIST(lastmodified); // 34
-    FLOAT_TO_LIST(stars);           // 35
-    DATE_TO_LIST(originalAirDate);  // 36
-    STR_TO_LIST((!playgroup.isEmpty()) ? playgroup : "Default"); // 37
-    INT_TO_LIST(recpriority2);      // 38
-    INT_TO_LIST(parentid);          // 39
-    STR_TO_LIST((!storagegroup.isEmpty()) ? storagegroup : "Default"); // 40
-    INT_TO_LIST(GetAudioProperties()); // 41
-    INT_TO_LIST(GetVideoProperties()); // 42
-    INT_TO_LIST(GetSubtitleType());    // 43
+    DATETIME_TO_LIST(lastmodified); // 35
+    FLOAT_TO_LIST(stars);           // 36
+    DATE_TO_LIST(originalAirDate);  // 37
+    STR_TO_LIST((!playgroup.isEmpty()) ? playgroup : "Default"); // 38
+    INT_TO_LIST(recpriority2);      // 39
+    INT_TO_LIST(parentid);          // 40
+    STR_TO_LIST((!storagegroup.isEmpty()) ? storagegroup : "Default"); // 41
+    INT_TO_LIST(GetAudioProperties()); // 42
+    INT_TO_LIST(GetVideoProperties()); // 43
+    INT_TO_LIST(GetSubtitleType());    // 44
 
-    INT_TO_LIST(year);              // 44
-    INT_TO_LIST(partnumber);   // 45
-    INT_TO_LIST(parttotal);    // 46
+    INT_TO_LIST(year);              // 45
+    INT_TO_LIST(partnumber);   // 46
+    INT_TO_LIST(parttotal);    // 47
+    INT_TO_LIST(catType);      // 48
 /* do not forget to update the NUMPROGRAMLINES defines! */
 }
 
@@ -1355,56 +1363,58 @@ bool ProgramInfo::FromStringList(QStringList::const_iterator &it,
     STR_FROM_LIST(description);      // 2
     INT_FROM_LIST(season);           // 3
     INT_FROM_LIST(episode);          // 4
-    STR_FROM_LIST(syndicatedepisode); // 5
-    STR_FROM_LIST(category);         // 6
-    INT_FROM_LIST(chanid);           // 7
-    STR_FROM_LIST(chanstr);          // 8
-    STR_FROM_LIST(chansign);         // 9
-    STR_FROM_LIST(channame);         // 10
-    STR_FROM_LIST(pathname);         // 11
-    INT_FROM_LIST(filesize);         // 12
+    INT_FROM_LIST(totalepisodes);    // 5
+    STR_FROM_LIST(syndicatedepisode); // 6
+    STR_FROM_LIST(category);         // 7
+    INT_FROM_LIST(chanid);           // 8
+    STR_FROM_LIST(chanstr);          // 9
+    STR_FROM_LIST(chansign);         // 10
+    STR_FROM_LIST(channame);         // 11
+    STR_FROM_LIST(pathname);         // 12
+    INT_FROM_LIST(filesize);         // 13
 
-    DATETIME_FROM_LIST(startts);     // 13
-    DATETIME_FROM_LIST(endts);       // 14
-    INT_FROM_LIST(findid);           // 15
-    STR_FROM_LIST(hostname);         // 16
-    INT_FROM_LIST(sourceid);         // 17
-    INT_FROM_LIST(cardid);           // 18
-    INT_FROM_LIST(inputid);          // 19
-    INT_FROM_LIST(recpriority);      // 20
-    ENUM_FROM_LIST(recstatus, RecStatusType); // 21
-    INT_FROM_LIST(recordid);         // 22
+    DATETIME_FROM_LIST(startts);     // 14
+    DATETIME_FROM_LIST(endts);       // 15
+    INT_FROM_LIST(findid);           // 16
+    STR_FROM_LIST(hostname);         // 17
+    INT_FROM_LIST(sourceid);         // 18
+    INT_FROM_LIST(cardid);           // 19
+    INT_FROM_LIST(inputid);          // 20
+    INT_FROM_LIST(recpriority);      // 21
+    ENUM_FROM_LIST(recstatus, RecStatusType); // 22
+    INT_FROM_LIST(recordid);         // 23
 
-    ENUM_FROM_LIST(rectype, RecordingType);            // 23
-    ENUM_FROM_LIST(dupin, RecordingDupInType);         // 24
-    ENUM_FROM_LIST(dupmethod, RecordingDupMethodType); // 25
-    DATETIME_FROM_LIST(recstartts);   // 26
-    DATETIME_FROM_LIST(recendts);     // 27
-    INT_FROM_LIST(programflags);      // 28
-    STR_FROM_LIST(recgroup);          // 29
-    STR_FROM_LIST(chanplaybackfilters);//30
-    STR_FROM_LIST(seriesid);          // 31
-    STR_FROM_LIST(programid);         // 32
-    STR_FROM_LIST(inetref);           // 33
+    ENUM_FROM_LIST(rectype, RecordingType);            // 24
+    ENUM_FROM_LIST(dupin, RecordingDupInType);         // 25
+    ENUM_FROM_LIST(dupmethod, RecordingDupMethodType); // 26
+    DATETIME_FROM_LIST(recstartts);   // 27
+    DATETIME_FROM_LIST(recendts);     // 28
+    INT_FROM_LIST(programflags);      // 29
+    STR_FROM_LIST(recgroup);          // 30
+    STR_FROM_LIST(chanplaybackfilters);//31
+    STR_FROM_LIST(seriesid);          // 32
+    STR_FROM_LIST(programid);         // 33
+    STR_FROM_LIST(inetref);           // 34
 
-    DATETIME_FROM_LIST(lastmodified); // 34
-    FLOAT_FROM_LIST(stars);           // 35
-    DATE_FROM_LIST(originalAirDate);; // 36
-    STR_FROM_LIST(playgroup);         // 37
-    INT_FROM_LIST(recpriority2);      // 38
-    INT_FROM_LIST(parentid);          // 39
-    STR_FROM_LIST(storagegroup);      // 40
+    DATETIME_FROM_LIST(lastmodified); // 35
+    FLOAT_FROM_LIST(stars);           // 36
+    DATE_FROM_LIST(originalAirDate);; // 37
+    STR_FROM_LIST(playgroup);         // 38
+    INT_FROM_LIST(recpriority2);      // 39
+    INT_FROM_LIST(parentid);          // 40
+    STR_FROM_LIST(storagegroup);      // 41
     uint audioproperties, videoproperties, subtitleType;
-    INT_FROM_LIST(audioproperties);   // 41
-    INT_FROM_LIST(videoproperties);   // 42
-    INT_FROM_LIST(subtitleType);      // 43
+    INT_FROM_LIST(audioproperties);   // 42
+    INT_FROM_LIST(videoproperties);   // 43
+    INT_FROM_LIST(subtitleType);      // 44
     properties = ((subtitleType    << kSubtitlePropertyOffset) |
                   (videoproperties << kVideoPropertyOffset)    |
                   (audioproperties << kAudioPropertyOffset));
 
-    INT_FROM_LIST(year);              // 44
-    INT_FROM_LIST(partnumber);        // 45
-    INT_FROM_LIST(parttotal);         // 46
+    INT_FROM_LIST(year);              // 45
+    INT_FROM_LIST(partnumber);        // 46
+    INT_FROM_LIST(parttotal);         // 47
+    ENUM_FROM_LIST(catType, CategoryType); // 48
 
     if (!origChanid || !origRecstartts.isValid() ||
         (origChanid != chanid) || (origRecstartts != recstartts))
@@ -1457,6 +1467,7 @@ void ProgramInfo::ToMap(InfoMap &progMap,
     {
         progMap["season"] = format_season_and_episode(season, 1);
         progMap["episode"] = format_season_and_episode(episode, 1);
+        progMap["totalepisodes"] = format_season_and_episode(totalepisodes, 1);
         progMap["s00e00"] = QString("s%1e%2")
             .arg(format_season_and_episode(GetSeason(), 2))
             .arg(format_season_and_episode(GetEpisode(), 2));
@@ -1467,11 +1478,14 @@ void ProgramInfo::ToMap(InfoMap &progMap,
     else
     {
         progMap["season"] = progMap["episode"] = "";
+        progMap["totalepisodes"] = "";
         progMap["s00e00"] = progMap["00x00"] = "";
     }
     progMap["syndicatedepisode"] = syndicatedepisode;
 
     progMap["category"] = category;
+    progMap["director"] = director;
+
     progMap["callsign"] = chansign;
     progMap["commfree"] = (programflags & FL_CHANCOMMFREE) ? 1 : 0;
     progMap["outputfilters"] = chanplaybackfilters;
@@ -1880,7 +1894,12 @@ bool ProgramInfo::LoadProgramFromRecorded(
     subtitle     = query.value(1).toString();
     description  = query.value(2).toString();
     season       = query.value(3).toUInt();
+    if (season == 0)
+        season   = query.value(51).toUInt();
     episode      = query.value(4).toUInt();
+    if (episode == 0)
+        episode  = query.value(52).toUInt();
+    totalepisodes = query.value(53).toUInt();
     syndicatedepisode = query.value(48).toString();
     category     = query.value(5).toString();
 
@@ -1921,7 +1940,7 @@ bool ProgramInfo::LoadProgramFromRecorded(
     seriesid     = query.value(17).toString();
     programid    = query.value(18).toString();
     inetref      = query.value(19).toString();
-    /**///catType;
+    catType      = string_to_myth_category_type(query.value(54).toString());
 
     recpriority  = query.value(16).toInt();
 
@@ -2011,7 +2030,7 @@ bool ProgramInfo::IsSameProgramWeakCheck(const ProgramInfo &other) const
             startts == other.startts);
 }
 
-/** \fn ProgramInfo::IsSameProgram(const ProgramInfo&) const
+/**
  *  \brief Checks for duplicates according to dupmethod.
  *  \param other ProgramInfo to compare this one with.
  */
@@ -2078,12 +2097,27 @@ bool ProgramInfo::IsSameProgram(const ProgramInfo& other) const
     return true;
 }
 
-/** \fn ProgramInfo::IsSameTimeslot(const ProgramInfo&) const
- *  \brief Checks chanid, start/end times for equality.
+/**
+ *  \brief Match same program, with same starttime (channel may be different)
+ *  \param other ProgramInfo to compare this one with.
+ *  \return true if this program is the same and shares same start time as "other" program.
+ */
+bool ProgramInfo::IsSameProgramAndStartTime(const ProgramInfo& other) const
+{
+    if (!IsSameProgram(other))
+        return false;
+    if (startts == other.startts)
+        return true;
+
+    return false;
+}
+
+/**
+ *  \brief Checks title, chanid or callsign and start times for equality.
  *  \param other ProgramInfo to compare this one with.
  *  \return true if this program shares same time slot as "other" program.
  */
-bool ProgramInfo::IsSameTimeslot(const ProgramInfo& other) const
+bool ProgramInfo::IsSameTitleStartTimeAndChannel(const ProgramInfo& other) const
 {
     if (title.compare(other.title, Qt::CaseInsensitive) != 0)
         return false;
@@ -2096,13 +2130,13 @@ bool ProgramInfo::IsSameTimeslot(const ProgramInfo& other) const
     return false;
 }
 
-/** \fn ProgramInfo::IsSameProgramTimeslot(const ProgramInfo&) const
- *  \brief Checks chanid or chansign, start/end times,
+/**
+ *  \brief Checks title, chanid or chansign, start/end times,
  *         cardid, inputid for fully inclusive overlap.
  *  \param other ProgramInfo to compare this one with.
  *  \return true if this program is contained in time slot of "other" program.
  */
-bool ProgramInfo::IsSameProgramTimeslot(const ProgramInfo &other) const
+bool ProgramInfo::IsSameTitleTimeslotAndChannel(const ProgramInfo &other) const
 {
     if (title.compare(other.title, Qt::CaseInsensitive) != 0)
         return false;
@@ -3903,11 +3937,14 @@ MarkTypes ProgramInfo::QueryAverageAspectRatio(void ) const
     query.bindValue(":ASPECTSTART", MARK_ASPECT_4_3); // 11
     query.bindValue(":ASPECTEND", MARK_ASPECT_CUSTOM); // 14
 
-    if (!query.exec() || !query.next())
+    if (!query.exec())
     {
         MythDB::DBError("QueryAverageAspectRatio", query);
         return MARK_UNSET;
     }
+
+    if (!query.next())
+        return MARK_UNSET;
 
     return static_cast<MarkTypes>(query.value(0).toInt());
 }
@@ -3930,6 +3967,274 @@ int64_t ProgramInfo::QueryTotalFrames(void) const
 {
     int64_t frames = load_markup_datum(MARK_TOTAL_FRAMES, chanid, recstartts);
     return frames;
+}
+
+void ProgramInfo::QueryMarkup(QVector<MarkupEntry> &mapMark,
+                              QVector<MarkupEntry> &mapSeek) const
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+    // Get the markup
+    if (IsVideo())
+    {
+        query.prepare("SELECT type, mark, offset FROM filemarkup"
+                      " WHERE filename = :PATH"
+                      " AND type NOT IN (:KEYFRAME,:DURATION)"
+                      " ORDER BY mark, type;");
+        query.bindValue(":PATH", StorageGroup::GetRelativePathname(pathname));
+        query.bindValue(":KEYFRAME", MARK_GOP_BYFRAME);
+        query.bindValue(":DURATION", MARK_DURATION_MS);
+    }
+    else if (IsRecording())
+    {
+        query.prepare("SELECT type, mark, data FROM recordedmarkup"
+                      " WHERE chanid = :CHANID"
+                      " AND STARTTIME = :STARTTIME"
+                      " ORDER BY mark, type");
+        query.bindValue(":CHANID", chanid);
+        query.bindValue(":STARTTIME", recstartts);
+    }
+    else
+    {
+        return;
+    }
+    if (!query.exec())
+    {
+        MythDB::DBError("QueryMarkup markup data", query);
+        return;
+    }
+    while (query.next())
+    {
+        int type = query.value(0).toInt();
+        uint64_t frame = query.value(1).toLongLong();
+        uint64_t data = 0;
+        bool isDataNull = query.value(2).isNull();
+        if (!isDataNull)
+            data = query.value(2).toLongLong();
+        mapMark.append(MarkupEntry(type, frame, data, isDataNull));
+    }
+
+    // Get the seektable
+    if (IsVideo())
+    {
+        query.prepare("SELECT type, mark, offset FROM filemarkup"
+                      " WHERE filename = :PATH"
+                      " AND type IN (:KEYFRAME,:DURATION)"
+                      " ORDER BY mark, type;");
+        query.bindValue(":PATH", StorageGroup::GetRelativePathname(pathname));
+        query.bindValue(":KEYFRAME", MARK_GOP_BYFRAME);
+        query.bindValue(":DURATION", MARK_DURATION_MS);
+    }
+    else if (IsRecording())
+    {
+        query.prepare("SELECT type, mark, offset FROM recordedseek"
+                      " WHERE chanid = :CHANID"
+                      " AND STARTTIME = :STARTTIME"
+                      " ORDER BY mark, type");
+        query.bindValue(":CHANID", chanid);
+        query.bindValue(":STARTTIME", recstartts);
+    }
+    if (!query.exec())
+    {
+        MythDB::DBError("QueryMarkup seektable data", query);
+        return;
+    }
+    while (query.next())
+    {
+        int type = query.value(0).toInt();
+        uint64_t frame = query.value(1).toLongLong();
+        uint64_t data = 0;
+        bool isDataNull = query.value(2).isNull();
+        if (!isDataNull)
+            data = query.value(2).toLongLong();
+        mapSeek.append(MarkupEntry(type, frame, data, isDataNull));
+    }
+}
+
+void ProgramInfo::SaveMarkup(const QVector<MarkupEntry> &mapMark,
+                             const QVector<MarkupEntry> &mapSeek) const
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+    if (IsVideo())
+    {
+        QString path = StorageGroup::GetRelativePathname(pathname);
+        if (mapMark.isEmpty())
+        {
+            LOG(VB_GENERAL, LOG_INFO,
+                QString("No mark entries in input, "
+                        "not removing marks from DB"));
+        }
+        else
+        {
+            query.prepare("DELETE FROM filemarkup"
+                          " WHERE filename = :PATH"
+                          " AND type NOT IN (:KEYFRAME,:DURATION)");
+            query.bindValue(":PATH", path);
+            query.bindValue(":KEYFRAME", MARK_GOP_BYFRAME);
+            query.bindValue(":DURATION", MARK_DURATION_MS);
+            if (!query.exec())
+            {
+                MythDB::DBError("SaveMarkup seektable data", query);
+                return;
+            }
+            for (int i = 0; i < mapMark.size(); ++i)
+            {
+                const MarkupEntry &entry = mapMark[i];
+                if (entry.type == MARK_DURATION_MS)
+                    continue;
+                if (entry.isDataNull)
+                {
+                    query.prepare("INSERT INTO filemarkup"
+                                  " (filename,type,mark)"
+                                  " VALUES (:PATH,:TYPE,:MARK)");
+                }
+                else
+                {
+                    query.prepare("INSERT INTO filemarkup"
+                                  " (filename,type,mark,offset)"
+                                  " VALUES (:PATH,:TYPE,:MARK,:OFFSET)");
+                    query.bindValue(":OFFSET", (quint64)entry.data);
+                }
+                query.bindValue(":PATH", path);
+                query.bindValue(":TYPE", entry.type);
+                query.bindValue(":MARK", (quint64)entry.frame);
+                if (!query.exec())
+                {
+                    MythDB::DBError("SaveMarkup seektable data", query);
+                    return;
+                }
+            }
+        }
+        if (mapSeek.isEmpty())
+        {
+            LOG(VB_GENERAL, LOG_INFO,
+                QString("No seek entries in input, "
+                        "not removing marks from DB"));
+        }
+        else
+        {
+            query.prepare("DELETE FROM filemarkup"
+                          " WHERE filename = :PATH"
+                          " AND type IN (:KEYFRAME,:DURATION)");
+            query.bindValue(":PATH", path);
+            query.bindValue(":KEYFRAME", MARK_GOP_BYFRAME);
+            query.bindValue(":DURATION", MARK_DURATION_MS);
+            if (!query.exec())
+            {
+                MythDB::DBError("SaveMarkup seektable data", query);
+                return;
+            }
+            for (int i = 0; i < mapSeek.size(); ++i)
+            {
+                if (i > 0 && (i % 1000 == 0))
+                    LOG(VB_GENERAL, LOG_INFO,
+                        QString("Inserted %1 of %2 records")
+                        .arg(i).arg(mapSeek.size()));
+                const MarkupEntry &entry = mapSeek[i];
+                query.prepare("INSERT INTO filemarkup"
+                              " (filename,type,mark,offset)"
+                              " VALUES (:PATH,:TYPE,:MARK,:OFFSET)");
+                query.bindValue(":PATH", path);
+                query.bindValue(":TYPE", entry.type);
+                query.bindValue(":MARK", (quint64)entry.frame);
+                query.bindValue(":OFFSET", (quint64)entry.data);
+                if (!query.exec())
+                {
+                    MythDB::DBError("SaveMarkup seektable data", query);
+                    return;
+                }
+            }
+        }
+    }
+    else if (IsRecording())
+    {
+        if (mapMark.isEmpty())
+        {
+            LOG(VB_GENERAL, LOG_INFO,
+                QString("No mark entries in input, "
+                        "not removing marks from DB"));
+        }
+        else
+        {
+            query.prepare("DELETE FROM recordedmarkup"
+                          " WHERE chanid = :CHANID"
+                          " AND starttime = :STARTTIME");
+            query.bindValue(":CHANID", chanid);
+            query.bindValue(":STARTTIME", recstartts);
+            if (!query.exec())
+            {
+                MythDB::DBError("SaveMarkup seektable data", query);
+                return;
+            }
+            for (int i = 0; i < mapMark.size(); ++i)
+            {
+                const MarkupEntry &entry = mapMark[i];
+                if (entry.isDataNull)
+                {
+                    query.prepare("INSERT INTO recordedmarkup"
+                                  " (chanid,starttime,type,mark)"
+                                  " VALUES (:CHANID,:STARTTIME,:TYPE,:MARK)");
+                }
+                else
+                {
+                    query.prepare("INSERT INTO recordedmarkup"
+                                  " (chanid,starttime,type,mark,data)"
+                                  " VALUES (:CHANID,:STARTTIME,"
+                                  "         :TYPE,:MARK,:OFFSET)");
+                    query.bindValue(":OFFSET", (quint64)entry.data);
+                }
+                query.bindValue(":CHANID", chanid);
+                query.bindValue(":STARTTIME", recstartts);
+                query.bindValue(":TYPE", entry.type);
+                query.bindValue(":MARK", (quint64)entry.frame);
+                if (!query.exec())
+                {
+                    MythDB::DBError("SaveMarkup seektable data", query);
+                    return;
+                }
+            }
+        }
+        if (mapSeek.isEmpty())
+        {
+            LOG(VB_GENERAL, LOG_INFO,
+                QString("No seek entries in input, "
+                        "not removing marks from DB"));
+        }
+        else
+        {
+            query.prepare("DELETE FROM recordedseek"
+                          " WHERE chanid = :CHANID"
+                          " AND starttime = :STARTTIME");
+            query.bindValue(":CHANID", chanid);
+            query.bindValue(":STARTTIME", recstartts);
+            if (!query.exec())
+            {
+                MythDB::DBError("SaveMarkup seektable data", query);
+                return;
+            }
+            for (int i = 0; i < mapSeek.size(); ++i)
+            {
+                if (i > 0 && (i % 1000 == 0))
+                    LOG(VB_GENERAL, LOG_INFO,
+                        QString("Inserted %1 of %2 records")
+                        .arg(i).arg(mapSeek.size()));
+                const MarkupEntry &entry = mapSeek[i];
+                query.prepare("INSERT INTO recordedseek"
+                              " (chanid,starttime,type,mark,offset)"
+                              " VALUES (:CHANID,:STARTTIME,"
+                              "         :TYPE,:MARK,:OFFSET)");
+                query.bindValue(":CHANID", chanid);
+                query.bindValue(":STARTTIME", recstartts);
+                query.bindValue(":TYPE", entry.type);
+                query.bindValue(":MARK", (quint64)entry.frame);
+                query.bindValue(":OFFSET", (quint64)entry.data);
+                if (!query.exec())
+                {
+                    MythDB::DBError("SaveMarkup seektable data", query);
+                    return;
+                }
+            }
+        }
+    }
 }
 
 void ProgramInfo::SaveVideoProperties(uint mask, uint vid_flags)
@@ -4071,7 +4376,7 @@ QString ProgramInfo::QueryRecordingGroupPassword(const QString &group)
     QString result;
 
     MSqlQuery query(MSqlQuery::InitCon());
-    query.prepare("SELECT password FROM recgrouppassword "
+    query.prepare("SELECT password FROM recgroups "
                     "WHERE recgroup = :GROUP");
     query.bindValue(":GROUP", group);
 
@@ -4543,6 +4848,7 @@ void ProgramInfo::SubstituteMatches(QString &str)
     str.replace(QString("%SUBTITLE%"), subtitle);
     str.replace(QString("%SEASON%"), QString::number(season));
     str.replace(QString("%EPISODE%"), QString::number(episode));
+    str.replace(QString("%TOTALEPISODES%"), QString::number(totalepisodes));
     str.replace(QString("%SYNDICATEDEPISODE%"), syndicatedepisode);
     str.replace(QString("%DESCRIPTION%"), description);
     str.replace(QString("%HOSTNAME%"), hostname);
@@ -4675,9 +4981,8 @@ static bool FromProgramQuery(
     const QString &sql, const MSqlBindings &bindings, MSqlQuery &query)
 {
     QString querystr = QString(
-        "SELECT program.description, sub.* FROM program, ("
-        "SELECT DISTINCT program.chanid, program.starttime, program.endtime, "
-        "    program.title, program.subtitle, "
+        "SELECT program.chanid, program.starttime, program.endtime, "
+        "    program.title, program.subtitle, program.description, "
         "    program.category, channel.channum, channel.callsign, "
         "    channel.name, program.previouslyshown, channel.commmethod, "
         "    channel.outputfilters, program.seriesid, program.programid, "
@@ -4686,7 +4991,8 @@ static bool FromProgramQuery(
         "    oldrecstatus.rectype, oldrecstatus.recstatus, "
         "    oldrecstatus.findid, program.videoprop+0, program.audioprop+0, "
         "    program.subtitletypes+0, program.syndicatedepisodenumber, "
-        "    program.partnumber, program.parttotal "
+        "    program.partnumber, program.parttotal, "
+        "    program.season, program.episode, program.totalepisodes "
         "FROM program "
         "LEFT JOIN channel ON program.chanid = channel.chanid "
         "LEFT JOIN oldrecorded AS oldrecstatus ON "
@@ -4696,10 +5002,12 @@ static bool FromProgramQuery(
         "    program.starttime = oldrecstatus.starttime "
         ) + sql;
 
-    if (!sql.contains(" GROUP BY "))
+    if (!sql.contains("WHERE"))
+        querystr += " WHERE visible != 0 ";
+    if (!sql.contains("GROUP BY"))
         querystr += " GROUP BY program.starttime, channel.channum, "
             "  channel.callsign, program.title ";
-    if (!sql.contains(" ORDER BY "))
+    if (!sql.contains("ORDER BY"))
     {
         querystr += " ORDER BY program.starttime, ";
         QString chanorder =
@@ -4709,10 +5017,9 @@ static bool FromProgramQuery(
         else // approximation which the DB can handle
             querystr += "atsc_major_chan,atsc_minor_chan,channum,callsign ";
     }
-    if (!sql.contains(" LIMIT "))
+    if (!sql.contains("LIMIT"))
         querystr += " LIMIT 20000 ";
 
-    querystr += " ) AS sub WHERE program.chanid=sub.chanid AND program.starttime=sub.starttime";
     query.prepare(querystr);
     MSqlBindings::const_iterator it;
     for (it = bindings.begin(); it != bindings.end(); ++it)
@@ -4745,22 +5052,22 @@ bool LoadFromProgram(
     {
         destination.push_back(
             new ProgramInfo(
-                query.value(4).toString(), // title
-                query.value(5).toString(), // subtitle
-                query.value(0).toString(), // description
+                query.value(3).toString(), // title
+                query.value(4).toString(), // subtitle
+                query.value(5).toString(), // description
                 query.value(26).toString(), // syndicatedepisodenumber
                 query.value(6).toString(), // category
 
-                query.value(1).toUInt(), // chanid
+                query.value(0).toUInt(), // chanid
                 query.value(7).toString(), // channum
                 query.value(8).toString(), // chansign
                 query.value(9).toString(), // channame
                 query.value(12).toString(), // chanplaybackfilters
 
-                MythDate::as_utc(query.value(2).toDateTime()), // startts
-                MythDate::as_utc(query.value(3).toDateTime()), // endts
-                MythDate::as_utc(query.value(2).toDateTime()), // recstartts
-                MythDate::as_utc(query.value(3).toDateTime()), // recendts
+                MythDate::as_utc(query.value(1).toDateTime()), // startts
+                MythDate::as_utc(query.value(2).toDateTime()), // endts
+                MythDate::as_utc(query.value(1).toDateTime()), // recstartts
+                MythDate::as_utc(query.value(2).toDateTime()), // recendts
 
                 query.value(13).toString(), // seriesid
                 query.value(14).toString(), // programid
@@ -4781,11 +5088,50 @@ bool LoadFromProgram(
                 query.value(23).toInt(), // videoprop
                 query.value(24).toInt(), // audioprop
                 query.value(25).toInt(), // subtitletypes
+                query.value(29).toUInt(), // season
+                query.value(30).toUInt(), // episode
+                query.value(31).toUInt(), // totalepisodes
 
                 schedList));
     }
 
     return true;
+}
+
+ProgramInfo* LoadProgramFromProgram(const uint chanid,
+                                   const QDateTime& starttime)
+{
+    ProgramInfo *progInfo = NULL;
+
+    // Build add'l SQL statement for Program Listing
+
+    MSqlBindings bindings;
+    QString      sSQL = "WHERE program.chanid = :ChanId "
+                          "AND program.starttime = :StartTime ";
+
+    bindings[":ChanId"   ] = chanid;
+    bindings[":StartTime"] = starttime;
+
+    // Get all Pending Scheduled Programs
+
+    ProgramList  schedList;
+    bool hasConflicts;
+    LoadFromScheduler(schedList, hasConflicts);
+
+    // ----------------------------------------------------------------------
+
+    ProgramList progList;
+
+    LoadFromProgram( progList, sSQL, bindings, schedList );
+
+    if (progList.size() == 0)
+        return progInfo;
+
+    // progList is an Auto-delete deque, the object will be deleted with the
+    // list, so we need to make a copy
+    progInfo = new ProgramInfo(*(progList[0]));
+
+    return progInfo;
 }
 
 bool LoadFromOldRecorded(
@@ -4974,15 +5320,29 @@ bool LoadFromRecorded(
                  (flags & FL_REALLYEDITING) ||
                  (flags & COMM_FLAG_PROCESSING));
 
+        // User/metadata defined season from recorded
+        uint season = query.value(3).toUInt();
+        if (season == 0)
+            season = query.value(51).toUInt(); // Guide defined season from recordedprogram
+
+        // User/metadata defined episode from recorded
+        uint episode = query.value(4).toUInt();
+        if (episode == 0)
+            episode  = query.value(52).toUInt();  // Guide defined episode from recordedprogram
+
+        // Guide defined total episodes from recordedprogram
+        uint totalepisodes = query.value(53).toUInt();
+
         destination.push_back(
             new ProgramInfo(
                 query.value(0).toString(),
                 query.value(1).toString(),
                 query.value(2).toString(),
-                query.value(3).toUInt(),
-                query.value(4).toUInt(),
+                season,
+                episode,
+                totalepisodes,
                 query.value(48).toString(), // syndicatedepisode
-                query.value(5).toString(),
+                query.value(5).toString(), // category
 
                 chanid, channum, chansign, channame, chanfilt,
 
@@ -4994,6 +5354,7 @@ bool LoadFromRecorded(
 
                 query.value(17).toString(), query.value(18).toString(),
                 query.value(19).toString(), // inetref
+                string_to_myth_category_type(query.value(54).toString()), // category_type
 
                 query.value(16).toInt(),  // recpriority
 

@@ -46,6 +46,10 @@
 #include "videofileassoc.h"
 #include "videoplayersettings.h"
 #include "videometadatasettings.h"
+// for ImageDLFailureEvent
+#include "metadataimagedownload.h"
+
+static const QString _Location = "MythVideo";
 
 namespace
 {
@@ -283,9 +287,10 @@ namespace
         Q_OBJECT
 
       public:
-        FanartLoader() : itemsPast(0), m_fanart(NULL)
+        FanartLoader() : itemsPast(0), m_fanart(NULL), m_bConnected( false )
         {
-            connect(&m_fanartTimer, SIGNAL(timeout()), SLOT(fanartLoad()));
+            // NOTE: Moved call to connect to first call of LoadImage/
+            //       Having it here causes a runtime error on windows
         }
 
        ~FanartLoader()
@@ -296,6 +301,12 @@ namespace
 
         void LoadImage(const QString &filename, MythUIImage *image)
         {
+            if (!m_bConnected)
+            {
+                connect(&m_fanartTimer, SIGNAL(timeout()), SLOT(fanartLoad()));
+                m_bConnected = true;
+            }
+
             bool wasActive = m_fanartTimer.isActive();
             if (filename.isEmpty())
             {
@@ -343,6 +354,7 @@ namespace
         QMutex          m_fanartLock;
         MythUIImage    *m_fanart;
         QTimer          m_fanartTimer;
+        bool            m_bConnected;
     };
 
     FanartLoader fanartLoader;
@@ -2137,7 +2149,7 @@ void VideoDialog::createFetchDialog(VideoMetadata *metadata)
         desc = tr("Season %1, Episode %2")
                 .arg(metadata->GetSeason()).arg(metadata->GetEpisode());
     }
-    MythBusyNotification n(msg, tr("MythVideo"), desc);
+    MythBusyNotification n(msg, _Location, desc);
     n.SetId(id);
     n.SetParent(this);
     GetNotificationCenter()->Queue(n);
@@ -2168,14 +2180,14 @@ void VideoDialog::dismissFetchDialog(VideoMetadata *metadata, bool ok)
     }
     if (ok)
     {
-        MythCheckNotification n(msg, tr("MythVideo"), desc);
+        MythCheckNotification n(msg, _Location, desc);
         n.SetId(id);
         n.SetParent(this);
         GetNotificationCenter()->Queue(n);
     }
     else
     {
-        MythErrorNotification n(msg, tr("MythVideo"), desc);
+        MythErrorNotification n(msg, _Location, desc);
         n.SetId(id);
         n.SetParent(this);
         GetNotificationCenter()->Queue(n);
@@ -3284,13 +3296,13 @@ void VideoDialog::customEvent(QEvent *levent)
         if (list.count() > 1)
         {
             VideoMetadata *metadata =
-                qVariantValue<VideoMetadata *>(list[0]->GetData());
+                list[0]->GetData().value<VideoMetadata *>();
             dismissFetchDialog(metadata, true);
             MetadataResultsDialog *resultsdialog =
                   new MetadataResultsDialog(m_popupStack, list);
 
-            connect(resultsdialog, SIGNAL(haveResult(MetadataLookup*)),
-                    SLOT(OnVideoSearchListSelection(MetadataLookup*)),
+            connect(resultsdialog, SIGNAL(haveResult(RefCountHandler<MetadataLookup>)),
+                    SLOT(OnVideoSearchListSelection(RefCountHandler<MetadataLookup>)),
                     Qt::QueuedConnection);
 
             if (resultsdialog->Create())
@@ -3324,7 +3336,7 @@ void VideoDialog::customEvent(QEvent *levent)
             return;
 
         VideoMetadata *metadata =
-            qVariantValue<VideoMetadata *>(lookup->GetData());
+            lookup->GetData().value<VideoMetadata *>();
         if (metadata)
         {
             dismissFetchDialog(metadata, false);
@@ -3348,6 +3360,13 @@ void VideoDialog::customEvent(QEvent *levent)
         }
         else
             m_menuPopup = NULL;
+    }
+    else if (levent->type() == ImageDLFailureEvent::kEventType)
+    {
+        MythErrorNotification n(tr("Failed to retrieve image(s)"),
+                                _Location,
+                                tr("Check logs"));
+        GetNotificationCenter()->Queue(n);
     }
 }
 
@@ -3474,12 +3493,13 @@ void VideoDialog::ToggleWatched()
     }
 }
 
-void VideoDialog::OnVideoSearchListSelection(MetadataLookup *lookup)
+void VideoDialog::OnVideoSearchListSelection(RefCountHandler<MetadataLookup> lookup)
 {
     if (!lookup)
         return;
 
     lookup->SetStep(kLookupData);
+    lookup->IncrRef();
     m_metadataFactory->Lookup(lookup);
 }
 
@@ -3670,7 +3690,7 @@ void VideoDialog::OnVideoSearchDone(MetadataLookup *lookup)
     if (!lookup)
        return;
 
-    VideoMetadata *metadata = qVariantValue<VideoMetadata *>(lookup->GetData());
+    VideoMetadata *metadata = lookup->GetData().value<VideoMetadata *>();
 
     if (!metadata)
         return;
@@ -3791,9 +3811,6 @@ void VideoDialog::OnVideoSearchDone(MetadataLookup *lookup)
     MythUIButtonListItem *item = GetItemByMetadata(metadata);
     if (item != NULL)
         UpdateItem(item);
-
-    delete lookup;
-    lookup = NULL;
 
     StartVideoImageSet(metadata);
 }

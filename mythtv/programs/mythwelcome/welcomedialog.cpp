@@ -42,7 +42,7 @@ WelcomeDialog::WelcomeDialog(MythScreenStack *parent, const char *name)
 {
     gCoreContext->addListener(this);
 
-    m_installDir = GetInstallPrefix();
+    m_appBinDir = GetAppBinDir();
     m_preRollSeconds = gCoreContext->GetNumSetting("RecordPreRoll");
     m_idleWaitForRecordingTime =
                        gCoreContext->GetNumSetting("idleWaitForRecordingTime", 15);
@@ -106,7 +106,7 @@ bool WelcomeDialog::Create(void)
 void WelcomeDialog::startFrontend(void)
 {
     QString startFECmd = gCoreContext->GetSetting("MythWelcomeStartFECmd",
-                         m_installDir + "/bin/mythfrontend");
+                         m_appBinDir + "mythfrontend");
 
     myth_system(startFECmd, kMSDisableUDPListener);
     updateAll();
@@ -128,9 +128,9 @@ void WelcomeDialog::checkAutoStart(void)
 {
     // mythshutdown --startup returns 0 for automatic startup
     //                                1 for manual startup
-    QString command = m_installDir + "/bin/mythshutdown --startup";
+    QString command = m_appBinDir + "mythshutdown --startup";
     command += myth_logging::command_line_arguments();
-    uint state = myth_system(command);
+    uint state = myth_system(command, kMSDontBlockInputDevs);
 
     LOG(VB_GENERAL, LOG_NOTICE,
         QString("mythshutdown --startup returned: %1").arg(state));
@@ -213,7 +213,7 @@ void WelcomeDialog::customEvent(QEvent *e)
                          "MythWelcome is shutting this computer down now");
                      QString poweroff_cmd = gCoreContext->GetSetting("MythShutdownPowerOff", "");
                      if (!poweroff_cmd.isEmpty())
-                         myth_system(poweroff_cmd);
+                         myth_system(poweroff_cmd, kMSDontBlockInputDevs);
                 }
             }
         }
@@ -268,26 +268,30 @@ bool WelcomeDialog::keyPressEvent(QKeyEvent *event)
         else if (action == "0")
         {
             QString mythshutdown_status =
-                m_installDir + "/bin/mythshutdown --status 0";
+                m_appBinDir + "mythshutdown --status 0";
             QString mythshutdown_unlock =
-                m_installDir + "/bin/mythshutdown --unlock";
+                m_appBinDir + "mythshutdown --unlock";
             QString mythshutdown_lock =
-                m_installDir + "/bin/mythshutdown --lock";
+                m_appBinDir + "mythshutdown --lock";
 
-            uint statusCode;
-            statusCode = myth_system(
-                mythshutdown_status + myth_logging::command_line_arguments());
+            uint statusCode = myth_system(
+                mythshutdown_status + myth_logging::command_line_arguments(),
+                kMSDontBlockInputDevs);
 
             // is shutdown locked by a user
             if (!(statusCode & 0xFF00) && statusCode & 16)
             {
                 myth_system(
-                    mythshutdown_unlock + myth_logging::command_line_arguments());
+                    mythshutdown_unlock +
+                    myth_logging::command_line_arguments(),
+                    kMSDontBlockInputDevs);
             }
             else
             {
                 myth_system(
-                    mythshutdown_lock + myth_logging::command_line_arguments());
+                    mythshutdown_lock +
+                    myth_logging::command_line_arguments(),
+                    kMSDontBlockInputDevs);
             }
 
             updateStatusMessage();
@@ -297,11 +301,11 @@ bool WelcomeDialog::keyPressEvent(QKeyEvent *event)
         {
             QString cmd = gCoreContext->GetSetting("MythShutdownXTermCmd", "");
             if (!cmd.isEmpty())
-                myth_system(cmd);
+                myth_system(cmd, kMSDontBlockInputDevs);
         }
         else if (action == "STARTSETUP")
         {
-            QString mythtv_setup = m_installDir + "/bin/mythtv-setup";
+            QString mythtv_setup = m_appBinDir + "mythtv-setup";
             myth_system(mythtv_setup + myth_logging::command_line_arguments());
         }
         else
@@ -459,7 +463,7 @@ void WelcomeDialog::runMythFillDatabase()
     LOG(VB_GENERAL, LOG_INFO, QString("Grabbing EPG data using command: %1\n")
             .arg(command));
 
-    myth_system(command);
+    myth_system(command, kMSDontBlockInputDevs);
 }
 
 void WelcomeDialog::updateAll(void)
@@ -534,9 +538,10 @@ void WelcomeDialog::updateStatusMessage(void)
         m_statusList.append(tr("MythTV is busy recording."));
     }
 
-    QString mythshutdown_status = m_installDir + "/bin/mythshutdown --status 0";
+    QString mythshutdown_status = m_appBinDir + "mythshutdown --status 0";
     uint statusCode = myth_system(
-        mythshutdown_status + myth_logging::command_line_arguments());
+        mythshutdown_status + myth_logging::command_line_arguments(),
+        kMSDontBlockInputDevs);
 
     if (!(statusCode & 0xFF00))
     {
@@ -606,9 +611,10 @@ void WelcomeDialog::showMenu(void)
 
     m_menuPopup->SetReturnEvent(this, "action");
 
-    QString mythshutdown_status = m_installDir + "/bin/mythshutdown --status 0";
+    QString mythshutdown_status = m_appBinDir + "mythshutdown --status 0";
     uint statusCode = myth_system(
-        mythshutdown_status + myth_logging::command_line_arguments());
+        mythshutdown_status + myth_logging::command_line_arguments(),
+        kMSDontBlockInputDevs);
 
     if (!(statusCode & 0xFF00) && statusCode & 16)
         m_menuPopup->AddButton(tr("Unlock Shutdown"), SLOT(unlockShutdown()));
@@ -623,18 +629,18 @@ void WelcomeDialog::showMenu(void)
 
 void WelcomeDialog::lockShutdown(void)
 {
-    QString command = m_installDir + "/bin/mythshutdown --lock";
+    QString command = m_appBinDir + "mythshutdown --lock";
     command += myth_logging::command_line_arguments();
-    myth_system(command);
+    myth_system(command, kMSDontBlockInputDevs);
     updateStatusMessage();
     updateScreen();
 }
 
 void WelcomeDialog::unlockShutdown(void)
 {
-    QString command = m_installDir + "/bin/mythshutdown --unlock";
+    QString command = m_appBinDir + "mythshutdown --unlock";
     command += myth_logging::command_line_arguments();
-    myth_system(command);
+    myth_system(command, kMSDontBlockInputDevs);
     updateStatusMessage();
     updateScreen();
 }
@@ -656,7 +662,7 @@ void WelcomeDialog::shutdownNow(void)
             "MythWelcome is shutting this computer down now");
         QString poweroff_cmd = gCoreContext->GetSetting("MythShutdownPowerOff", "");
         if (!poweroff_cmd.isEmpty())
-            myth_system(poweroff_cmd);
+            myth_system(poweroff_cmd, kMSDontBlockInputDevs);
         return;
     }
 
@@ -679,10 +685,10 @@ void WelcomeDialog::shutdownNow(void)
     }
 
     // don't shutdown if we are about to start a wakeup/shutdown period
-    QString command = m_installDir + "/bin/mythshutdown --status 0";
+    QString command = m_appBinDir + "mythshutdown --status 0";
     command += myth_logging::command_line_arguments();
 
-    uint statusCode = myth_system(command);
+    uint statusCode = myth_system(command, kMSDontBlockInputDevs);
     if (!(statusCode & 0xFF00) && statusCode & 128)
     {
         ShowOkPopup(tr("Cannot shutdown because MythTV is about to start "
@@ -718,14 +724,20 @@ void WelcomeDialog::shutdownNow(void)
 
         if (!setwakeup_cmd.isEmpty())
         {
-            myth_system(setwakeup_cmd);
+            myth_system(setwakeup_cmd, kMSDontBlockInputDevs);
         }
     }
 
     // run command to set wakeuptime in bios and shutdown the system
-    command = "sudo " + m_installDir + "/bin/mythshutdown --shutdown";
+#ifndef _WIN32
+    command = "sudo ";
+#else
+    command.clear();
+#endif
+
+    command += m_appBinDir + "mythshutdown --shutdown";
     command += myth_logging::command_line_arguments();
 
-    myth_system(command);
+    myth_system(command, kMSDontBlockInputDevs);
 }
 

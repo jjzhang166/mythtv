@@ -56,7 +56,7 @@ extern "C" {
 
 #undef DBG_SM
 #define DBG_SM(FUNC, MSG) LOG(VB_CHANNEL, LOG_DEBUG, \
-    QString("SM[%1](%2)::%3: %4").arg(capturecardnum) \
+    QString("SigMon[%1](%2)::%3: %4").arg(capturecardnum) \
                               .arg(channel->GetDevice()).arg(FUNC).arg(MSG))
 
 /** \class SignalMonitor
@@ -200,7 +200,7 @@ SignalMonitor::SignalMonitor(int _capturecardnum, ChannelBase *_channel,
       running(false),                  exit(false),
       statusLock(QMutex::Recursive)
 {
-    if (!channel->IsExternalChannelChangeSupported())
+    if (!channel->IsExternalChannelChangeInUse())
     {
         scriptStatus.SetValue(3);
     }
@@ -413,8 +413,7 @@ void SignalMonitor::SendMessage(
 void SignalMonitor::UpdateValues(void)
 {
     QMutexLocker locker(&statusLock);
-    if (channel->IsExternalChannelChangeSupported() &&
-        (scriptStatus.GetValue() < 2))
+    if (scriptStatus.GetValue() < 2)
     {
         scriptStatus.SetValue(channel->GetScriptStatus());
     }

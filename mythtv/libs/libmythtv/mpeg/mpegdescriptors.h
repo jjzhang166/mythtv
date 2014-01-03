@@ -13,6 +13,7 @@ using namespace std;
 
 // MythTV
 #include "iso639.h"
+#include "mythtvexp.h"
 
 typedef vector<const unsigned char*> desc_list_t;
 
@@ -197,7 +198,7 @@ class PrivateDescriptorID
     };
 };
 
-class MPEGDescriptor
+class MTV_PUBLIC MPEGDescriptor
 {
   public:
     operator const unsigned char*() const { return _data; }
@@ -296,7 +297,7 @@ class ConditionalAccessDescriptor : public MPEGDescriptor
     uint SystemID(void) const { return  _data[2] << 8 | _data[3]; }
     uint PID(void) const      { return (_data[4] & 0x1F) << 8 | _data[5]; }
     uint DataSize(void) const { return DescriptorLength() - 4; }
-    const unsigned char *Data(void) const { return _data+6; }
+    const unsigned char *Data(void) const { return &_data[6]; }
     QString toString() const;
 };
 
@@ -355,6 +356,7 @@ class AVCVideoDescriptor : public MPEGDescriptor
 /// ISO 13818-1:2000/Amd.3:2004 page 12
 class AVCTimingAndHRDDescriptor : public MPEGDescriptor
 {
+  public:
     AVCTimingAndHRDDescriptor(const unsigned char *data, int len = 300) :
         MPEGDescriptor(data, len, DescriptorID::avc_timing_and_hrd) { }
     //       Name             bits  loc  expected value

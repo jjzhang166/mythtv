@@ -32,7 +32,6 @@
 #include "recordingprofile.h"
 #include "mythdisplay.h"
 #include "DisplayRes.h"
-#include "uitypes.h"
 #include "cardutil.h"
 #include "themeinfo.h"
 #include "mythdirs.h"
@@ -1592,6 +1591,18 @@ static HostCheckBox *EnableMHEG()
     return gc;
 }
 
+static HostCheckBox *EnableMHEGic()
+{
+    HostCheckBox *gc = new HostCheckBox("EnableMHEGic");
+    gc->setLabel(OSDSettings::tr("Enable network access for interactive TV"));
+    gc->setValue(true);
+    gc->setHelpText(OSDSettings::tr("If enabled, interactive TV applications "
+                                    "(MHEG) will be able to access interactive "
+                                    "content over the Internet. This is used "
+                                    "for BBC iPlayer."));
+    return gc;
+}
+
 static HostCheckBox *PersistentBrowseMode()
 {
     HostCheckBox *gc = new HostCheckBox("PersistentBrowseMode");
@@ -2557,10 +2568,12 @@ static HostComboBox *ThemePainter()
     gc->addSelection(QCoreApplication::translate("(Common)", "Auto", "Automatic"),
                      AUTO_PAINTER);
 #ifdef USING_OPENGL
-    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL"),
+    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 1"),
                      OPENGL_PAINTER);
+    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 2"),
+                     OPENGL2_PAINTER);
 #endif
-#ifdef USING_MINGW
+#ifdef _WIN32
     gc->addSelection(QCoreApplication::translate("(Common)", "Direct3D"),
                      D3D9_PAINTER);
 #endif
@@ -2649,7 +2662,7 @@ static HostComboBox *ChannelGroupDefault()
        gc->addSelection(it->name, QString("%1").arg(it->grpid));
 
     gc->setHelpText(ChannelGroupSettings::tr("Default channel group to be "
-                                             "shown in the the EPGPressing "
+                                             "shown in the EPG.  Pressing "
                                              "GUIDE key will toggle channel "
                                              "group."));
     gc->setValue(false);
@@ -2703,7 +2716,7 @@ static GlobalComboBox *GRSchedOpenEnd()
                                                   "recordings"));
 
     bc->setHelpText(
-        GeneralRecPrioritiesSettings::tr("Selects the situations where the"
+        GeneralRecPrioritiesSettings::tr("Selects the situations where the "
                                          "scheduler will avoid assigning shows "
                                          "to the same card if their end time "
                                          "and start time match. This will be "
@@ -2870,7 +2883,8 @@ static HostLineEdit *DefaultTVChannel()
 
     ge->setHelpText(EPGSettings::tr("The program guide starts on this channel "
                                     "if it is run from outside of Live TV "
-                                    "mode."));
+                                    "mode. Leave blank to enable Live TV "
+                                    "automatic start channel."));
 
     return ge;
 }
@@ -2889,9 +2903,9 @@ static HostSpinBox *EPGRecThreshold()
     return gs;
 }
 
-static HostComboBox *MythLanguage()
+static GlobalComboBox *MythLanguage()
 {
-    HostComboBox *gc = new HostComboBox("Language");
+    GlobalComboBox *gc = new GlobalComboBox("Language");
 
     gc->setLabel(AppearanceSettings::tr("Language"));
 
@@ -3784,21 +3798,6 @@ MacDesktopSettings::MacDesktopSettings() : TriggeredConfigurationGroup(false)
 };
 #endif
 
-static HostCheckBox *WatchTVGuide()
-{
-    HostCheckBox *gc = new HostCheckBox("WatchTVGuide");
-
-    gc->setLabel(EPGSettings::tr("Show the program guide when starting "
-                                 "Live TV"));
-
-    gc->setHelpText(EPGSettings::tr("This starts the program guide immediately "
-                                    "upon starting to watch Live TV."));
-
-    gc->setValue(false);
-
-    return gc;
-}
-
 MainGeneralSettings::MainGeneralSettings()
 {
     DatabaseSettings::addDatabaseSettings(this);
@@ -4025,6 +4024,7 @@ OSDSettings::OSDSettings()
     osd->setLabel(tr("On-screen Display"));
 
     osd->addChild(EnableMHEG());
+    osd->addChild(EnableMHEGic());
     osd->addChild(PersistentBrowseMode());
     osd->addChild(BrowseAllTuners());
     osd->addChild(DefaultCCMode());
@@ -4119,9 +4119,8 @@ EPGSettings::EPGSettings()
 {
     VerticalConfigurationGroup* epg = new VerticalConfigurationGroup(false);
 
-    epg->setLabel(tr("Program Guide %1/%2").arg("1").arg("2"));
+    epg->setLabel(tr("Program Guide %1/%2").arg("1").arg("1"));
 
-    epg->addChild(WatchTVGuide());
     epg->addChild(DefaultTVChannel());
     epg->addChild(EPGRecThreshold());
 

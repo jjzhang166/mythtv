@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
    Or, point your browser to http://www.gnu.org/copyleft/gpl.html
 
 */
@@ -274,6 +274,7 @@ class MHUnion
     MHUnion(const MHContentRef &cnVal) : m_Type(U_ContentRef), m_nIntVal(0), m_fBoolVal(false) { m_ContentRefVal.Copy(cnVal); }
 
     void GetValueFrom(const MHParameter &value, MHEngine *engine); // Copies the argument, getting the value of an indirect args.
+    QString Printable() const;
 
     enum UnionTypes { U_Int, U_Bool, U_String, U_ObjRef, U_ContentRef, U_None } m_Type;
     void CheckType (enum UnionTypes) const; // Check a type and fail if it doesn't match. 

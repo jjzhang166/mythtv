@@ -69,9 +69,10 @@ function installPackage(packageName) {
 }
 
 function loadDiv(divName, contentURL, jsURL) {
+
+    $("#busyPopup").show();
+
     divName = "#" + divName;
-    
-    $(divName).html("<br><br><b><i18n>Loading</i18n>...</b>");
 
     var html = $.ajax({
       url: contentURL,
@@ -79,6 +80,8 @@ function loadDiv(divName, contentURL, jsURL) {
      }).responseText;
 
     $(divName).html(html);
+
+    $("#busyPopup").hide();
 
     if (jsURL) {
         $.ajaxSetup({ async: false });
@@ -91,20 +94,30 @@ function loadDiv(divName, contentURL, jsURL) {
 
 function setUIAttributes() {
     $( "input:button").button();
-    $("input, textarea").addClass("idle");
-    $("input, textarea").focus(function(){
-            $(this).addClass("activeField").removeClass("idle");
-    }).blur(function(){
-            $(this).removeClass("activeField").addClass("idle");
-    });
+// WTF? The following can be done natively in css with input:focus, this just
+// stomps all over any css overrides etc and should NOT be done
+//    $("input, textarea").addClass("idle");
+//    $("input, textarea").focus(function(){
+//            $(this).addClass("activeField").removeClass("idle");
+//    }).blur(function(){
+//            $(this).removeClass("activeField").addClass("idle");
+//    });
 }
 
 function clearDiv(divName) {
     $("#" + divName).html("");
 }
 
+var currentContentURL;
+var currentJsUrl;
 function loadContent(contentURL, jsURL) {
+    currentContentURL = contentURL;
+    currentJsUrl = jsURL;
     loadDiv("content", contentURL, jsURL);
+}
+
+function reloadContent() {
+    loadContent(currentContentURL, currentJsUrl);
 }
 
 function loadSetupContent(contentURL, jsURL) {
@@ -270,3 +283,8 @@ function formatStr() {
     return result;
 };
 
+
+function handleKeyPress(key) {
+    if (currentContentURL == "/tv/guide.qsp")
+        handleKeyboardShortcutsTV(key);
+}

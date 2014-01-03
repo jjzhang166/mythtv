@@ -250,8 +250,8 @@ void ViewScheduled::LoadList(bool useExistingData)
 
     if (currentItem)
     {
-        ProgramInfo *currentpginfo = qVariantValue<ProgramInfo*>
-                                                    (currentItem->GetData());
+        ProgramInfo *currentpginfo = currentItem->GetData()
+					.value<ProgramInfo*>();
         if (currentpginfo)
         {
             callsign   = currentpginfo->GetChannelSchedulingID();
@@ -284,13 +284,15 @@ void ViewScheduled::LoadList(bool useExistingData)
         if ((pginfo->GetRecordingEndTime() >= now ||
              pginfo->GetScheduledEndTime() >= now) &&
             (m_showAll ||
-             recstatus <= rsWillRecord ||
+             (recstatus >= rsTuning &&
+              recstatus <= rsWillRecord) ||
              recstatus == rsDontRecord ||
              (recstatus == rsTooManyRecordings &&
               ++toomanycounts[pginfo->GetRecordingRuleID()] <= 1) ||
              (recstatus > rsTooManyRecordings &&
               recstatus != rsRepeat &&
-              recstatus != rsNeverRecord)))
+              recstatus != rsNeverRecord &&
+              recstatus != rsOtherShowing)))
         {
             m_cardref[pginfo->GetCardID()]++;
             if (pginfo->GetCardID() > m_maxcard)
@@ -375,7 +377,7 @@ void ViewScheduled::ChangeGroup(MythUIButtonListItem* item)
     if (!item || m_recList.empty())
         return;
 
-    QDate group = qVariantValue<QDate>(item->GetData());
+    QDate group = item->GetData().value<QDate>();
 
     m_currentGroup = group;
 
@@ -510,7 +512,7 @@ void ViewScheduled::updateInfo(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*> (item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*> ();
     if (pginfo)
     {
         InfoMap infoMap;
@@ -534,7 +536,7 @@ void ViewScheduled::edit()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
     if (!pginfo)
         return;
 
@@ -548,7 +550,7 @@ void ViewScheduled::customEdit()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
     EditCustom(pginfo);
 }
 
@@ -559,7 +561,7 @@ void ViewScheduled::deleteRule()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
     if (!pginfo)
         return;
 
@@ -594,7 +596,7 @@ void ViewScheduled::showGuide()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
 
     QString startchannel = pginfo->GetChanNum();
     uint startchanid = pginfo->GetChanID();
@@ -608,7 +610,7 @@ void ViewScheduled::upcoming()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
 
     ShowUpcoming(pginfo);
 
@@ -622,7 +624,7 @@ void ViewScheduled::upcomingScheduled()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
 
     ShowUpcomingScheduled(pginfo);
 
@@ -636,7 +638,7 @@ void ViewScheduled::previous()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
 
     ShowPrevious(pginfo);
 
@@ -651,7 +653,7 @@ void ViewScheduled::details()
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*>(item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*>();
     if (pginfo)
         ShowDetails(pginfo);
 
@@ -663,7 +665,7 @@ void ViewScheduled::selected(MythUIButtonListItem *item)
     if (!item)
         return;
 
-    ProgramInfo *pginfo = qVariantValue<ProgramInfo*> (item->GetData());
+    ProgramInfo *pginfo = item->GetData().value<ProgramInfo*> ();
     if (!pginfo)
         return;
 
@@ -744,7 +746,7 @@ void ViewScheduled::customEvent(QEvent *event)
         if (resultid == "deleterule")
         {
             RecordingRule *record =
-                qVariantValue<RecordingRule *>(dce->GetData());
+                dce->GetData().value<RecordingRule *>();
             if (record)
             {
                 if (buttonnum > 0)

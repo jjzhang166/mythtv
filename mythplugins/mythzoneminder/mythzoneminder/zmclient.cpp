@@ -18,7 +18,7 @@
 #include "zmclient.h"
 
 // the protocol version we understand
-#define ZM_PROTOCOL_VERSION "7"
+#define ZM_PROTOCOL_VERSION "11"
 
 #define BUFFER_SIZE  (2048*1536*3)
 
@@ -322,13 +322,15 @@ void ZMClient::getMonitorStatus(vector<Monitor*> *monitorList)
 }
 
 void ZMClient::getEventList(const QString &monitorName, bool oldestFirst,
-                            QString date, vector<Event*> *eventList)
+                            const QString &date, bool includeContinuous,
+                            vector<Event*> *eventList)
 {
     eventList->clear();
 
     QStringList strList("GET_EVENT_LIST");
     strList << monitorName << (oldestFirst ? "1" : "0") ;
     strList << date;
+    strList << (includeContinuous ? "1" : "0") ;
 
     if (!sendReceiveStringList(strList))
         return;
@@ -732,9 +734,10 @@ void ZMClient::getCameraList(QStringList &cameraList)
     // sanity check
     if (strList.size() < cameraCount + 2)
     {
-        LOG(VB_GENERAL, LOG_ERR,
-            "ZMClient got a mismatch between the number of cameras and "
-            "the expected number of stringlist items in getCameraList()");
+        LOG(VB_GENERAL, LOG_ERR, QString(
+            "ZMClient got a mismatch between the number of cameras (%1) and "
+            "the expected number of stringlist items (%2) in getCameraList()")
+            .arg(cameraCount).arg(strList.size()));
         return;
     }
 
@@ -784,29 +787,16 @@ void ZMClient::getMonitorList(vector<Monitor*> *monitorList)
         item->name = strList[x * 5 + 3];
         item->width = strList[x * 5 + 4].toInt();
         item->height = strList[x * 5 + 5].toInt();
-        item->palette = strList[x * 5 + 6].toInt();
+        item->bytes_per_pixel = strList[x * 5 + 6].toInt();
         item->zmcStatus = "";
         item->zmaStatus = "";
         item->events = 0;
         item->status = "";
-        item->isV4L2 = (item->palette > 255);
         monitorList->push_back(item);
-        if (item->isV4L2)
-        {
-            QString pallete;
-            pallete  = (char) (item->palette & 0xff);
-            pallete += (char) ((item->palette >> 8) & 0xff);
-            pallete += (char) ((item->palette >> 16) & 0xff);
-            pallete += (char) ((item->palette >> 24) & 0xff);
-            LOG(VB_GENERAL, LOG_NOTICE,
-                QString("Monitor: %1 (%2) is using palette: %3 (%4)")
-                    .arg(item->name).arg(item->id).arg(item->palette)
-                    .arg(pallete));
-        }
-        else
-            LOG(VB_GENERAL, LOG_NOTICE,
-                QString("Monitor: %1 (%2) is using palette: %3")
-                    .arg(item->name).arg(item->id).arg(item->palette));
+
+        LOG(VB_GENERAL, LOG_NOTICE,
+                QString("Monitor: %1 (%2) is using %3 bytes per pixel")
+                    .arg(item->name).arg(item->id).arg(item->bytes_per_pixel));
     }
 }
 

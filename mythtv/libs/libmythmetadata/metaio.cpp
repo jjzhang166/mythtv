@@ -41,13 +41,13 @@ MetaIO* MetaIO::createTagger(const QString& filename)
         return new MetaIOOggVorbis;
     else if (extension == "flac")
     {
-        MetaIOID3 *tagger = new MetaIOID3;
+        MetaIOFLACVorbis *tagger = new MetaIOFLACVorbis;
         if (tagger->TagExists(filename))
             return tagger;
         else
         {
             delete tagger;
-            return new MetaIOFLACVorbis;
+            return new MetaIOID3;
         }
     }
     else if (extension == "m4a")
@@ -108,11 +108,11 @@ void MetaIO::readFromFilename(const QString &filename,
     title.clear();
     genre.clear();
     tracknum = 0;
-    
+
     int part_num = 0;
     // Replace 
     lfilename.replace('_', ' ');
-    lfilename.section('.', 0, -2);
+    lfilename = lfilename.section('.', 0, -2);
     QStringList fmt_list = mFilenameFormat.split("/");
     QStringList::iterator fmt_it = fmt_list.begin();
 

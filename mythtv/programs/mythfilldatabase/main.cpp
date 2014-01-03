@@ -112,15 +112,11 @@ int main(int argc, char *argv[])
         fill_data.chan_data.m_interactive = true;
     }
 
-    if (cmdline.toBool("update"))
+    if (cmdline.toBool("onlyguide") || cmdline.toBool("update"))
     {
-        if (cmdline.toBool("manual"))
-        {
-            cerr << "--update and --manual cannot be used simultaneously"
-                 << endl;
-            return GENERIC_EXIT_INVALID_CMDLINE;
-        }
-        fill_data.chan_data.m_nonUSUpdating = true;
+        LOG(VB_GENERAL, LOG_NOTICE,
+            "Only updating guide data, channel and icon updates will be ignored");
+        fill_data.chan_data.m_guideDataOnly = true;
     }
 
     if (cmdline.toBool("preset"))
@@ -340,10 +336,10 @@ int main(int argc, char *argv[])
         QString status = QObject::tr("currently running.");
         QDateTime GuideDataBefore, GuideDataAfter;
 
-        MSqlQuery query(MSqlQuery::InitCon());
-        updateLastRunStart(query);
-        updateLastRunStatus(query, status);
+        updateLastRunStart();
+        updateLastRunStatus(status);
 
+        MSqlQuery query(MSqlQuery::InitCon());
         query.prepare("SELECT MAX(endtime) FROM program p LEFT JOIN channel c "
                       "ON p.chanid=c.chanid WHERE c.sourceid= :SRCID "
                       "AND manualid = 0 AND c.xmltvid != '';");
@@ -361,7 +357,7 @@ int main(int argc, char *argv[])
             return GENERIC_EXIT_NOT_OK;
         }
 
-        updateLastRunEnd(query);
+        updateLastRunEnd();
 
         query.prepare("SELECT MAX(endtime) FROM program p LEFT JOIN channel c "
                       "ON p.chanid=c.chanid WHERE c.sourceid= :SRCID "
@@ -382,7 +378,7 @@ int main(int argc, char *argv[])
         else
             status = QObject::tr("Successful.");
 
-        updateLastRunStatus(query, status);
+        updateLastRunStatus(status);
     }
     else if (from_dd_file)
     {
@@ -394,7 +390,7 @@ int main(int argc, char *argv[])
         SourceList sourcelist;
 
         MSqlQuery sourcequery(MSqlQuery::InitCon());
-        QString where = "";
+        QString where;
 
         if (sourceid != -1)
         {

@@ -16,7 +16,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
 #include "mythlogging.h"
@@ -739,10 +739,9 @@ AVRational AVFormatWriter::GetCodecTimeBase(void)
 
     if (m_avVideoCodec && m_avVideoCodec->supported_framerates) {
         const AVRational *p= m_avVideoCodec->supported_framerates;
-        AVRational req =
-            (AVRational){result.den, result.num};
+        AVRational req = {result.den, result.num};
         const AVRational *best = NULL;
-        AVRational best_error= (AVRational){INT_MAX, 1};
+        AVRational best_error= {INT_MAX, 1};
         for(; p->den!=0; p++) {
             AVRational error = av_sub_q(req, *p);
             if (error.num <0)

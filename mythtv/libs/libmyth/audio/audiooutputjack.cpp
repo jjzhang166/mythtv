@@ -14,7 +14,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
 #include <cstdio>
@@ -477,11 +477,13 @@ int AudioOutputJACK::_JackGraphOrderCallback(void *arg)
 int AudioOutputJACK::JackGraphOrderCallback(void)
 {
     int i;
+    jack_latency_range_t latency_range;
     jack_nframes_t port_latency, max_latency = 0;
 
     for (i = 0; i < channels; ++i)
     {
-        port_latency = jack_port_get_total_latency( client, ports[i] );
+        jack_port_get_latency_range( ports[i], JackPlaybackLatency, &latency_range );
+        port_latency = latency_range.max;
         if (port_latency > max_latency)
             max_latency = port_latency;
     }

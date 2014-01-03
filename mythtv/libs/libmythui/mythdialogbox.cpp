@@ -84,6 +84,40 @@ void MythMenu::AddItem(const QString &title, QVariant data, MythMenu *subMenu, b
         subMenu->SetParent(this);
 }
 
+void MythMenu::SetSelectedByTitle(const QString& title)
+{
+    QList<MythMenuItem*>::iterator it = m_menuItems.begin();
+    for ( ; it < m_menuItems.end(); ++it)
+    {
+        MythMenuItem *item = (*it);
+        if (!item)
+            continue;
+
+        if (item->Text == title)
+        {
+            m_selectedItem = m_menuItems.indexOf(item);
+            break;
+        }
+    }
+}
+
+void MythMenu::SetSelectedByData(QVariant data)
+{
+    QList<MythMenuItem*>::iterator it = m_menuItems.begin();
+    for ( ; it < m_menuItems.end(); ++it)
+    {
+        MythMenuItem *item = (*it);
+        if (!item)
+            continue;
+
+        if (item->Data == data)
+        {
+            m_selectedItem = m_menuItems.indexOf(item);
+            break;
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////
 
 MythDialogBox::MythDialogBox(const QString &text,
@@ -249,7 +283,7 @@ void MythDialogBox::Select(MythUIButtonListItem* item)
 
     if (m_currentMenu)
     {
-        MythMenuItem *menuItem = qVariantValue<MythMenuItem *>(item->GetData());
+		MythMenuItem *menuItem = item->GetData().value< MythMenuItem * >();
 
         if (menuItem->SubMenu)
         {
@@ -259,7 +293,7 @@ void MythDialogBox::Select(MythUIButtonListItem* item)
             return;
         }
 
-        const char *slot = qVariantValue<const char *>(menuItem->Data);
+		const char *slot = menuItem->Data.value < const char * >();
         if (menuItem->UseSlot && slot)
         {
             connect(this, SIGNAL(Selected()), m_currentMenu->m_retObject, slot,
@@ -271,7 +305,7 @@ void MythDialogBox::Select(MythUIButtonListItem* item)
     }
     else
     {
-        const char *slot = qVariantValue<const char *>(item->GetData());
+        const char *slot = item->GetData().value<const char *>();
         if (m_useSlots && slot)
         {
             connect(this, SIGNAL(Selected()), m_retObject, slot,

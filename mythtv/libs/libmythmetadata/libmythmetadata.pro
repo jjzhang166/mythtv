@@ -25,6 +25,8 @@ HEADERS += mythuiimageresults.h
 HEADERS += musicmetadata.h musicutils.h metaio.h metaiotaglib.h
 HEADERS += metaioflacvorbis.h metaioavfcomment.h metaiomp4.h
 HEADERS += metaiowavpack.h metaioid3.h metaiooggvorbis.h
+HEADERS += imagemetadata.h imageutils.h imagescan.h imagescanthread.h
+HEADERS += imagethumbgenthread.h
 
 SOURCES += cleanup.cpp  dbaccess.cpp  dirscan.cpp  globals.cpp
 SOURCES += parentalcontrols.cpp  videoscan.cpp  videoutils.cpp
@@ -35,6 +37,8 @@ SOURCES += mythuiimageresults.cpp
 SOURCES += musicmetadata.cpp musicutils.cpp metaio.cpp metaiotaglib.cpp
 SOURCES += metaioflacvorbis.cpp metaioavfcomment.cpp metaiomp4.cpp
 SOURCES += metaiowavpack.cpp metaioid3.cpp metaiooggvorbis.cpp
+SOURCES += imagemetadata.cpp imageutils.cpp imagescan.cpp imagescanthread.cpp
+SOURCES += imagethumbgenthread.cpp
 
 INCLUDEPATH += ../libmythbase ../libmythtv
 INCLUDEPATH += ../.. ../ ./ ../libmythupnp ../libmythui
@@ -42,6 +46,8 @@ INCLUDEPATH += ../../external/FFmpeg ../libmyth  ../../external/libmythbluray
 
 # for TagLib
 INCLUDEPATH += $${CONFIG_TAGLIB_INCLUDES}
+
+win32-msvc*:INCLUDEPATH += ../../platform/win32/msvc/external/taglib/taglib/Headers
 
 DEPENDPATH += ../../external/libsamplerate ../libmythsoundtouch
 DEPENDPATH += ../libmythfreesurround
@@ -67,12 +73,18 @@ LIBS += -L../../external/FFmpeg/libswscale -lmythswscale
 # for TagLib
 LIBS += $${CONFIG_TAGLIB_LIBS}
 
+win32-msvc*:LIBS += -ltag
+
 using_mheg:LIBS += -L../libmythfreemheg        -lmythfreemheg-$${LIBVERSION}
 using_live:LIBS += -L../libmythlivemedia        -lmythlivemedia-$${LIBVERSION}
 
-mingw {
+mingw:LIBS += -lws2_32
+
+win32-msvc* {
 
     LIBS += -lws2_32
+    LIBS += -ltag
+    INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/external/taglib/include/taglib
 }
 
 inc.path = $${PREFIX}/include/mythtv/metadata/
@@ -86,6 +98,8 @@ inc.files += musicmetadata.h musicutils.h
 inc.files += metaio.h metaiotaglib.h
 inc.files += metaioflacvorbis.h metaioavfcomment.h metaiomp4.h
 inc.files += metaiowavpack.h metaioid3.h metaiooggvorbis.h
+inc.files += imagemetadata.h imageutils.h imagescan.h imagescanthread.h
+inc.files += imagethumbgenthread.h
 
 INSTALLS += inc
 
@@ -99,4 +113,4 @@ use_hidesyms {
 
 include ( ../libs-targetfix.pro )
 
-LIBS += $$EXTRA_LIBS $$LATE_LIBS
+LIBS += $$EXTRA_LIBS $$LATE_LIBS -lexiv2

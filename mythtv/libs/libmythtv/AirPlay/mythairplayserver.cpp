@@ -48,7 +48,7 @@ QMutex*            MythAirplayServer::gMythAirplayServerMutex = new QMutex(QMute
 "<key>protovers</key>\r\n"\
 "<string>1.0</string>\r\n"\
 "<key>srcvers</key>\r\n"\
-"<string>101.28</string>\r\n"\
+"<string>115.2</string>\r\n"\
 "</dict>\r\n"\
 "</plist>\r\n")
 
@@ -481,9 +481,11 @@ void MythAirplayServer::Start(void)
         QByteArray type = "_airplay._tcp";
         QByteArray txt;
         txt.append(26); txt.append("deviceid="); txt.append(GetMacAddress());
-        txt.append(14); txt.append("features=0x23b");
+        // supposed to be: 0: video, 1:Phone, 3: Volume Control, 4: HLS
+        // 9: Audio, 10: ? (but important without it it fails) 11: Audio redundant
+        txt.append(14); txt.append("features=0xE1B");
         txt.append(16); txt.append("model=AppleTV2,1");
-        txt.append(14); txt.append("srcvers=101.28");
+        txt.append(13); txt.append("srcvers=115.2");
 
         if (!m_bonjour->Register(m_setupPort, type, name, txt))
         {
@@ -901,10 +903,10 @@ void MythAirplayServer::HandleResponse(APHTTPRequest *req,
 
         if (!file.isEmpty())
         {
-            m_pathname = file;
-            StartPlayback(file);
+            m_pathname = QUrl::fromPercentEncoding(file);
+            StartPlayback(m_pathname);
             GetPlayerStatus(playing, playerspeed, position, duration, pathname);
-            m_connections[session].url = QUrl(file);
+            m_connections[session].url = QUrl(m_pathname);
             m_connections[session].position = start_pos * duration;
             SeekPosition(duration * start_pos);
         }

@@ -16,7 +16,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
  */
 
 // MythTV includes
@@ -95,7 +95,7 @@ int MythTimer::elapsed(void) const
         return 0;
     }
 
-    int64_t e = m_timer.elapsed();
+    qint64 e = m_timer.elapsed();
     if (!m_timer.isMonotonic() && (e > 86300000))
     {
         const_cast<MythTimer*>(this)->start();

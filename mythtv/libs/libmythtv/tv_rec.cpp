@@ -84,6 +84,7 @@ TVRec::TVRec(int capturecardnum)
        // Various components TVRec coordinates
     : recorder(NULL), channel(NULL), signalMonitor(NULL),
       scanner(NULL),
+      signalMonitorCheckCnt(0),
       // Various threads
       eventThread(new MThread("TVRecEvent", this)),
       recorderThread(NULL),
@@ -126,6 +127,8 @@ TVRec::TVRec(int capturecardnum)
 bool TVRec::CreateChannel(const QString &startchannel,
                           bool enter_power_save_mode)
 {
+    LOG(VB_CHANNEL, LOG_INFO, LOC + QString("CreateChannel(%1)")
+        .arg(startchannel));
     channel = ChannelBase::CreateChannel(
         this, genOpt, dvbOpt, fwOpt,
         startchannel, enter_power_save_mode, rbFileExt);
@@ -904,8 +907,8 @@ void TVRec::FinishedRecording(RecordingInfo *curRec, RecordingQuality *recq)
         VID_1080 | VID_720 | VID_DAMAGED | VID_WIDESCREEN,
         ((avg_height > 1000) ? VID_1080 : ((avg_height > 700) ? VID_720 : 0)) |
         ((is_good) ? 0 : VID_DAMAGED) |
-            ((aspectRatio == MARK_ASPECT_16_9) ||
-             (aspectRatio == MARK_ASPECT_2_21_1)) ? VID_WIDESCREEN : 0);
+        (((aspectRatio == MARK_ASPECT_16_9) ||
+          (aspectRatio == MARK_ASPECT_2_21_1)) ? VID_WIDESCREEN : 0));
 
     // Make sure really short recordings have positive run time.
     if (curRec->GetRecordingEndTime() <= curRec->GetRecordingStartTime())
@@ -1149,7 +1152,7 @@ void TVRec::CloseChannel(void)
 {
     if (channel &&
         ((genOpt.cardtype == "DVB" && dvbOpt.dvb_on_demand) ||
-         CardUtil::IsV4L(genOpt.cardtype)))
+         genOpt.cardtype == "FREEBOX" || CardUtil::IsV4L(genOpt.cardtype)))
     {
         channel->Close();
     }
@@ -1659,6 +1662,9 @@ bool TVRec::GetDevices(uint cardid,
 QString TVRec::GetStartChannel(uint cardid, const QString &startinput)
 {
     QString startchan = QString::null;
+
+    LOG(VB_RECORD, LOG_INFO, LOC + QString("GetStartChannel(%1, '%2')")
+        .arg(cardid).arg(startinput));
 
     // Get last tuned channel from database, to use as starting channel
     MSqlQuery query(MSqlQuery::InitCon());
@@ -2923,7 +2929,8 @@ void TVRec::ToggleChannelFavorite(QString changroupname)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
             QString("Channel: \'%1\' was not found in the database.\n"
-                    "\t\tMost likely, your DefaultTVChannel setting is wrong.\n"
+                    "\t\tMost likely, the 'starting channel' for this "
+                    "Input Connection is invalid.\n"
                     "\t\tCould not toggle favorite.").arg(channum));
         return;
     }
@@ -3597,7 +3604,7 @@ uint TVRec::TuningCheckForHWChange(const TuningRequest &request,
                 .arg(curCardID).arg(newCardID));
     }
 
-    if (curCardID != newCardID)
+    if (curCardID != newCardID || !CardUtil::IsChannelReusable(genOpt.cardtype))
     {
         if (channum.isEmpty())
             channum = GetStartChannel(newCardID, inputname);
@@ -3672,7 +3679,8 @@ void TVRec::TuningShutdowns(const TuningRequest &request)
     // handle HW change for digital/analog cards
     if (newCardID)
     {
-        LOG(VB_GENERAL, LOG_INFO, "Recreating channel...");
+        LOG(VB_CHANNEL, LOG_INFO, LOC +
+            "TuningShutdowns: Recreating channel...");
         channel->Close();
         delete channel;
         channel = NULL;
@@ -3736,8 +3744,6 @@ void TVRec::TuningFrequency(const TuningRequest &request)
         }
         else if (request.progNum >= 0)
         {
-            channel->SetChannelByString(request.channel);
-
             if (mpeg)
                 mpeg->SetDesiredProgram(request.progNum);
         }
@@ -3757,19 +3763,22 @@ void TVRec::TuningFrequency(const TuningRequest &request)
     QString input   = request.input;
     QString channum = request.channel;
 
-    bool ok = false;
+    bool ok;
     if (channel)
+    {
         channel->Open();
+        if (!channum.isEmpty())
+        {
+            if (!input.isEmpty())
+                ok = channel->SwitchToInput(input, channum);
+            else
+                ok = channel->SetChannelByString(channum);
+        }
+        else
+            ok = false;
+    }
     else
         ok = true;
-
-    if (channel && !channum.isEmpty())
-    {
-        if (!input.isEmpty())
-            ok = channel->SwitchToInput(input, channum);
-        else
-            ok = channel->SetChannelByString(channum);
-    }
 
     if (!ok)
     {
@@ -3861,22 +3870,15 @@ void TVRec::TuningFrequency(const TuningRequest &request)
             if (!antadj)
             {
                 SetFlags(kFlagWaitingForSignal);
-
-                QDateTime expire;
                 if (curRecording)
-                {
-                    expire = curRecording->GetScheduledStartTime() >
-                             MythDate::current() ?
-                             curRecording->GetScheduledStartTime() :
-                             MythDate::current();
-                }
+                    signalMonitorDeadline = curRecording->GetScheduledEndTime();
                 else
                 {
-                    expire = MythDate::current();
+                    QDateTime expire = MythDate::current();
+                    signalMonitorDeadline =
+                        expire.addMSecs(genOpt.channel_timeout * 2);
                 }
-
-                signalMonitorDeadline =
-                    expire.addMSecs(genOpt.channel_timeout * 2);
+                signalMonitorCheckCnt = 0;
             }
         }
 
@@ -3932,13 +3934,23 @@ MPEGStreamData *TVRec::TuningSignalCheck(void)
         {
             scanner->StopActiveScan();
             ClearFlags(kFlagEITScannerRunning);
+            eitScanStartTime = MythDate::current();
+            eitScanStartTime = eitScanStartTime.addSecs(eitCrawlIdleStart +
+                                  eit_start_rand(cardid, eitTransportTimeout));
         }
     }
     else
     {
-        LOG(VB_RECORD, LOG_INFO, LOC +
-            QString("TuningSignalCheck: Still waiting.  Will timeout @ %1")
-            .arg(signalMonitorDeadline.toLocalTime().toString("hh:mm:ss.zzz")));
+        if (signalMonitorCheckCnt) // Don't flood log file
+            --signalMonitorCheckCnt;
+        else
+        {
+            LOG(VB_RECORD, LOG_INFO, LOC +
+                QString("TuningSignalCheck: Still waiting.  Will timeout @ %1")
+                .arg(signalMonitorDeadline.toLocalTime()
+                     .toString("hh:mm:ss.zzz")));
+            signalMonitorCheckCnt = 5;
+        }
         return NULL;
     }
 
@@ -4287,8 +4299,7 @@ void TVRec::TuningRestartRecorder(void)
         curRecording->SaveAutoExpire(
             curRecording->GetRecordingRule()->GetAutoExpire());
 
-        curRecording->ApplyRecordRecGroupChange(
-            curRecording->GetRecordingRule()->m_recGroup);
+        curRecording->ApplyRecordRecGroupChange(curRecording->GetRecordingRule()->m_recGroupID);
 
         InitAutoRunJobs(curRecording, kAutoRunProfile, NULL, __LINE__);
     }
@@ -4445,8 +4456,8 @@ bool TVRec::GetProgramRingBufferForLiveTV(RecordingInfo **pginfo,
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("Channel: \'%1\' was not found in the database.\n"
-                        "\t\tMost likely, your DefaultTVChannel setting is "
-                        "wrong.\n"
+                        "\t\tMost likely, the 'starting channel' for this "
+                        "Input Connection is invalid.\n"
                         "\t\tCould not start livetv.").arg(channum));
             return false;
         }
@@ -4495,7 +4506,7 @@ bool TVRec::GetProgramRingBufferForLiveTV(RecordingInfo **pginfo,
     }
 
     if (!pseudoLiveTVRecording)
-        prog->ApplyRecordRecGroupChange("LiveTV");
+        prog->ApplyRecordRecGroupChange(RecordingInfo::kLiveTVRecGroup);
 
     StartedRecording(prog);
 
@@ -4548,7 +4559,7 @@ bool TVRec::CreateLiveTVRingBuffer(const QString & channum)
 
     pginfo->SaveAutoExpire(kLiveTVAutoExpire);
     if (!pseudoLiveTVRecording)
-        pginfo->ApplyRecordRecGroupChange("LiveTV");
+        pginfo->ApplyRecordRecGroupChange(RecordingInfo::kLiveTVRecGroup);
 
     bool discont = (tvchain->TotalSize() > 0);
     tvchain->AppendNewProgram(pginfo, channel->GetCurrentName(),
@@ -4606,7 +4617,7 @@ bool TVRec::SwitchLiveTVRingBuffer(const QString & channum,
     pginfo->MarkAsInUse(true, kRecorderInUseID);
     pginfo->SaveAutoExpire(kLiveTVAutoExpire);
     if (!pseudoLiveTVRecording)
-        pginfo->ApplyRecordRecGroupChange("LiveTV");
+        pginfo->ApplyRecordRecGroupChange(RecordingInfo::kLiveTVRecGroup);
     tvchain->AppendNewProgram(pginfo, channel->GetCurrentName(),
                               channel->GetCurrentInput(), discont);
 
@@ -4707,4 +4718,3 @@ static void apply_broken_dvb_driver_crc_hack(ChannelBase*, MPEGStreamData*) {}
 #endif // USING_DVB
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
-

@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
    Or, point your browser to http://www.gnu.org/copyleft/gpl.html
 
 */
@@ -287,8 +287,8 @@ MHLineArt::MHLineArt(const MHLineArt &ref): MHVisible(ref)
     m_fBorderedBBox = ref.m_fBorderedBBox;
     m_nOriginalLineWidth = ref.m_nOriginalLineWidth;
     m_OriginalLineStyle = ref.m_OriginalLineStyle;
-    m_OrigLineColour = ref.m_OrigLineColour;
-    m_OrigFillColour = ref.m_OrigFillColour;
+    m_OrigLineColour.Copy(ref.m_OrigLineColour);
+    m_OrigFillColour.Copy(ref.m_OrigFillColour);
     m_nLineWidth = ref.m_nLineWidth;
     m_LineStyle = ref.m_LineStyle;
 }

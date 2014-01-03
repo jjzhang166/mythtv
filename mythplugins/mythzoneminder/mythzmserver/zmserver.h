@@ -16,7 +16,7 @@
 #ifndef ZMSERVER_H
 #define ZMSERVER_H
 
-
+#include <stdint.h>
 #include <unistd.h>
 #include <string>
 #include <sstream>
@@ -26,6 +26,7 @@
 
 using namespace std;
 
+extern bool checkVersion(int major, int minor, int revision);
 extern void loadZMConfig(const string &configfile);
 extern void connectToDatabase(void);
 extern void kickDatabase(bool debug);
@@ -40,6 +41,9 @@ extern string  g_webPath;
 extern string  g_user;
 extern string  g_webUser;
 extern string  g_binPath;
+extern int     g_majorVersion;
+extern int     g_minorVersion;
+extern int     g_revisionVersion;
 
 #define DB_CHECK_TIME 60
 extern time_t  g_lastDBKick;
@@ -56,7 +60,7 @@ const string RELOAD           = "reload";
 const string RUNNING          = "running";
 
 typedef enum 
-{ 
+{
     IDLE,
     PREALARM,
     ALARM,
@@ -64,6 +68,7 @@ typedef enum
     TAPE
 } State;
 
+// shared data for ZM version 1.24.x and 1.25.x
 typedef struct
 {
     int size;
@@ -73,7 +78,8 @@ typedef struct
     State state;
     int last_write_index;
     int last_read_index;
-    time_t last_image_time;
+    time_t last_write_time;
+    time_t last_read_time;
     int last_event;
     int action;
     int brightness;
@@ -83,22 +89,44 @@ typedef struct
     int alarm_x;
     int alarm_y;
     char control_state[256];
-} SharedData; 
+} SharedData;
+
+// shared data for ZM version 1.26.x
+typedef struct
+{
+    uint32_t size;
+    uint32_t last_write_index;
+    uint32_t last_read_index;
+    uint32_t state;
+    uint32_t last_event;
+    uint32_t action;
+    int32_t brightness;
+    int32_t hue;
+    int32_t colour;
+    int32_t contrast;
+    int32_t alarm_x;
+    int32_t alarm_y;
+    uint8_t valid;
+    uint8_t active;
+    uint8_t signal;
+    uint8_t format;
+    uint32_t imagesize;
+    uint32_t epadding1;
+    uint32_t epadding2;
+    union {
+            time_t last_write_time;
+            uint64_t extrapad1;
+    };
+    union {
+            time_t last_read_time;
+            uint64_t extrapad2;
+    };
+    uint8_t control_state[256];
+} SharedData26;
 
 typedef enum { TRIGGER_CANCEL, TRIGGER_ON, TRIGGER_OFF } TriggerState;
 
-// use this for ZM version 1.22.2
-typedef struct
-{
-    int size;
-    TriggerState trigger_state;
-    int trigger_score;
-    char trigger_cause[32];
-    char trigger_text[256];
-    char trigger_showtext[32];
-} TriggerData_old;
-
-// use this for ZM version 1.22.3 and later
+// Triggerdata for ZM version 1.24.x and 1.25.x
 typedef struct
 {
     int size;
@@ -109,8 +137,33 @@ typedef struct
     char trigger_showtext[256];
 } TriggerData;
 
+// Triggerdata for ZM version 1.26.x
 typedef struct
 {
+    uint32_t size;
+    uint32_t trigger_state;
+    uint32_t trigger_score;
+    uint32_t padding;
+    char trigger_cause[32];
+    char trigger_text[256];
+    char trigger_showtext[256];
+} TriggerData26;
+
+class MONITOR
+{
+  public:
+    MONITOR();
+
+    void initMonitor(bool debug, string mmapPath, int shmKey);
+
+    bool isValid(void);
+
+    string getIdStr(void);
+    int getLastWriteIndex(void);
+    int getSubpixelOrder(void);
+    int getState(void);
+    int getFrameSize(void);
+
     string name;
     string type;
     string function;
@@ -120,33 +173,21 @@ typedef struct
     int image_buffer_count;
     int width;
     int height;
+    int bytes_per_pixel;
     int mon_id;
-    SharedData *shared_data;
     unsigned char *shared_images;
     int last_read;
     string status;
-    int frame_size;
     int palette;
     int controllable;
     int trackMotion;
     int mapFile;
     void *shm_ptr;
-
-    string getIdStr()
-    {
-        if (id == "")
-        {
-            std::stringstream out;
-            out << mon_id;
-            id = out.str();
-        }
-        return id;
-    }
-
   private:
+    SharedData *shared_data;
+    SharedData26 *shared_data26;
     string id;
-
-} MONITOR;
+};
 
 class ZMServer
 {
@@ -162,7 +203,6 @@ class ZMServer
     bool send(const string &s, const unsigned char *buffer, int dataLen) const;
     void sendError(string error);
     void getMonitorList(void);
-    void initMonitor(MONITOR *monitor);
     int  getFrame(unsigned char *buffer, int bufferSize, MONITOR *monitor);
     long long getDiskSpace(const string &filename, long long &total, long long &used);
     void tokenize(const string &command, vector<string> &tokens);
@@ -173,11 +213,12 @@ class ZMServer
                           string enabled);
     void handleGetServerStatus(void);
     void handleGetMonitorStatus(void);
+    void handleGetAlarmStates(void);
     void handleGetMonitorList(void);
     void handleGetCameraList(void);
     void handleGetEventList(vector<string> tokens);
     void handleGetEventFrame(vector<string> tokens);
-    void handleGetAnalyseFrame(vector<string> tokens);
+    void handleGetAnalysisFrame(vector<string> tokens);
     void handleGetLiveFrame(vector<string> tokens);
     void handleGetFrameList(vector<string> tokens);
     void handleDeleteEvent(vector<string> tokens);
@@ -190,12 +231,15 @@ class ZMServer
 
     bool                 m_debug;
     int                  m_sock;
-    map<int, MONITOR *>  m_monitors;
+    vector<MONITOR *>    m_monitors;
+    map<int, MONITOR *>  m_monitorMap;
     bool                 m_useDeepStorage;
+    bool                 m_useAnalysisImages;
     string               m_eventFileFormat;
-    string               m_analyseFileFormat;
+    string               m_analysisFileFormat;
     key_t                m_shmKey;
     string               m_mmapPath;
+    char                 m_buf[10];
 };
 
 

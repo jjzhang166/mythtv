@@ -17,8 +17,13 @@
 
 #include "datacontracts/programList.h"
 #include "datacontracts/encoderList.h"
+#include "datacontracts/recRule.h"
 #include "datacontracts/recRuleList.h"
+#include "datacontracts/recRuleFilter.h"
+#include "datacontracts/recRuleFilterList.h"
 #include "datacontracts/titleInfoList.h"
+#include "datacontracts/input.h"
+#include "datacontracts/inputList.h"
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -39,7 +44,7 @@
 class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
 {
     Q_OBJECT
-    Q_CLASSINFO( "version"    , "1.9" );
+    Q_CLASSINFO( "version"    , "3.5" );
     Q_CLASSINFO( "RemoveRecordedItem_Method",                   "POST" )
     Q_CLASSINFO( "AddRecordSchedule_Method",                    "POST" )
     Q_CLASSINFO( "RemoveRecordSchedule_Method",                 "POST" )
@@ -56,8 +61,10 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
         {
             DTC::ProgramList::InitializeCustomTypes();
             DTC::EncoderList::InitializeCustomTypes();
+            DTC::InputList::InitializeCustomTypes();
             DTC::RecRuleList::InitializeCustomTypes();
             DTC::TitleInfoList::InitializeCustomTypes();
+            DTC::RecRuleFilterList::InitializeCustomTypes();
         }
 
     public slots:
@@ -76,20 +83,41 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
                                                             const QDateTime &StartTime  ) = 0;
 
         virtual bool               RemoveRecorded        ( int              ChanId,
-                                                           const QDateTime &StartTime  ) = 0;
+                                                           const QDateTime &StartTime,
+                                                           bool             ForceDelete,
+                                                           bool             AllowRerecord ) = 0;
+
+        virtual bool               DeleteRecording       ( int              ChanId,
+                                                           const QDateTime &StartTime,
+                                                           bool             ForceDelete,
+                                                           bool             AllowRerecord ) = 0;
+
+        virtual bool               UnDeleteRecording     ( int              ChanId,
+                                                           const QDateTime &StartTime ) = 0;
 
         virtual DTC::ProgramList*  GetConflictList       ( int              StartIndex,
-                                                           int              Count      ) = 0;
+                                                           int              Count,
+                                                           int              RecordId ) = 0;
 
         virtual DTC::ProgramList*  GetUpcomingList       ( int              StartIndex,
                                                            int              Count,
-                                                           bool             ShowAll    ) = 0;
+                                                           bool             ShowAll,
+                                                           int              RecordId,
+                                                           int              RecStatus ) = 0;
 
         virtual DTC::EncoderList*  GetEncoderList        ( ) = 0;
 
+        virtual DTC::InputList*    GetInputList          ( ) = 0;
+
         virtual QStringList        GetRecGroupList       ( ) = 0;
 
-        virtual QStringList        GetTitleList          ( ) = 0;
+        virtual QStringList        GetRecStorageGroupList ( ) = 0;
+
+        virtual QStringList        GetPlayGroupList      ( ) = 0;
+
+        virtual DTC::RecRuleFilterList* GetRecRuleFilterList ( ) = 0;
+
+        virtual QStringList        GetTitleList          ( const QString   &RecGroup ) = 0;
 
         virtual DTC::TitleInfoList* GetTitleInfoList     ( ) = 0;
 
@@ -181,6 +209,10 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
 
         virtual bool               RemoveRecordSchedule  ( uint             RecordId   ) = 0;
 
+        virtual bool               AddDontRecordSchedule ( int              ChanId,
+                                                           const QDateTime &StartTime,
+                                                           bool             NeverRecord ) = 0;
+
         virtual DTC::RecRuleList*  GetRecordScheduleList ( int              StartIndex,
                                                            int              Count      ) = 0;
 
@@ -194,6 +226,25 @@ class SERVICE_PUBLIC DvrServices : public Service  //, public QScriptable ???
 
         virtual bool               DisableRecordSchedule ( uint             RecordId   ) = 0;
 
+        // The following are all temporary, pending implementation of a
+        // 'enum metadata' endpoint
+        virtual QString            RecStatusToString     ( int              RecStatus  ) = 0;
+
+        virtual QString            RecStatusToDescription( int              RecStatus,
+                                                           int              RecType,
+                                                           const QDateTime &StartTime ) = 0;
+
+        virtual QString            RecTypeToString       ( QString          RecType   ) = 0;
+
+        virtual QString            RecTypeToDescription  ( QString          RecType   ) = 0;
+
+        virtual QString            DupMethodToString     ( QString          DupMethod ) = 0;
+
+        virtual QString            DupMethodToDescription( QString          DupMethod ) = 0;
+
+        virtual QString            DupInToString         ( QString          DupIn     ) = 0;
+
+        virtual QString            DupInToDescription    ( QString          DupIn     ) = 0;
 };
 
 #endif

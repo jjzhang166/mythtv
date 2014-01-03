@@ -25,6 +25,7 @@
 #include "exitcodes.h"
 #include "mythdownloadmanager.h"
 #include "mythtvexp.h"
+#include "mythdate.h"
 
 #define LOC QString("DataDirect: ")
 
@@ -275,7 +276,7 @@ bool DDStructureParser::endElement(const QString &pnamespaceuri,
     else if (pqname == "schedule")
     {
         QDateTime endtime = curr_schedule.time.addSecs(
-            QTime().secsTo(curr_schedule.duration));
+            MythDate::toSeconds( curr_schedule.duration ));
 
         query.prepare(
             "INSERT INTO dd_schedule "
@@ -463,21 +464,9 @@ bool DDStructureParser::characters(const QString& pchars)
                 LOG(VB_GENERAL, LOG_INFO, LOC + ExpirationDateMessage);
             }
 
-            MSqlQuery query(MSqlQuery::DDCon());
-
-            QString querystr = QString(
-                "UPDATE settings "
-                "SET data ='%1' "
-                "WHERE value='DataDirectMessage'")
-                .arg(ExpirationDateMessage);
-
-            query.prepare(querystr);
-
-            if (!query.exec())
-            {
-                MythDB::DBError("Updating DataDirect Status Message",
-                                     query);
-            }
+            gCoreContext->SaveSettingOnHost("DataDirectMessage",
+                                            ExpirationDateMessage,
+                                            NULL);
         }
     }
     if (currtagname == "callSign")
@@ -1007,7 +996,7 @@ bool DataDirectProcessor::DDPost(QString    ddurl,        QString   &inputFile,
     postdata += "</SOAP-ENV:Envelope>\n";
 
     if (inputFile.isEmpty()) {
-        inputFile = QString("/tmp/mythtv_ddp_data");
+        inputFile = QDir::tempPath() + "/mythtv__ddp_data";
     }
 
     QHash<QByteArray, QByteArray> headers;
@@ -1037,6 +1026,9 @@ bool DataDirectProcessor::DDPost(QString    ddurl,        QString   &inputFile,
 
     if (uncompressed.size() == 0)
         uncompressed = postdata;
+
+    LOG(VB_GENERAL, LOG_INFO, QString("Writing to temporary file: [%1]")
+        .arg( inputFile ));
 
     QFile file(inputFile);
     file.open(QIODevice::WriteOnly);

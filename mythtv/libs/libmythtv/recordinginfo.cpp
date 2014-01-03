@@ -49,6 +49,7 @@ RecordingInfo::RecordingInfo(
     const QString &_description,
     uint _season,
     uint _episode,
+    uint _totalepisodes,
     const QString &_syndicatedepisode,
     const QString &_category,
 
@@ -107,7 +108,7 @@ RecordingInfo::RecordingInfo(
     int _schedorder,
     uint _mplexid) :
     ProgramInfo(
-        _title, _subtitle, _description, _season, _episode,
+        _title, _subtitle, _description, _season, _episode, _totalepisodes,
         _category, _chanid, _chanstr, _chansign, _channame,
         QString(), _recgroup, _playgroup,
         _startts, _endts, _recstartts, _recendts,
@@ -207,7 +208,7 @@ RecordingInfo::RecordingInfo(
 
     bool _commfree) :
     ProgramInfo(
-        _title, _subtitle, _description, _season, _episode,
+        _title, _subtitle, _description, _season, _episode, 0,
         _category, _chanid, _chanstr, _chansign, _channame,
         QString(), _recgroup, _playgroup,
         _startts, _endts, _recstartts, _recendts,
@@ -598,20 +599,84 @@ void RecordingInfo::ApplyRecordRecGroupChange(const QString &newrecgroup)
 {
     MSqlQuery query(MSqlQuery::InitCon());
 
+    int newrecgroupid = GetRecgroupID(newrecgroup);
+
+    // Catchall - in the event that the group doesn't exist, then to avoid
+    // breakage, we need to create it
+    if (newrecgroupid == 0)
+    {
+        query.prepare("INSERT INTO recgroups SET recgroup = :NAME, "
+                      "displayname = :DISPLAYNAME");
+        query.bindValue(":NAME", newrecgroup);
+        query.bindValue(":DISPLAYNAME", newrecgroup);
+
+        if (query.exec())
+            newrecgroupid = query.lastInsertId().toInt();
+
+        if (newrecgroupid <= 0)
+        {
+            LOG(VB_GENERAL, LOG_ERR, QString("Could not create recording group (%1). "
+                                            "Does it already exist?").arg(newrecgroup));
+            return;
+        }
+    }
+
+    LOG(VB_GENERAL, LOG_NOTICE,
+            QString("ApplyRecordRecGroupChange: %1 to %2 (%3)").arg(recgroup)
+                                                               .arg(newrecgroup)
+                                                               .arg(newrecgroupid));
+
     query.prepare("UPDATE recorded"
-                  " SET recgroup = :RECGROUP"
+                  " SET recgroup = :RECGROUP, "
+                  "     recgroupid = :RECGROUPID "
                   " WHERE chanid = :CHANID"
                   " AND starttime = :START ;");
     query.bindValue(":RECGROUP", null_to_empty(newrecgroup));
+    query.bindValue(":RECGROUPID", newrecgroupid);
     query.bindValue(":START", recstartts);
     query.bindValue(":CHANID", chanid);
 
     if (!query.exec())
         MythDB::DBError("RecGroup update", query);
 
-    recgroup = newrecgroup;
+    recgroup = newrecgroup; // Deprecate in favour of recgroupid
+    //recgroupid = newrecgroupid;
 
     SendUpdateEvent();
+}
+
+void RecordingInfo::ApplyRecordRecGroupChange(int newrecgroupid)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    QString newrecgroup;
+    if (newrecgroupid > 0)
+    {
+        newrecgroup = GetRecgroupString(newrecgroupid);
+
+        query.prepare("UPDATE recorded"
+                    " SET recgroup = :RECGROUP, "
+                    "     recgroupid = :RECGROUPID "
+                    " WHERE chanid = :CHANID"
+                    " AND starttime = :START ;");
+        query.bindValue(":RECGROUP", null_to_empty(newrecgroup));
+        query.bindValue(":RECGROUPID", newrecgroupid);
+        query.bindValue(":START", recstartts);
+        query.bindValue(":CHANID", chanid);
+
+        if (!query.exec())
+            MythDB::DBError("RecGroup update", query);
+
+        recgroup = newrecgroup; // Deprecate in favour of recgroupid
+        //recgroupid = newrecgroupid;
+
+        SendUpdateEvent();
+    }
+
+    LOG(VB_GENERAL, LOG_NOTICE,
+            QString("ApplyRecordRecGroupChange: %1 to %2 (%3)").arg(recgroup)
+                                                               .arg(newrecgroup)
+                                                               .arg(newrecgroupid));
 }
 
 /** \fn RecordingInfo::ApplyRecordPlayGroupChange(const QString &newplaygroup)
@@ -778,6 +843,18 @@ void RecordingInfo::ApplyTranscoderProfileChange(const QString &profile) const
                 "ProgramInfo: unable to query transcoder profile ID");
         }
     }
+}
+
+/**
+ *  \brief Set this program to never be recorded by inserting 'history' for
+ *         it into the database with a status of rsNeverRecord
+ */
+void RecordingInfo::ApplyNeverRecord(void)
+{
+    SetRecordingStatus(rsNeverRecord);
+    SetScheduledStartTime(MythDate::current());
+    SetScheduledEndTime(GetRecordingStartTime());
+    AddHistory(true, true);
 }
 
 /** \fn RecordingInfo::QuickRecord(void)
@@ -1233,9 +1310,12 @@ void RecordingInfo::DeleteHistory(void)
 void RecordingInfo::ForgetHistory(void)
 {
     uint erecid = parentid ? parentid : recordid;
+    uint din = dupin ? dupin : kDupsInAll;
+    uint dmeth = dupmethod ? dupmethod : kDupCheckSubDesc;
 
     MSqlQuery result(MSqlQuery::InitCon());
 
+    // Handle this specific entry in recorded.
     result.prepare("UPDATE recorded SET duplicate = 0 "
                    "WHERE chanid = :CHANID "
                        "AND starttime = :STARTTIME "
@@ -1245,31 +1325,147 @@ void RecordingInfo::ForgetHistory(void)
     result.bindValue(":CHANID", chanid);
 
     if (!result.exec())
-        MythDB::DBError("forgetRecorded", result);
+        MythDB::DBError("forgetRecorded1", result);
 
+    // Handle other matching entries in recorded.
+    if (din & kDupsInRecorded)
+    {
+        result.prepare(
+            "UPDATE recorded SET duplicate = 0 "
+            "WHERE duplicate = 1 AND "
+            "      title = :TITLE AND "
+            "      ( "
+            "        (:PROGRAMID1 <> '' AND "
+            "         :PROGRAMID2 = recorded.programid) "
+            "        OR "
+            "        ( "
+            "          (:PROGRAMID3 = '' OR recorded.programid = '' OR "
+            "           LEFT(:PROGRAMID4, LOCATE('/', :PROGRAMID5)) <> "
+            "             LEFT(recorded.programid, "
+            "                  LOCATE('/', recorded.programid))) "
+            "          AND "
+            "          (((:DUPMETHOD1 & 0x02) = 0) OR (:SUBTITLE1 <> '' "
+            "            AND :SUBTITLE2 = recorded.subtitle)) "
+            "          AND "
+            "          (((:DUPMETHOD2 & 0x04) = 0) OR (:DESCRIPTION1 <> '' "
+            "            AND :DESCRIPTION2 = recorded.description)) "
+            "          AND "
+            "          (((:DUPMETHOD3 & 0x08) = 0) OR "
+            "            (:SUBTITLE3 <> '' AND "
+            "             (:SUBTITLE4 = recorded.subtitle OR "
+            "              (recorded.subtitle = '' AND "
+            "               :SUBTITLE5 = recorded.description))) OR "
+            "            (:SUBTITLE6 = '' AND :DESCRIPTION3 <> '' AND "
+            "             (:DESCRIPTION4 = recorded.subtitle OR "
+            "              (recorded.subtitle = '' AND "
+            "               :DESCRIPTION5 = recorded.description)))) "
+            "        ) "
+            "      )" );
+        result.bindValue(":TITLE", title);
+        result.bindValue(":SUBTITLE1", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE2", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE3", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE4", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE5", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE6", null_to_empty(subtitle));
+        result.bindValue(":DESCRIPTION1", null_to_empty(description));
+        result.bindValue(":DESCRIPTION2", null_to_empty(description));
+        result.bindValue(":DESCRIPTION3", null_to_empty(description));
+        result.bindValue(":DESCRIPTION4", null_to_empty(description));
+        result.bindValue(":DESCRIPTION5", null_to_empty(description));
+        result.bindValue(":PROGRAMID1", null_to_empty(programid));
+        result.bindValue(":PROGRAMID2", null_to_empty(programid));
+        result.bindValue(":PROGRAMID3", null_to_empty(programid));
+        result.bindValue(":PROGRAMID4", null_to_empty(programid));
+        result.bindValue(":PROGRAMID5", null_to_empty(programid));
+        result.bindValue(":DUPMETHOD1", dmeth);
+        result.bindValue(":DUPMETHOD2", dmeth);
+        result.bindValue(":DUPMETHOD3", dmeth);
+
+        if (!result.exec())
+            MythDB::DBError("forgetRecorded2", result);
+    }
+
+    // Handle this specific entry in oldrecorded.
     result.prepare("UPDATE oldrecorded SET duplicate = 0 "
-                   "WHERE duplicate = 1 "
-                   "AND title = :TITLE AND "
-                   "((programid = '' AND subtitle = :SUBTITLE"
-                   "  AND description = :DESC) OR "
-                   " (programid <> '' AND programid = :PROGRAMID) OR "
-                   " (findid <> 0 AND findid = :FINDID))");
+                   "WHERE station = :STATION "
+                       "AND starttime = :STARTTIME "
+                       "AND title = :TITLE;");
+    result.bindValue(":STARTTIME", startts);
     result.bindValue(":TITLE", title);
-    result.bindValue(":SUBTITLE", null_to_empty(subtitle));
-    result.bindValue(":DESC", null_to_empty(description));
-    result.bindValue(":PROGRAMID", null_to_empty(programid));
-    result.bindValue(":FINDID", findid);
+    result.bindValue(":STATION", chansign);
 
     if (!result.exec())
-        MythDB::DBError("forgetHistory", result);
+        MythDB::DBError("forgetOldRecorded1", result);
 
+    // Handle other matching entries in oldrecorded.
+    if (din & kDupsInOldRecorded)
+    {
+        result.prepare(
+            "UPDATE oldrecorded SET duplicate = 0 "
+            "WHERE duplicate = 1 AND "
+            "      title = :TITLE AND "
+            "      ( "
+            "        (:PROGRAMID1 <> '' AND "
+            "         :PROGRAMID2 = oldrecorded.programid) "
+            "        OR "
+            "        ( "
+            "          (:PROGRAMID3 = '' OR oldrecorded.programid = '' OR "
+            "           LEFT(:PROGRAMID4, LOCATE('/', :PROGRAMID5)) <> "
+            "             LEFT(oldrecorded.programid, "
+            "                  LOCATE('/', oldrecorded.programid))) "
+            "          AND "
+            "          (((:DUPMETHOD1 & 0x02) = 0) OR (:SUBTITLE1 <> '' "
+            "            AND :SUBTITLE2 = oldrecorded.subtitle)) "
+            "          AND "
+            "          (((:DUPMETHOD2 & 0x04) = 0) OR (:DESCRIPTION1 <> '' "
+            "            AND :DESCRIPTION2 = oldrecorded.description)) "
+            "          AND "
+            "          (((:DUPMETHOD3 & 0x08) = 0) OR "
+            "            (:SUBTITLE3 <> '' AND "
+            "             (:SUBTITLE4 = oldrecorded.subtitle OR "
+            "              (oldrecorded.subtitle = '' AND "
+            "               :SUBTITLE5 = oldrecorded.description))) OR "
+            "            (:SUBTITLE6 = '' AND :DESCRIPTION3 <> '' AND "
+            "             (:DESCRIPTION4 = oldrecorded.subtitle OR "
+            "              (oldrecorded.subtitle = '' AND "
+            "               :DESCRIPTION5 = oldrecorded.description)))) "
+            "        ) "
+            "      )" );
+        result.bindValue(":TITLE", title);
+        result.bindValue(":SUBTITLE1", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE2", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE3", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE4", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE5", null_to_empty(subtitle));
+        result.bindValue(":SUBTITLE6", null_to_empty(subtitle));
+        result.bindValue(":DESCRIPTION1", null_to_empty(description));
+        result.bindValue(":DESCRIPTION2", null_to_empty(description));
+        result.bindValue(":DESCRIPTION3", null_to_empty(description));
+        result.bindValue(":DESCRIPTION4", null_to_empty(description));
+        result.bindValue(":DESCRIPTION5", null_to_empty(description));
+        result.bindValue(":PROGRAMID1", null_to_empty(programid));
+        result.bindValue(":PROGRAMID2", null_to_empty(programid));
+        result.bindValue(":PROGRAMID3", null_to_empty(programid));
+        result.bindValue(":PROGRAMID4", null_to_empty(programid));
+        result.bindValue(":PROGRAMID5", null_to_empty(programid));
+        result.bindValue(":DUPMETHOD1", dmeth);
+        result.bindValue(":DUPMETHOD2", dmeth);
+        result.bindValue(":DUPMETHOD3", dmeth);
+
+        if (!result.exec())
+            MythDB::DBError("forgetOldRecorded2", result);
+    }
+
+    // Remove any never records which aren't need anymore.
     result.prepare("DELETE FROM oldrecorded "
                    "WHERE recstatus = :NEVER AND duplicate = 0");
     result.bindValue(":NEVER", rsNeverRecord);
 
     if (!result.exec())
-        MythDB::DBError("forgetNeverHisttory", result);
+        MythDB::DBError("forgetNeverHistory", result);
 
+    // Handle matching entries in oldfind.
     if (findid)
     {
         result.prepare("DELETE FROM oldfind WHERE "
@@ -1326,6 +1522,42 @@ void RecordingInfo::SubstituteMatches(QString &str)
     str.replace("%REACTIVATE%", IsReactivated() ? "1" : "0");
 
     ProgramInfo::SubstituteMatches(str);
+}
+
+/**
+ *  \brief Temporary helper during transition from string to ID
+ */
+uint RecordingInfo::GetRecgroupID(const QString& recGroup)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("SELECT recgroupid FROM recgroups WHERE recgroup = :RECGROUP");
+    query.bindValue(":RECGROUP", null_to_empty(recGroup));
+
+    if (!query.exec())
+        MythDB::DBError("RecGroup update", query);
+
+    if (!query.next())
+        return 0;
+
+    return query.value(0).toUInt();
+}
+
+/**
+ *  \brief Temporary helper during transition from string to ID
+ */
+QString RecordingInfo::GetRecgroupString(uint recGroupID)
+{
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("SELECT recgroup FROM recgroups WHERE recgroupid = :RECGROUPID");
+    query.bindValue(":RECGROUPID", recGroupID);
+    if (!query.exec() || !query.next())
+    {
+        MythDB::DBError("GetRecgroupString()", query);
+        return QString();
+    }
+    return query.value(0).toString();
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

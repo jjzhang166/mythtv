@@ -87,6 +87,9 @@ using namespace std;
 #include "videometadatasettings.h"
 #include "videolist.h"
 
+// Gallery
+#include "galleryview.h"
+
 // DVD
 #include "DVD/dvdringbuffer.h"
 
@@ -255,7 +258,7 @@ namespace
         if (g_pUPnp)
         {
             // This takes a few seconds, so inform the user:
-            LOG(VB_GENERAL, LOG_INFO, "Deleting UPnP client...");
+            LOG(VB_GENERAL, LOG_INFO, "Shutting down UPnP client...");
             delete g_pUPnp;
             g_pUPnp = NULL;
         }
@@ -316,7 +319,7 @@ static void startAppearWiz(void)
     else
     {
         MythSystemLegacy *wizard = new MythSystemLegacy(
-            GetInstallPrefix() + "/bin/mythscreenwizard",
+            GetAppBinDir() + "mythscreenwizard",
             QStringList(),
             kMSDisableUDPListener | kMSPropagateLogs);
         wizard->Run();
@@ -360,7 +363,6 @@ static void startGuide(void)
 {
     uint chanid = 0;
     QString channum = gCoreContext->GetSetting("DefaultTVChannel");
-    channum = (channum.isEmpty()) ? "3" : channum;
     QDateTime startTime;
     GuideGrid::RunProgramGuide(chanid, channum, startTime, NULL, false, true, -2);
 }
@@ -589,12 +591,6 @@ static bool isLiveTVAvailable(void)
     return false;
 }
 
-static void startTVInGuide(void)
-{
-    if (isLiveTVAvailable())
-        TV::StartTV(NULL, kStartTVInGuide);
-}
-
 static void startTVNormal(void)
 {
     if (isLiveTVAvailable())
@@ -678,6 +674,21 @@ static void jumpScreenVideoTree()    { RunVideoScreen(VideoDialog::DLG_TREE, tru
 static void jumpScreenVideoGallery() { RunVideoScreen(VideoDialog::DLG_GALLERY, true); }
 static void jumpScreenVideoDefault() { RunVideoScreen(VideoDialog::DLG_DEFAULT, true); }
 
+static void RunGallery()
+{
+    MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
+    GalleryView *galleryView = new GalleryView(mainStack, "galleryview");
+    if (galleryView->Create())
+    {
+        mainStack->AddScreen(galleryView);
+        galleryView->LoadData();
+    }
+    else
+    {
+        delete galleryView;
+    }
+}
+
 static void playDisc()
 {
     //
@@ -721,7 +732,7 @@ static void playDisc()
 #ifdef Q_OS_MAC
             // Convert a BSD 'leaf' name into a raw device path
             QString filename = "dvd://dev/r";   // e.g. 'dvd://dev/rdisk2'
-#elif USING_MINGW
+#elif _WIN32
             QString filename = "dvd:";          // e.g. 'dvd:E\\'
 #else
             QString filename = "dvd:/";         // e.g. 'dvd://dev/sda'
@@ -804,8 +815,6 @@ static void TVMenuCallback(void *data, QString &selection)
 
     if (sel == "tv_watch_live")
         startTVNormal();
-    else if (sel == "tv_watch_live_epg")
-        startTVInGuide();
     else if (sel.startsWith("tv_watch_recording"))
     {
         // use selection here because its case is untouched
@@ -1213,7 +1222,7 @@ static bool resetTheme(QString themedir, const QString badtheme)
     gCoreContext->ReInitLocale();
     GetMythUI()->LoadQtConfig();
 #if CONFIG_DARWIN
-    GetMythMainWindow()->Init(OPENGL_PAINTER);
+    GetMythMainWindow()->Init(OPENGL2_PAINTER);
 #else
     GetMythMainWindow()->Init();
 #endif
@@ -1246,7 +1255,7 @@ static int reloadTheme(void)
         menu->Close();
     }
 #if CONFIG_DARWIN
-    GetMythMainWindow()->Init(gLoaded ? OPENGL_PAINTER : QT_PAINTER);
+    GetMythMainWindow()->Init(gLoaded ? OPENGL2_PAINTER : QT_PAINTER);
 #else
     GetMythMainWindow()->Init();
 #endif
@@ -1315,8 +1324,6 @@ static void InitJumpPoints(void)
          "", "", startPlayback, "JUMPREC");
      REG_JUMP(QT_TRANSLATE_NOOP("MythControls", "Live TV"),
          "", "", startTVNormal);
-     REG_JUMP(QT_TRANSLATE_NOOP("MythControls", "Live TV In Guide"),
-         "", "", startTVInGuide);
      REG_JUMP(QT_TRANSLATE_NOOP("MythControls", "Status Screen"),
          "", "", showStatus);
      REG_JUMP(QT_TRANSLATE_NOOP("MythControls", "Previously Recorded"),
@@ -1347,6 +1354,11 @@ static void InitJumpPoints(void)
      REG_JUMPEX(QT_TRANSLATE_NOOP("MythControls", "Reset All Keys"),
          QT_TRANSLATE_NOOP("MythControls", "Reset all keys to defaults"),
          "", resetAllKeys, false);
+
+     // Gallery
+
+     REG_JUMP(JUMP_GALLERY_DEFAULT, QT_TRANSLATE_NOOP("MythControls",
+         "The Gallery Default View"), "", RunGallery);
 }
 
 static void ReloadJumpPoints(void)
@@ -1378,6 +1390,36 @@ static void InitKeys(void)
          "Go to the first video"), "Home");
      REG_KEY("Video","END", QT_TRANSLATE_NOOP("MythControls",
          "Go to the last video"), "End");
+
+     // Gallery keybindings
+     REG_KEY("Images", "PLAY", QT_TRANSLATE_NOOP("MythControls",
+         "Start Slideshow"), "P");
+     REG_KEY("Images", "PAUSE", QT_TRANSLATE_NOOP("MythControls",
+         "Pause Slideshow"), "Ctrl+P");
+     REG_KEY("Images", "STOP", QT_TRANSLATE_NOOP("MythControls",
+         "Stop Slideshow"), "Alt+P");
+     REG_KEY("Images", "HOME", QT_TRANSLATE_NOOP("MythControls",
+         "Go to the first image in thumbnail view"), "Home");
+     REG_KEY("Images", "END", QT_TRANSLATE_NOOP("MythControls",
+         "Go to the last image in thumbnail view"), "End");
+     REG_KEY("Images", "SLIDESHOW", QT_TRANSLATE_NOOP("MythControls",
+         "Start Slideshow in thumbnail view"), "S");
+     REG_KEY("Images", "RANDOMSHOW", QT_TRANSLATE_NOOP("MythControls",
+         "Start Random Slideshow in thumbnail view"), "R");
+     REG_KEY("Images", "ROTRIGHT", QT_TRANSLATE_NOOP("MythControls",
+         "Rotate image right 90 degrees"), "],3");
+     REG_KEY("Images", "ROTLEFT", QT_TRANSLATE_NOOP("MythControls",
+         "Rotate image left 90 degrees"), "[,1");
+     REG_KEY("Images", "ZOOMOUT", QT_TRANSLATE_NOOP("MythControls",
+         "Zoom image out"), "7");
+     REG_KEY("Images", "ZOOMIN", QT_TRANSLATE_NOOP("MythControls",
+         "Zoom image in"), "9");
+     REG_KEY("Images", "FLIPHORIZONTAL", QT_TRANSLATE_NOOP("MythControls",
+         "Flip image horizontally"), "");
+     REG_KEY("Images", "FLIPVERTICAL", QT_TRANSLATE_NOOP("MythControls",
+         "Flip image vertically"), "");
+     REG_KEY("Images", "MARK", QT_TRANSLATE_NOOP("MythControls",
+         "Mark image"), "T");
 }
 
 static void ReloadKeys(void)
@@ -1563,8 +1605,14 @@ int main(int argc, char **argv)
         as.Save();
 
         gCoreContext->SaveSetting("Theme", DEFAULT_UI_THEME);
-        gCoreContext->SaveSetting("Language", "");
-        gCoreContext->SaveSetting("Country", "");
+        gCoreContext->GetDB()->ClearSetting("Language");
+        gCoreContext->GetDB()->ClearSettingOnHost("Language", NULL);
+        gCoreContext->GetDB()->ClearSetting("Country");
+        gCoreContext->GetDB()->ClearSettingOnHost("Country", NULL);
+
+        LOG(VB_GENERAL, LOG_NOTICE, "Appearance settings and language have "
+                                    "been reset to defaults. You will need to "
+                                    "restart the frontend.");
 
         return GENERIC_EXIT_OK;
     }
@@ -1694,7 +1742,7 @@ int main(int argc, char **argv)
 
 #if CONFIG_DARWIN
     GetMythMainWindow()->SetEffectsEnabled(false);
-    GetMythMainWindow()->Init(OPENGL_PAINTER);
+    GetMythMainWindow()->Init(OPENGL2_PAINTER);
     GetMythMainWindow()->ReinitDone();
     GetMythMainWindow()->SetEffectsEnabled(true);
     gLoaded = true;

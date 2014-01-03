@@ -62,7 +62,6 @@ NetworkControl::NetworkControl() :
     // Eventually this map should be in the jumppoints table
     jumpMap["channelpriorities"]     = "Channel Recording Priorities";
     jumpMap["livetv"]                = "Live TV";
-    jumpMap["livetvinguide"]         = "Live TV In Guide";
     jumpMap["mainmenu"]              = "Main Menu";
     jumpMap["managerecordings"]      = "Manage Recordings / Fix Conflicts";
     jumpMap["mythgallery"]           = "MythGallery";
@@ -72,6 +71,7 @@ NetworkControl::NetworkControl() :
     jumpMap["mythnews"]              = "MythNews";
     jumpMap["playdvd"]               = "Play Disc";
     jumpMap["playmusic"]             = "Play music";
+    jumpMap["playlistview"]          = "Play music";
     jumpMap["programfinder"]         = "Program Finder";
     jumpMap["programguide"]          = "Program Guide";
     jumpMap["ripcd"]                 = "Rip CD";
@@ -802,7 +802,7 @@ QString NetworkControl::processPlay(NetworkCommand *nc, int clientID)
             (token2.contains(QRegExp("^\\-*\\d*\\.\\d+x$"))))
             message = QString("NETWORK_CONTROL SPEED %1").arg(token2);
         else if (is_abbrev("normal", token2))
-            message = QString("NETWORK_CONTROL SPEED 1x");
+            message = QString("NETWORK_CONTROL SPEED normal");
         else if (is_abbrev("pause", token2))
             message = QString("NETWORK_CONTROL SPEED 0x");
         else
@@ -1016,6 +1016,9 @@ QString NetworkControl::processSet(NetworkCommand *nc)
     if (nc->getArg(1) == "verbose")
     {
 /*
+        if (nc->getArgCount() < 3)
+            return QString("ERROR: Missing filter name.");
+
         if (nc->getArgCount() > 3)
             return QString("ERROR: Separate filters with commas with no "
                            "space: playback,audio\r\n See 'help %1' for usage "

@@ -7,6 +7,10 @@
 #include <QApplication>
 #include <QDir>
 
+#if QT_VERSION < 0x050000
+#include <QTextCodec>
+#endif
+
 // libmythbase
 #include "mythdirs.h"
 #include "mythcorecontext.h"
@@ -52,9 +56,13 @@ void MythTranslation::load(const QString &module_name)
 
     if (lang == "en")
     {
-        gCoreContext->SaveSetting("Language", "en_US");
+        gCoreContext->SaveSettingOnHost("Language", "en_US", NULL);
         lang = "en_us";
     }
+
+#if QT_VERSION < 0x050000
+    QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
+#endif
 
     QTranslator *trans = new QTranslator(0);
     if (trans->load(GetTranslationsDir() + module_name

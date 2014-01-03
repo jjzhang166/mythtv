@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
@@ -49,6 +49,8 @@ class Content : public ContentServices
 
         QStringList         GetFileList         ( const QString   &StorageGroup );
 
+        QStringList         GetDirList          ( const QString   &StorageGroup );
+
         QFileInfo           GetRecordingArtwork ( const QString   &Type,
                                                   const QString   &Inetref,
                                                   int Season, int Width,
@@ -71,7 +73,8 @@ class Content : public ContentServices
                                                   const QDateTime &StartTime,
                                                   int              Width,
                                                   int              Height,
-                                                  int              SecsIn );
+                                                  int              SecsIn,
+                                                  const QString   &Format);
 
         QFileInfo           GetRecording        ( int              ChanId,
                                                   const QDateTime &StartTime );
@@ -84,6 +87,13 @@ class Content : public ContentServices
 
         bool                DownloadFile        ( const QString   &URL,
                                                   const QString   &StorageGroup );
+
+        bool                DeleteFile          ( const QString   &StorageGroup,
+                                                  const QString   &FileName );
+
+        bool                RenameFile          ( const QString   &StorageGroup,
+                                                  const QString   &FileName,
+                                                  const QString   &NewName );
 
         // HTTP Live Streaming
         DTC::LiveStreamInfo     *AddLiveStream          ( const QString   &StorageGroup,

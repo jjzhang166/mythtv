@@ -42,7 +42,7 @@ using namespace std;
 
 #include "mythplugin.h"
 
-#ifdef USING_MINGW
+#ifdef _WIN32
 #include <unistd.h>
 #include "compat.h"
 #endif
@@ -1091,7 +1091,7 @@ void MythContextSlotHandler::VersionMismatchPopupClosed(void)
 MythContext::MythContext(const QString &binversion)
     : d(NULL), app_binary_version(binversion)
 {
-#ifdef USING_MINGW
+#ifdef _WIN32
     static bool WSAStarted = false;
     if (!WSAStarted) {
         WSADATA wsadata;

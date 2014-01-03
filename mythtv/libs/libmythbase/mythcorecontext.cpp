@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QDebug>
 #include <QMutex>
+#include <QRunnable>
 #include <QWaitCondition>
 #include <QNetworkInterface>
 #include <QAbstractSocket>
@@ -20,7 +21,7 @@
 #include <algorithm>
 using namespace std;
 
-#ifdef USING_MINGW
+#ifdef _WIN32
 #include <winsock2.h>
 #include <unistd.h>
 #else
@@ -96,6 +97,8 @@ class MythCoreContextPrivate : public QObject
     bool m_announcedProtocol;
 
     MythPluginManager *m_pluginmanager;
+
+    bool m_isexiting;
 };
 
 MythCoreContextPrivate::MythCoreContextPrivate(MythCoreContext *lparent,
@@ -118,7 +121,8 @@ MythCoreContextPrivate::MythCoreContextPrivate(MythCoreContext *lparent,
       m_inwanting(false),
       m_intvwanting(false),
       m_announcedProtocol(false),
-      m_pluginmanager(NULL)
+      m_pluginmanager(NULL),
+      m_isexiting(false)
 {
     MThread::ThreadSetup("UI");
     srandom(MythDate::current().toTime_t() ^ QTime::currentTime().msec());
@@ -299,10 +303,7 @@ bool MythCoreContext::SafeConnectToMasterServer(bool blockingClient,
                                                 bool openEventSocket)
 {
     QMutexLocker locker(&d->m_sockLock);
-    bool success = true;
-
-    if (!d->m_serverSock || !d->m_serverSock->IsConnected())
-        success = ConnectToMasterServer(blockingClient, openEventSocket);
+    bool success = ConnectToMasterServer(blockingClient, openEventSocket);
 
     return success;
 }
@@ -551,15 +552,7 @@ void MythCoreContext::BlockShutdown(void)
     strlist << "BLOCK_SHUTDOWN";
     d->m_serverSock->SendReceiveStringList(strlist);
 
-    if (!d->m_eventSock || !d->m_eventSock->IsConnected())
-        return;
-
     d->m_blockingClient = true;
-
-    strlist.clear();
-    strlist << "BLOCK_SHUTDOWN";
-
-    d->m_eventSock->SendReceiveStringList(strlist);
 }
 
 void MythCoreContext::AllowShutdown(void)
@@ -573,15 +566,7 @@ void MythCoreContext::AllowShutdown(void)
     strlist << "ALLOW_SHUTDOWN";
     d->m_serverSock->SendReceiveStringList(strlist);
 
-    if (!d->m_eventSock || !d->m_eventSock->IsConnected())
-        return;
-
     d->m_blockingClient = false;
-
-    strlist.clear();
-    strlist << "ALLOW_SHUTDOWN";
-
-    d->m_eventSock->SendReceiveStringList(strlist);
 }
 
 bool MythCoreContext::IsBlockingClient(void) const
@@ -619,7 +604,7 @@ bool MythCoreContext::BackendIsRunning(void)
 {
 #if CONFIG_DARWIN || (__FreeBSD__) || defined(__OpenBSD__)
     const char *command = "ps -axc | grep -i mythbackend | grep -v grep > /dev/null";
-#elif defined USING_MINGW
+#elif defined _WIN32
     const char *command = "%systemroot%\\system32\\tasklist.exe "
        " | %systemroot%\\system32\\find.exe /i \"mythbackend.exe\" ";
 #else
@@ -697,7 +682,9 @@ QString MythCoreContext::GenMythURL(QString host, int port, QString path, QStrin
     if (path.startsWith("/"))
         seperator = "";
 
-    ret = QString("myth://%1%2%3%4%5").arg(m_storageGroup).arg(m_host).arg(m_port).arg(seperator).arg(path);
+    // IPv6 addresses may contain % followed by a digit which causes .arg()
+    // to fail, so use append instead.
+    ret = QString("myth://").append(m_storageGroup).append(m_host).append(m_port).append(seperator).append(path);
 
 #if 0
     LOG(VB_GENERAL, LOG_DEBUG, LOC +
@@ -710,34 +697,10 @@ QString MythCoreContext::GenMythURL(QString host, int port, QString path, QStrin
 QString MythCoreContext::GetMasterHostPrefix(const QString &storageGroup,
                                              const QString &path)
 {
-    QString ret;
-
-    if (IsMasterHost())
-    {
-        return GenMythURL(GetSetting("MasterServerIP"),
-                          GetNumSetting("MasterServerPort", 6543),
-                          path,
-                          storageGroup);
-    }
-
-    QMutexLocker locker(&d->m_sockLock);
-    if (!d->m_serverSock || !d->m_serverSock->IsConnected() ||
-        !d->m_eventSock || !d->m_eventSock->IsConnected())
-    {
-        bool blockingClient = GetNumSetting("idleTimeoutSecs",0) > 0;
-        ConnectToMasterServer(blockingClient);
-    }
-
-    if (d->m_serverSock)
-    {
-
-         ret = GenMythURL(d->m_serverSock->GetPeerAddress().toString(),
-                          d->m_serverSock->GetPeerPort(),
-                          path,
-                          storageGroup);
-    }
-    
-    return ret;
+    return GenMythURL(GetSetting("MasterServerIP"),
+                        GetNumSetting("MasterServerPort", 6543),
+                        path,
+                        storageGroup);
 }
 
 QString MythCoreContext::GetMasterHostName(void)
@@ -1560,6 +1523,16 @@ void MythCoreContext::SetPluginManager(MythPluginManager *pmanager)
 MythPluginManager *MythCoreContext::GetPluginManager(void)
 {
     return d->m_pluginmanager;
+}
+
+void MythCoreContext::SetExiting(bool exiting)
+{
+    d->m_isexiting = exiting;
+}
+
+bool MythCoreContext::IsExiting(void)
+{
+    return d->m_isexiting;
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

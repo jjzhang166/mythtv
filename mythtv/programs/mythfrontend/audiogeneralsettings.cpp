@@ -57,7 +57,7 @@ AudioDeviceComboBox::AudioDeviceComboBox(AudioConfigSettings *parent) :
     QString dflt = "PulseAudio:default";
 #elif CONFIG_DARWIN
     QString dflt = "CoreAudio:";
-#elif USING_MINGW
+#elif _WIN32
     QString dflt = "Windows:";
 #else
     QString dflt = "NULL";
@@ -1045,11 +1045,11 @@ HostComboBox *AudioMixerSettings::MixerDevice()
 #ifdef USING_ALSA
     gc->addSelection("ALSA:default", "ALSA:default");
 #endif
-#ifdef USING_MINGW
+#ifdef _WIN32
     gc->addSelection("DirectX:", "DirectX:");
     gc->addSelection("Windows:", "Windows:");
 #endif
-#if !defined(USING_MINGW)
+#if !defined(_WIN32)
     gc->addSelection(tr("software"), "software");
 #endif
 
@@ -1225,7 +1225,7 @@ HostComboBox *AudioAdvancedSettings::PassThroughOutputDevice()
 
     gc->addSelection(QCoreApplication::translate("(Common)", "Default"), 
                      "Default");
-#ifdef USING_MINGW
+#ifdef _WIN32
     gc->addSelection("DirectX:Primary Sound Driver");
 #else
     gc->addSelection("ALSA:iec958:{ AES0 0x02 }",
