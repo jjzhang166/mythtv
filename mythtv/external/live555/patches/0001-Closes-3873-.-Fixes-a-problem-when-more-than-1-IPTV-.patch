@@ -1,0 +1,58 @@
+From 1ed419adb1195771e06bf76c967190796164f6af Mon Sep 17 00:00:00 2001
+From: Greg Estabrooks <gestabrooks@mythtv.org>
+Date: Wed, 5 Nov 2008 00:03:10 +0000
+Subject: [PATCH 1/1]  Closes #3873 . Fixes a problem when more than 1 IPTV
+ stream is coming in to the same box using the same destination port and myth
+ was not restricting which IP it was listening on.
+
+git-svn-id: http://svn.mythtv.org/svn/trunk@18968 7dbf422c-18fa-0310-86e9-fd20926502f2
+---
+ mythtv/libs/libmythlivemedia/groupsock/GroupsockHelper.cpp        | 5 ++++-
+ mythtv/libs/libmythlivemedia/groupsock/include/GroupsockHelper.hh | 1 +
+ mythtv/libs/libmythtv/iptv/iptvfeederudp.cpp                      | 2 ++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/mythtv/external/live555/groupsock/GroupsockHelper.cpp b/mythtv/external/live555/groupsock/GroupsockHelper.cpp
+index d23c7d7..8b0d126 100644
+--- a/mythtv/external/live555/groupsock/GroupsockHelper.cpp
++++ b/mythtv/external/live555/groupsock/GroupsockHelper.cpp
+@@ -34,6 +34,7 @@ extern "C" int initializeWinsockIfNecessary();
+ // By default, use INADDR_ANY for the sending and receiving interfaces:
+ netAddressBits SendingInterfaceAddr = INADDR_ANY;
+ netAddressBits ReceivingInterfaceAddr = INADDR_ANY;
++netAddressBits ReceivingSocketAddr = INADDR_ANY;
+ 
+ static void socketErr(UsageEnvironment& env, char const* errorMsg) {
+   env.setResultErrMsg(errorMsg);
+@@ -239,7 +240,7 @@ int setupStreamSocket(UsageEnvironment& env,
+ #else
+   if (port.num() != 0 || ReceivingInterfaceAddr != INADDR_ANY) {
+ #endif
+-    MAKE_SOCKADDR_IN(name, ReceivingInterfaceAddr, port.num());
++    MAKE_SOCKADDR_IN(name, ReceivingSocketAddr, port.num());
+     if (bind(newSocket, (struct sockaddr*)&name, sizeof name) != 0) {
+       char tmpBuffer[100];
+       sprintf(tmpBuffer, "bind() error (port number: %d): ",
+@@ -591,6 +592,8 @@ netAddressBits ourIPAddress(UsageEnvironment& env) {
+       testAddr.s_addr = our_inet_addr("228.67.43.91"); // arbitrary
+       Port testPort(15947); // ditto
+ 
++      ReceivingSocketAddr = INADDR_ANY
++
+       sock = setupDatagramSocket(env, testPort);
+       if (sock < 0) break;
+ 
+diff --git a/mythtv/external/live555/groupsock/include/GroupsockHelper.hh b/mythtv/external/live555/groupsock/include/GroupsockHelper.hh
+index a256df0..232122a 100644
+--- a/mythtv/external/live555/groupsock/include/GroupsockHelper.hh
++++ b/mythtv/external/live555/groupsock/include/GroupsockHelper.hh
+@@ -78,6 +78,7 @@ netAddressBits ourIPAddress(UsageEnvironment& env); // in network order
+ // are INADDR_ANY (i.e., 0), specifying the default interface.)
+ extern netAddressBits SendingInterfaceAddr;
+ extern netAddressBits ReceivingInterfaceAddr;
++extern netAddressBits ReceivingSocketAddr;
+ 
+ // Allocates a randomly-chosen IPv4 SSM (multicast) address:
+ netAddressBits chooseRandomIPv4SSMAddress(UsageEnvironment& env);
+-- 
+1.8.5.2 (Apple Git-48)

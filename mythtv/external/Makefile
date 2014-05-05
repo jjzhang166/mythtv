@@ -1,6 +1,6 @@
 include ../config.mak
 
-SUBDIRS = FFmpeg qjson libmythbluray libmythdvdnav libsamplerate
+SUBDIRS = FFmpeg qjson libmythbluray libmythdvdnav libsamplerate live555
 ifeq ($(CONFIG_MYTHLOGSERVER),yes)
     SUBDIRS += zeromq nzmqt
 endif
@@ -64,3 +64,8 @@ libmythdvdnav-all libmythdvdnav-clean libmythdvdnav-distclean libmythdvdnav-inst
 libsamplerate-all libsamplerate-clean libsamplerate-distclean libsamplerate-install libsamplerate-uninstall:
 	${MAKE} -C libsamplerate ${@:libsamplerate-%=%}
 
+live555/Makefile:
+	(cd live555 ; ${QMAKE} -o Makefile)
+
+live555-all live555-clean live555-distclean live555-install live555-uninstall: live555/Makefile
+	${MAKE} -C live555 ${@:live555-%=%}

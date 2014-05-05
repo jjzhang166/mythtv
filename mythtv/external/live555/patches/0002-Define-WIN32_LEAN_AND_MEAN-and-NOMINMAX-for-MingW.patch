@@ -1,0 +1,48 @@
+From acadd66dbd50be2a8b98031d2f1d7400fbca951f Mon Sep 17 00:00:00 2001
+From: Lawrence Rust <lvr@softsystem.co.uk>
+Date: Sun, 29 Jan 2012 20:35:15 -0800
+Subject: [PATCH 2/2] Define WIN32_LEAN_AND_MEAN and NOMINMAX for MingW
+
+This patch defines WIN32_LEAN_AND_MEAN and NOMINMAX when building mythtv and
+mythplugins for Windows. This change should avoid a lot of name hijacking that
+occurs when including windows.h. The patch also fixes several files that were
+missing explicit headers.
+
+Closes #9645
+
+Signed-off-by: Gavin Hurlbut <ghurlbut@mythtv.org>
+---
+ mythplugins/settings.pro                                                | 2 +-
+ mythtv/libs/libmyth/audio/audiooutputwin.cpp                            | 1 +
+ mythtv/libs/libmythbase/compat.h                                        | 1 +
+ .../libs/libmythlivemedia/BasicUsageEnvironment/BasicTaskScheduler.cpp  | 1 +
+ .../libmythlivemedia/BasicUsageEnvironment/BasicUsageEnvironment.cpp    | 1 +
+ mythtv/settings.pro                                                     | 2 +-
+ 6 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/mythtv/external/live555/BasicUsageEnvironment/BasicTaskScheduler0.cpp b/mythtv/external/live555/BasicUsageEnvironment/BasicTaskScheduler0.cpp
+index 3f6c401..790906d 100644
+--- a/mythtv/external/live555/BasicUsageEnvironment/BasicTaskScheduler0.cpp
++++ b/mythtv/external/live555/BasicUsageEnvironment/BasicTaskScheduler0.cpp
+@@ -19,6 +19,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
+ 
+ #include "BasicUsageEnvironment0.hh"
+ #include "HandlerSet.hh"
++#include <stdlib.h> // for exit()
+ 
+ ////////// A subclass of DelayQueueEntry,
+ //////////     used to implement BasicTaskScheduler0::scheduleDelayedTask()
+diff --git a/mythtv/external/live555/BasicUsageEnvironment/BasicUsageEnvironment0.cpp b/mythtv/external/live555/BasicUsageEnvironment/BasicUsageEnvironment0.cpp
+index 473b409..d4974e7 100644
+--- a/mythtv/external/live555/BasicUsageEnvironment/BasicUsageEnvironment0.cpp
++++ b/mythtv/external/live555/BasicUsageEnvironment/BasicUsageEnvironment0.cpp
+@@ -19,6 +19,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
+ 
+ #include "BasicUsageEnvironment0.hh"
+ #include <stdio.h>
++#include <stdlib.h> // for exit()
+ 
+ ////////// BasicUsageEnvironment //////////
+ 
+-- 
+1.8.5.2 (Apple Git-48)
