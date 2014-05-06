@@ -31,20 +31,19 @@ DEPENDPATH  += ./recorders/dvbdev
 DEPENDPATH  += ./recorders/rtp
 DEPENDPATH  += ./recorders/vbitext
 DEPENDPATH  += ./recorders/HLS
-DEPENDPATH  += ../libmythlivemedia/BasicUsageEnvironment/include
-DEPENDPATH  += ../libmythlivemedia/BasicUsageEnvironment
-DEPENDPATH  += ../libmythlivemedia/groupsock/include
-DEPENDPATH  += ../libmythlivemedia/groupsock
-DEPENDPATH  += ../libmythlivemedia/liveMedia/include
-DEPENDPATH  += ../libmythlivemedia/liveMedia
-DEPENDPATH  += ../libmythlivemedia/UsageEnvironment/include
-DEPENDPATH  += ../libmythlivemedia/UsageEnvironment
 DEPENDPATH  += ../libmythbase ../libmythui
 DEPENDPATH  += ../libmythupnp
 DEPENDPATH  += ../libmythservicecontracts
 
 INCLUDEPATH += .. ../.. # for avlib headers
 INCLUDEPATH += ../../external/FFmpeg
+
+#Live555 required include path (they made it easy)
+INCLUDEPATH += ../../external/live555/liveMedia/include 
+INCLUDEPATH += ../../external/live555/groupsock/include
+INCLUDEPATH += ../../external/live555/UsageEnvironment/include
+INCLUDEPATH += ../../external/live555/BasicUsageEnvironment/include
+
 INCLUDEPATH += $$DEPENDPATH
 INCLUDEPATH += $$POSTINC
 
@@ -141,7 +140,7 @@ HEADERS += mythsystemevent.h
 HEADERS += avfringbuffer.h
 HEADERS += ringbuffer.h             fileringbuffer.h
 HEADERS += streamingringbuffer.h    metadataimagehelper.h
-HEADERS += icringbuffer.h
+HEADERS += icringbuffer.h           live555ringbuffer.h
 
 SOURCES += recordinginfo.cpp
 SOURCES += dbcheck.cpp
@@ -169,7 +168,7 @@ SOURCES += mythsystemevent.cpp
 SOURCES += avfringbuffer.cpp
 SOURCES += ringbuffer.cpp           fileringBuffer.cpp
 SOURCES += streamingringbuffer.cpp  metadataimagehelper.cpp
-SOURCES += icringbuffer.cpp
+SOURCES += icringbuffer.cpp         live555ringbuffer.cpp
 
 # DiSEqC
 HEADERS += diseqc.h                 diseqcsettings.h
@@ -831,16 +830,17 @@ LIBS += -L../../external/FFmpeg/libswscale
 LIBS += -L../libmythui -L../libmythupnp
 LIBS += -L../libmythbase
 LIBS += -L../libmythservicecontracts
+LIBS += -L../../external/live555
 LIBS += -lmyth-$$LIBVERSION
 LIBS += -lmythswscale
 LIBS += -lmythavformat
 LIBS += -lmythavcodec
 LIBS += -lmythavutil
+LIBS += -lmythlivemedia-$$LIBVERSION
 LIBS += -lmythui-$$LIBVERSION       -lmythupnp-$$LIBVERSION
 LIBS += -lmythbase-$$LIBVERSION
 LIBS += -lmythservicecontracts-$$LIBVERSION
 using_mheg: LIBS += -L../libmythfreemheg -lmythfreemheg-$$LIBVERSION
-using_live: LIBS += -L../libmythlivemedia -lmythlivemedia-$$LIBVERSION
 using_hdhomerun: LIBS += -L../../external/libhdhomerun -lmythhdhomerun-$$LIBVERSION
 using_backend: LIBS += -lmp3lame
 LIBS += $$EXTRA_LIBS $$QMAKE_LIBS_DYNLOAD
@@ -851,9 +851,9 @@ LIBS += $$EXTRA_LIBS $$QMAKE_LIBS_DYNLOAD
     POST_TARGETDEPS += ../../external/FFmpeg/libavcodec/$$avLibName(avcodec)
     POST_TARGETDEPS += ../../external/FFmpeg/libavformat/$$avLibName(avformat)
     POST_TARGETDEPS += ../../external/FFmpeg/libswscale/$$avLibName(swscale)
+    POST_TARGETDEPS += ../../external/live555/libmythlivemedia-$${MYTH_SHLIB_EXT}
 
     using_mheg: POST_TARGETDEPS += ../libmythfreemheg/libmythfreemheg-$${MYTH_SHLIB_EXT}
-    using_live: POST_TARGETDEPS += ../libmythlivemedia/libmythlivemedia-$${MYTH_SHLIB_EXT}
     using_hdhomerun: POST_TARGETDEPS += ../../external/libhdhomerun/libmythhdhomerun-$${LIBVERSION}.$${QMAKE_EXTENSION_SHLIB}
 }
 

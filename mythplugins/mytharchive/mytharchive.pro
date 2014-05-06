@@ -1,7 +1,7 @@
 
 TEMPLATE = subdirs
 
-using_live: LIBS += -lmythlivemedia-$$LIBVERSION
+LIBS += -lmythlivemedia-$$LIBVERSION
 using_mheg: LIBS += -lmythfreemheg-$$LIBVERSION
 
 # Directories

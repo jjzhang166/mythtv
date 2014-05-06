@@ -1,10 +1,11 @@
 INCLUDEPATH += ../.. ../../libs/ ../../libs/libmyth ../../libs/libmyth/audio
 INCLUDEPATH +=  ../../libs/libmythtv ../../external/FFmpeg
 INCLUDEPATH += ../../libs/libmythupnp ../../libs/libmythui ../../libs/libmythmetadata
-INCLUDEPATH += ../../libs/libmythlivemedia ../../libs/libmythbase
+INCLUDEPATH +=  ../../libs/libmythbase
 INCLUDEPATH += ../../external/libmythdvdnav/dvdnav ../../external/libmythdvdnav/dvdread
 INCLUDEPATH += ../../external/libmythbluray
 INCLUDEPATH += ../../external/libsamplerate
+INCLUDEPATH += ../../external/libmythlivemedia
 INCLUDEPATH += ../../libs/libmythtv/mpeg
 INCLUDEPATH += ../../libs/libmythtv/vbitext
 INCLUDEPATH += ../../libs/libmythservicecontracts
@@ -16,6 +17,7 @@ LIBS += -L../../external/FFmpeg/libavcodec
 LIBS += -L../../external/FFmpeg/libavformat
 LIBS += -L../../external/FFmpeg/libswscale
 LIBS += -L../../external/FFmpeg/libswresample
+LIBS += -L../../external/live555
 LIBS += -L../../libs/libmythbase
 LIBS += -L../../libs/libmythui
 LIBS += -L../../libs/libmythupnp
@@ -36,8 +38,8 @@ LIBS += -lmyth-$$LIBVERSION
 LIBS += -lmythmetadata-$$LIBVERSION
 LIBS += -lmythservicecontracts-$$LIBVERSION
 LIBS += -lmythprotoserver-$$LIBVERSION
+LIBS += -lmythlivemedia-$$LIBVERSION
 
-using_live:LIBS += -L../../libs/libmythlivemedia -lmythlivemedia-$$LIBVERSION
 using_mheg:LIBS += -L../../libs/libmythfreemheg -lmythfreemheg-$$LIBVERSION
 using_hdhomerun:LIBS += -L../../external/libhdhomerun -lmythhdhomerun-$$LIBVERSION
 
@@ -54,12 +56,12 @@ win32 {
     POST_TARGETDEPS += ../../external/FFmpeg/libavformat/$$avLibName(avformat)
     POST_TARGETDEPS += ../../external/FFmpeg/libswscale/$$avLibName(swscale)
     POST_TARGETDEPS += ../../external/FFmpeg/libswresample/$$avLibName(swresample)
+    POST_TARGETDEPS += ../../external/live555/libmythlivemedia-$${MYTH_SHLIB_EXT}
     POST_TARGETDEPS += ../../libs/libmythupnp/libmythupnp-$${MYTH_SHLIB_EXT}
     POST_TARGETDEPS += ../../libs/libmythbase/libmythbase-$${MYTH_SHLIB_EXT}
     POST_TARGETDEPS += ../../libs/libmythservicecontracts/libmythservicecontracts-$${MYTH_SHLIB_EXT}
     POST_TARGETDEPS += ../../libs/libmythprotoserver/libmythprotoserver-$${MYTH_SHLIB_EXT}
 
-    using_live: POST_TARGETDEPS += ../../libs/libmythlivemedia/libmythlivemedia-$${MYTH_SHLIB_EXT}
     using_hdhomerun: POST_TARGETDEPS += ../../external/libhdhomerun/libmythhdhomerun-$${LIBVERSION}.$${QMAKE_EXTENSION_SHLIB}
 }
 
@@ -67,9 +69,10 @@ DEPENDPATH += ../.. ../../libs ../../libs/libmyth ../../libs/libmyth/audio
 DEPENDPATH += ../../libs/libmythtv
 DEPENDPATH += ../../libs/libmythtv/mpeg ../../libs/libmythtv/vbitext
 DEPENDPATH += ../../external/FFmpeg
+DEPENDPATH += ../../external/libmythlivemedia
 DEPENDPATH += ../../libs/libmythupnp ../../libs/libmythui
-DEPENDPATH += ../../libs/libmythlivemedia ../../libmythbase
-DEPENDPATH +=../../libs/libmythservicecontracts ../../libs/libmythprotoserver
+DEPENDPATH += ../../libmythbase
+DEPENDPATH += ../../libs/libmythservicecontracts ../../libs/libmythprotoserver
 
 using_opengl:CONFIG += opengl
 using_mingw:DEFINES += USING_MINGW

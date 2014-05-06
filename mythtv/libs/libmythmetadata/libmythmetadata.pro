@@ -53,30 +53,30 @@ DEPENDPATH += ../../external/libsamplerate ../libmythsoundtouch
 DEPENDPATH += ../libmythfreesurround
 DEPENDPATH += ../ ../libmythui ../libmythbase
 DEPENDPATH += ../libmythupnp ../libmythtv ../libmyth
-DEPENDPATH += ../../external/libmythbluray
+DEPENDPATH += ../../external/libmythbluray ../../external/live555
 
-LIBS += -L../../external/libsamplerate   -lmythsamplerate-$${LIBVERSION}
-LIBS += -L../libmythsoundtouch   -lmythsoundtouch-$${LIBVERSION}
-LIBS += -L../libmythbase           -lmythbase-$${LIBVERSION}
-LIBS += -L../libmythui           -lmythui-$${LIBVERSION}
-LIBS += -L../libmythupnp         -lmythupnp-$${LIBVERSION}
-LIBS += -L../libmythservicecontracts -lmythservicecontracts-$${LIBVERSION}
-LIBS += -L../libmythfreesurround -lmythfreesurround-$${LIBVERSION}
-LIBS += -L../../external/FFmpeg/libavcodec -lmythavcodec
-LIBS += -L../../external/FFmpeg/libavutil  -lmythavutil
+LIBS += -L../../external/libsamplerate      -lmythsamplerate-$${LIBVERSION}
+LIBS += -L../libmythsoundtouch              -lmythsoundtouch-$${LIBVERSION}
+LIBS += -L../libmythbase                    -lmythbase-$${LIBVERSION}
+LIBS += -L../libmythui                      -lmythui-$${LIBVERSION}
+LIBS += -L../libmythupnp                    -lmythupnp-$${LIBVERSION}
+LIBS += -L../libmythservicecontracts        -lmythservicecontracts-$${LIBVERSION}
+LIBS += -L../libmythfreesurround            -lmythfreesurround-$${LIBVERSION}
+LIBS += -L../../external/FFmpeg/libavcodec  -lmythavcodec
+LIBS += -L../../external/FFmpeg/libavutil   -lmythavutil
 LIBS += -L../../external/FFmpeg/libavformat -lmythavformat
-LIBS += -L../libmyth              -lmyth-$${LIBVERSION}
-LIBS += -L../libmythtv              -lmythtv-$${LIBVERSION}
-LIBS += -L../../external/libmythbluray     -lmythbluray-$${LIBVERSION}
-LIBS += -L../../external/FFmpeg/libswscale -lmythswscale
+LIBS += -L../libmyth                        -lmyth-$${LIBVERSION}
+LIBS += -L../libmythtv                      -lmythtv-$${LIBVERSION}
+LIBS += -L../../external/libmythbluray      -lmythbluray-$${LIBVERSION}
+LIBS += -L../../external/FFmpeg/libswscale  -lmythswscale
+LIBS += -L../../external/live555            -lmythlivemedia-$${LIBVERSION}
 
 # for TagLib
 LIBS += $${CONFIG_TAGLIB_LIBS}
 
 win32-msvc*:LIBS += -ltag
 
-using_mheg:LIBS += -L../libmythfreemheg        -lmythfreemheg-$${LIBVERSION}
-using_live:LIBS += -L../libmythlivemedia        -lmythlivemedia-$${LIBVERSION}
+using_mheg:LIBS += -L../libmythfreemheg     -lmythfreemheg-$${LIBVERSION}
 
 mingw:LIBS += -lws2_32
 
