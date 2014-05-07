@@ -592,7 +592,7 @@ netAddressBits ourIPAddress(UsageEnvironment& env) {
       testAddr.s_addr = our_inet_addr("228.67.43.91"); // arbitrary
       Port testPort(15947); // ditto
 
-      ReceivingSocketAddr = INADDR_ANY
+      ReceivingSocketAddr = INADDR_ANY;
 
       sock = setupDatagramSocket(env, testPort);
       if (sock < 0) break;
