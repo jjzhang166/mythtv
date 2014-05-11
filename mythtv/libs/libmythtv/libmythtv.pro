@@ -140,7 +140,7 @@ HEADERS += mythsystemevent.h
 HEADERS += avfringbuffer.h
 HEADERS += ringbuffer.h             fileringbuffer.h
 HEADERS += streamingringbuffer.h    metadataimagehelper.h
-HEADERS += icringbuffer.h           live555ringbuffer.h
+HEADERS += icringbuffer.h
 
 SOURCES += recordinginfo.cpp
 SOURCES += dbcheck.cpp
@@ -168,7 +168,7 @@ SOURCES += mythsystemevent.cpp
 SOURCES += avfringbuffer.cpp
 SOURCES += ringbuffer.cpp           fileringBuffer.cpp
 SOURCES += streamingringbuffer.cpp  metadataimagehelper.cpp
-SOURCES += icringbuffer.cpp         live555ringbuffer.cpp
+SOURCES += icringbuffer.cpp
 
 # DiSEqC
 HEADERS += diseqc.h                 diseqcsettings.h
