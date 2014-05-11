@@ -2318,12 +2318,13 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
                 RingBuffer::Create(
                     playbackURL, false, true,
                     opennow ? RingBuffer::kLiveTVOpenTimeout : -1));
-
-            ctx->buffer->SetLiveMode(ctx->tvchain);
+            if (ctx->buffer)
+            {
+                ctx->buffer->SetLiveMode(ctx->tvchain);
+            }
         }
 
-
-        if (ctx->playingInfo && StartRecorder(ctx,-1))
+        if (ctx->buffer && ctx->playingInfo && StartRecorder(ctx,-1))
         {
             ok = StartPlayer(mctx, ctx, desiredNextState);
         }
@@ -2372,10 +2373,11 @@ void TV::HandleStateChange(PlayerContext *mctx, PlayerContext *ctx)
         ctx->UnlockPlayingInfo(__FILE__, __LINE__);
 
         RingBuffer *buffer = RingBuffer::Create(playbackURL, false);
-        if (buffer && !buffer->GetLastError().isEmpty())
+        if (!buffer || !buffer->GetLastError().isEmpty())
         {
             ShowNotificationError(tr("Can't start playback"),
-                                  TV::tr( "TV Player" ), buffer->GetLastError());
+                                  TV::tr( "TV Player" ),
+                                  buffer ? buffer->GetLastError() : "");
             delete buffer;
             buffer = NULL;
         }
@@ -7157,12 +7159,15 @@ void TV::SwitchCards(PlayerContext *ctx,
                     opennow ? RingBuffer::kLiveTVOpenTimeout : -1));
 
             ctx->tvchain->SetProgram(*ctx->playingInfo);
-            ctx->buffer->SetLiveMode(ctx->tvchain);
+            if (ctx->buffer)
+            {
+                ctx->buffer->SetLiveMode(ctx->tvchain);
+            }
             ctx->UnlockPlayingInfo(__FILE__, __LINE__);
         }
 
         bool ok = false;
-        if (ctx->playingInfo && StartRecorder(ctx,-1))
+        if (ctx->buffer && ctx->playingInfo && StartRecorder(ctx,-1))
         {
             PlayerContext *mctx = GetPlayer(ctx, 0);
             QRect dummy = QRect();

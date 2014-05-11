@@ -19,7 +19,10 @@ FileTransfer::FileTransfer(QString &filename, MythSocket *remote,
 {
     pginfo = new ProgramInfo(filename);
     pginfo->MarkAsInUse(true, kFileTransferInUseID);
-    rbuffer->Start();
+    if (rbuffer)
+    {
+        rbuffer->Start();
+    }
 }
 
 FileTransfer::FileTransfer(QString &filename, MythSocket *remote, bool write) :
@@ -34,7 +37,10 @@ FileTransfer::FileTransfer(QString &filename, MythSocket *remote, bool write) :
 
     if (write)
         remote->SetReadyReadCallbackEnabled(false);
-    rbuffer->Start();
+    if (rbuffer)
+    {
+        rbuffer->Start();
+    }
 }
 
 FileTransfer::~FileTransfer()
@@ -77,7 +83,7 @@ bool FileTransfer::ReOpen(QString newFilename)
 
 void FileTransfer::Stop(void)
 {
-    if (readthreadlive)
+    if (rbuffer && readthreadlive)
     {
         readthreadlive = false;
         LOG(VB_FILE, LOG_INFO, "calling StopReads()");
@@ -86,7 +92,7 @@ void FileTransfer::Stop(void)
         readsLocked = true;
     }
 
-    if (writemode)
+    if (rbuffer && writemode)
         rbuffer->WriterFlush();
 
     if (pginfo)
@@ -95,8 +101,11 @@ void FileTransfer::Stop(void)
 
 void FileTransfer::Pause(void)
 {
-    LOG(VB_FILE, LOG_INFO, "calling StopReads()");
-    rbuffer->StopReads();
+    if (rbuffer)
+    {
+        LOG(VB_FILE, LOG_INFO, "calling StopReads()");
+        rbuffer->StopReads();
+    }
     QMutexLocker locker(&lock);
     readsLocked = true;
 
@@ -106,8 +115,11 @@ void FileTransfer::Pause(void)
 
 void FileTransfer::Unpause(void)
 {
-    LOG(VB_FILE, LOG_INFO, "calling StartReads()");
-    rbuffer->StartReads();
+    if (rbuffer)
+    {
+        LOG(VB_FILE, LOG_INFO, "calling StartReads()");
+        rbuffer->StartReads();
+    }
     {
         QMutexLocker locker(&lock);
         readsLocked = false;
@@ -257,11 +269,17 @@ uint64_t FileTransfer::GetFileSize(void)
     if (pginfo)
         pginfo->UpdateInUseMark();
 
+    if (!rbuffer)
+        return -1;
+
     return rbuffer->GetRealFileSize();
 }
 
 QString FileTransfer::GetFileName(void)
 {
+    if (pginfo)
+        pginfo->UpdateInUseMark();
+
     if (!rbuffer)
         return QString();
 
@@ -273,6 +291,8 @@ void FileTransfer::SetTimeout(bool fast)
     if (pginfo)
         pginfo->UpdateInUseMark();
 
+    if (!rbuffer)
+        return;
     rbuffer->SetOldFile(fast);
 }
 

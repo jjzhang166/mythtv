@@ -109,15 +109,22 @@ void ImportRecorder::run(void)
         RingBuffer *rb = RingBuffer::Create(
             ringBuffer->GetFilename(), false, true, 6000);
 
-        PlayerContext *ctx = new PlayerContext(kImportRecorderInUseID);
-        ctx->SetPlayingInfo(curRecording);
-        ctx->SetRingBuffer(rb);
-        ctx->SetPlayer(cfp);
-        cfp->SetPlayerInfo(NULL, NULL, ctx);
+        if (rb)
+        {
+            PlayerContext *ctx = new PlayerContext(kImportRecorderInUseID);
 
-        cfp->RebuildSeekTable(false);
+            ctx->SetPlayingInfo(curRecording);
+            ctx->SetRingBuffer(rb);
+            ctx->SetPlayer(cfp);
+            cfp->SetPlayerInfo(NULL, NULL, ctx);
+            cfp->RebuildSeekTable(false);
 
-        delete ctx;
+            delete ctx;
+        }
+        else
+        {
+            LOG(VB_RECORD, LOG_ERR, LOC + "Couldn't open new recording");
+        }
     }
 
     curRecording->SaveFilesize(ringBuffer->GetRealFileSize());

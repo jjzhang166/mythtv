@@ -56,6 +56,11 @@ class VideoPerformanceTest
             LOG(VB_GENERAL, LOG_INFO, "Will attempt to disable sync-to-vblank.");
 
         RingBuffer *rb  = RingBuffer::Create(file, false, true, 2000);
+        if (!rb)
+        {
+            LOG(VB_GENERAL, LOG_ERR, QString("Can't open file %1").arg(file));
+            return;
+        }
         MythPlayer  *mp  = new MythPlayer(kAudioMuted);
         mp->GetAudio()->SetAudioInfo("NULL", "NULL", 0, 0);
         mp->GetAudio()->SetNoAudio();

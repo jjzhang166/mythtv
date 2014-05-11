@@ -4130,7 +4130,7 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
         LOG(VB_GENERAL, LOG_INFO, LOC + QString("rec->GetPathname(): '%1'")
                 .arg(rec->GetPathname()));
         SetRingBuffer(RingBuffer::Create(rec->GetPathname(), write));
-        if (!ringBuffer->IsOpen() && write)
+        if (ringBuffer && !ringBuffer->IsOpen() && write)
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("RingBuffer '%1' not open...")
@@ -4144,7 +4144,7 @@ void TVRec::TuningNewRecorder(MPEGStreamData *streamData)
     if (!ringBuffer)
     {
         LOG(VB_GENERAL, LOG_ERR, LOC +
-            QString("Failed to start recorder!  ringBuffer is NULL\n"
+            QString("Failed to start recorder!  ringBuffer couldn't be created\n"
                     "\t\t\t\t  Tuning request was %1\n")
                 .arg(lastTuningRequest.toString()));
 
@@ -4516,7 +4516,7 @@ bool TVRec::GetProgramRingBufferForLiveTV(RecordingInfo **pginfo,
     StartedRecording(prog);
 
     *rb = RingBuffer::Create(prog->GetPathname(), true);
-    if (!(*rb)->IsOpen())
+    if (!*rb || !(*rb)->IsOpen())
     {
         LOG(VB_GENERAL, LOG_ERR, LOC + QString("RingBuffer '%1' not open...")
                 .arg(prog->GetPathname()));
@@ -4670,7 +4670,7 @@ RecordingInfo *TVRec::SwitchRecordingRingBuffer(const RecordingInfo &rcinfo)
 
     bool write = genOpt.cardtype != "IMPORT";
     RingBuffer *rb = RingBuffer::Create(ri->GetPathname(), write);
-    if (!rb->IsOpen())
+    if (!rb || !rb->IsOpen())
     {
         ri->SetRecordingStatus(rsFailed);
         FinishedRecording(ri, NULL);

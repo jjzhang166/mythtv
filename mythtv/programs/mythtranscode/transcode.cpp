@@ -852,6 +852,17 @@ int Transcode::TranscodeFile(const QString &inputname,
             nvr->SetupRTjpeg();
 
         outRingBuffer = RingBuffer::Create(outputname, true, false);
+        if (!outRingBuffer)
+        {
+            LOG(VB_GENERAL, LOG_ERR,
+                QString("Unable to open destination file (invalid url)")
+                .arg(outputname));
+            SetPlayerContext(NULL);
+            delete hls;
+            delete avfw;
+            delete avfw2;
+            return REENCODE_ERROR;
+        }
         nvr->SetRingBuffer(outRingBuffer);
         nvr->WriteHeader();
         nvr->StreamAllocate();

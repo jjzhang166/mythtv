@@ -14,6 +14,7 @@
 #include <QFile>
 #include <QDateTime>
 #include <QReadLocker>
+#include <QUrl>
 
 #include "threadedfilewriter.h"
 #include "fileringbuffer.h"
@@ -93,6 +94,10 @@ bool        RingBuffer::gAVformat_net_initialised = false;
  *
  *   You can explicitly disable the readahead thread by setting
  *   readahead to false, or by just not calling Start(void).
+ *   Return NULL if filename type is not handled.
+ *   The value returned by Create() should always be tested for null
+ *   and if not, that buffer->GetLastError().isEmpty(),
+ *   otherwise it indicates that an error occurred in opening the file.
  *
  *  \param lfilename    Name of file to read or write.
  *  \param write        If true an encapsulated writer is created
@@ -111,17 +116,17 @@ RingBuffer *RingBuffer::Create(
 {
     QString lfilename = xfilename;
     QString lower = lfilename.toLower();
+    QUrl url(lfilename);
+    QString scheme = url.scheme();
 
     if (write)
         return new FileRingBuffer(lfilename, write, usereadahead, timeout_ms);
 
     bool dvddir  = false;
     bool bddir   = false;
-    bool httpurl = lower.startsWith("http://") || lower.startsWith("https://");
-    bool iptvurl =
-        lower.startsWith("rtp://") || lower.startsWith("tcp://") ||
-        lower.startsWith("udp://");
-    bool mythurl = lower.startsWith("myth://");
+    bool httpurl = scheme == "http" || scheme == "https";
+    bool iptvurl = scheme == "rtp"  || scheme == "tcp" || scheme == "udp";
+    bool mythurl = scheme == "myth";
     bool bdurl   = lower.startsWith("bd:");
     bool dvdurl  = lower.startsWith("dvd:");
     bool dvdext  = lower.endsWith(".img") || lower.endsWith(".iso");
@@ -156,7 +161,7 @@ RingBuffer *RingBuffer::Create(
 
     if (!stream_only && (dvdurl || dvddir || dvdext))
     {
-        if (lfilename.startsWith("dvd:"))        // URI "dvd:" + path
+        if (dvdurl)                             // URI "dvd:" + path
             lfilename.remove(0,4);              // e.g. "dvd:/dev/dvd"
 
         if (!(mythurl || QFile::exists(lfilename)))
@@ -167,7 +172,7 @@ RingBuffer *RingBuffer::Create(
     }
     else if (!stream_only && (bdurl || bddir))
     {
-        if (lfilename.startsWith("bd:"))        // URI "bd:" + path
+        if (bdurl)        // URI "bd:" + path
             lfilename.remove(0,3);             // e.g. "bd:/videos/ET"
 
         if (!(mythurl || QFile::exists(lfilename)))
@@ -188,8 +193,17 @@ RingBuffer *RingBuffer::Create(
         return new DVDStream(lfilename);
     }
 
-    return new FileRingBuffer(
-        lfilename, write, usereadahead, timeout_ms);
+    if (url.isRelative() || scheme == "myth")
+    {
+        return new FileRingBuffer(
+            lfilename, write, usereadahead, timeout_ms);
+    }
+
+    // the file type isn't handled
+    LOG(VB_FILE, LOG_ERR,
+        QString("RingBuffer: Unable to handle meda %1").arg(lfilename));
+
+    return NULL;
 }
 
 RingBuffer::RingBuffer(RingBufferType rbtype) :
