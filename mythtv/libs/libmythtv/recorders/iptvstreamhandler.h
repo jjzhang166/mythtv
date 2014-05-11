@@ -47,7 +47,7 @@ class IPTVStreamHandlerWriteHelper : QObject
     Q_OBJECT
 
 public:
-    IPTVStreamHandlerWriteHelper(IPTVStreamHandler *, QHostAddress rtcp_dest);
+    IPTVStreamHandlerWriteHelper(IPTVStreamHandler *);
     ~IPTVStreamHandlerWriteHelper();
 
     void Start(void)
@@ -69,7 +69,6 @@ private:
     int m_timer, m_timer_rtcp;
     uint m_last_sequence_number, m_last_timestamp, m_previous_last_sequence_number;
     int m_lost, m_lost_interval;
-    QHostAddress m_rtcp_dest;
 };
 
 class IPTVStreamHandler : public StreamHandler
@@ -104,6 +103,7 @@ class IPTVStreamHandler : public StreamHandler
     bool m_use_rtp_streaming;
     ushort m_rtsp_rtp_port, m_rtsp_rtcp_port;
     uint32_t m_rtsp_ssrc;
+    QHostAddress m_rtcp_dest;
 
     // for implementing Get & Return
     static QMutex                            s_handlers_lock;

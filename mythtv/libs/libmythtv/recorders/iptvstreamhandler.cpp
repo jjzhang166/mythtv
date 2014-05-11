@@ -199,9 +199,10 @@ void IPTVStreamHandler::run(void)
             {
                 for (int i=0; i < list.size(); i++)
                 {
-                    if (list[i].protocol() == dest_addr.protocol())
+                    dest_addr = list[i];
+                    if (list[i].protocol() == QAbstractSocket::IPv6Protocol)
                     {
-                        dest_addr = list[i];
+                        // We prefer first IPv4
                         break;
                     }
                 }
@@ -269,6 +270,11 @@ void IPTVStreamHandler::run(void)
             LOG(VB_GENERAL, LOG_INFO, LOC + QString("Joining %1")
                 .arg(dest_addr.toString()));
         }
+
+        if (!is_multicast && rtsp && i == 1)
+        {
+            m_rtcp_dest = dest_addr;
+        }
     }
 
     if (!error)
@@ -278,8 +284,7 @@ void IPTVStreamHandler::run(void)
         else
             m_buffer = new UDPPacketBuffer(tuning.GetBitrate(0));
         m_write_helper =
-            new IPTVStreamHandlerWriteHelper(this,
-                                             QHostAddress(tuning.GetURL(1).host()));
+            new IPTVStreamHandlerWriteHelper(this);
         m_write_helper->Start();
     }
 
@@ -398,11 +403,10 @@ void IPTVStreamHandlerReadHelper::ReadPending(void)
     }
 }
 
-IPTVStreamHandlerWriteHelper::IPTVStreamHandlerWriteHelper(IPTVStreamHandler *p,
-                                                           QHostAddress rtcp_dest)
+IPTVStreamHandlerWriteHelper::IPTVStreamHandlerWriteHelper(IPTVStreamHandler *p)
   : m_parent(p),                m_timer(0),             m_timer_rtcp(0),
     m_last_sequence_number(0),  m_last_timestamp(0),
-    m_lost(0),                  m_lost_interval(0),     m_rtcp_dest(rtcp_dest)
+    m_lost(0),                  m_lost_interval(0)
 {
 }
 
@@ -526,6 +530,11 @@ void IPTVStreamHandlerWriteHelper::timerEvent(QTimerEvent* event)
 
 void IPTVStreamHandlerWriteHelper::SendRTCPReport(void)
 {
+    if (m_parent->m_rtcp_dest.isNull())
+    {
+        // no point sending data if we don't know where to
+        return;
+    }
     int seq_delta = m_last_sequence_number - m_previous_last_sequence_number;
     RTCPDataPacket rtcp =
         RTCPDataPacket(m_last_timestamp, m_last_timestamp + RTCP_TIMER * 1000,
@@ -535,10 +544,9 @@ void IPTVStreamHandlerWriteHelper::SendRTCPReport(void)
 
     LOG(VB_RECORD, LOG_DEBUG, LOC_WH +
         QString("Sending RTCPReport to %1:%2")
-        .arg(m_rtcp_dest.toString())
+        .arg(m_parent->m_rtcp_dest.toString())
         .arg(m_parent->m_rtsp_rtcp_port));
     m_parent->m_sockets[1]->writeDatagram(buf.constData(), buf.size(),
-                                          m_rtcp_dest, m_parent->m_rtsp_rtcp_port);
+                                          m_parent->m_rtcp_dest, m_parent->m_rtsp_rtcp_port);
     m_previous_last_sequence_number = m_last_sequence_number;
 }
-
