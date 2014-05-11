@@ -3874,8 +3874,8 @@ void TVRec::TuningFrequency(const TuningRequest &request)
                 SetFlags(kFlagWaitingForSignal);
                 if (curRecording)
                 {
-                    signalMonitorDeadline = curRecording->GetScheduledEndTime()
-                                            .addSecs(-50);
+                    signalMonitorDeadline =
+                        curRecording->GetRecordingEndTime();
                 }
                 else
                 {

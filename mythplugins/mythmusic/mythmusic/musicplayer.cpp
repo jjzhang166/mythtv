@@ -553,9 +553,6 @@ void MusicPlayer::StartPlayback(void)
     if (!gCoreContext->InWantingPlayback() && m_wasPlaying)
     {
         play();
-        seek(gCoreContext->GetNumSetting("MusicBookmarkPosition", 0));
-        gCoreContext->SaveSetting("MusicBookmark", "");
-        gCoreContext->SaveSetting("MusicBookmarkPosition", 0);
 
         m_wasPlaying = false;
     }
@@ -563,7 +560,7 @@ void MusicPlayer::StartPlayback(void)
 
 void MusicPlayer::StopPlayback(void)
 {
-    if (m_isPlaying)
+    if (m_output)
     {
         m_wasPlaying = m_isPlaying;
 
