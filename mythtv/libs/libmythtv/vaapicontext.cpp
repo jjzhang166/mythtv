@@ -6,6 +6,8 @@
 #include "vaapicontext.h"
 #include "mythmainwindow.h"
 #include "myth_imgconvert.h"
+#include <GL/gl.h>
+#include <GL/glx.h>
 
 #define LOC QString("VAAPI: ")
 #define ERR QString("VAAPI Error: ")
@@ -33,6 +35,16 @@
 QString profileToString(VAProfile profile);
 QString entryToString(VAEntrypoint entry);
 VAProfile preferredProfile(MythCodecID codec);
+
+class VAAPIRenderedPicture
+{
+public:
+    Display *m_display;
+    Pixmap m_pixmap;
+    GLXPixmap m_glpixmap;
+    GLuint m_texture;
+    GLenum m_textureTarget;
+};
 
 QString profileToString(VAProfile profile)
 {
@@ -74,7 +86,7 @@ VAProfile preferredProfile(MythCodecID codec)
     return VAProfileMPEG2Simple; // error
 }
 
-class VAAPIDisplay : ReferenceCounter
+class VAAPIDisplay : public ReferenceCounter
 {
   protected:
     VAAPIDisplay(VAAPIDisplayType display_type, MythRenderOpenGL *render) :
@@ -83,7 +95,7 @@ class VAAPIDisplay : ReferenceCounter
         m_va_disp(NULL), m_x_disp(NULL),
         m_driver(), m_render(render) { }
   public:
-   ~VAAPIDisplay()
+    virtual ~VAAPIDisplay()
     {
         if (m_va_disp)
         {
@@ -106,34 +118,7 @@ class VAAPIDisplay : ReferenceCounter
 
         MythXLocker locker(m_x_disp);
 
-        if (m_va_disp_type == kVADisplayGLX)
-        {
-            if (!m_render)
-            {
-                MythMainWindow *mw = GetMythMainWindow();
-                if (!mw)
-                    return false;
-                m_render =
-                    dynamic_cast<MythRenderOpenGL*>(mw->GetRenderDevice());
-                if (!m_render || m_render->Type() != kRenderOpenGL1)
-                {
-                    LOG(VB_PLAYBACK, LOG_ERR, LOC +
-                        QString("Failed to get OpenGL context - you must use the "
-                                "OpenGL 1.0 UI painter for VAAPI GLX support."));
-                    return false;
-                }
-            }
-
-            m_render->makeCurrent();
-            Display *display = glXGetCurrentDisplay();
-            m_render->doneCurrent();
-
-            m_va_disp = vaGetDisplayGLX(display);
-        }
-        else
-        {
-            m_va_disp = vaGetDisplay(m_x_disp->GetDisplay());
-        }
+        m_va_disp = vaGetDisplay(m_x_disp->GetDisplay());
 
         if (!m_va_disp)
         {
@@ -160,25 +145,9 @@ class VAAPIDisplay : ReferenceCounter
         if (ok)
         {
             LOG(VB_PLAYBACK, LOG_INFO, LOC +
-                QString("Created VAAPI %1 display")
-                .arg(m_va_disp_type == kVADisplayGLX ? "GLX" : "X11"));
+                QString("Created VAAPI X11 display"));
         }
         return ok;
-    }
-
-    virtual int DecrRef(void)
-    {
-        QMutexLocker locker(&s_VAAPIDisplayLock);
-
-        VAAPIDisplay *tmp = this;
-        int cnt = ReferenceCounter::DecrRef();
-        if (cnt == 0)
-        {
-            if (s_VAAPIDisplay == tmp)
-                s_VAAPIDisplay = NULL;
-            LOG(VB_PLAYBACK, LOG_INFO, LOC + "Deleting VAAPI display.");
-        }
-        return cnt;
     }
 
     QString GetDriver(void)
@@ -191,50 +160,21 @@ class VAAPIDisplay : ReferenceCounter
     static VAAPIDisplay *GetDisplay(VAAPIDisplayType display_type, bool noreuse,
                                     MythRenderOpenGL *render)
     {
-        if (noreuse)
+        VAAPIDisplay *tmp = new VAAPIDisplay(display_type, render);
+        if (tmp->Create())
         {
-            VAAPIDisplay *tmp = new VAAPIDisplay(display_type, render);
-            if (tmp->Create())
-            {
-                return tmp;
-            }
-            tmp->DecrRef();
-            return NULL;
+            return tmp;
         }
-
-        QMutexLocker locker(&s_VAAPIDisplayLock);
-
-        if (s_VAAPIDisplay)
-        {
-            if (s_VAAPIDisplay->m_va_disp_type != display_type)
-            {
-                LOG(VB_GENERAL, LOG_ERR, "Already have a VAAPI display "
-                    "of a different type - aborting");
-                return NULL;
-            }
-            s_VAAPIDisplay->IncrRef();
-            return s_VAAPIDisplay;
-        }
-
-        s_VAAPIDisplay = new VAAPIDisplay(display_type, render);
-        if (s_VAAPIDisplay->Create())
-            return s_VAAPIDisplay;
-
-        s_VAAPIDisplay->DecrRef();
+        tmp->DecrRef();
         return NULL;
     }
 
-    static QMutex        s_VAAPIDisplayLock;
-    static VAAPIDisplay *s_VAAPIDisplay;
     VAAPIDisplayType     m_va_disp_type;
     void                *m_va_disp;
     MythXDisplay        *m_x_disp;
     QString              m_driver;
     MythRenderOpenGL    *m_render;
 };
-
-QMutex VAAPIDisplay::s_VAAPIDisplayLock(QMutex::Recursive);
-VAAPIDisplay *VAAPIDisplay::s_VAAPIDisplay = NULL;
 
 bool VAAPIContext::IsFormatAccelerated(QSize size, MythCodecID codec,
                                        PixelFormat &pix_fmt)
@@ -271,7 +211,7 @@ VAAPIContext::~VAAPIContext()
 {
     delete [] m_pictureAttributes;
 
-    ClearGLXSurfaces();
+    ClearPixmaps();
 
     if (m_display)
     {
@@ -837,6 +777,7 @@ bool VAAPIContext::CopySurfaceToFrame(VideoFrame *frame, const void *buf)
             vaDestroyImage(m_ctx.display, m_image.image_id );
             m_image.image_id = VA_INVALID_ID;
         }
+
         return true;
     }
 
@@ -847,13 +788,17 @@ bool VAAPIContext::CopySurfaceToFrame(VideoFrame *frame, const void *buf)
 bool VAAPIContext::CopySurfaceToTexture(const void* buf, uint texture,
                                         uint texture_type, FrameScanType scan)
 {
-    if (!buf || (m_dispType != kVADisplayGLX))
+    if (!buf)
         return false;
 
-    const vaapi_surface *surf = (vaapi_surface*)buf;
-    void* glx_surface = GetGLXSurface(texture, texture_type);
-    if (!glx_surface)
+    VAAPIRenderedPicture *pic = GetPixmap(texture, texture_type);
+    if (!pic)
         return false;
+
+    MythXLocker locker(m_display->m_x_disp);
+    Display *xdisplay = m_display->m_x_disp->GetDisplay();
+    VASurfaceID surface =
+        (VASurfaceID)(uintptr_t)GetSurfaceIDPointer((void*)buf);
 
     int field = VA_FRAME_PICTURE;
     if (scan == kScan_Interlaced)
@@ -861,15 +806,23 @@ bool VAAPIContext::CopySurfaceToTexture(const void* buf, uint texture,
     else if (scan == kScan_Intr2ndField)
         field = VA_BOTTOM_FIELD;
 
-    m_display->m_x_disp->Lock();
     INIT_ST;
-    va_status = vaCopySurfaceGLX(m_ctx.display, glx_surface, surf->m_id, field);
+    va_status = vaPutSurface(m_display->m_va_disp, surface,
+                             pic->m_pixmap,
+                             0, 0,
+                             m_size.width(), m_size.height(),
+                             0, 0,
+                             m_size.width(), m_size.height(),
+                             NULL, 0,
+                             field);
     CHECK_ST;
-    m_display->m_x_disp->Unlock();
-    return true;
+
+    XSync(xdisplay, false);
+
+    return ok;
 }
 
-void* VAAPIContext::GetGLXSurface(uint texture, uint texture_type)
+VAAPIRenderedPicture* VAAPIContext::GetPixmap(uint texture, uint texture_type)
 {
     if (m_dispType != kVADisplayGLX)
         return NULL;
@@ -878,35 +831,86 @@ void* VAAPIContext::GetGLXSurface(uint texture, uint texture_type)
         return m_glxSurfaces.value(texture);
 
     MythXLocker locker(m_display->m_x_disp);
-    void *glx_surface = NULL;
-    INIT_ST;
-    va_status = vaCreateSurfaceGLX(m_ctx.display, texture_type,
-                                   texture, &glx_surface);
-    CHECK_ST;
-    if (!glx_surface)
+    Display *xdisplay = m_display->m_x_disp->GetDisplay();
+    Window wid = m_display->m_x_disp->GetRoot();
+    XWindowAttributes wndattribs;
+    const int pixmap_config[] = {
+        GLX_BIND_TO_TEXTURE_RGBA_EXT, True,
+        GLX_DRAWABLE_TYPE, GLX_PIXMAP_BIT,
+        GLX_BIND_TO_TEXTURE_TARGETS_EXT, GLX_TEXTURE_2D_BIT_EXT,
+        GLX_DOUBLEBUFFER, False,
+        GLX_Y_INVERTED_EXT, GLX_DONT_CARE,
+        None
+    };
+    const int pixmap_attribs[] = {
+        GLX_TEXTURE_TARGET_EXT, GLX_TEXTURE_2D_EXT,
+        GLX_TEXTURE_FORMAT_EXT, GLX_TEXTURE_FORMAT_RGB_EXT,
+        None
+    };
+
+    XGetWindowAttributes(xdisplay, wid, &wndattribs);
+
+    int c = 0;
+    GLXFBConfig *configs = glXChooseFBConfig(xdisplay, 0,
+                                             pixmap_config, &c);
+    if (configs == NULL)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to create GLX surface.");
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            "GetGLXSurface - No compatible framebuffers found");
         return NULL;
     }
 
-    m_glxSurfaces.insert(texture, glx_surface);
+    VAAPIRenderedPicture *pic = new VAAPIRenderedPicture();
+    pic->m_display = xdisplay;
+    pic->m_textureTarget = texture;
+    pic->m_pixmap = XCreatePixmap(xdisplay, wid,
+                                  m_size.width(), m_size.height(),
+                                  wndattribs.depth);
+    if (!pic->m_pixmap)
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            "GetGLXSurface - Unable to create XPixmap");
+        return NULL;
+    }
+
+    pic->m_glpixmap = glXCreatePixmap(xdisplay, configs[0],
+                                      pic->m_pixmap, pixmap_attribs);
+    if (!pic->m_glpixmap)
+    {
+        LOG(VB_GENERAL, LOG_ERR, LOC +
+            "GetGLXSurface - Could not create glPixmap");
+        return NULL;
+    }
+
+    glEnable(texture);
+    glGenTextures(1, &pic->m_texture);
+    glBindTexture(texture, pic->m_texture);
+    m_display->m_render->BindTexImage(xdisplay, (unsigned long)pic->m_glpixmap);
+    glDisable(texture);
+
+    m_glxSurfaces.insert(texture, pic);
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + QString("Number of VAAPI GLX surfaces: %1")
         .arg(m_glxSurfaces.size()));
-    return glx_surface;
+
+    return pic;
 }
 
-void VAAPIContext::ClearGLXSurfaces(void)
+void VAAPIContext::ClearPixmaps(void)
 {
     if (!m_display || (m_dispType != kVADisplayGLX))
         return;
 
-    MythXLocker locker(m_display->m_x_disp);
-    INIT_ST;
-    foreach (void* surface, m_glxSurfaces)
+    foreach (VAAPIRenderedPicture* pic, m_glxSurfaces)
     {
-        va_status = vaDestroySurfaceGLX(m_ctx.display, surface);
-        CHECK_ST;
+        glBindTexture(pic->m_textureTarget, pic->m_texture);
+        m_display->m_render->ReleaseTexImage(pic->m_display,
+            (unsigned long)pic->m_glpixmap);
+        glBindTexture(pic->m_textureTarget, 0);
+        glDeleteTextures(1, &pic->m_texture);
+        glXDestroyPixmap(pic->m_display, pic->m_glpixmap);
+        XFreePixmap(pic->m_display, pic->m_pixmap);
+        delete pic;
     }
     m_glxSurfaces.clear();
 }

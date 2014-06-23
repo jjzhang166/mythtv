@@ -18,6 +18,9 @@ using namespace std;
 
 #ifdef USING_X11
 #include "util-nvctrl.h"
+#include <GL/glx.h>
+typedef void (*t_glx_bind)(Display *, GLXDrawable, int , const int *);
+typedef void (*t_glx_release)(Display *, GLXDrawable, int);
 #endif
 
 static const GLuint kTextureOffset = 8 * sizeof(GLfloat);
@@ -818,6 +821,17 @@ void MythRenderOpenGL::InitProcs(void)
         GetProcAddress("glSetFenceAPPLE");
     m_glFinishFenceAPPLE = (MYTH_GLFINISHFENCEAPPLEPROC)
         GetProcAddress("glFinishFenceAPPLE");
+#ifdef USING_X11
+    m_glXBindTexImage = (MYTH_GLXBINDTEXIMAGEPROC)
+        glXGetProcAddress((const GLubyte *)"glXBindTexImageEXT");
+    m_glXReleaseTexImage = (MYTH_GLXRELEASETEXIMAGEPROC)
+        glXGetProcAddress((const GLubyte *)"glXReleaseTexImageEXT");
+    if(!m_glXBindTexImage || !m_glXReleaseTexImage)
+    {
+        LOG(VB_GENERAL, LOG_DEBUG, LOC +
+            "Extension glXBindTexImageEXT or glXReleaseTexImageEXT not found");
+    }
+#endif
 }
 
 void* MythRenderOpenGL::GetProcAddress(const QString &proc) const
@@ -1375,3 +1389,21 @@ uint MythRenderOpenGL::GetBufferSize(QSize size, uint fmt, uint type)
 
     return size.width() * size.height() * bpp * bytes;
 }
+
+#ifdef USING_X11
+void MythRenderOpenGL::BindTexImage(Display *disp, unsigned long _pixmap)
+{
+    GLXPixmap pixmap = (GLXPixmap)_pixmap;
+    t_glx_bind glXBindTexImageEXT = (t_glx_bind)m_glXBindTexImage;
+
+    glXBindTexImageEXT(disp, pixmap, GLX_FRONT_LEFT_EXT, NULL);
+}
+
+void MythRenderOpenGL::ReleaseTexImage(Display *disp, unsigned long _pixmap)
+{
+    GLXPixmap pixmap = (GLXPixmap)_pixmap;
+    t_glx_release glXReleaseTexImageEXT = (t_glx_release)m_glXReleaseTexImage;
+
+    glXReleaseTexImageEXT(disp, pixmap, GLX_FRONT_LEFT_EXT);
+}
+#endif

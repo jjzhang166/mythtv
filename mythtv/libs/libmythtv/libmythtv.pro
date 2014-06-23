@@ -448,7 +448,7 @@ using_frontend {
         DEFINES += USING_VAAPI
         HEADERS += vaapicontext.h   videoout_nullvaapi.h
         SOURCES += vaapicontext.cpp videoout_nullvaapi.cpp
-        LIBS    += -lva -lva-x11 -lva-glx
+        LIBS    += -lva -lva-x11
         using_opengl_video:HEADERS += videoout_openglvaapi.h
         using_opengl_video:SOURCES += videoout_openglvaapi.cpp
         using_opengl_video:DEFINES += USING_GLVAAPI

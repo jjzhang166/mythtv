@@ -159,4 +159,12 @@ typedef void ( * MYTH_GLSETFENCEAPPLEPROC)
     (GLuint fence);
 typedef void ( * MYTH_GLFINISHFENCEAPPLEPROC)
     (GLuint fence);
+
+#ifdef USING_X11
+typedef void ( * MYTH_GLXBINDTEXIMAGEPROC)
+    (Display *, unsigned long, int, const int *);
+typedef void ( * MYTH_GLXRELEASETEXIMAGEPROC)
+    (Display *, unsigned long, int);
+#endif
+
 #endif

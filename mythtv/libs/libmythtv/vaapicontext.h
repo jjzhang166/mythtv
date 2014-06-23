@@ -9,8 +9,8 @@ extern "C" {
 #include "va/va_compat.h"
 #endif
 #include "va/va_x11.h"
-#include "va/va_glx.h"
 #include "videocolourspace.h"
+
 
 struct vaapi_surface
 {
@@ -19,7 +19,9 @@ struct vaapi_surface
 
 class VAAPIDisplay;
 class OpenGLVideo;
+class MythXDisplay;
 class MythRenderOpenGL;
+class VAAPIRenderedPicture;
 
 enum VAAPIDisplayType
 {
@@ -50,8 +52,8 @@ class VAAPIContext
     // GLX display
     bool  CopySurfaceToTexture(const void* buf, uint texture,
                                uint texture_type, FrameScanType scan);
-    void* GetGLXSurface(uint texture, uint texture_type);
-    void  ClearGLXSurfaces(void);
+    VAAPIRenderedPicture* GetPixmap(uint texture, uint texture_type);
+    void  ClearPixmaps(void);
 
     bool InitDisplay(void);
     bool InitProfiles(void);
@@ -71,7 +73,7 @@ class VAAPIContext
     int            m_numSurfaces;
     VASurfaceID   *m_surfaces;
     vaapi_surface *m_surfaceData;
-    QHash<uint, void*> m_glxSurfaces;
+    QHash<uint, VAAPIRenderedPicture*> m_glxSurfaces;
     VADisplayAttribute* m_pictureAttributes;
     int            m_pictureAttributeCount;
     int            m_hueBase;

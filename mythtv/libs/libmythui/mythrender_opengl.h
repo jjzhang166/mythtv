@@ -172,6 +172,13 @@ class MUI_PUBLIC MythRenderOpenGL : public QGLContext, public MythRender
                        int alpha);
     virtual bool RectanglesAreAccelerated(void) { return false; }
 
+#ifdef USING_X11
+    // long here should be GLXPixmap, however, can't use GL/glx.h and Qt
+    // header at the same time
+    void BindTexImage(Display *disp, unsigned long pixmap);
+    void ReleaseTexImage(Display *disp, unsigned long pixmap);
+#endif
+
   protected:
     virtual ~MythRenderOpenGL();
     virtual void DrawBitmapPriv(uint tex, const QRect *src, const QRect *dst,
@@ -246,6 +253,12 @@ class MUI_PUBLIC MythRenderOpenGL : public QGLContext, public MythRender
 
     // 1D Textures (not available on GL ES 2.0)
     MYTH_GLTEXIMAGE1DPROC                m_glTexImage1D;
+
+#ifdef USING_X11
+    // texture from pixmap extension
+    MYTH_GLXBINDTEXIMAGEPROC             m_glXBindTexImage;
+    MYTH_GLXRELEASETEXIMAGEPROC          m_glXReleaseTexImage;
+#endif
 
     // Multi-texturing
     MYTH_GLACTIVETEXTUREPROC             m_glActiveTexture;
