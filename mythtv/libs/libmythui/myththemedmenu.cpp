@@ -154,6 +154,14 @@ bool MythThemedMenu::foundTheme(void)
     return m_foundtheme;
 }
 
+/// \brief Get the themed menus callback function and data for that function
+void MythThemedMenu::getCallback(void (**lcallback)(void *, QString &),
+                                 void **data)
+{
+    *lcallback = m_state->m_callback;
+    *data = m_state->m_callbackdata;
+}
+
 /// \brief Set the themed menus callback function and data for that function
 void MythThemedMenu::setCallback(void (*lcallback)(void *, QString &),
                                  void *data)
@@ -215,15 +223,21 @@ bool MythThemedMenu::keyPressEvent(QKeyEvent *event)
         QString action = actions[i];
         handled = true;
 
-        if (action == "ESCAPE" || action == "EXIT" || action == "EXITPROMPT")
+        if (action == "ESCAPE" ||
+            action == "EXIT" ||
+            action == "EXITPROMPT" ||
+            action == "STANDBYMODE")
         {
             bool    callbacks  = m_state->m_callback;
             bool    lastScreen = (GetMythMainWindow()->GetMainStack()
                                                      ->TotalScreens() == 1);
             QString menuaction = "UPMENU";
             QString selExit    = "EXITING_APP_PROMPT";
+
             if (action == "EXIT")
                 selExit = "EXITING_APP";
+            else if (action == "STANDBYMODE")
+                selExit = "STANDBY_MODE";
 
             if (!m_allocedstate)
                 handleAction(menuaction);
@@ -244,6 +258,7 @@ bool MythThemedMenu::keyPressEvent(QKeyEvent *event)
                 }
             }
             else if ((action == "EXIT" || action == "EXITPROMPT" ||
+                      action == "STANDBYMODE" ||
                       (action == "ESCAPE" &&
                        (QCoreApplication::applicationName() ==
                         MYTH_APPNAME_MYTHTV_SETUP))) && lastScreen)
@@ -304,6 +319,11 @@ void MythThemedMenu::ShowMenu()
     // HACK Implement a better check for this
     if (QCoreApplication::applicationName() == MYTH_APPNAME_MYTHFRONTEND)
         m_menuPopup->AddButton(tr("Enter standby mode"), QVariant("standby"));
+
+    // don't show the exit application option if standby option is enabled
+    if (override_menu != 7)
+        m_menuPopup->AddButton(tr("Exit application"), QVariant("exit"));
+
     switch (override_menu)
     {
         case 2:
@@ -322,6 +342,7 @@ void MythThemedMenu::ShowMenu()
             m_menuPopup->AddButton(tr("Reboot"), QVariant("reboot"));
             break;
         case 0:
+        case 7:
         default:
             break;
     }
@@ -389,6 +410,11 @@ void MythThemedMenu::customEvent(QEvent *event)
                 QString arg("standby_mode");
                 m_state->m_callback(m_state->m_callbackdata, arg);
             }
+            else if (action == "exit")
+            {
+                QString arg("exiting_app");
+                m_state->m_callback(m_state->m_callbackdata, arg);
+            }
         }
         else if (resultid == "password")
         {
@@ -400,7 +426,7 @@ void MythThemedMenu::customEvent(QEvent *event)
             {
                 QString timestamp_setting = QString("%1Time").arg(button.password);
                 QDateTime curr_time = MythDate::current();
-                QString last_time_stamp = 
+                QString last_time_stamp =
                     MythDate::toString(curr_time, MythDate::kDatabase);
                 GetMythDB()->SaveSetting(timestamp_setting, last_time_stamp);
                 buttonAction(item, true);

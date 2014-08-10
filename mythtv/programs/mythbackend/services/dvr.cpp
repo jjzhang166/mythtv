@@ -534,7 +534,7 @@ DTC::ProgramList* Dvr::GetUpcomingList( int  nStartIndex,
             ((*it)->GetRecordingStatus() != nRecStatus))
             continue;
 
-        if (!bShowAll && ((((*it)->GetRecordingStatus() >= rsTuning) &&
+        if (!bShowAll && ((((*it)->GetRecordingStatus() >= rsFailing) &&
                            ((*it)->GetRecordingStatus() <= rsWillRecord)) ||
                           ((*it)->GetRecordingStatus() == rsConflict)) &&
             ((*it)->GetRecordingEndTime() > MythDate::current()))
@@ -932,9 +932,9 @@ bool Dvr::UpdateRecordSchedule ( uint      nRecordId,
     if (!pRule.IsValid(msg))
         throw msg;
 
-    pRule.Save();
+    bool bResult = pRule.Save();
 
-    return true;
+    return bResult;
 }
 
 bool Dvr::RemoveRecordSchedule ( uint nRecordId )
@@ -988,6 +988,8 @@ DTC::RecRuleList* Dvr::GetRecordScheduleList( int nStartIndex,
     Scheduler::SchedSortColumn sortingColumn;
     if (Sort.toLower() == "lastrecorded")
         sortingColumn = Scheduler::kSortLastRecorded;
+    else if (Sort.toLower() == "nextrecording")
+        sortingColumn = Scheduler::kSortNextRecording;
     else if (Sort.toLower() == "title")
         sortingColumn = Scheduler::kSortTitle;
     else if (Sort.toLower() == "priority")
@@ -1097,8 +1099,7 @@ bool Dvr::EnableRecordSchedule ( uint nRecordId )
     if (pRule.IsLoaded())
     {
         pRule.m_isInactive = false;
-        pRule.Save();
-        bResult = true;
+        bResult = pRule.Save();
     }
 
     return bResult;
@@ -1118,8 +1119,7 @@ bool Dvr::DisableRecordSchedule( uint nRecordId )
     if (pRule.IsLoaded())
     {
         pRule.m_isInactive = true;
-        pRule.Save();
-        bResult = true;
+        bResult = pRule.Save();
     }
 
     return bResult;

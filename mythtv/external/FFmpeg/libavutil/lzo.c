@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "avutil.h"
+#include "avassert.h"
 #include "common.h"
 #include "intreadwrite.h"
 #include "lzo.h"
@@ -65,8 +66,13 @@ static inline int get_len(LZOContext *c, int x, int mask)
 {
     int cnt = x & mask;
     if (!cnt) {
-        while (!(x = get_byte(c)))
+        while (!(x = get_byte(c))) {
+            if (cnt >= INT_MAX - 1000) {
+                c->error |= AV_LZO_ERROR;
+                break;
+            }
             cnt += 255;
+        }
         cnt += mask + x;
     }
     return cnt;
@@ -80,6 +86,7 @@ static inline void copy(LZOContext *c, int cnt)
 {
     register const uint8_t *src = c->in;
     register uint8_t *dst       = c->out;
+    av_assert0(cnt >= 0);
     if (cnt > c->in_end - src) {
         cnt       = FFMAX(c->in_end - src, 0);
         c->error |= AV_LZO_INPUT_DEPLETED;
@@ -103,16 +110,16 @@ static inline void copy(LZOContext *c, int cnt)
 /**
  * @brief Copies previously decoded bytes to current position.
  * @param back how many bytes back we start, must be > 0
- * @param cnt number of bytes to copy, must be >= 0
+ * @param cnt number of bytes to copy, must be > 0
  *
  * cnt > back is valid, this will copy the bytes we just copied,
  * thus creating a repeating pattern with a period length of back.
  */
 static inline void copy_backptr(LZOContext *c, int back, int cnt)
 {
-    register const uint8_t *src = &c->out[-back];
     register uint8_t *dst       = c->out;
-    if (src < c->out_start || src > dst) {
+    av_assert0(cnt > 0);
+    if (dst - c->out_start < back) {
         c->error |= AV_LZO_INVALID_BACKPTR;
         return;
     }

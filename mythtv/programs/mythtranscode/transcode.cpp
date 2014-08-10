@@ -1000,6 +1000,7 @@ int Transcode::TranscodeFile(const QString &inputname,
             // the actual transcode, so stop here.
             unlink(outputname.toLocal8Bit().constData());
             SetPlayerContext(NULL);
+            delete hls;
             return REENCODE_OK;
         }
 
@@ -1018,6 +1019,7 @@ int Transcode::TranscodeFile(const QString &inputname,
                 "Error initializing fifo writer.  Aborting");
             unlink(outputname.toLocal8Bit().constData());
             SetPlayerContext(NULL);
+            delete hls;
             return REENCODE_ERROR;
         }
         LOG(VB_GENERAL, LOG_INFO,

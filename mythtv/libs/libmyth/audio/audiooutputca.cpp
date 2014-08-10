@@ -69,7 +69,6 @@ QString StreamDescriptionToString(AudioStreamBasicDescription desc)
             .arg(fourCC)
             .arg((desc.mFormatFlags & kAudioFormatFlagIsBigEndian) ? "BE" : "LE")
             .arg((UInt32)desc.mSampleRate);
-
             break;
         default:
             str = QString("[%1]").arg(fourCC);
@@ -208,13 +207,13 @@ AudioOutputSettings* AudioOutputCA::GetOutputSettings(bool digital)
     {
         while ((rate = settings->GetNextRate()))
         {
-			int *p_rates = rates;
-			while (*p_rates > 0)
-			{
-				if (*p_rates == rate)
-				{
-					settings->AddSupportedRate(*p_rates);
-				}
+                        int *p_rates = rates;
+                        while (*p_rates > 0)
+                        {
+                                if (*p_rates == rate)
+                                {
+                                        settings->AddSupportedRate(*p_rates);
+                                }
                 p_rates++;
             }
         }
@@ -258,7 +257,7 @@ bool AudioOutputCA::OpenDevice()
 {
     bool deviceOpened = false;
 
-    if (d->mWasDigital) 
+    if (d->mWasDigital)
     {
     }
     Debug("OpenDevice: Entering");
@@ -622,7 +621,7 @@ int CoreAudioData::GetTotalOutputChannels()
     AudioBufferList *pList = (AudioBufferList *)malloc(size);
     OSStatus err = AudioDeviceGetProperty(mDeviceID, 0, false,
                                           kAudioDevicePropertyStreamConfiguration,
-                                          &size, pList); 
+                                          &size, pList);
     if (!err)
     {
         for (UInt32 buffer = 0; buffer < pList->mNumberBuffers; buffer++)
@@ -785,7 +784,7 @@ bool CoreAudioData::SetMixingSupport(bool mix)
              .arg(OSS_STATUS(err)));
         return false;
     }
-    if (mMixerRestore == -1) 
+    if (mMixerRestore == -1)
         mMixerRestore = restore;
     return true;
 }
@@ -1130,12 +1129,12 @@ int CoreAudioData::OpenAnalog()
                                    0,
                                    &mDeviceID, sizeof(mDeviceID));
         if (err)
-        { 
+        {
             Error(QString("OpenAnalog: Unable to set current device to %1. Error = %2")
                   .arg(mDeviceID)
                   .arg(err));
             return -1;
-        }  
+        }
     }
     /* Get the current format */
     UInt32 param_size = sizeof(AudioStreamBasicDescription);
@@ -1251,6 +1250,7 @@ int CoreAudioData::OpenAnalog()
         case 6:
             //  3F2-LFE        L   R   C    LFE  LS   RS
             new_layout.mChannelLayoutTag = kAudioChannelLayoutTag_AudioUnit_5_1;
+            break;
         case 8:
             // We need
             // 3F4-LFE        L   R   C    LFE  Rls  Rrs  LS   RS

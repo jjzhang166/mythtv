@@ -10,11 +10,11 @@ using namespace std;
 
 #include "format.h"
 #include "decoderbase.h"
+#include "mythframe.h"
 
 #include "RTjpegN.h"
 
 extern "C" {
-#include "frame.h"
 #include "libavcodec/avcodec.h"
 }
 
@@ -109,14 +109,12 @@ class NuppelDecoder : public DecoderBase
     AVCodecContext *mpa_vidctx;
     AVCodec *mpa_audcodec;
     AVCodecContext *mpa_audctx;
-    AVPicture tmppicture;
     uint8_t *m_audioSamples;
 
     bool directrendering;
 
     char lastct;
 
-    unsigned char *strm_buf;
     unsigned char *strm;
     unsigned char *buf;
     unsigned char *buf2;

@@ -85,6 +85,7 @@ class MTV_PUBLIC RingBuffer : protected MThread
     ///        or -1 if the query fails.
     long long GetRealFileSize(void) const;
     bool      IsNearEnd(double fps, uint vvf) const;
+    bool      IsReadyToRead() const;
     /// \brief Returns true if open for either reading or writing.
     virtual bool IsOpen(void) const = 0;
     virtual bool IsStreamed(void)       { return LiveMode(); }
@@ -181,7 +182,7 @@ class MTV_PUBLIC RingBuffer : protected MThread
     int ReadPriv(void *buf, int count, bool peek);
     int ReadDirect(void *buf, int count, bool peek);
     bool WaitForReadsAllowed(void);
-    bool WaitForAvail(int count);
+    int WaitForAvail(int count, int timeout);
     virtual long long GetRealFileSizeInternal(void) const { return -1; }
     virtual long long SeekInternal(long long pos, int whence) = 0;
 
@@ -236,6 +237,8 @@ class MTV_PUBLIC RingBuffer : protected MThread
     bool      paused;             // protected by rwlock
     bool      ateof;              // protected by rwlock
     bool      readsallowed;       // protected by rwlock
+    bool      readsdesired;       // protected by rwlock
+    volatile bool recentseek;
     bool      setswitchtonext;    // protected by rwlock
     uint      rawbitrate;         // protected by rwlock
     float     playspeed;          // protected by rwlock

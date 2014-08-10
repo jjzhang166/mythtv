@@ -39,7 +39,7 @@
 ExternalSignalMonitor::ExternalSignalMonitor(
     int db_cardnum, ExternalChannel *_channel, uint64_t _flags) :
     DTVSignalMonitor(db_cardnum, _channel, _flags),
-    m_stream_handler(NULL), m_stream_handler_started(false)
+    m_stream_handler(NULL), m_stream_handler_started(false), m_lock_timeout(0)
 {
     QString result;
 
@@ -95,7 +95,7 @@ void ExternalSignalMonitor::UpdateValues(void)
         if (!m_stream_handler->IsRunning())
         {
             error = QObject::tr("Error: stream handler died");
-            LOG(VB_CHANNEL, LOG_INFO, LOC + error);
+            LOG(VB_CHANNEL, LOG_ERR, LOC + error);
             update_done = true;
             return;
         }

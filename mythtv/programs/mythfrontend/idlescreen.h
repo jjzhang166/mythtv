@@ -2,6 +2,8 @@
 #define _IDLESCREEN_H_
 
 #include <mythscreentype.h>
+// libmyth
+#include "programinfo.h"
 
 class MythUIStateType;
 class MythUIButtonList;
@@ -23,6 +25,7 @@ class IdleScreen : public MythScreenType
   public slots:
     void UpdateStatus(void);
     void UpdateScreen(void);
+    bool UpdateScheduledList();
 
   protected:
     void Load(void);
@@ -30,13 +33,23 @@ class IdleScreen : public MythScreenType
 
   private:
     bool CheckConnectionToServer(void);
+    bool PendingSchedUpdate() const             { return m_pendingSchedUpdate; }
+    void SetPendingSchedUpdate(bool newState)   { m_pendingSchedUpdate = newState; }
 
-    QTimer        *m_updateStatusTimer;
+    QTimer        *m_updateScreenTimer;
 
     MythUIStateType  *m_statusState;
+    MythUIButtonList *m_currentRecordings;
+    MythUIButtonList *m_nextRecordings;
+    MythUIButtonList *m_conflictingRecordings;
+    MythUIText       *m_conflictWarning;
 
-    int m_secondsToShutdown;
-    bool m_backendRecording;
+    int             m_secondsToShutdown;
+
+    QMutex          m_schedUpdateMutex;
+    bool            m_pendingSchedUpdate;
+    ProgramList     m_scheduledList;
+    bool            m_hasConflicts;
 };
 
 #endif

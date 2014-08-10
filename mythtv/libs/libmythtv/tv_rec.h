@@ -62,7 +62,7 @@ class GeneralDBOptions
         audiosamplerate(-1),  skip_btaudio(false),
         signal_timeout(1000), channel_timeout(3000),
         wait_for_seqstart(false) {}
-  
+
     QString videodev;
     QString vbidev;
     QString audiodev;
@@ -139,6 +139,8 @@ typedef QMap<uint,PendingInfo> PendingMap;
 
 class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
 {
+    Q_DECLARE_TR_FUNCTIONS(TVRec)
+
     friend class TuningRequest;
     friend class TVRecRecordThread;
 
@@ -149,7 +151,7 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     bool Init(void);
 
     void RecordPending(const ProgramInfo *rcinfo, int secsleft, bool hasLater);
-    RecStatusType StartRecording(const ProgramInfo *rcinfo);
+    RecStatusType StartRecording(ProgramInfo *rcinfo);
     RecStatusType GetRecordingStatus(void) const;
 
     void StopRecording(bool killFile = false);
@@ -174,7 +176,7 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
 
     bool SetVideoFiltersForChannel(uint sourceid, const QString &channum);
 
-    bool IsBusy(TunedInputInfo *busy_input = NULL, int time_buffer = 5) const;
+    bool IsBusy(InputInfo *busy_input = NULL, int time_buffer = 5) const;
     bool IsReallyRecording(void);
 
     float GetFramerate(void);
@@ -329,8 +331,10 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     SignalMonitor    *signalMonitor;
     EITScanner       *scanner;
 
+    QDateTime         startRecordingDeadline;
     QDateTime         signalMonitorDeadline;
     uint              signalMonitorCheckCnt;
+    bool              reachedRecordingDeadline;
 
     // Various threads
     /// Event processing thread, runs TVRec::run().
@@ -358,6 +362,8 @@ class MTV_PUBLIC TVRec : public SignalMonitorListener, public QRunnable
     GeneralDBOptions   genOpt;
     DVBDBOptions       dvbOpt;
     FireWireDBOptions  fwOpt;
+
+    QString            recProfileName;
 
     // State variables
     mutable QMutex setChannelLock;

@@ -514,7 +514,8 @@ void ScheduleEditor::ShowSchedInfo()
             menuPopup->AddButton(tr("Program Details"));
         menuPopup->AddButton(tr("Upcoming Episodes"));
         menuPopup->AddButton(tr("Upcoming Recordings"));
-        menuPopup->AddButton(tr("Previously Recorded"));
+        if (m_recordingRule->m_type != kTemplateRecord)
+            menuPopup->AddButton(tr("Previously Recorded"));
 
         popupStack->AddScreen(menuPopup);
     }
@@ -540,7 +541,9 @@ bool ScheduleEditor::keyPressEvent(QKeyEvent *event)
         if (action == "MENU")
             showMenu();
         else if (action == "INFO")
-            ShowDetails(m_recInfo);
+            ShowDetails();
+        else if (action == "GUIDE")
+            ShowGuide();
         else if (action == "UPCOMING")
             showUpcomingByTitle();
         else if (action == "PREVVIEW")
@@ -594,13 +597,13 @@ void ScheduleEditor::customEvent(QEvent *event)
         else if (resultid == "schedinfo")
         {
             if (resulttext == tr("Program Details"))
-                ShowDetails(m_recInfo);
+                ShowDetails();
             else if (resulttext == tr("Upcoming Episodes"))
                 showUpcomingByTitle();
             else if (resulttext == tr("Upcoming Recordings"))
                 showUpcomingByRule();
             else if (resulttext == tr("Previously Recorded"))
-                showPrevious();
+                ShowPrevious();
         }
         else if (resultid == "newrecgroup")
         {
@@ -608,18 +611,6 @@ void ScheduleEditor::customEvent(QEvent *event)
             StoreOptMixin::SetRecGroup(groupID, resulttext);
         }
     }
-}
-
-void ScheduleEditor::showPrevious(void)
-{
-    if (m_recordingRule->m_type == kTemplateRecord)
-        return;
-
-    QString title;
-    if (m_recInfo)
-        title = m_recInfo->GetTitle();
-
-    ShowPrevious(m_recordingRule->m_recordID, title);
 }
 
 void ScheduleEditor::showUpcomingByRule(void)
@@ -918,7 +909,7 @@ bool SchedEditChild::keyPressEvent(QKeyEvent *event)
         if (action == "MENU")
             m_editor->showMenu();
         else if (action == "INFO")
-            m_editor->ShowDetails(m_recInfo);
+            m_editor->ShowDetails();
         else if (action == "UPCOMING")
             m_editor->showUpcomingByTitle();
         if (action == "ESCAPE")
@@ -1424,30 +1415,12 @@ void MetadataOptions::CreateBusyDialog(QString title)
 
 void MetadataOptions::PerformQuery()
 {
-    MetadataLookup *lookup = new MetadataLookup();
-
     CreateBusyDialog(tr("Trying to manually find this "
                         "recording online..."));
 
-    lookup->SetStep(kLookupSearch);
-    lookup->SetType(kMetadataRecording);
-    if ((m_recInfo && m_recInfo->GetCategoryType() == ProgramInfo::kCategoryMovie) ||
-        (m_seasonSpin->GetIntValue() == 0 &&
-         m_episodeSpin->GetIntValue() == 0))
-        lookup->SetSubtype(kProbableMovie);
-    else
-        lookup->SetSubtype(kProbableTelevision);
-    lookup->SetAllowGeneric(true);
-    lookup->SetAutomatic(false);
-    lookup->SetHandleImages(false);
-    lookup->SetHost(gCoreContext->GetMasterHostName());
-    lookup->SetTitle(m_recordingRule->m_title);
-    lookup->SetSubtitle(m_recordingRule->m_subtitle);
-    lookup->SetInetref(m_inetrefEdit->GetText());
-    lookup->SetCollectionref(m_inetrefEdit->GetText());
-    lookup->SetSeason(m_seasonSpin->GetIntValue());
-    lookup->SetEpisode(m_episodeSpin->GetIntValue());
+    MetadataLookup *lookup = CreateLookup(kMetadataRecording);
 
+    lookup->SetAutomatic(false);
     m_metadataFactory->Lookup(lookup);
 }
 
@@ -1617,28 +1590,33 @@ bool MetadataOptions::CanSetArtwork()
     return true;
 }
 
-void MetadataOptions::FindNetArt(VideoArtworkType type)
+MetadataLookup *MetadataOptions::CreateLookup(MetadataType mtype)
 {
-    if (!CanSetArtwork())
-        return;
-
     MetadataLookup *lookup = new MetadataLookup();
-
-    QString msg = tr("Searching for available artwork...");
-    CreateBusyDialog(msg);
-
     lookup->SetStep(kLookupSearch);
-    lookup->SetType(kMetadataVideo);
-    lookup->SetAutomatic(true);
-    lookup->SetHandleImages(false);
-    if ((m_recInfo && m_recInfo->GetCategoryType() == ProgramInfo::kCategoryMovie) ||
-        (m_seasonSpin->GetIntValue() == 0 &&
-         m_episodeSpin->GetIntValue() == 0))
-        lookup->SetSubtype(kProbableMovie);
+    lookup->SetType(mtype);
+    LookupType type = GuessLookupType(m_inetrefEdit->GetText());
+
+    if (type == kUnknownVideo)
+    {
+        if ((m_recInfo && m_recInfo->GetCategoryType() == ProgramInfo::kCategoryMovie) ||
+            (m_seasonSpin->GetIntValue() == 0 &&
+             m_episodeSpin->GetIntValue() == 0))
+        {
+            lookup->SetSubtype(kProbableMovie);
+        }
+        else
+        {
+            lookup->SetSubtype(kProbableTelevision);
+        }
+    }
     else
-        lookup->SetSubtype(kProbableTelevision);
+    {
+        // we could determine the type from the inetref
+        lookup->SetSubtype(type);
+    }
     lookup->SetAllowGeneric(true);
-    lookup->SetData(qVariantFromValue<VideoArtworkType>(type));
+    lookup->SetHandleImages(false);
     lookup->SetHost(gCoreContext->GetMasterHostName());
     lookup->SetTitle(m_recordingRule->m_title);
     lookup->SetSubtitle(m_recordingRule->m_subtitle);
@@ -1647,6 +1625,21 @@ void MetadataOptions::FindNetArt(VideoArtworkType type)
     lookup->SetSeason(m_seasonSpin->GetIntValue());
     lookup->SetEpisode(m_episodeSpin->GetIntValue());
 
+    return lookup;
+}
+
+void MetadataOptions::FindNetArt(VideoArtworkType type)
+{
+    if (!CanSetArtwork())
+        return;
+
+    QString msg = tr("Searching for available artwork...");
+    CreateBusyDialog(msg);
+
+    MetadataLookup *lookup = CreateLookup(kMetadataVideo);
+
+    lookup->SetAutomatic(true);
+    lookup->SetData(qVariantFromValue<VideoArtworkType>(type));
     m_imageLookup->addLookup(lookup);
 }
 

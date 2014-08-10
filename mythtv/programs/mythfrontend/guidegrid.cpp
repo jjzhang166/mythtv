@@ -22,7 +22,6 @@ using namespace std;
 #include "recordingrule.h"
 #include "tv_play.h"
 #include "tv_rec.h"
-#include "customedit.h"
 #include "mythdate.h"
 #include "remoteutil.h"
 #include "channelutil.h"
@@ -401,7 +400,7 @@ QWaitCondition        GuideHelper::s_wait;
 QMap<GuideGrid*,uint> GuideHelper::s_loading;
 
 void GuideGrid::RunProgramGuide(uint chanid, const QString &channum,
-                                const QDateTime startTime,
+                                const QDateTime &startTime,
                                 TV *player, bool embedVideo,
                                 bool allowFinder, int changrpid)
 {
@@ -475,7 +474,7 @@ void GuideGrid::RunProgramGuide(uint chanid, const QString &channum,
 }
 
 GuideGrid::GuideGrid(MythScreenStack *parent,
-                     uint chanid, QString channum, const QDateTime startTime,
+                     uint chanid, const QString &channum, const QDateTime &startTime,
                      TV *player, bool embedVideo,
                      bool allowFinder, int changrpid)
          : ScheduleCommon(parent, "guidegrid"),
@@ -781,6 +780,8 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
             toggleGuideListing();
         else if (action == ACTION_FINDER)
             showProgFinder();
+        else if (action == ACTION_CHANNELSEARCH)
+            ShowChannelSearch();
         else if (action == "MENU")
             ShowMenu();
         else if (action == "ESCAPE" || action == ACTION_GUIDE)
@@ -800,7 +801,7 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
                 if (pginfo && (pginfo->GetTitle() != kUnknownTitle) &&
                     ((secsTillStart / 60) >= m_selectRecThreshold))
                 {
-                    editRecSchedule();
+                    EditRecording();
                 }
                 else
                 {
@@ -808,22 +809,22 @@ bool GuideGrid::keyPressEvent(QKeyEvent *event)
                 }
             }
             else
-                editRecSchedule();
+                EditRecording();
         }
         else if (action == "EDIT")
-            editSchedule();
+            EditScheduled();
         else if (action == "CUSTOMEDIT")
-            customEdit();
+            EditCustom();
         else if (action == "DELETE")
             deleteRule();
         else if (action == "UPCOMING")
-            upcoming();
+            ShowUpcoming();
         else if (action == "PREVRECORDED")
-            previous();
+            ShowPrevious();
         else if (action == "DETAILS" || action == "INFO")
-            details();
+            ShowDetails();
         else if (action == ACTION_TOGGLERECORD)
-            quickRecord();
+            QuickRecord();
         else if (action == ACTION_TOGGLEFAV)
         {
             if (m_changrpid == -1)
@@ -893,6 +894,8 @@ void GuideGrid::ShowMenu(void)
         menuPopup->AddButton(tr("Jump to Time"), NULL, true);
 
         menuPopup->AddButton(tr("Reverse Channel Order"));
+
+        menuPopup->AddButton(tr("Channel Search"));
 
         if (!m_changrplist.empty())
         {
@@ -1303,12 +1306,12 @@ void GuideGrid::fillTimeInfos()
         if (mins % 30 == 0)
         {
             QString timeStr = MythDate::toString(starttime, MythDate::kTime);
-            
+
             InfoMap infomap;
             infomap["starttime"] = timeStr;
-            
+
             QDateTime endtime = starttime.addSecs(60 * 30);
-            
+
             infomap["endtime"] = MythDate::toString(endtime, MythDate::kTime);
 
             MythUIButtonListItem *item =
@@ -1692,7 +1695,7 @@ void GuideGrid::customEvent(QEvent *event)
         {
             if (resulttext == tr("Record This"))
             {
-                quickRecord();
+                QuickRecord();
             }
             else if (resulttext == tr("Change to Channel"))
             {
@@ -1706,13 +1709,17 @@ void GuideGrid::customEvent(QEvent *event)
             }
             else if (resulttext == tr("Program Details"))
             {
-                details();
+                ShowDetails();
             }
             else if (resulttext == tr("Reverse Channel Order"))
             {
                 m_sortReverse = !m_sortReverse;
                 generateListings();
                 updateChannels();
+            }
+            else if (resulttext == tr("Channel Search"))
+            {
+                ShowChannelSearch();
             }
             else if (resulttext == tr("Add To Channel Group"))
             {
@@ -1740,23 +1747,23 @@ void GuideGrid::customEvent(QEvent *event)
         {
             if (resulttext == tr("Edit Recording Status"))
             {
-                editRecSchedule();
+                EditRecording();
             }
             else if (resulttext == tr("Edit Schedule"))
             {
-                editSchedule();
+                EditScheduled();
             }
             else if (resulttext == tr("Show Upcoming"))
             {
-                upcoming();
+                ShowUpcoming();
             }
             else if (resulttext == tr("Previously Recorded"))
             {
-                previous();
+                ShowPrevious();
             }
             else if (resulttext == tr("Custom Edit"))
             {
-                customEdit();
+                EditCustom();
             }
             else if (resulttext == tr("Delete Rule"))
             {
@@ -2051,7 +2058,7 @@ void GuideGrid::generateListings()
 void GuideGrid::ChannelGroupMenu(int mode)
 {
     ChannelGroupList channels = ChannelGroup::GetChannelGroups(mode == 0);
-    
+
     if (channels.empty())
     {
       QString message = tr("You don't have any channel groups defined");
@@ -2091,7 +2098,7 @@ void GuideGrid::ChannelGroupMenu(int mode)
         {
             menuPopup->AddButton(channels[i].name);
         }
-        
+
         popupStack->AddScreen(menuPopup);
     }
     else
@@ -2341,54 +2348,6 @@ void GuideGrid::Close()
     epgIsVisibleCond.wakeAll();
 }
 
-void GuideGrid::quickRecord()
-{
-    ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
-
-    if (!pginfo)
-        return;
-
-    if (pginfo->GetTitle() == kUnknownTitle)
-        return;
-
-    QuickRecord(pginfo);
-    LoadFromScheduler(m_recList);
-    fillProgramInfos();
-}
-
-void GuideGrid::editRecSchedule()
-{
-    ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
-
-    if (!pginfo)
-        return;
-
-    if (pginfo->GetTitle() == kUnknownTitle)
-        return;
-
-    EditRecording(pginfo);
-}
-
-void GuideGrid::editSchedule()
-{
-    ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
-
-    if (!pginfo)
-        return;
-
-    if (pginfo->GetTitle() == kUnknownTitle)
-        return;
-
-    EditScheduled(pginfo);
-}
-
-void GuideGrid::customEdit()
-{
-    ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
-
-    EditCustom(pginfo);
-}
-
 void GuideGrid::deleteRule()
 {
     ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
@@ -2418,45 +2377,6 @@ void GuideGrid::deleteRule()
         popupStack->AddScreen(okPopup);
     else
         delete okPopup;
-}
-
-void GuideGrid::upcoming()
-{
-    ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
-
-    if (!pginfo)
-        return;
-
-    if (pginfo->GetTitle() == kUnknownTitle)
-        return;
-
-    ShowUpcoming(pginfo);
-}
-
-void GuideGrid::previous()
-{
-    ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
-
-    if (!pginfo)
-        return;
-
-    if (pginfo->GetTitle() == kUnknownTitle)
-        return;
-
-    ShowPrevious(pginfo);
-}
-
-void GuideGrid::details()
-{
-    ProgramInfo *pginfo = m_programInfos[m_currentRow][m_currentCol];
-
-    if (!pginfo)
-        return;
-
-    if (pginfo->GetTitle() == kUnknownTitle)
-        return;
-
-    ShowDetails(pginfo);
 }
 
 void GuideGrid::channelUpdate(void)
@@ -2600,4 +2520,3 @@ void GuideGrid::ShowJumpToTime(void)
     else
         delete timedlg;
 }
-

@@ -5,14 +5,18 @@
 
 InputInfo::InputInfo(
     const QString &_name,
-    uint _sourceid, uint _inputid, uint _cardid, uint _mplexid,
+    uint _sourceid, uint _inputid, uint _cardid, uint _mplexid, uint _chanid,
     uint _livetvorder) :
     name(_name),
     sourceid(_sourceid),
     inputid(_inputid),
     cardid(_cardid),
     mplexid(_mplexid),
-    livetvorder(_livetvorder)
+    chanid(_chanid),
+    recPriority(0),
+    scheduleOrder(0),
+    livetvorder(_livetvorder),
+    quickTune(false)
 {
     name.detach();
 }
@@ -48,7 +52,8 @@ bool InputInfo::FromStringList(QStringList::const_iterator &it,
 
     recPriority = (*it).toInt(); NEXT();
     scheduleOrder = (*it).toUInt(); NEXT();
-    quickTune = (*it).toUInt(); ++it;
+    quickTune = (*it).toUInt(); NEXT();
+    chanid   = (*it).toUInt(); ++it;
 
     return true;
 }
@@ -66,49 +71,6 @@ void InputInfo::ToStringList(QStringList &list) const
     list.push_back(QString::number(recPriority));
     list.push_back(QString::number(scheduleOrder));
     list.push_back(QString::number(quickTune));
-}
-
-TunedInputInfo::TunedInputInfo(
-    const QString &_name,
-    uint _sourceid, uint _inputid, uint _cardid, uint _mplexid,
-    uint _livetvorder, uint _chanid) :
-    InputInfo(_name, _sourceid, _inputid, _cardid, _mplexid, _livetvorder), 
-    chanid(_chanid)
-{
-}
-
-TunedInputInfo::TunedInputInfo(const TunedInputInfo &other) :
-    InputInfo(other), chanid(other.chanid)
-{
-}
-
-TunedInputInfo &TunedInputInfo::operator=(const TunedInputInfo &other)
-{
-    *((InputInfo*)this) = other;
-    chanid = other.chanid;
-    return *this;
-}
-
-void TunedInputInfo::Clear(void)
-{
-    TunedInputInfo blank;
-    *this = blank;
-}
-
-bool TunedInputInfo::FromStringList(QStringList::const_iterator &it,
-                                    QStringList::const_iterator end)
-{
-    if (!InputInfo::FromStringList(it, end) || (it == end))
-        return false;
-
-    chanid = (*it).toUInt();
-    ++it;
-    return true;
-}
-
-void TunedInputInfo::ToStringList(QStringList &list) const
-{
-    InputInfo::ToStringList(list);
     list.push_back(QString::number(chanid));
 }
 
@@ -151,4 +113,3 @@ void ChannelInputInfo::Clear(void)
     ChannelInputInfo blank;
     *this = blank;
 }
-

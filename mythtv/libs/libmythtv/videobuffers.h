@@ -3,9 +3,6 @@
 #ifndef __VIDEOBUFFERS_H__
 #define __VIDEOBUFFERS_H__
 
-extern "C" {
-#include "frame.h"
-}
 #include <vector>
 #include <map>
 using namespace std;
@@ -14,6 +11,7 @@ using namespace std;
 #include <QString>
 #include <QWaitCondition>
 
+#include "mythframe.h"
 #include "mythdeque.h"
 
 #ifdef USING_X11
@@ -48,7 +46,8 @@ enum BufferType
 class YUVInfo
 {
   public:
-    YUVInfo(uint w, uint h, uint size, const int *p, const int *o);
+    YUVInfo(uint w, uint h, uint size, const int *p, const int *o,
+            int aligned = 64);
 
   public:
     uint width;

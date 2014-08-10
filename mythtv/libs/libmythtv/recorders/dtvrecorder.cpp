@@ -98,6 +98,9 @@ DTVRecorder::DTVRecorder(TVRec *rec) :
     memset(_stream_id,  0, sizeof(_stream_id));
     memset(_pid_status, 0, sizeof(_pid_status));
     memset(_continuity_counter, 0xff, sizeof(_continuity_counter));
+
+    _minimum_recording_quality =
+        gCoreContext->GetNumSetting("MinimumRecordingQuality", 95);
 }
 
 DTVRecorder::~DTVRecorder(void)
@@ -451,7 +454,7 @@ bool DTVRecorder::FindMPEG2Keyframes(const TSPacket* tspacket)
 
     while (bufptr < bufend)
     {
-        bufptr = avpriv_mpv_find_start_code(bufptr, bufend, &_start_code);
+        bufptr = avpriv_find_start_code(bufptr, bufend, &_start_code);
         bytes_left = bufend - bufptr;
         if ((_start_code & 0xffffff00) == 0x00000100)
         {
@@ -648,6 +651,7 @@ void DTVRecorder::HandleTimestamps(int stream_id, int64_t pts, int64_t dts)
         if (diff > gap_threshold)
         {
             QMutexLocker locker(&statisticsLock);
+
             recordingGaps.push_back(
                 RecordingGap(
                     ts_to_qdatetime(
@@ -657,6 +661,19 @@ void DTVRecorder::HandleTimestamps(int stream_id, int64_t pts, int64_t dts)
                         ts, _ts_first[stream_id], _ts_first_dt[stream_id])));
             LOG(VB_RECORD, LOG_DEBUG, LOC + QString("Inserted gap %1 dur %2")
                 .arg(recordingGaps.back().toString()).arg(diff/90000.0));
+
+            if (curRecording && curRecording->GetRecordingStatus() != rsFailing)
+            {
+                RecordingQuality recq(curRecording, recordingGaps);
+                if (recq.IsDamaged())
+                {
+                    LOG(VB_GENERAL, LOG_INFO, LOC +
+                        QString("HandleTimestamps: too much damage, "
+                                "setting status to %1")
+                        .arg(toString(rsFailing, kSingleRecord)));
+                    SetRecordingStatus(rsFailing, __FILE__, __LINE__);
+                }
+            }
         }
     }
 
@@ -1060,7 +1077,7 @@ void DTVRecorder::FindPSKeyFrames(const uint8_t *buffer, uint len)
 
         const uint8_t *tmp = bufptr;
         bufptr =
-            avpriv_mpv_find_start_code(bufptr + skip, bufend, &_start_code);
+            avpriv_find_start_code(bufptr + skip, bufend, &_start_code);
         _audio_bytes_remaining = 0;
         _other_bytes_remaining = 0;
         _video_bytes_remaining -= std::min(

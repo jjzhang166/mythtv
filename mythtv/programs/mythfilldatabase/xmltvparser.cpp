@@ -358,7 +358,7 @@ ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
                 QString date = getFirstText(info);
                 pginfo->airdate = date.left(4).toUInt();
             }
-            else if (info.tagName() == "star-rating" && pginfo->stars.isEmpty())
+            else if (info.tagName() == "star-rating" && pginfo->stars == 0.0)
             {
                 QDomNodeList values = info.elementsByTagName("value");
                 QDomElement item;
@@ -384,7 +384,7 @@ ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
                         rating = num.toFloat()/den.toFloat();
                 }
 
-                pginfo->stars.setNum(rating);
+                pginfo->stars = rating;
             }
             else if (info.tagName() == "rating")
             {
@@ -512,7 +512,7 @@ ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
                     /* text is movie/<inetref> */
                     QString inetrefRaw(getFirstText(info));
                     if (inetrefRaw.startsWith(QString("movie/"))) {
-                        QString inetref(inetrefRaw.section('/',1,1).trimmed());
+                        QString inetref(QString ("tmdb3.py_") + inetrefRaw.section('/',1,1).trimmed());
                         pginfo->inetref = inetref;
                     }
                 }
@@ -522,8 +522,9 @@ ProgInfo *XMLTVParser::parseProgram(QDomElement &element)
                     /* text is series/<inetref> */
                     QString inetrefRaw(getFirstText(info));
                     if (inetrefRaw.startsWith(QString("series/"))) {
-                        QString inetref(inetrefRaw.section('/',1,1).trimmed());
+                        QString inetref(QString ("ttvdb.py_") + inetrefRaw.section('/',1,1).trimmed());
                         pginfo->inetref = inetref;
+                        /* ProgInfo does not have a collectionref, so we don't set any */
                     }
                 }
             }

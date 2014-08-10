@@ -150,7 +150,7 @@ void HttpStatus::GetStatusXML( HTTPRequest *pRequest )
     pRequest->m_mapRespHeaders[ "Cache-Control" ] = "no-cache=\"Ext\", max-age = 5000";
 
     QTextStream stream( &pRequest->m_response );
-    stream.setCodec("UTF-8");	// Otherwise locale default is used.
+    stream.setCodec("UTF-8");   // Otherwise locale default is used.
     stream << doc.toString();
 }
 
@@ -330,8 +330,8 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
     {
         numbes++;
         QString masterhost = gCoreContext->GetMasterHostName();
-        QString masterip   = gCoreContext->GetSetting("MasterServerIP");
-        QString masterport = gCoreContext->GetSettingOnHost("BackendStatusPort", masterhost, "6544");
+        QString masterip   = gCoreContext->GetMasterServerIP();
+        int masterport = gCoreContext->GetMasterServerStatusPort();
 
         QDomElement mbe = pDoc->createElement("Backend");
         backends.appendChild(mbe);
@@ -347,7 +347,7 @@ void HttpStatus::FillStatusXML( QDomDocument *pDoc )
 
         QString ipaddress = QString();
         if (!UPnp::g_IPAddrList.isEmpty())
-            ipaddress = UPnp::g_IPAddrList.at(0);
+            ipaddress = UPnp::g_IPAddrList.at(0).toString();
 
         EntryMap map;
         sbes->GetEntryMap(map);

@@ -2,10 +2,9 @@
 #include "mythlogging.h"
 #include "mythxdisplay.h"
 #include "mythcodecid.h"
-#include "frame.h"
+#include "mythframe.h"
 #include "vaapicontext.h"
 #include "mythmainwindow.h"
-#include "myth_imgconvert.h"
 
 #define LOC QString("VAAPI: ")
 #define ERR QString("VAAPI Error: ")
@@ -77,11 +76,11 @@ VAProfile preferredProfile(MythCodecID codec)
 class VAAPIDisplay : ReferenceCounter
 {
   protected:
-    VAAPIDisplay(VAAPIDisplayType display_type) :
+    VAAPIDisplay(VAAPIDisplayType display_type, MythRenderOpenGL *render) :
         ReferenceCounter("VAAPIDisplay"),
         m_va_disp_type(display_type),
         m_va_disp(NULL), m_x_disp(NULL),
-        m_driver() { }
+        m_driver(), m_render(render) { }
   public:
    ~VAAPIDisplay()
     {
@@ -108,22 +107,25 @@ class VAAPIDisplay : ReferenceCounter
 
         if (m_va_disp_type == kVADisplayGLX)
         {
-            MythMainWindow *mw = GetMythMainWindow();
-            if (!mw)
-                return false;
-            MythRenderOpenGL *gl =
-                static_cast<MythRenderOpenGL*>(mw->GetRenderDevice());
-            if (!gl)
+            if (!m_render)
             {
-                LOG(VB_PLAYBACK, LOG_ERR, LOC +
-                    QString("Failed to get OpenGL context - you must use the "
-                            "OpenGL UI painter for VAAPI GLX support."));
-                return false;
+                MythMainWindow *mw = GetMythMainWindow();
+                if (!mw)
+                    return false;
+                m_render =
+                    dynamic_cast<MythRenderOpenGL*>(mw->GetRenderDevice());
+                if (!m_render || m_render->Type() != kRenderOpenGL1)
+                {
+                    LOG(VB_PLAYBACK, LOG_ERR, LOC +
+                        QString("Failed to get OpenGL context - you must use the "
+                                "OpenGL 1.0 UI painter for VAAPI GLX support."));
+                    return false;
+                }
             }
 
-            gl->makeCurrent();
+            m_render->makeCurrent();
             Display *display = glXGetCurrentDisplay();
-            gl->doneCurrent();
+            m_render->doneCurrent();
 
             m_va_disp = vaGetDisplayGLX(display);
         }
@@ -185,11 +187,12 @@ class VAAPIDisplay : ReferenceCounter
         return ret;
     }
 
-    static VAAPIDisplay *GetDisplay(VAAPIDisplayType display_type, bool noreuse)
+    static VAAPIDisplay *GetDisplay(VAAPIDisplayType display_type, bool noreuse,
+                                    MythRenderOpenGL *render)
     {
         if (noreuse)
         {
-            VAAPIDisplay *tmp = new VAAPIDisplay(display_type);
+            VAAPIDisplay *tmp = new VAAPIDisplay(display_type, render);
             if (tmp->Create())
             {
                 return tmp;
@@ -212,7 +215,7 @@ class VAAPIDisplay : ReferenceCounter
             return s_VAAPIDisplay;
         }
 
-        s_VAAPIDisplay = new VAAPIDisplay(display_type);
+        s_VAAPIDisplay = new VAAPIDisplay(display_type, render);
         if (s_VAAPIDisplay->Create())
             return s_VAAPIDisplay;
 
@@ -226,6 +229,7 @@ class VAAPIDisplay : ReferenceCounter
     void                *m_va_disp;
     MythXDisplay        *m_x_disp;
     QString              m_driver;
+    MythRenderOpenGL    *m_render;
 };
 
 QMutex VAAPIDisplay::s_VAAPIDisplayLock(QMutex::Recursive);
@@ -254,7 +258,8 @@ VAAPIContext::VAAPIContext(VAAPIDisplayType display_type,
     m_vaEntrypoint(VAEntrypointEncSlice),
     m_pix_fmt(PIX_FMT_YUV420P), m_numSurfaces(NUM_VAAPI_BUFFERS),
     m_surfaces(NULL), m_surfaceData(NULL), m_pictureAttributes(NULL),
-    m_pictureAttributeCount(0), m_hueBase(0)
+    m_pictureAttributeCount(0), m_hueBase(0), m_deriveSupport(false),
+    m_copy(NULL)
 {
     memset(&m_ctx, 0, sizeof(vaapi_context));
     memset(&m_image, 0, sizeof(m_image));
@@ -306,14 +311,26 @@ VAAPIContext::~VAAPIContext()
         m_display->DecrRef();
     }
 
+    delete m_copy;
+
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "Deleted context");
 }
 
-bool VAAPIContext::CreateDisplay(QSize size, bool noreuse)
+bool VAAPIContext::CreateDisplay(QSize size, bool noreuse,
+                                 MythRenderOpenGL *render)
 {
     m_size = size;
+    if (!m_copy)
+    {
+        m_copy = new MythUSWCCopy(m_size.width());
+    }
+    else
+    {
+        m_copy->reset(m_size.width());
+    }
+
     bool ok = true;
-    m_display = VAAPIDisplay::GetDisplay(m_dispType, noreuse);
+    m_display = VAAPIDisplay::GetDisplay(m_dispType, noreuse, render);
     CREATE_CHECK(!m_size.isEmpty(), "Invalid size");
     CREATE_CHECK(m_display != NULL, "Invalid display");
     CREATE_CHECK(InitDisplay(),     "Invalid VADisplay");
@@ -665,11 +682,22 @@ bool VAAPIContext::InitImage(const void *buf)
     CHECK_ST;
 
     const vaapi_surface *surf = (vaapi_surface*)buf;
+    unsigned int deriveImageFormat = 0;
+
+    if (vaDeriveImage(m_ctx.display, surf->m_id, &m_image) == VA_STATUS_SUCCESS)
+    {
+        m_deriveSupport = true;
+        deriveImageFormat = m_image.format.fourcc;
+        vaDestroyImage(m_ctx.display, m_image.image_id);
+    }
+
+    int nv12support = -1;
+
     for (int i = 0; i < num_formats; i++)
     {
-        if(formats[i].fourcc == VA_FOURCC('Y','V','1','2') ||
-           formats[i].fourcc == VA_FOURCC('I','4','2','0') ||
-           formats[i].fourcc == VA_FOURCC('N','V','1','2'))
+        if (formats[i].fourcc == VA_FOURCC_YV12 ||
+            formats[i].fourcc == VA_FOURCC_IYUV ||
+            formats[i].fourcc == VA_FOURCC_NV12)
         {
             if (vaCreateImage(m_ctx.display, &formats[i],
                               m_size.width(), m_size.height(), &m_image))
@@ -685,8 +713,32 @@ bool VAAPIContext::InitImage(const void *buf)
                 m_image.image_id = VA_INVALID_ID;
                 continue;
             }
+
+            if (formats[i].fourcc == VA_FOURCC_NV12)
+            {
+                // mark as NV12 as supported, but favor other formats first
+                nv12support = i;
+                vaDestroyImage(m_ctx.display, m_image.image_id);
+                m_image.image_id = VA_INVALID_ID;
+                continue;
+            }
             break;
         }
+    }
+
+    if (m_image.image_id == VA_INVALID_ID && nv12support >= 0)
+    {
+        // only nv12 is supported, use that format
+        if (vaCreateImage(m_ctx.display, &formats[nv12support],
+                          m_size.width(), m_size.height(), &m_image))
+        {
+            m_image.image_id = VA_INVALID_ID;
+        }
+    }
+    else if (m_deriveSupport && deriveImageFormat != m_image.format.fourcc)
+    {
+        // only use vaDerive if it's giving us a format we can handle natively
+        m_deriveSupport = false;
     }
 
     delete [] formats;
@@ -699,9 +751,15 @@ bool VAAPIContext::InitImage(const void *buf)
 
     LOG(VB_GENERAL, LOG_DEBUG,
         LOC + QString("InitImage: id %1, width %2 height %3 "
-                      "format %4")
+                      "format %4 vaDeriveSupport:%5")
         .arg(m_image.image_id).arg(m_image.width).arg(m_image.height)
-        .arg(m_image.format.fourcc));
+        .arg(m_image.format.fourcc).arg(m_deriveSupport));
+
+    if (m_deriveSupport)
+    {
+        vaDestroyImage(m_ctx.display, m_image.image_id );
+        m_image.image_id = VA_INVALID_ID;
+    }
 
     return true;
 }
@@ -710,11 +768,11 @@ bool VAAPIContext::CopySurfaceToFrame(VideoFrame *frame, const void *buf)
 {
     MythXLocker locker(m_display->m_x_disp);
 
-    if (m_image.image_id == VA_INVALID_ID)
+    if (!m_deriveSupport && m_image.image_id == VA_INVALID_ID)
         InitImage(buf);
 
     if (!frame || !buf || (m_dispType != kVADisplayX11) ||
-        m_image.image_id == VA_INVALID_ID)
+        (!m_deriveSupport && m_image.image_id == VA_INVALID_ID))
         return false;
 
     const vaapi_surface *surf = (vaapi_surface*)buf;
@@ -723,21 +781,41 @@ bool VAAPIContext::CopySurfaceToFrame(VideoFrame *frame, const void *buf)
     va_status = vaSyncSurface(m_ctx.display, surf->m_id);
     CHECK_ST;
 
-    va_status = vaGetImage(m_ctx.display, surf->m_id, 0, 0,
-                           m_size.width(), m_size.height(), m_image.image_id);
+    if (m_deriveSupport)
+    {
+        va_status = vaDeriveImage(m_ctx.display, surf->m_id, &m_image);
+    }
+    else
+    {
+        va_status = vaGetImage(m_ctx.display, surf->m_id, 0, 0,
+                               m_size.width(), m_size.height(),
+                               m_image.image_id);
+    }
     CHECK_ST;
 
     if (ok)
     {
+        VideoFrame src;
         void* source = NULL;
+
         if (vaMapBuffer(m_ctx.display, m_image.buf, &source))
             return false;
 
-        if (m_image.format.fourcc == VA_FOURCC('Y','V','1','2') ||
-            m_image.format.fourcc == VA_FOURCC('I','4','2','0'))
+        if (m_image.format.fourcc == VA_FOURCC_NV12)
         {
-            bool swap = m_image.format.fourcc == VA_FOURCC('Y','V','1','2');
-            VideoFrame src;
+            init(&src, FMT_NV12, (unsigned char*)source, m_image.width,
+                 m_image.height, m_image.data_size, NULL,
+                 NULL, frame->aspect, frame->frame_rate);
+            for (int i = 0; i < 2; i++)
+            {
+                src.pitches[i] = m_image.pitches[i];
+                src.offsets[i] = m_image.offsets[i];
+            }
+        }
+        else
+        {
+            // Our VideoFrame YV12 format, is really YUV420P/IYUV
+            bool swap = m_image.format.fourcc == VA_FOURCC_YV12;
             init(&src, FMT_YV12, (unsigned char*)source, m_image.width,
                  m_image.height, m_image.data_size, NULL,
                  NULL, frame->aspect, frame->frame_rate);
@@ -747,32 +825,20 @@ bool VAAPIContext::CopySurfaceToFrame(VideoFrame *frame, const void *buf)
             src.offsets[0] = m_image.offsets[0];
             src.offsets[1] = m_image.offsets[swap ? 2 : 1];
             src.offsets[2] = m_image.offsets[swap ? 1 : 2];
-            copy(frame, &src);
         }
-        else if (m_image.format.fourcc == VA_FOURCC('N','V','1','2'))
-        {
-            AVPicture img_in, img_out;
-            avpicture_fill(&img_out, (uint8_t *)frame->buf, PIX_FMT_YUV420P,
-                           frame->width, frame->height);
-            avpicture_fill(&img_in, (uint8_t *)source, PIX_FMT_NV12,
-                           m_image.width, m_image.height);
-            myth_sws_img_convert(&img_out, PIX_FMT_YUV420P,
-                                 &img_in, PIX_FMT_NV12,
-                                 frame->width, frame->height);
-            // Is this needed? Is it safe?
-            frame->pitches[0] = img_out.linesize[0];
-            frame->pitches[1] = img_out.linesize[1];
-            frame->pitches[2] = img_out.linesize[2];
-            frame->offsets[0] = 0;
-            frame->offsets[1] = img_out.data[1] - img_out.data[0];
-            frame->offsets[2] = img_out.data[2] - img_out.data[0];
-        }
+        m_copy->copy(frame, &src);
+
         if (vaUnmapBuffer(m_ctx.display, m_image.buf))
             return false;
+
+        if (m_deriveSupport)
+        {
+            vaDestroyImage(m_ctx.display, m_image.image_id );
+            m_image.image_id = VA_INVALID_ID;
+        }
+        return true;
     }
 
-    if (ok)
-        return true;
     LOG(VB_GENERAL, LOG_ERR, LOC + "Failed to get image");
     return false;
 }

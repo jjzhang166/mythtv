@@ -1,7 +1,7 @@
 // Program Name: upnpcdsvideo.cpp
-//                                                                            
+//
 // Purpose - UPnP Content Directory Extension for MythVideo Videos
-//                                                                            
+//
 //////////////////////////////////////////////////////////////////////////////
 
 // POSIX headers
@@ -21,9 +21,9 @@
 #define LOC_WARN QString("UPnpCDSVideo, Warning: ")
 #define LOC_ERR QString("UPnpCDSVideo, Error: ")
 
-UPnpCDSRootInfo UPnpCDSVideo::g_RootNodes[] = 
+UPnpCDSRootInfo UPnpCDSVideo::g_RootNodes[] =
 {
-    {   "All Videos", 
+    {   "All Videos",
         "*",
         "SELECT 0 as key, "
           "title as name, "
@@ -31,14 +31,171 @@ UPnpCDSRootInfo UPnpCDSVideo::g_RootNodes[] =
             "FROM videometadata "
             "%1 "
             "ORDER BY title",
-        "", "title" }
+        "",
+        "title",
+        "object.container",
+        "object.item.videoItem" },
+
+    {   "By Folder",
+        "fldr.folder",
+        "SELECT "
+            "fldr.folder          AS id, "
+            "fldr.folder          AS name, "
+            "COUNT( fldr.folder ) AS children "
+          "FROM ( "
+            "SELECT "
+                "SUBSTRING_INDEX(SUBSTRING_INDEX(filename,'/',-2),'/',1) "
+                  "AS folder "
+              "FROM videometadata "
+          ") AS fldr "
+          "%1 "
+          "GROUP BY fldr.folder "
+          "ORDER BY fldr.folder",
+        "WHERE fldr.folder =  :KEY",
+        "title",
+        "object.container.storageSystem",
+        "object.container.storageFolder" },
+
+    {   "By Length (10min int)",
+        "ROUND(length+4,-1)",
+        "SELECT "
+            "ROUND(length+4,-1)          AS id, "
+            "ROUND(length+4,-1)          AS name, "
+            "COUNT( ROUND(length+4,-1) ) AS children "
+          "FROM videometadata "
+          "%1 "
+          "GROUP BY name "
+          "ORDER BY ROUND(length+4,-1)",
+        "WHERE ROUND(length+4,-1) = :KEY",
+        "title",
+        "object.container",
+        "object.container" },
+
+    {   "By User Rating (rounded)",
+        "ROUND(userrating)",
+        "SELECT "
+            "ROUND(userrating)          AS id, "
+            "ROUND(userrating)          AS name, "
+            "COUNT( ROUND(userrating) ) AS children "
+          "FROM videometadata "
+          "%1 "
+          "GROUP BY ROUND(userrating) "
+          "ORDER BY ROUND(userrating)",
+        "WHERE ROUND(userrating)=ROUND(:KEY)",
+        "title",
+        "object.container",
+        "object.container" },
+
+    {   "By Maturity Rating",
+        "rating",
+        "SELECT "
+            "rating          AS id, "
+            "rating          AS name, "
+            "COUNT( rating ) AS children "
+          "FROM videometadata "
+          "%1 "
+          "GROUP BY rating "
+          "ORDER BY rating",
+        "WHERE rating=:KEY",
+        "title",
+        "object.container",
+        "object.container" },
+
+    {   "By Genre",
+        "category",
+        "SELECT "
+            "videometadata.category          AS id, "
+            "videocategory.category          AS name, "
+            "COUNT( videometadata.category ) AS children "
+          "FROM videometadata "
+            "LEFT JOIN videocategory ON videocategory.intid = videometadata.category "
+          "%1 "
+          "GROUP BY videometadata.category "
+          "ORDER BY videocategory.category",
+        "WHERE videometadata.category=:KEY",
+        "title",
+        "object.container",
+        "object.container.genre.movieGenre" },
+
+    {   "By Director",
+        "director",
+        "SELECT "
+            "director          AS id, "
+            "director          AS name, "
+            "COUNT( director ) AS children "
+          "FROM videometadata "
+          "%1 "
+          "GROUP BY director "
+          "ORDER BY director",
+        "WHERE director=:KEY",
+        "title",
+        "object.container",
+        "object.container.person" },
+
+    {   "By Studio",
+        "studio",
+        "SELECT "
+            "studio          AS id, "
+            "studio          AS name, "
+            "COUNT( studio ) AS children "
+          "FROM videometadata "
+            "%1 "
+            "GROUP BY studio "
+            "ORDER BY studio",
+        "WHERE studio=:KEY",
+        "title",
+        "object.container",
+        "object.container" },
+
+    {   "By Year",
+        "year",
+        "SELECT "
+            "year          AS id, "
+            "year          AS name, "
+            "COUNT( year ) AS children "
+          "FROM videometadata "
+          "%1 "
+          "GROUP BY year "
+          "ORDER BY year",
+        "WHERE year=:KEY",
+        "title",
+        "object.container",
+        "object.container" },
+
+    {   "By Content Type",
+        "contenttype",
+        "SELECT "
+            "contenttype          AS id, "
+            "contenttype          AS name, "
+            "COUNT( contenttype ) AS children "
+          "FROM videometadata "
+          "%1 "
+          "GROUP BY contenttype "
+          "ORDER BY contenttype",
+        "WHERE contenttype=:KEY",
+        "title",
+        "object.container",
+        "object.container.album" },
+
+    {   "By Season",
+        "season",
+        "SELECT "
+            "season          AS id, "
+            "season          AS name, "
+            "COUNT( season ) AS children "
+          "FROM videometadata "
+          "%1 "
+          "GROUP BY season "
+          "ORDER BY season",
+        "WHERE season=:KEY",
+        "title",
+        "object.container",
+        "object.container" }
 
 };
 
-int UPnpCDSVideo::g_nRootCount = 1;
-
-//int UPnpCDSVideo::g_nRootCount;
-// = sizeof( g_RootNodes ) / sizeof( UPnpCDSRootInfo );
+int UPnpCDSVideo::g_nRootCount = sizeof( UPnpCDSVideo::g_RootNodes ) /
+                                 sizeof( UPnpCDSRootInfo );
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -67,7 +224,14 @@ int UPnpCDSVideo::GetRootCount()
 
 QString UPnpCDSVideo::GetTableName( QString sColumn )
 {
-    return "videometadata";
+    if(sColumn == "fldr.folder")
+    {
+        return "( SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(filename,'/',-2),'/',1) "
+                           "AS folder from videometadata ) "
+               "AS fldr";
+    }
+    else
+        return "videometadata";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -76,10 +240,21 @@ QString UPnpCDSVideo::GetTableName( QString sColumn )
 
 QString UPnpCDSVideo::GetItemListSQL( QString sColumn )
 {
-    return "SELECT intid, title, subtitle, filename, director, plot, "
-            "rating, year, userrating, length, " 
-            "season, episode, coverfile, insertdate, host FROM videometadata";
-
+    return "SELECT "
+           "videometadata.intid, title, subtitle, filename, director, plot, "
+           "rating, year, userrating, length, "
+           "season, episode, coverfile, insertdate, host, "
+           "category, studio, collectionref, homepage, contenttype, "
+           "round(length+4,-1) AS length10, "
+           "fldr.folder AS folder , "
+           "playcount "
+         "FROM videometadata "
+            "INNER JOIN ( "
+              "SELECT "
+                  "intid,SUBSTRING_INDEX(SUBSTRING_INDEX(filename,'/',-2),'/',1) "
+                    "AS folder "
+                "FROM videometadata "
+            ") AS fldr ON fldr.intid=videometadata.intid";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -112,9 +287,9 @@ bool UPnpCDSVideo::IsBrowseRequestForUs( UPnpCDSRequest *pRequest )
     // Xbox360 compatibility code.
     // ----------------------------------------------------------------------
 
-    if (pRequest->m_eClient == CDS_ClientXBox && 
+    if (pRequest->m_eClient == CDS_ClientXBox &&
         pRequest->m_sContainerID == "15" &&
-        gCoreContext->GetSetting("UPnP/WMPSource") == "1") 
+        gCoreContext->GetSetting("UPnP/WMPSource") == "1")
     {
         pRequest->m_sObjectId = "Videos/0";
 
@@ -123,7 +298,7 @@ bool UPnpCDSVideo::IsBrowseRequestForUs( UPnpCDSRequest *pRequest )
         return true;
     }
 
-    if ((pRequest->m_sObjectId.isEmpty()) && 
+    if ((pRequest->m_sObjectId.isEmpty()) &&
         (!pRequest->m_sContainerID.isEmpty()))
         pRequest->m_sObjectId = pRequest->m_sContainerID;
 
@@ -135,7 +310,7 @@ bool UPnpCDSVideo::IsBrowseRequestForUs( UPnpCDSRequest *pRequest )
     //
     // ----------------------------------------------------------------------
 
-    if (pRequest->m_eClient == CDS_ClientWMP && 
+    if (pRequest->m_eClient == CDS_ClientWMP &&
         pRequest->m_sContainerID == "13" &&
         pRequest->m_nClientVersion < 12.0 &&
         gCoreContext->GetSetting("UPnP/WMPSource") == "1")
@@ -168,9 +343,9 @@ bool UPnpCDSVideo::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
     // ----------------------------------------------------------------------
 
 
-    if (pRequest->m_eClient == CDS_ClientXBox && 
+    if (pRequest->m_eClient == CDS_ClientXBox &&
         pRequest->m_sContainerID == "15" &&
-        gCoreContext->GetSetting("UPnP/WMPSource") == "1") 
+        gCoreContext->GetSetting("UPnP/WMPSource") == "1")
     {
         pRequest->m_sObjectId = "Videos/0";
 
@@ -179,7 +354,7 @@ bool UPnpCDSVideo::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
         return true;
     }
 
-    if ((pRequest->m_sObjectId.isEmpty()) && 
+    if ((pRequest->m_sObjectId.isEmpty()) &&
         (!pRequest->m_sContainerID.isEmpty()))
         pRequest->m_sObjectId = pRequest->m_sContainerID;
 
@@ -191,14 +366,14 @@ bool UPnpCDSVideo::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
     // WMP11 compatibility code
     // ----------------------------------------------------------------------
 
-    if ( bOurs && pRequest->m_eClient == CDS_ClientWMP && 
+    if ( bOurs && pRequest->m_eClient == CDS_ClientWMP &&
          pRequest->m_nClientVersion < 12.0 )
     {
         if ( gCoreContext->GetSetting("UPnP/WMPSource") == "1")
         {
             pRequest->m_sObjectId = "Videos/0";
             // -=>TODO: Not sure why this was added.
-            pRequest->m_sParentId = "8"; 
+            pRequest->m_sParentId = "8";
         }
         else
             bOurs = false;
@@ -211,28 +386,7 @@ bool UPnpCDSVideo::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-int UPnpCDSVideo::GetDistinctCount( UPnpCDSRootInfo *pInfo )
-{
-    int nCount = 0;
-
-    MSqlQuery query(MSqlQuery::InitCon());
-
-    query.prepare("SELECT COUNT(*) FROM videometadata");
-
-    if (query.exec() && query.next())
-    {
-        nCount = query.value(0).toInt();
-    }
-
-    return nCount;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-/////////////////////////////////////////////////////////////////////////////
-
-void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest, 
+void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
                             const QString           &sObjectId,
                             UPnpCDSExtensionResults *pResults,
                             bool                     bAddRef,
@@ -249,12 +403,16 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
     // int             nYear        = query.value( 7).toInt();
     // int             nUserRating  = query.value( 8).toInt();
     int            nLength      = query.value( 9).toInt();
-    // int             nSeason      = query.value(10).toInt();
-    // int             nEpisode     = query.value(11).toInt();
+    int            nSeason      = query.value(10).toInt();
+    int            nEpisode     = query.value(11).toInt();
     QString        sCoverArt    = query.value(12).toString();
     QDateTime      dtInsertDate =
         MythDate::as_utc(query.value(13).toDateTime());
     QString        sHostName    = query.value(14).toString();
+//    int            nCategory    = query.value(15).toInt();
+//    QString        sStudio      = query.value(16).toString();
+//    QString        sHomePage    = query.value(17).toString();
+//    QString        sContentType = query.value(18).toString();
 
     // ----------------------------------------------------------------------
     // Cache Host ip Address & Port
@@ -268,13 +426,13 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
     {
         if (sHostName.isEmpty())
         {
-            m_mapBackendIp[sHostName] = 
-                gCoreContext->GetSetting( "BackendServerIP" );
+            m_mapBackendIp[sHostName] =
+                gCoreContext->GetBackendServerIP4();
         }
         else
         {
-            m_mapBackendIp[sHostName] = 
-                gCoreContext->GetSettingOnHost( "BackendServerIp", sHostName);
+            m_mapBackendIp[sHostName] =
+                gCoreContext->GetBackendServerIP4(sHostName);
         }
     }
 
@@ -282,17 +440,17 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
     {
         if (sHostName.isEmpty())
         {
-            m_mapBackendPort[sHostName] = 
-                gCoreContext->GetSetting( "BackendStatusPort" );
+            m_mapBackendPort[sHostName] =
+                gCoreContext->GetBackendStatusPort();
         }
         else
         {
-            m_mapBackendPort[sHostName] = 
-                gCoreContext->GetSettingOnHost("BackendStatusPort", sHostName);
+            m_mapBackendPort[sHostName] =
+                gCoreContext->GetBackendStatusPort(sHostName);
         }
     }
-    
-    
+
+
     // ----------------------------------------------------------------------
     // Build Support Strings
     // ----------------------------------------------------------------------
@@ -303,12 +461,12 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
         sName += " - " + sSubtitle;
     }
 
-    QString sURIBase   = QString( "http://%1:%2/Content/" )
-                            .arg( m_mapBackendIp  [sHostName] ) 
-                            .arg( m_mapBackendPort[sHostName] );
+    QUrl URIBase;
+    URIBase.setScheme("http");
+    URIBase.setHost(m_mapBackendIp[sHostName]);
+    URIBase.setPort(m_mapBackendPort[sHostName]);
 
-    QString sURIParams = QString( "?Id=%1" ).arg( nVidID );
-    QString sId        = QString( "Videos/0/item%1").arg( sURIParams );
+    QString sId        = QString( "Videos/0/item?Id=%1").arg( nVidID );
 
     QString sParentID = "Videos/0";
 
@@ -319,13 +477,26 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
     pItem->m_sWriteStatus = "WRITABLE";
 
     pItem->SetPropValue( "longDescription", sPlot );
-    // ?? pItem->SetPropValue( "description"    , sTitle );
+    // ?? pItem->SetPropValue( "description"    , sPlot );
     pItem->SetPropValue( "director"       , sDirector );
 
+    if (nEpisode > 0 || nSeason > 0) // There has got to be a better way
+    {
+        pItem->SetPropValue( "seriesTitle"  , sTitle);
+        pItem->SetPropValue( "programTitle"  , sSubtitle);
+        pItem->SetPropValue( "episodeNumber"  , QString::number(nEpisode));
+        //pItem->SetPropValue( "episodeCount"  , nEpisodeCount);
+    }
+
+    // TODO Implement the following
+    // pItem->SetPropValue( "genre"       , sCategory );
+
+    // HACK: Windows Media Centre Compat
     pItem->SetPropValue( "genre"          , "[Unknown Genre]"     );
     pItem->SetPropValue( "actor"          , "[Unknown Author]"    );
     pItem->SetPropValue( "creator"        , "[Unknown Creator]"   );
     pItem->SetPropValue( "album"          , "[Unknown Album]"     );
+    ////
 
     //pItem->SetPropValue( "producer"       , );
     //pItem->SetPropValue( "rating"         , );
@@ -335,9 +506,9 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
     //pItem->SetPropValue( "relation"       , );
     //pItem->SetPropValue( "region"         , );
 
-    QString sArtURI= QString( "%1GetVideoArtwork%2")
-                        .arg( sURIBase   )
-                        .arg( sURIParams );
+    QUrl artURI = URIBase;
+    artURI.setPath("Content/GetVideoArtwork");
+    artURI.addQueryItem("Id", QString::number(nVidID));
 
     QList<Property*> propList = pItem->GetProperties("albumArtURI");
     if ((!sCoverArt.isEmpty()) && (sCoverArt != "No Cover")
@@ -357,9 +528,11 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
         if (pProp)
         {
             // Must be no more than 1024x768
-            pProp->m_sValue = sArtURI;
-            pProp->m_sValue.append("&amp;Width=1024&amp;Height=768");
-            pProp->AddAttribute("dlna:profileID", "JPG_MED");
+            QUrl mediumURI = artURI;
+            mediumURI.addQueryItem("Width", "1024");
+            mediumURI.addQueryItem("Height", "768");
+            pProp->SetValue(mediumURI.toEncoded());
+            pProp->AddAttribute("dlna:profileID", "JPEG_MED");
             pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
         }
 
@@ -369,20 +542,24 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
         {
             // At least one albumArtURI must be a ThumbNail (TN) no larger
             // than 160x160, and it must also be a jpeg
-            pProp->m_sValue = sArtURI;
-            pProp->m_sValue.append("&amp;Width=160&amp;Height=160");
-            pProp->AddAttribute("dlna:profileID", "JPG_TN");
+            QUrl thumbURI = artURI;
+            thumbURI.addQueryItem("Width", "160");
+            thumbURI.addQueryItem("Height", "160");
+            pProp->SetValue(thumbURI.toEncoded());
+            pProp->AddAttribute("dlna:profileID", "JPEG_TN");
             pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
         }
 
-        // Medium
+        // Small
         pProp = propList.at(2);
         if (pProp)
         {
             // Must be no more than 1024x768
-            pProp->m_sValue = sArtURI;
-            pProp->m_sValue.append("&amp;Width=1024&amp;Height=768");
-            pProp->AddAttribute("dlna:profileID", "JPG_MED");
+            QUrl smallURI = artURI;
+            smallURI.addQueryItem("Width", "640");
+            smallURI.addQueryItem("Height", "480");
+            pProp->SetValue(smallURI.toEncoded());
+            pProp->AddAttribute("dlna:profileID", "JPEG_SM");
             pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
         }
 
@@ -392,16 +569,16 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
         {
             // Must be no more than 4096x4096 - for our purposes, just return
             // a fullsize image
-            pProp->m_sValue = sArtURI;
-            pProp->AddAttribute("dlna:profileID", "JPG_LRG");
+            pProp->SetValue(artURI.toEncoded());
+            pProp->AddAttribute("dlna:profileID", "JPEG_LRG");
             pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
         }
     }
 
     if ( bAddRef )
     {
-        QString sRefId = QString( "%1/0/item%2").arg( m_sExtensionId )
-                                                .arg( sURIParams     );
+        QString sRefId = QString( "%1/0/item?Id=%2").arg( m_sExtensionId )
+                                                    .arg( nVidID         );
 
         pItem->SetPropValue( "refID", sRefId );
     }
@@ -426,22 +603,38 @@ void UPnpCDSVideo::AddItem( const UPnpCDSRequest    *pRequest,
     // If we are dealing with a Sony Blu-ray player then we fake the
     // MIME type to force the video to appear
     if ( pRequest->m_eClient == CDS_ClientSonyDB )
-    {   
+    {
         sMimeType = "video/avi";
     }
 
     QString sProtocol = QString( "http-get:*:%1:DLNA.ORG_OP=01;DLNA.ORG_CI=0;"
                                  "DLNA.ORG_FLAGS=0150000000000000000000000000"
                                  "0000" ).arg( sMimeType  );
-    QString sURI      = QString( "%1GetVideo%2").arg( sURIBase   )
-                                                .arg( sURIParams );
 
-    Resource *pRes = pItem->AddResource( sProtocol, sURI );
+    QUrl    resURI    = URIBase;
+    resURI.setPath("Content/GetVideo");
+    resURI.addQueryItem("Id", QString::number(nVidID));
 
+    Resource *pRes = pItem->AddResource( sProtocol, resURI.toEncoded() );
+    LOG(VB_GENERAL, LOG_NOTICE, resURI.toEncoded());
     pRes->AddAttribute( "size"      , QString("%1").arg(fInfo.size()) );
 
     QString sDur;
-    sDur.sprintf("%02d:%02d:00", (nLength / 60), nLength % 60 );
+    // H:M:S[.MS] (We don't store the number of seconds for videos)
+    sDur.sprintf("%02d:%02d:00.000", (nLength / 60), nLength % 60 );
 
     pRes->AddAttribute( "duration"  , sDur      );
+}
+
+CDSObject* UPnpCDSVideo::CreateContainer(const QString& sId, const QString& sTitle, const QString& sParentId, const QString& sClass)
+{
+    CDSObject *pContainer = NULL;
+    if (sClass == "object.container.person.movieGenre")
+    {
+        pContainer = CDSObject::CreateMovieGenre(sId, sTitle, m_sExtensionId );
+    }
+    else
+        pContainer = UPnpCDSExtension::CreateContainer(sId, sTitle, sParentId, sClass);
+
+    return pContainer;
 }

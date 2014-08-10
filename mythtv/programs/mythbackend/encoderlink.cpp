@@ -149,12 +149,12 @@ void EncoderLink::SetSleepStatus(SleepStatus newStatus)
     sleepStatusTime = MythDate::current();
 }
 
-/** \fn EncoderLink::IsBusy(TunedInputInfo*,int)
+/** \fn EncoderLink::IsBusy(InputInfo*,int)
  *  \brief  Returns true if the recorder is busy, or will be within the
  *          next time_buffer seconds.
- *  \sa IsBusyRecording(void), TVRec::IsBusy(TunedInputInfo*)
+ *  \sa IsBusyRecording(void), TVRec::IsBusy(InputInfo*)
  */
-bool EncoderLink::IsBusy(TunedInputInfo *busy_input, int time_buffer)
+bool EncoderLink::IsBusy(InputInfo *busy_input, int time_buffer)
 {
     if (local)
         return tv->IsBusy(busy_input, time_buffer);
@@ -425,14 +425,14 @@ int EncoderLink::LockTuner()
     return m_capturecardnum;
 }
 
-/** \fn EncoderLink::StartRecording(const ProgramInfo*)
+/** \fn EncoderLink::StartRecording(ProgramInfo*)
  *  \brief Tells TVRec to Start recording the program "rec" as soon as possible.
  *
  *  \return +1 if the recording started successfully,
  *          -1 if TVRec is busy doing something else, 0 otherwise.
  *  \sa RecordPending(const ProgramInfo*, int, bool), StopRecording()
  */
-RecStatusType EncoderLink::StartRecording(const ProgramInfo *rec)
+RecStatusType EncoderLink::StartRecording(ProgramInfo *rec)
 {
     RecStatusType retval = rsAborted;
 
@@ -453,7 +453,7 @@ RecStatusType EncoderLink::StartRecording(const ProgramInfo *rec)
                     "but the backend is not there anymore\n")
                 .arg(m_capturecardnum));
 
-    if (retval != rsRecording && retval != rsTuning)
+    if (retval != rsRecording && retval != rsTuning && retval != rsFailing)
     {
         endRecordingTime = MythDate::current().addDays(-2);
         startRecordingTime = endRecordingTime;
@@ -480,7 +480,7 @@ RecStatusType EncoderLink::GetRecordingStatus(void)
                     "but the backend is not there anymore\n")
                 .arg(m_capturecardnum));
 
-    if (retval != rsRecording && retval != rsTuning)
+    if (retval != rsRecording && retval != rsTuning && retval != rsFailing)
     {
         endRecordingTime = MythDate::current().addDays(-2);
         startRecordingTime = endRecordingTime;

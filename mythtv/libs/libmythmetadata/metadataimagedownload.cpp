@@ -143,14 +143,16 @@ void MetadataImageDownload::run()
                 QString path = getLocalWritePath(lookup->GetType(), type);
                 QDir dirPath(path);
                 if (!dirPath.exists())
+                {
                     if (!dirPath.mkpath(path))
                     {
                         LOG(VB_GENERAL, LOG_ERR,
                             QString("Metadata Image Download: Unable to create "
                                     "path %1, aborting download.").arg(path));
                         errored = true;
-                        continue;
+                        break;
                     }
+                }
                 QString finalfile = path + "/" + filename;
                 QString oldurl = info.url;
                 info.url = finalfile;
@@ -167,29 +169,27 @@ void MetadataImageDownload::run()
                     LOG(VB_GENERAL, LOG_INFO,
                         QString("Metadata Image Download: %1 ->%2")
                          .arg(oldurl).arg(finalfile));
-                    QByteArray *download = new QByteArray();
-                    GetMythDownloadManager()->download(oldurl, download);
+                    QByteArray download;
+                    GetMythDownloadManager()->download(oldurl, &download);
 
                     QImage testImage;
-                    bool didLoad = testImage.loadFromData(*download);
+                    bool didLoad = testImage.loadFromData(download);
                     if (!didLoad)
                     {
                         LOG(VB_GENERAL, LOG_ERR,
                             QString("Tried to write %1, but it appears to be "
                                     "an HTML redirect (filesize %2).")
-                                .arg(oldurl).arg(download->size()));
-                        delete download;
-                        download = NULL;
+                                .arg(oldurl).arg(download.size()));
                         errored = true;
-                        continue;
+                        break;
                     }
 
                     if (dest_file.open(QIODevice::WriteOnly))
                     {
-                        off_t size = dest_file.write(*download,
-                                                     download->size());
+                        off_t size = dest_file.write(download,
+                                                     download.size());
                         dest_file.close();
-                        if (size != download->size())
+                        if (size != download.size())
                         {
                             // File creation failed for some reason, delete it
                             RemoteFile::DeleteFile(finalfile);
@@ -197,15 +197,10 @@ void MetadataImageDownload::run()
                                 QString("Image Download: Error Writing Image "
                                         "to file: %1").arg(finalfile));
                             errored = true;
+                            break;
                         }
-                        else
-                            downloaded.insert(type, info);
                     }
-
-                    delete download;
                 }
-                else
-                    downloaded.insert(type, info);
             }
             else
             {
@@ -216,12 +211,12 @@ void MetadataImageDownload::run()
                 bool exists = false;
                 bool onMaster = false;
                 QString resolvedFN;
-                if ((lookup->GetHost().toLower() == gCoreContext->GetHostName().toLower()) ||
-                    (gCoreContext->IsThisHost(lookup->GetHost())))
+                if (gCoreContext->IsMasterBackend() &&
+                    gCoreContext->IsThisHost(lookup->GetHost()))
                 {
-                    StorageGroup sg;
+                    StorageGroup sg(getStorageGroupName(type), lookup->GetHost());
                     resolvedFN = sg.FindFile(filename);
-                    exists = QFile::exists(resolvedFN);
+                    exists = !resolvedFN.isEmpty() && QFile::exists(resolvedFN);
                     if (!exists)
                     {
                         resolvedFN = getLocalStorageGroupPath(type,
@@ -234,7 +229,6 @@ void MetadataImageDownload::run()
 
                 if (!exists || lookup->GetAllowOverwrites())
                 {
-
                     if (exists && !onMaster)
                     {
                         QFileInfo fi(finalfile);
@@ -247,56 +241,48 @@ void MetadataImageDownload::run()
                     LOG(VB_GENERAL, LOG_INFO,
                         QString("Metadata Image Download: %1 -> %2")
                             .arg(oldurl).arg(finalfile));
-                    QByteArray *download = new QByteArray();
-                    GetMythDownloadManager()->download(oldurl, download);
+                    QByteArray download;
+                    GetMythDownloadManager()->download(oldurl, &download);
 
                     QImage testImage;
-                    bool didLoad = testImage.loadFromData(*download);
+                    bool didLoad = testImage.loadFromData(download);
                     if (!didLoad)
                     {
                         LOG(VB_GENERAL, LOG_ERR,
                             QString("Tried to write %1, but it appears to be "
                                     "an HTML redirect or corrupt file "
                                     "(filesize %2).")
-                                .arg(oldurl).arg(download->size()));
-                        delete download;
-                        download = NULL;
+                                .arg(oldurl).arg(download.size()));
                         errored = true;
-                        continue;
+                        break;
                     }
 
                     if (!onMaster)
                     {
-                        RemoteFile *outFile = new RemoteFile(finalfile, true);
-                        if (!outFile->isOpen())
+                        RemoteFile outFile(finalfile, true);
+
+                        if (!outFile.isOpen())
                         {
                             LOG(VB_GENERAL, LOG_ERR,
                                 QString("Image Download: Failed to open "
                                         "remote file (%1) for write.  Does "
                                         "Storage Group Exist?")
                                         .arg(finalfile));
-                            delete outFile;
-                            outFile = NULL;
                             errored = true;
+                            break;
                         }
-                        else
+                        off_t written = outFile.Write(download,
+                                                      download.size());
+                        if (written != download.size())
                         {
-                            off_t written = outFile->Write(*download,
-                                                           download->size());
-                            delete outFile;
-                            outFile = NULL;
-                            if (written != download->size())
-                            {
-                                // File creation failed for some reason, delete it
-                                RemoteFile::DeleteFile(finalfile);
+                            // File creation failed for some reason, delete it
+                            RemoteFile::DeleteFile(finalfile);
 
-                                LOG(VB_GENERAL, LOG_ERR,
-                                    QString("Image Download: Error Writing Image "
-                                            "to file: %1").arg(finalfile));
-                                errored = true;
-                            }
-                            else
-                                downloaded.insert(type, info);
+                            LOG(VB_GENERAL, LOG_ERR,
+                                QString("Image Download: Error Writing Image "
+                                        "to file: %1").arg(finalfile));
+                            errored = true;
+                            break;
                         }
                     }
                     else
@@ -304,10 +290,10 @@ void MetadataImageDownload::run()
                         QFile dest_file(resolvedFN);
                         if (dest_file.open(QIODevice::WriteOnly))
                         {
-                            off_t size = dest_file.write(*download,
-                                                         download->size());
+                            off_t size = dest_file.write(download,
+                                                         download.size());
                             dest_file.close();
-                            if (size != download->size())
+                            if (size != download.size())
                             {
                                 // File creation failed for some reason, delete it
                                 RemoteFile::DeleteFile(resolvedFN);
@@ -315,22 +301,24 @@ void MetadataImageDownload::run()
                                     QString("Image Download: Error Writing Image "
                                             "to file: %1").arg(finalfile));
                                 errored = true;
+                                break;
                             }
-                            else
-                                downloaded.insert(type, info);
                         }
                     }
-
-                    delete download;
                 }
-                else
-                    downloaded.insert(type, info);
+            }
+            if (!errored)
+            {
+                // update future Artwork Map with what we've successfully
+                // retrieved (either downloaded or already existing
+                downloaded.insert(type, info);
             }
         }
         if (errored)
         {
             QCoreApplication::postEvent(m_parent,
                     new ImageDLFailureEvent(lookup));
+            errored = false;
         }
         lookup->SetDownloads(downloaded);
         QCoreApplication::postEvent(m_parent, new ImageDLEvent(lookup));
@@ -388,7 +376,7 @@ QString getDownloadFilename(VideoArtworkType type, MetadataLookup *lookup,
     uint season = lookup->GetSeason();
     uint episode = lookup->GetEpisode();
     QString system = lookup->GetSystem();
-    if (season > 0 || episode > 0)
+    if (!lookup->GetIsCollection() && (season > 0 || episode > 0))
     {
         title = lookup->GetTitle();
         if (title.contains("/"))
@@ -472,21 +460,9 @@ QString getLocalWritePath(MetadataType metadatatype, VideoArtworkType type)
 
 QString getStorageGroupURL(VideoArtworkType type, QString host)
 {
-    QString sgroup;
-    QString ip = gCoreContext->GetSettingOnHost("BackendServerIP", host);
-    uint port = gCoreContext->GetSettingOnHost("BackendServerPort",
-                                               host).toUInt();
-
-    if (type == kArtworkCoverart)
-        sgroup = "Coverart";
-    else if (type == kArtworkFanart)
-        sgroup = "Fanart";
-    else if (type == kArtworkBanner)
-        sgroup = "Banners";
-    else if (type == kArtworkScreenshot)
-        sgroup = "Screenshots";
-    else
-        sgroup = "Default";
+    QString sgroup = getStorageGroupName(type);
+    QString ip = gCoreContext->GetBackendServerIP(host);
+    uint port = gCoreContext->GetBackendServerPort(host);
 
     return gCoreContext->GenMythURL(ip,port,"",sgroup);
 }
@@ -495,22 +471,28 @@ QString getLocalStorageGroupPath(VideoArtworkType type, QString host)
 {
     QString path;
 
-    StorageGroup sg;
-
-    if (type == kArtworkCoverart)
-        sg.Init("Coverart", host);
-    else if (type == kArtworkFanart)
-        sg.Init("Fanart", host);
-    else if (type == kArtworkBanner)
-        sg.Init("Banners", host);
-    else if (type == kArtworkScreenshot)
-        sg.Init("Screenshots", host);
-    else
-        sg.Init("Default", host);
+    StorageGroup sg(getStorageGroupName(type), host);
 
     path = sg.FindNextDirMostFree();
 
     return path;
+}
+
+QString getStorageGroupName(VideoArtworkType type)
+{
+    switch (type)
+    {
+        case kArtworkCoverart:
+            return "Coverart";
+        case kArtworkFanart:
+            return "Fanart";
+        case kArtworkBanner:
+            return "Banners";
+        case kArtworkScreenshot:
+            return "Screenshots";
+        default:
+            return "Default";
+    }
 }
 
 void cleanThumbnailCacheDir()

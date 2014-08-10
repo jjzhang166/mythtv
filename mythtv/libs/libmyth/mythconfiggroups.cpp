@@ -1,5 +1,7 @@
 #include <algorithm>
 
+using namespace std;
+
 #include <QStackedWidget>
 
 #include "mythconfiggroups.h"
@@ -78,7 +80,7 @@ Setting *ConfigurationGroup::byName(const QString &name)
         if (*it)
             tmp = (*it)->byName(name);
     }
-    
+
     return tmp;
 }
 
@@ -115,10 +117,12 @@ void ConfigurationGroup::SetSaveRequired(void)
 }
 
 QWidget *VerticalConfigurationGroup::configWidget(
-    ConfigurationGroup *cg, 
+    ConfigurationGroup *cg,
     QWidget            *parent,
-    const char         *widgetName) 
+    const char         *widgetName)
 {
+    if (layout)
+        layout->deleteLater();
     layout = new QVBoxLayout();
     layout->setMargin(margin);
     layout->setSpacing((space<0) ? margin : space);
@@ -133,13 +137,13 @@ QWidget *VerticalConfigurationGroup::configWidget(
             children[i]->setEnabled(children[i]->isEnabled());
         }
     }
-      
+
     if (cg)
     {
         connect(this, SIGNAL(changeHelpText(QString)),
                 cg,   SIGNAL(changeHelpText(QString)));
         confgrp = cg;
-    } 
+    }
 
     if (uselabel)
     {
@@ -230,9 +234,9 @@ void VerticalConfigurationGroup::repaint(void)
 }
 
 QWidget *HorizontalConfigurationGroup::configWidget(
-    ConfigurationGroup *cg, 
-    QWidget            *parent, 
-    const char         *widgetName) 
+    ConfigurationGroup *cg,
+    QWidget            *parent,
+    const char         *widgetName)
 {
     QHBoxLayout *layout = new QHBoxLayout();
     layout->setMargin(margin);
@@ -342,9 +346,9 @@ void StackedConfigurationGroup::deleteLater(void)
     ConfigurationGroup::deleteLater();
 }
 
-QWidget* StackedConfigurationGroup::configWidget(ConfigurationGroup *cg, 
+QWidget* StackedConfigurationGroup::configWidget(ConfigurationGroup *cg,
                                                  QWidget* parent,
-                                                 const char* widgetName) 
+                                                 const char* widgetName)
 {
     widget = new QStackedWidget(parent);
     widget->setObjectName(widgetName);
@@ -418,7 +422,7 @@ void StackedConfigurationGroup::removeChild(Configurable *child)
         return;
 
     children.erase(it);
-    
+
     vector<QWidget*>::iterator cit = childwidget.begin() + i;
     QWidget *cw = *cit;
     childwidget.erase(cit);
@@ -564,7 +568,7 @@ void TriggeredConfigurationGroup::triggerChanged(const QString &value)
 
     if (it == triggerMap.end())
     {
-        LOG(VB_GENERAL, LOG_ALERT, 
+        LOG(VB_GENERAL, LOG_ALERT,
                 "TriggeredConfigurationGroup::" +
                 QString("triggerChanged(%1) Error:").arg(value) +
                 "Failed to locate value in triggerMap");
@@ -585,7 +589,7 @@ void TriggeredConfigurationGroup::SetVertical(bool vert)
 {
     if (configLayout)
     {
-        LOG(VB_GENERAL, LOG_ALERT, 
+        LOG(VB_GENERAL, LOG_ALERT,
                  "TriggeredConfigurationGroup::setVertical(): "
                  "Sorry, this must be called before any children are added "
                  "to the group.");

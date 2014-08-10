@@ -16,6 +16,7 @@
 #include <QStringList>
 #include <QMap>
 
+#include "upnpexp.h"
 #include "compat.h"     // for suseconds_t
 
 /////////////////////////////////////////////////////////////////////////////
@@ -133,8 +134,7 @@ inline void NameValue::AddAttribute(const QString &name, const QString &value)
 // Global Function Prototypes
 //////////////////////////////////////////////////////////////////////////////
 
-QString LookupUDN         ( QString      sDeviceType );
-long    GetIPAddressList  ( QStringList &sStrList    );
+QString LookupUDN         ( const QString     &sDeviceType );
 
 bool operator<            ( TaskTime t1, TaskTime t2 );
 bool operator==           ( TaskTime t1, TaskTime t2 );
@@ -143,5 +143,8 @@ void AddMicroSecToTaskTime( TaskTime &t, suseconds_t uSecs );
 void AddSecondsToTaskTime ( TaskTime &t, long nSecs );
 
 QByteArray gzipCompress( const QByteArray &data );
+
+UPNP_PUBLIC QStringList GetSourceProtocolInfos ();
+UPNP_PUBLIC QStringList GetSinkProtocolInfos ();
 
 #endif

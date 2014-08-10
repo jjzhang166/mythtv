@@ -13,8 +13,8 @@ extern "C"
 #include "libavformat/avformat.h"
 
 //replex
-#include "replex/ringbuffer.h"
-#include "replex/multiplex.h"
+#include "external/replex/ringbuffer.h"
+#include "external/replex/multiplex.h"
 
 //libmpeg2
 #include "config.h"
@@ -45,21 +45,21 @@ class MPEG2frame
 {
   public:
     MPEG2frame(int size) :
-        pkt_memsize(size), isSequence(false), isGop(false),
-        framePos(NULL), gopPos(NULL)
+        isSequence(false), isGop(false),
+        framePos(NULL), gopPos(NULL),
+        mpeg2_seq(), mpeg2_gop(), mpeg2_pic()
     {
-        pkt.data = (uint8_t *)malloc(size);
+        av_new_packet(&pkt, size);
     }
     ~MPEG2frame()
     {
-        free(pkt.data);
+        av_free_packet(&pkt);
     }
     void ensure_size(int size)
     {
-        if (pkt_memsize < size)
+        if (pkt.size < size)
         {
-            pkt.data = (uint8_t *)realloc(pkt.data, size);
-            pkt_memsize = size;
+            av_grow_packet(&pkt, size - pkt.size);
         }
     }
     void set_pkt(AVPacket *newpkt)
@@ -72,7 +72,6 @@ class MPEG2frame
     }
 
     AVPacket pkt;
-    int pkt_memsize;
     bool isSequence;
     bool isGop;
     uint8_t *framePos;
@@ -149,6 +148,7 @@ class MPEG2fixup
     void ShowRangeMap(frm_dir_map_t *mapPtr, QString msg);
     int BuildKeyframeIndex(QString &file, frm_pos_map_t &posMap, frm_pos_map_t &durMap);
 
+    void SetAllAudio(bool keep) { allaudio = keep; }
 
     static void dec2x33(int64_t *pts1, int64_t pts2);
     static void inc2x33(int64_t *pts1, int64_t pts2);
@@ -216,12 +216,16 @@ class MPEG2fixup
         return (inputFC->streams[id]->codec->codec_id == AV_CODEC_ID_AC3) ?
                AV_CODEC_ID_AC3 : AV_CODEC_ID_MP2;
     }
-    AVCodecContext *getCodecContext(int id)
+    AVCodecContext *getCodecContext(uint id)
     {
+        if (id >= inputFC->nb_streams)
+            return NULL;
         return inputFC->streams[id]->codec;
     }
-    AVCodecParserContext *getCodecParserContext(int id)
+    AVCodecParserContext *getCodecParserContext(uint id)
     {
+        if (id >= inputFC->nb_streams)
+            return NULL;
         return inputFC->streams[id]->parser;
     }
 
@@ -247,6 +251,8 @@ class MPEG2fixup
     pthread_t thread;
 
     AVFormatContext *inputFC;
+    AVFrame *picture;
+
     int vid_id;
     int ext_count;
     QMap <int, int> aud_map;
@@ -260,6 +266,7 @@ class MPEG2fixup
     int no_repeat, fix_PTS, maxframes;
     QString infile;
     const char *format;
+    bool allaudio;
 
     //complete?
     bool file_end;
@@ -272,6 +279,8 @@ class MPEG2fixup
     int framenum;
     int status_update_time;
     uint64_t last_written_pos;
+    uint16_t inv_zigzag_direct16[64];
+    bool zigzag_init;
 };
 
 #ifdef NO_MYTH

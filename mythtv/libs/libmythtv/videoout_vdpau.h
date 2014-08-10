@@ -35,10 +35,6 @@ class VideoOutputVDPAU : public VideoOutput
                       FrameScanType scan);
     void PrepareFrame(VideoFrame*, FrameScanType, OSD *osd);
     void DrawSlice(VideoFrame*, int x, int y, int w, int h);
-    static VdpStatus Render(VdpDecoder decoder, VdpVideoSurface target,
-                            VdpPictureInfo const *picture_info,
-                            uint32_t bitstream_buffer_count,
-                            VdpBitstreamBuffer const *bitstream_buffers);
     void Show(FrameScanType);
     void ClearAfterSeek(void);
     bool InputChanged(const QSize &video_dim_buf,
@@ -62,6 +58,7 @@ class VideoOutputVDPAU : public VideoOutput
                                              const QString &decoder,
                                              uint stream_type,
                                              bool no_acceleration);
+    static bool IsNVIDIA(void);
     virtual bool IsPIPSupported(void) const { return true;  }
     virtual bool IsPBPSupported(void) const { return false; }
     virtual bool NeedExtraAudioDecode(void) const

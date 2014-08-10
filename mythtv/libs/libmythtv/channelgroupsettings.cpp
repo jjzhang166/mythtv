@@ -81,8 +81,8 @@ class ChannelCheckBox : public CheckBoxSetting, public ChannelGroupStorage
     Q_DECLARE_TR_FUNCTIONS(ChannelCheckBox)
 
   public:
-    ChannelCheckBox(const ChannelGroupConfig& _parent, const uint chanid, const QString channum,
-               const QString channame, const QString grpname):
+    ChannelCheckBox(const ChannelGroupConfig& _parent, const uint chanid, const QString &channum,
+               const QString &channame, const QString &grpname):
         CheckBoxSetting(this),
         ChannelGroupStorage(this, chanid, grpname)
     {
@@ -149,7 +149,7 @@ void ChannelGroupEditor::open(QString name)
     {
         name = "";
 
-        bool ok = MythPopupBox::showGetTextPopup(GetMythMainWindow(), 
+        bool ok = MythPopupBox::showGetTextPopup(GetMythMainWindow(),
             tr("Create New Channel Group"),
             tr("Enter group name or press SELECT to enter text via the "
                "On Screen Keyboard"), name);

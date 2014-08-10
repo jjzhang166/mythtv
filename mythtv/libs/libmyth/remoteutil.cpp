@@ -32,7 +32,7 @@ vector<ProgramInfo *> *RemoteGetRecordedList(int sort)
         delete info;
         return NULL;
     }
- 
+
     return info;
 }
 
@@ -127,7 +127,7 @@ bool RemoteDeleteRecording(
 
     if (!result)
     {
-        LOG(VB_GENERAL, LOG_ALERT, 
+        LOG(VB_GENERAL, LOG_ALERT,
                  QString("Failed to delete recording %1:%2")
                      .arg(chanid).arg(recstartts.toString(Qt::ISODate)));
     }
@@ -180,7 +180,7 @@ uint RemoteGetRecordingList(
 
     if (numrecordings * NUMPROGRAMLINES + 1 > (int)strList.size())
     {
-        LOG(VB_GENERAL, LOG_ERR, 
+        LOG(VB_GENERAL, LOG_ERR,
                  "RemoteGetRecordingList() list size appears to be incorrect.");
         return 0;
     }
@@ -212,7 +212,7 @@ QDateTime RemoteGetPreviewLastModified(const ProgramInfo *pginfo)
 {
     QStringList strlist( "QUERY_PIXMAP_LASTMODIFIED" );
     pginfo->ToStringList(strlist);
-    
+
     if (!gCoreContext->SendReceiveStringList(strlist))
         return QDateTime();
 
@@ -458,8 +458,7 @@ bool RemoteGetFileList(QString host, QString path, QStringList* list,
         QString ann = QString("ANN Playback %1 0")
                         .arg(gCoreContext->GetHostName());
         QString addr = gCoreContext->GetBackendServerIP(host);
-        int port = gCoreContext->GetNumSettingOnHost("BackendServerPort",
-                                                     host, 6543);
+        int port = gCoreContext->GetBackendServerPort(host);
         bool mismatch = false;
 
         MythSocket *sock = gCoreContext->ConnectCommandSocket(
@@ -518,10 +517,10 @@ int RemoteGetRecordingStatus(
             if (curtime >= pginfo->GetScheduledStartTime() &&
                 curtime < pginfo->GetScheduledEndTime())
                 retval = 1;
-            else if (curtime < pginfo->GetScheduledStartTime() && 
+            else if (curtime < pginfo->GetScheduledStartTime() &&
                      RemoteCheckForRecording(pginfo) > 0)
                 retval = 2;
-            else if (curtime > pginfo->GetScheduledEndTime() && 
+            else if (curtime > pginfo->GetScheduledEndTime() &&
                      RemoteCheckForRecording(pginfo) > 0)
                 retval = 3;
         }
@@ -561,7 +560,7 @@ vector<ProgramInfo *> *RemoteGetCurrentlyRecordingList(void)
             reclist->push_back(new ProgramInfo(*p));
         }
     }
-    
+
     while (!info->empty())
     {
         delete info->back();
@@ -569,7 +568,7 @@ vector<ProgramInfo *> *RemoteGetCurrentlyRecordingList(void)
     }
     delete info;
 
-    return reclist; 
+    return reclist;
 }
 
 /**

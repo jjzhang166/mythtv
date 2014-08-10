@@ -2,14 +2,15 @@ function initChannelEditor() {
     var sourceid = $("#sourceList").val();
 
     $("#channels").jqGrid({
-        url:'/Channel/GetChannelInfoList?SourceID=' + sourceid,
+        url:'/Channel/GetChannelInfoList?Details=1&SourceID=' + sourceid,
         datatype: 'json',
-        colNames:['Channel ID', 'Channel Number', 'Callsign', 'Channel Name', 'XMLTVID', 'Visible', 'Icon Path',
+        colNames:['', 'Channel ID', 'Channel Number', 'Callsign', 'Channel Name', 'XMLTVID', 'Visible', 'Icon Path',
                   'Multiplex ID', 'Transport ID', 'Service ID', 'Network ID', 'ATSC Major Channel',
                   'ATSC Minor Channel', 'Format', 'Modulation', 'Frequency', 'Frequency ID', 'Frequency Table',
                   'Fine Tuning', 'SI Standard', 'Channel Filters', 'Source ID', 'Input ID', 'Commercial Free',
                   'Use On Air Guide', 'Default Authority'],
         colModel:[
+            {name:'Icon', index:'Icon', align:"center", width:32, search: false, editable: false, sortable:false, fixed:true},
             {name:'ChanId', editable: true, width:50, sorttype:"int", hidden:true, jsonmap: 'ChanId'},
             {name:'ChanNum', search: true, editable: true, width:70, sorttype:"int", jsonmap: 'ChanNum'},
             {name:'CallSign', search: true, editable: true, width:90, sorttype:"text", jsonmap: 'CallSign'},
@@ -37,14 +38,23 @@ function initChannelEditor() {
             {name:'UseEIT', editable: true, width:0, align:"right", sortable:false, hidden:true, jsonmap: 'UseEIT'},
             {name:'DefaultAuth', editable: true, width:0, align:"right", sortable:false, hidden:true, jsonmap: 'DefaultAuth'}
         ],
-        jsonReader: { 
+        jsonReader: {
            root:"ChannelInfoList.ChannelInfos",
            page:"ChannelInfoList.CurrentPage",
-           total:"ChannelInfoList.TotalPages", 
+           total:"ChannelInfoList.TotalPages",
            records:"ChannelInfoList.TotalAvailable",
            cell:"ChannelInfos",
            id : "ChanId",
            repeatitems: false
+        },
+        afterInsertRow: function (rowid, aData) {
+            var html;
+            if (aData.IconURL.length > 0)
+                html = '<img src="' + aData.IconURL + '" alt="" height="32" width="32" >';
+            else
+                html = '<img src="/images/blank.gif" alt="" height="32" width="32" >';
+
+            jQuery('#channels').setCell(rowid, 'Icon', html);
         },
         rowNum:20,
         multiselect: true,
@@ -68,7 +78,8 @@ function initChannelEditor() {
     /* Resize the grid if the window width changes */
 
     $(window).bind('resize', function() {
-        $("#channels").setGridWidth($(window).width() - 223);
+        $("#channels").setGridWidth($(window).width() - 55);
+        $("#channels").setGridHeight($(window).height() - 205);
     }).trigger('resize');
 
     /* Sort ascending by Channel Number on load */
@@ -100,7 +111,7 @@ function reloadChannelGrid() {
     var sourceid = $("#sourceList").val();
 
     $('#channels').setGridParam({
-        url:'/Channel/GetChannelInfoList?SourceID=' + sourceid,
+        url:'/Channel/GetChannelInfoList?Details=1&SourceID=' + sourceid,
         datatype:'json',
         page:1}); 
     $('#channels').trigger("reloadGrid");
@@ -139,11 +150,8 @@ function editSelectedChannel() {
     $("#channelDetailSettingXMLTVID").val(rowdata.XMLTVID);
     $("#channelDetailSettingIconURL").val(rowdata.IconURL);
     var preview = $("#channelDetailSettingIconPreview");
-    if ((rowdata.IconURL.length > 0) &&
-        (rowdata.IconURL.substring(0,1) != "/")) {
-        preview.attr('src',
-            '/Content/GetFile?StorageGroup=ChannelIcons&FileName=' +
-            rowdata.IconURL);
+    if (rowdata.IconURL.length > 0) {
+        preview.attr('src', rowdata.IconURL);
     }
     else
         preview.attr('src', '/images/blank.gif');

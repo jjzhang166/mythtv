@@ -14,11 +14,11 @@ class MTV_PUBLIC InputInfo
   public:
     InputInfo() : name(QString::null),
                   sourceid(0), inputid(0), cardid(0), mplexid(0),
-                  recPriority(0), scheduleOrder(0),
+                  chanid(0), recPriority(0), scheduleOrder(0),
                   livetvorder(0), quickTune(false) {}
     InputInfo(const QString &name,
               uint sourceid, uint inputid, uint cardid, uint mplexid, 
-              uint livetvorder);
+              uint chanid, uint livetvorder);
 
     InputInfo(const InputInfo &other) :
         name(other.name),
@@ -26,6 +26,7 @@ class MTV_PUBLIC InputInfo
         inputid(other.inputid),
         cardid(other.cardid),
         mplexid(other.mplexid),
+        chanid(other.chanid),
         displayName(other.displayName),
         recPriority(other.recPriority),
         scheduleOrder(other.scheduleOrder),
@@ -43,6 +44,7 @@ class MTV_PUBLIC InputInfo
         inputid  = other.inputid;
         cardid   = other.cardid;
         mplexid  = other.mplexid;
+        chanid   = other.chanid;
         displayName = other.displayName;
         recPriority = other.recPriority;
         scheduleOrder = other.scheduleOrder;
@@ -72,33 +74,12 @@ class MTV_PUBLIC InputInfo
     uint    inputid;  ///< unique key in DB for this input
     uint    cardid;   ///< card id associated with input
     uint    mplexid;  ///< mplexid restriction if applicable
+    uint    chanid;   ///< chanid restriction if applicable
     QString displayName;
     int     recPriority;
     uint    scheduleOrder;
     uint    livetvorder; ///< order for live TV use
     bool    quickTune;
-};
-
-class MTV_PUBLIC TunedInputInfo : public InputInfo
-{
-  public:
-    TunedInputInfo() : chanid(0) { }
-    TunedInputInfo(const QString &name,
-                   uint _sourceid, uint _inputid,
-                   uint _cardid,   uint _mplexid, uint _livetvorder, 
-                   uint _chanid);
-    TunedInputInfo(const TunedInputInfo &other);
-    TunedInputInfo &operator=(const TunedInputInfo &other);
-    virtual ~TunedInputInfo() {}
-
-    virtual bool FromStringList(QStringList::const_iterator &it,
-                                QStringList::const_iterator  end);
-    virtual void ToStringList(QStringList &list) const;
-
-    virtual void Clear(void);
-
-  public:
-    uint chanid;
 };
 
 class MTV_PUBLIC ChannelInputInfo : public InputInfo
@@ -114,7 +95,8 @@ class MTV_PUBLIC ChannelInputInfo : public InputInfo
                      uint    _inputid,         uint    _mplexid,
                      uint    _livetvorder,
                      const ChannelInfoList &_channels) :
-        InputInfo(_name, _sourceid, _inputid, _cardid, _mplexid, _livetvorder),
+        InputInfo(_name, _sourceid, _inputid, _cardid, _mplexid, 0,
+                  _livetvorder),
         startChanNum(_startChanNum),
         tuneToChannel(_tuneToChannel),  externalChanger(_externalChanger),
         channels(_channels),

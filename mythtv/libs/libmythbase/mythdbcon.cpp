@@ -10,6 +10,7 @@
 #include <QSqlError>
 #include <QSqlField>
 #include <QSqlRecord>
+#include <QElapsedTimer>
 
 // MythTV
 #include "compat.h"
@@ -626,7 +627,11 @@ bool MSqlQuery::exec()
         return false;
     }
 
+    QElapsedTimer timer;
+    timer.start();
+
     bool result = QSqlQuery::exec();
+    qint64 elapsed = timer.elapsed();
 
     // if the query failed with "MySQL server has gone away"
     // Close and reopen the database connection and retry the query if it
@@ -652,7 +657,9 @@ bool MSqlQuery::exec()
         if (has_null_strings)
         {
             bindValues(tmp);
+            timer.restart();
             result = QSqlQuery::exec();
+            elapsed = timer.elapsed();
         }
         if (result)
         {
@@ -663,7 +670,7 @@ bool MSqlQuery::exec()
         }
     }
 
-    if (VERBOSE_LEVEL_CHECK(VB_DATABASE, LOG_DEBUG))
+    if (VERBOSE_LEVEL_CHECK(VB_DATABASE, LOG_INFO))
     {
         QString str = lastQuery();
 
@@ -682,10 +689,11 @@ bool MSqlQuery::exec()
                 str.replace(b.key(), '\'' + b.value().toString() + '\'');
             }
 
-            LOG(VB_DATABASE, LOG_DEBUG,
-                QString("MSqlQuery::exec(%1) %2%3")
+            LOG(VB_DATABASE, LOG_INFO,
+                QString("MSqlQuery::exec(%1) %2%3%4")
                         .arg(m_db->MSqlDatabase::GetConnectionName()).arg(str)
-                        .arg(isSelect() ? QString(" <<<< Returns %1 row(s)")
+                        .arg(QString(" <<<< Took %1ms").arg(QString::number(elapsed)))
+                        .arg(isSelect() ? QString(", Returned %1 row(s)")
                                               .arg(size()) : QString()));
         }
     }
@@ -717,7 +725,7 @@ bool MSqlQuery::exec(const QString &query)
     if (!result && QSqlQuery::lastError().number() == 2006 && Reconnect())
         result = QSqlQuery::exec(query);
 
-    LOG(VB_DATABASE, LOG_DEBUG,
+    LOG(VB_DATABASE, LOG_INFO,
             QString("MSqlQuery::exec(%1) %2%3")
                     .arg(m_db->MSqlDatabase::GetConnectionName()).arg(query)
                     .arg(isSelect() ? QString(" <<<< Returns %1 row(s)")
@@ -822,6 +830,13 @@ bool MSqlQuery::prepare(const QString& query)
         LOG(VB_GENERAL, LOG_INFO, "MySQL server disconnected");
         return false;
     }
+
+    // QT docs indicate that there are significant speed ups and a reduction
+    // in memory usage by enabling forward-only cursors
+    //
+    // Unconditionally enable this since all existing uses of the database
+    // iterate forward over the result set.
+    setForwardOnly(true);
 
     bool ok = QSqlQuery::prepare(query);
 

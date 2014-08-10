@@ -103,6 +103,21 @@ void FileCopyThread::run()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+ImportThread::ImportThread(const QString &cmd) :
+    MThread("import"), m_command(cmd)
+{
+}
+
+void ImportThread::run()
+{
+    RunProlog();
+    LOG(VB_GENERAL, LOG_INFO, LOC + QString("Executing %1").arg(m_command));
+    myth_system(m_command);
+    RunEpilog();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 IconView::IconView(MythScreenStack *parent, const char *name,
                    const QString &galleryDir, MythMediaDevice *initialDevice)
         : MythScreenType(parent, name),
@@ -123,6 +138,7 @@ IconView::IconView(MythScreenStack *parent, const char *name,
     m_useOpenGL = gCoreContext->GetNumSetting("SlideshowUseOpenGL", 0);
     m_recurse = gCoreContext->GetNumSetting("GalleryRecursiveSlideshow", 0);
     m_paths = gCoreContext->GetSetting("GalleryImportDirs").split(":");
+    m_allowImportScripts = gCoreContext->GetNumSetting("GalleryAllowImportScripts", 0);
 
     QDir dir(m_galleryDir);
     if (!dir.exists() || !dir.isReadable())
@@ -439,11 +455,7 @@ bool IconView::keyPressEvent(QKeyEvent *event)
 
         if (!m_itemList.isEmpty())
         {
-            if (action == "MENU")
-            {
-                HandleMainMenu();
-            }
-            else if (action == "ROTRIGHT")
+            if (action == "ROTRIGHT")
                 HandleRotateCW();
             else if (action == "ROTLEFT")
                 HandleRotateCCW();
@@ -486,6 +498,10 @@ bool IconView::keyPressEvent(QKeyEvent *event)
                         HandleSubDirEscape(m_galleryDir) );
             }
             handled = HandleEscape();
+        }
+        else if (action == "MENU")
+        {
+            HandleMainMenu();
         }
     }
 
@@ -783,11 +799,11 @@ void IconView::customEvent(QEvent *event)
         DialogCompletionEvent *dce = (DialogCompletionEvent*)(event);
 
         QString resultid  = dce->GetId();
-        int     buttonnum = dce->GetResult();
+        int resultdata = dce->GetData().toInt();
 
         if (resultid == "mainmenu")
         {
-            switch (buttonnum)
+            switch (resultdata)
             {
                 case 0:
                     HandleSlideShow();
@@ -811,7 +827,7 @@ void IconView::customEvent(QEvent *event)
         }
         else if (resultid == "metadatamenu")
         {
-            switch (buttonnum)
+            switch (resultdata)
             {
                 case 0:
                     HandleRotateCW();
@@ -823,7 +839,7 @@ void IconView::customEvent(QEvent *event)
         }
         else if (resultid == "markingmenu")
         {
-            switch (buttonnum)
+            switch (resultdata)
             {
                 case 0:
                     HandleSelectOne();
@@ -841,7 +857,7 @@ void IconView::customEvent(QEvent *event)
         }
         else if (resultid == "filemenu")
         {
-            switch (buttonnum)
+            switch (resultdata)
             {
                 case 0:
                     HandleShowDevices();
@@ -887,13 +903,17 @@ void IconView::HandleMainMenu(void)
 
     MythMenu *menu = new MythMenu(label, this, "mainmenu");
 
-    menu->AddItem(tr("SlideShow"));
-    menu->AddItem(tr("Random"));
-    menu->AddItem(tr("Meta Data Options"), NULL, CreateMetadataMenu());
-    menu->AddItem(tr("Marking Options"), NULL, CreateMarkingMenu());
-    menu->AddItem(tr("Filter / Sort..."));
-    menu->AddItem(tr("File Options"), NULL, CreateFileMenu());
-    menu->AddItem(tr("Settings..."));
+    if (!m_itemList.isEmpty())
+    {
+        menu->AddItem(tr("SlideShow"), 0);
+        menu->AddItem(tr("Random"), 1);
+        menu->AddItem(tr("Meta Data Options"), 2, CreateMetadataMenu());
+    }
+
+    menu->AddItem(tr("Marking Options"), 3, CreateMarkingMenu());
+    menu->AddItem(tr("Filter / Sort..."), 4);
+    menu->AddItem(tr("File Options"), 5, CreateFileMenu());
+    menu->AddItem(tr("Settings..."), 6);
 //     if (m_showDevices)
 //     {
 //         QDir d(m_currDir);
@@ -922,8 +942,8 @@ MythMenu* IconView::CreateMetadataMenu(void)
 
     MythMenu *menu = new MythMenu(label, this, "metadatamenu");
 
-    menu->AddItem(tr("Rotate CW"));
-    menu->AddItem(tr("Rotate CCW"));
+    menu->AddItem(tr("Rotate CW"), 0);
+    menu->AddItem(tr("Rotate CCW"), 1);
 
     return menu;
 }
@@ -934,10 +954,10 @@ MythMenu* IconView::CreateMarkingMenu(void)
 
     MythMenu *menu = new MythMenu(label, this, "markingmenu");
 
-    menu->AddItem(tr("Select One"));
-    menu->AddItem(tr("Clear One Marked"));
-    menu->AddItem(tr("Select All"));
-    menu->AddItem(tr("Clear Marked"));
+    menu->AddItem(tr("Select One"), 0);
+    menu->AddItem(tr("Clear One Marked"), 1);
+    menu->AddItem(tr("Select All"), 2);
+    menu->AddItem(tr("Clear Marked"), 3);
 
     return menu;
 }
@@ -961,14 +981,23 @@ MythMenu* IconView::CreateFileMenu(void)
 
     MythMenu *menu = new MythMenu(label, this, "filemenu");
 
-    menu->AddItem(tr("Show Devices"));
-    menu->AddItem(tr("Eject"));
-    menu->AddItem(tr("Import"));
-    menu->AddItem(tr("Copy here"));
-    menu->AddItem(tr("Move here"));
-    menu->AddItem(tr("Delete"));
-    menu->AddItem(tr("Create folder"));
-    menu->AddItem(tr("Rename"));
+    menu->AddItem(tr("Show Devices"), 0);
+    menu->AddItem(tr("Eject"), 1);
+    menu->AddItem(tr("Import"), 2);
+
+    if (!m_itemMarked.isEmpty())
+    {
+        menu->AddItem(tr("Copy here"), 3);
+        menu->AddItem(tr("Move here"), 4);
+    }
+
+    if (!m_imageList->IsEmpty())
+        menu->AddItem(tr("Delete"), 5);
+
+    menu->AddItem(tr("Create folder"), 6);
+
+    if (!m_imageList->IsEmpty())
+        menu->AddItem(tr("Rename"), 7);
 
     return menu;
 }
@@ -1064,6 +1093,7 @@ void IconView::HandleSettings(void)
     m_useOpenGL   = gCoreContext->GetNumSetting("SlideshowUseOpenGL", 0);
     m_recurse     = gCoreContext->GetNumSetting("GalleryRecursiveSlideshow", 0);
     m_paths       = gCoreContext->GetSetting("GalleryImportDirs").split(":");
+    m_allowImportScripts = gCoreContext->GetNumSetting("GalleryAllowImportScripts", 0);
 
     // reload directory
     MediaMonitor *mon = MediaMonitor::GetMediaMonitor();
@@ -1095,18 +1125,6 @@ void IconView::HandleImport(void)
     QFileInfo path;
     QDir importdir;
 
-#if 0
-    DialogBox *importDlg = new DialogBox(GetMythMainWindow(),
-                                         tr("Import pictures?"));
-
-    importDlg->AddButton(tr("No"));
-    importDlg->AddButton(tr("Yes"));
-    DialogCode code = importDlg->exec();
-    importDlg->deleteLater();
-    if (kDialogCodeButton1 != code)
-        return;
-#endif
-
     // Makes import directory samba/windows friendly (no colon)
     QString idirname = m_currDir + "/" +
         MythDate::current().toString("yyyy-MM-dd_hh-mm-ss");
@@ -1122,36 +1140,69 @@ void IconView::HandleImport(void)
         {
             ImportFromDir(*it, importdir.absolutePath());
         }
-#if 0
         else if (path.isFile() && path.isExecutable())
         {
-            // TODO this should not be enabled by default!!!
-            QString cmd = *it + " " + importdir.absolutePath();
-            LOG(VB_GENERAL, LOG_INFO, LOC + QString("Executing %1").arg(cmd));
-            myth_system(cmd);
+            if (m_allowImportScripts)
+            {
+                QString cmd = *it + " " + importdir.absolutePath();
+
+                MythScreenStack *popupStack = GetMythMainWindow()->GetStack("popup stack");
+                MythUIBusyDialog *busy =
+                        new MythUIBusyDialog(tr("Importing images from camera. Please wait..."),
+                                                popupStack,
+                                                "importbusydialog");
+
+                if (busy->Create())
+                {
+                    popupStack->AddScreen(busy, false);
+                }
+                else
+                {
+                    delete busy;
+                    busy = NULL;
+                }
+
+                ImportThread *import = new ImportThread(cmd);
+                import->start();
+
+                while (!import->isFinished())
+                {
+                    usleep(500);
+                    qApp->processEvents();
+                }
+
+                delete import;
+
+                if (busy)
+                    busy->Close();
+            }
+            else
+            {
+                ShowOkPopup(tr("Found an import script (%1) but running them has been disabled in the settings!")
+                               .arg(*it));
+                importdir.rmdir(importdir.absolutePath());
+                return;
+            }
         }
-#endif
         else
         {
             LOG(VB_GENERAL, LOG_ERR, LOC +
                 QString("Could not read or execute %1").arg(*it));
+
+            ShowOkPopup(tr("Could not read or execute %1").arg(*it));
         }
     }
 
+    importdir.setFilter(QDir::Files | QDir::Readable | QDir::NoDotAndDotDot);
     importdir.refresh();
     if (importdir.count() == 0)
     {
-#if 0
-        DialogBox *nopicsDlg = new DialogBox(GetMythMainWindow(),
-                                             tr("Nothing found to import"));
-
-        nopicsDlg->AddButton(tr("OK"));
-        nopicsDlg->exec();
-        nopicsDlg->deleteLater();
-#endif
-
+        ShowOkPopup(tr("Nothing found to import"));
+        importdir.rmdir(importdir.absolutePath());
         return;
     }
+    else
+        ShowOkPopup(tr("Found %1 images").arg(importdir.count()));
 
     LoadDirectory(m_currDir);
 }

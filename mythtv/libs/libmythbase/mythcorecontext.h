@@ -103,7 +103,8 @@ class MBASE_PUBLIC MythCoreContext : public QObject, public MythObservable, publ
     bool IsMasterBackend(void);  ///< is this the actual MBE process
     bool BackendIsRunning(void); ///< a backend process is running on this host
 
-    bool IsThisHost(const QString &addr); //< is this address mapped to this host
+    bool IsThisBackend(const QString &addr);    /// it this address mapped to this backend host
+    bool IsThisHost(const QString &addr); ///< is this address mapped to this host
     bool IsThisHost(const QString &addr, const QString &host);
 
     void BlockShutdown(void);
@@ -155,6 +156,29 @@ class MBASE_PUBLIC MythCoreContext : public QObject, public MythObservable, publ
 
     QString GetBackendServerIP(void);
     QString GetBackendServerIP(const QString &host);
+    QString GetBackendServerIP4(void);
+    QString GetBackendServerIP4(const QString &host);
+    QString GetBackendServerIP6(void);
+    QString GetBackendServerIP6(const QString &host);
+    QString GetMasterServerIP(void);
+    int GetMasterServerPort(void);
+    int GetMasterServerStatusPort(void);
+    int GetBackendServerPort(void);
+    int GetBackendServerPort(const QString &host);
+    int GetBackendStatusPort(void);
+    int GetBackendStatusPort(const QString &host);
+
+    bool GetScopeForAddress(QHostAddress &addr) const;
+    void SetScopeForAddress(const QHostAddress &addr);
+    void SetScopeForAddress(const QHostAddress &addr, int scope);
+    enum ResolveType { ResolveAny = -1, ResolveIPv4 = 0, ResolveIPv6 = 1 };
+    QString resolveSettingAddress(const QString &name,
+                                  const QString &host = QString(),
+                                  ResolveType type = ResolveAny,
+                                  bool keepscope = false);
+    QString resolveAddress(const QString &host,
+                           ResolveType = ResolveAny,
+                           bool keepscope = false) const;
 
     void ClearSettingsCache(const QString &myKey = QString(""));
     void ActivateSettingsCache(bool activate = true);

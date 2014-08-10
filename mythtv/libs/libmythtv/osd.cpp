@@ -383,7 +383,10 @@ void OSD::SetValues(const QString &window, const QHash<QString,float> &map,
     {
         MythUIEditBar *edit = dynamic_cast<MythUIEditBar *> (win->GetChild("editbar"));
         if (edit)
+        {
             edit->SetEditPosition(map.value("position"));
+            found = true;
+        }
     }
 
     if (found)
@@ -609,6 +612,21 @@ void OSD::SetRegions(const QString &window, frm_dir_map_t &map,
         bar->AddRegion((float)((double)start/(double)total), 1.0f);
 
     bar->Display();
+}
+
+void OSD::SetGraph(const QString &window, const QString &graph, int64_t timecode)
+{
+    MythScreenType *win = GetWindow(window);
+    if (!win)
+        return;
+
+    MythUIImage *image = dynamic_cast<MythUIImage* >(win->GetChild(graph));
+    if (!image)
+        return;
+
+    MythImage* mi = m_parent->GetAudioGraph().GetImage(timecode);
+    if (mi)
+        image->SetImage(mi);
 }
 
 bool OSD::DrawDirect(MythPainter* painter, QSize size, bool repaint)
@@ -913,13 +931,13 @@ void OSD::CheckExpiry(void)
                 MythDialogBox *dialog = dynamic_cast<MythDialogBox*>(m_Dialog);
                 if (dialog)
                 {
-                    // The disambiguation string must be an empty string and not a
-                    // NULL to get extracted by the Qt tools.
-                    QString replace = QCoreApplication::translate("(Common)", 
-                                          "%n second(s)", 
-                                          "", 
+                    // The disambiguation string must be an empty string
+                    // and not a NULL to get extracted by the Qt tools.
+                    QString replace = QCoreApplication::translate("(Common)",
+                                          "%n second(s)",
+                                          "",
 #if QT_VERSION < 0x050000
-                                          QCoreApplication::UnicodeUTF8, 
+                                          QCoreApplication::UnicodeUTF8,
 #endif
                                           now.secsTo(it.value()));
                     dialog->SetText(newtext.replace("%d", replace));

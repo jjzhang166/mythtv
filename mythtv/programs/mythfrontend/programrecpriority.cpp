@@ -27,7 +27,6 @@ using namespace std;
 #include "mythdialogbox.h"
 
 // mythfrontend
-#include "customedit.h"
 #include "proglist.h"
 #include "scheduleeditor.h"
 
@@ -120,9 +119,9 @@ void ProgramRecPriorityInfo::ToMap(InfoMap &progMap,
                                    bool showrerecord, uint star_range) const
 {
     RecordingInfo::ToMap(progMap, showrerecord, star_range);
-    progMap["title"] = (title == "Default (Template)") ? 
+    progMap["title"] = (title == "Default (Template)") ?
         QObject::tr("Default (Template)") : title;;
-    progMap["category"] = (category == "Default") ? 
+    progMap["category"] = (category == "Default") ?
         QObject::tr("Default") : category;
 }
 
@@ -131,7 +130,7 @@ class TitleSort
   public:
     TitleSort(bool reverse) : m_reverse(reverse) {}
 
-    bool operator()(const ProgramRecPriorityInfo *a, 
+    bool operator()(const ProgramRecPriorityInfo *a,
                     const ProgramRecPriorityInfo *b) const
     {
         if (a->sortTitle != b->sortTitle)
@@ -181,7 +180,7 @@ class ProgramRecPrioritySort
   public:
     ProgramRecPrioritySort(bool reverse) : m_reverse(reverse) {}
 
-    bool operator()(const ProgramRecPriorityInfo *a, 
+    bool operator()(const ProgramRecPriorityInfo *a,
                     const ProgramRecPriorityInfo *b) const
     {
         int finalA = a->GetRecordingPriority();
@@ -223,7 +222,7 @@ class ProgramRecTypeSort
   public:
     ProgramRecTypeSort(bool reverse) : m_reverse(reverse) {}
 
-    bool operator()(const ProgramRecPriorityInfo *a, 
+    bool operator()(const ProgramRecPriorityInfo *a,
                     const ProgramRecPriorityInfo *b) const
     {
         int typeA = RecTypePrecedence(a->recType);
@@ -265,7 +264,7 @@ class ProgramCountSort
   public:
     ProgramCountSort(bool reverse) : m_reverse(reverse) {}
 
-    bool operator()(const ProgramRecPriorityInfo *a, 
+    bool operator()(const ProgramRecPriorityInfo *a,
                     const ProgramRecPriorityInfo *b) const
     {
         int countA = a->matchCount;
@@ -304,7 +303,7 @@ class ProgramRecCountSort
   public:
     ProgramRecCountSort(bool reverse) : m_reverse(reverse) {}
 
-    bool operator()(const ProgramRecPriorityInfo *a, 
+    bool operator()(const ProgramRecPriorityInfo *a,
                     const ProgramRecPriorityInfo *b) const
     {
         int countA = a->matchCount;
@@ -343,7 +342,7 @@ class ProgramLastRecordSort
   public:
     ProgramLastRecordSort(bool reverse) : m_reverse(reverse) {}
 
-    bool operator()(const ProgramRecPriorityInfo *a, 
+    bool operator()(const ProgramRecPriorityInfo *a,
                     const ProgramRecPriorityInfo *b) const
     {
         QDateTime lastRecA = a->last_record;
@@ -372,7 +371,7 @@ class ProgramAvgDelaySort
   public:
     ProgramAvgDelaySort(bool reverse) : m_reverse(reverse) {}
 
-    bool operator()(const ProgramRecPriorityInfo *a, 
+    bool operator()(const ProgramRecPriorityInfo *a,
                     const ProgramRecPriorityInfo *b) const
     {
         int avgA = a->avg_delay;
@@ -597,7 +596,7 @@ bool ProgramRecPriority::keyPressEvent(QKeyEvent *event)
         else if (action == "CUSTOMEDIT")
         {
             saveRecPriority();
-            customEdit();
+            EditCustom();
         }
         else if (action == "DELETE")
         {
@@ -607,10 +606,10 @@ bool ProgramRecPriority::keyPressEvent(QKeyEvent *event)
         else if (action == "UPCOMING")
         {
             saveRecPriority();
-            upcoming();
+            ShowUpcoming();
         }
         else if (action == "INFO" || action == "DETAILS")
-            details();
+            ShowDetails();
         else
             handled = false;
     }
@@ -703,17 +702,17 @@ void ProgramRecPriority::customEvent(QEvent *event)
             }
             else if (resulttext == tr("Program Details"))
             {
-                details();
+                ShowDetails();
             }
             else if (resulttext == tr("Upcoming"))
             {
                 saveRecPriority();
-                upcoming();
+                ShowUpcoming();
             }
             else if (resulttext == tr("Custom Edit"))
             {
                 saveRecPriority();
-                customEdit();
+                EditCustom();
             }
             else if (resulttext == tr("Delete Rule"))
             {
@@ -722,10 +721,10 @@ void ProgramRecPriority::customEvent(QEvent *event)
             }
             else if (resulttext == tr("New Template"))
             {
-                MythScreenStack *popupStack = 
+                MythScreenStack *popupStack =
                     GetMythMainWindow()->GetStack("popup stack");
                 MythTextInputDialog *textInput =
-                    new MythTextInputDialog(popupStack, 
+                    new MythTextInputDialog(popupStack,
                                             tr("Template Name"));
                 if (textInput->Create())
                 {
@@ -890,7 +889,7 @@ void ProgramRecPriority::newTemplate(QString category)
     {
         ProgramRecPriorityInfo *progInfo = &(*it);
         if (progInfo->GetRecordingRuleType() == kTemplateRecord &&
-            category.compare(progInfo->GetCategory(), 
+            category.compare(progInfo->GetCategory(),
                              Qt::CaseInsensitive) == 0)
         {
             m_programList->SetValueByData(qVariantFromValue(progInfo));
@@ -941,13 +940,13 @@ void ProgramRecPriority::scheduleChanged(int recid)
         progInfo.SetRecordingPriority(record.m_recPriority);
         progInfo.recType = record.m_type;
         progInfo.sortTitle = record.m_title;
-        progInfo.recstatus = record.m_isInactive ? 
+        progInfo.recstatus = record.m_isInactive ?
             rsInactive : rsUnknown;
         progInfo.profile = record.m_recProfile;
         progInfo.last_record = record.m_lastRecorded;
 
         m_programData[recid] = progInfo;
-        m_origRecPriorityData[record.m_recordID] = 
+        m_origRecPriorityData[record.m_recordID] =
             record.m_recPriority;
         SortList(&m_programData[recid]);
 
@@ -992,18 +991,6 @@ void ProgramRecPriority::scheduleChanged(int recid)
     countMatches();
 }
 
-void ProgramRecPriority::customEdit(void)
-{
-    MythUIButtonListItem *item = m_programList->GetItemCurrent();
-    if (!item)
-        return;
-
-    ProgramRecPriorityInfo *pgRecInfo =
-                        item->GetData().value<ProgramRecPriorityInfo*>();
-
-    EditCustom(pgRecInfo);
-}
-
 void ProgramRecPriority::remove(void)
 {
     MythUIButtonListItem *item = m_programList->GetItemCurrent();
@@ -1013,7 +1000,7 @@ void ProgramRecPriority::remove(void)
     ProgramRecPriorityInfo *pgRecInfo =
                         item->GetData().value<ProgramRecPriorityInfo*>();
 
-    if (!pgRecInfo || 
+    if (!pgRecInfo ||
         (pgRecInfo->recType == kTemplateRecord &&
          pgRecInfo->GetCategory()
          .compare("Default", Qt::CaseInsensitive) == 0))
@@ -1101,57 +1088,6 @@ void ProgramRecPriority::deactivate(void)
     }
 }
 
-void ProgramRecPriority::upcoming(void)
-{
-    MythUIButtonListItem *item = m_programList->GetItemCurrent();
-    if (!item)
-        return;
-
-    ProgramRecPriorityInfo *pgRecInfo =
-                        item->GetData().value<ProgramRecPriorityInfo*>();
-
-    if (!pgRecInfo)
-        return;
-
-    if (m_listMatch[pgRecInfo->GetRecordingRuleID()] > 0)
-    {
-        MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
-        ProgLister *pl = new ProgLister(
-            mainStack, plRecordid,
-            QString::number(pgRecInfo->GetRecordingRuleID()), "");
-
-        if (pl->Create())
-            mainStack->AddScreen(pl);
-        else
-            delete pl;
-    }
-    else
-    {
-        ProgLister *pl = NULL;
-        QString trimTitle = pgRecInfo->title;
-        trimTitle.remove(QRegExp(" \\(.*\\)$"));
-        MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
-        pl = new ProgLister(mainStack, plTitle, trimTitle,
-                            pgRecInfo->GetSeriesID());
-        if (pl->Create())
-            mainStack->AddScreen(pl);
-        else
-            delete pl;
-    }
-}
-
-void ProgramRecPriority::details(void)
-{
-    MythUIButtonListItem *item = m_programList->GetItemCurrent();
-    if (!item)
-        return;
-
-    ProgramRecPriorityInfo *pgRecInfo = item->GetData().value<ProgramRecPriorityInfo *>
-                                                            ();
-
-    ShowDetails(pgRecInfo);
-}
-
 void ProgramRecPriority::changeRecPriority(int howMuch)
 {
     MythUIButtonListItem *item = m_programList->GetItemCurrent();
@@ -1225,7 +1161,7 @@ void ProgramRecPriority::FillList(void)
     for (; pgiter != recordinglist.end(); ++pgiter)
     {
         ProgramInfo *progInfo = *pgiter;
-        m_programData[(*pgiter)->GetRecordingRuleID()] = 
+        m_programData[(*pgiter)->GetRecordingRuleID()] =
             (*progInfo);
 
         // save recording priority value in map so we don't have to
@@ -1338,7 +1274,7 @@ void ProgramRecPriority::SortList(ProgramRecPriorityInfo *newCurrentItem)
     {
         MythUIButtonListItem *item = m_programList->GetItemCurrent();
         if (item)
-            m_currentItem = 
+            m_currentItem =
                 item->GetData().value<ProgramRecPriorityInfo*>();
     }
 
@@ -1392,7 +1328,7 @@ void ProgramRecPriority::UpdateList()
 {
     if (!m_currentItem && !m_programList->IsEmpty())
         m_currentItem = m_programList->GetItemCurrent()->GetData()
-		                    .value<ProgramRecPriorityInfo*>();
+                                    .value<ProgramRecPriorityInfo*>();
 
     m_programList->Reset();
 
@@ -1529,7 +1465,7 @@ void ProgramRecPriority::updateInfo(MythUIButtonListItem *item)
         return;
 
     ProgramRecPriorityInfo *pgRecInfo = item->GetData()
-		                .value<ProgramRecPriorityInfo *>();
+                                .value<ProgramRecPriorityInfo *>();
 
     if (!pgRecInfo)
         return;
@@ -1648,8 +1584,8 @@ void ProgramRecPriority::RemoveItemFromList(MythUIButtonListItem *item)
     if (!item)
         return;
 
-	ProgramRecPriorityInfo *pgRecInfo = item->GetData()
-		                  .value<ProgramRecPriorityInfo *>();
+        ProgramRecPriorityInfo *pgRecInfo = item->GetData()
+                                  .value<ProgramRecPriorityInfo *>();
 
     if (!pgRecInfo)
         return;
@@ -1660,6 +1596,12 @@ void ProgramRecPriority::RemoveItemFromList(MythUIButtonListItem *item)
         m_programData.erase(it);
 
     m_programList->RemoveItem(item);
+}
+
+ProgramInfo *ProgramRecPriority::GetCurrentProgram(void) const
+{
+    MythUIButtonListItem *item = m_programList->GetItemCurrent();
+    return item ? item->GetData().value<ProgramRecPriorityInfo*>() : NULL;
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */

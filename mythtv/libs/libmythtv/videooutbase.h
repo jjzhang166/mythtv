@@ -3,7 +3,7 @@
 #ifndef VIDEOOUTBASE_H_
 #define VIDEOOUTBASE_H_
 
-#include "frame.h"
+#include "mythframe.h"
 #include "filter.h"
 
 #include <QSize>
@@ -22,6 +22,7 @@
 #include "videodisplayprofile.h"
 #include "videocolourspace.h"
 #include "visualisations/videovisual.h"
+#include "mythavutil.h"
 
 using namespace std;
 
@@ -359,6 +360,8 @@ class VideoOutput
 
     // 3D TV mode
     StereoscopicMode m_stereo;
+
+    MythAVCopy m_copyFrame;
 };
 
 #endif

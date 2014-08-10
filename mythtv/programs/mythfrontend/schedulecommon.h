@@ -21,20 +21,27 @@ class ScheduleCommon : public MythScreenType
         : MythScreenType(parent, name) {};
    ~ScheduleCommon() {};
 
-    void ShowDetails(ProgramInfo *pginfo) const;
     void ShowUpcoming(const QString &title, const QString &seriesid) const;
-    void ShowUpcoming(ProgramInfo *pginfo) const;
-    void ShowUpcomingScheduled(ProgramInfo *pginfo) const;
-    void ShowPrevious(ProgramInfo *pginfo) const;
-    void ShowPrevious(uint recordid, const QString &title) const;
-    void QuickRecord(ProgramInfo *pginfo);
-    void EditRecording(ProgramInfo *pginfo);
     void EditScheduled(ProgramInfo *pginfo);
     void EditScheduled(RecordingInfo *recinfo);
-    void EditCustom(ProgramInfo *pginfo);
     void MakeOverride(RecordingInfo *recinfo);
 
     virtual void customEvent(QEvent*);
+    virtual ProgramInfo *GetCurrentProgram(void) const { return NULL; };
+
+  public slots:
+    virtual void ShowDetails(void) const;
+
+  protected slots:
+    virtual void EditRecording(void);
+    virtual void QuickRecord(void);
+    virtual void ShowPrevious(void) const;
+    virtual void ShowUpcoming(void) const;
+    virtual void ShowUpcomingScheduled(void) const;
+    virtual void ShowChannelSearch(void) const;
+    virtual void ShowGuide(void) const;
+    virtual void EditScheduled(void);
+    virtual void EditCustom(void);
 
   private:
     bool IsFindApplicable(const RecordingInfo &recInfo) const;

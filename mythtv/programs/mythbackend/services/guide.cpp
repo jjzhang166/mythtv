@@ -35,7 +35,7 @@
 #include "channelutil.h"
 #include "channelgroup.h"
 
-#include "logging.h"
+#include "mythlogging.h"
 
 extern AutoExpire  *expirer;
 extern Scheduler   *sched;
@@ -112,7 +112,6 @@ DTC::ProgramGuide *Guide::GetProgramGuide( const QDateTime &rawStartTime ,
                 "AND program.endtime >= :StartDate "
                 "AND program.starttime <= :EndDate "
                 "AND program.manualid = 0 " // Exclude programmes created purely for 'manual' recording schedules
-                "GROUP BY program.starttime, channel.chanid "
                 "ORDER BY LPAD(CAST(channum AS UNSIGNED), 10, 0), "
                 "         LPAD(channum,  10, 0),             "
                 "         callsign,                          "
@@ -198,6 +197,167 @@ DTC::ProgramGuide *Guide::GetProgramGuide( const QDateTime &rawStartTime ,
     return pGuide;
 }
  
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+DTC::ProgramList* Guide::GetProgramList(int              nStartIndex,
+                                        int              nCount,
+                                        const QDateTime& rawStartTime,
+                                        const QDateTime& rawEndTime,
+                                        int nChanId,
+                                        const QString& sTitleFilter,
+                                        const QString& sCategoryFilter,
+                                        const QString& sPersonFilter,
+                                        const QString& sKeywordFilter,
+                                        bool bOnlyNew,
+                                        bool bDetails,
+                                        const QString   &sSort,
+                                        bool             bDescending)
+{
+    if (!rawStartTime.isNull() && !rawStartTime.isValid())
+        throw( "StartTime is invalid" );
+
+    if (!rawEndTime.isNull() && !rawEndTime.isValid())
+        throw( "EndTime is invalid" );
+
+    QDateTime dtStartTime = rawStartTime;
+    QDateTime dtEndTime = rawEndTime;
+
+    if (!rawEndTime.isNull() && dtEndTime < dtStartTime)
+        throw( "EndTime is before StartTime");
+
+    MSqlQuery query(MSqlQuery::InitCon());
+
+
+    // ----------------------------------------------------------------------
+    // Build SQL statement for Program Listing
+    // ----------------------------------------------------------------------
+
+    ProgramList  progList;
+    ProgramList  schedList;
+    MSqlBindings bindings;
+
+    QString      sSQL;
+
+    if (!sPersonFilter.isEmpty())
+    {
+        sSQL = ", people, credits " // LEFT JOIN
+               "WHERE people.name LIKE :PersonFilter "
+               "AND credits.person = people.person "
+               "AND program.chanid = credits.chanid "
+               "AND program.starttime = credits.starttime AND ";
+        bindings[":PersonFilter"] = QString("%%1%").arg(sPersonFilter);
+    }
+    else
+        sSQL = "WHERE ";
+
+    sSQL +=    "visible != 0 AND program.manualid = 0 "; // Exclude programmes created purely for 'manual' recording schedules
+
+    if (nChanId < 0)
+        nChanId = 0;
+
+    if (nChanId > 0)
+    {
+        sSQL += "AND program.chanid = :ChanId ";
+        bindings[":ChanId"]      = nChanId;
+    }
+
+    if (dtStartTime.isNull())
+        dtStartTime = QDateTime::currentDateTimeUtc();
+
+    sSQL += " AND program.endtime >= :StartDate ";
+    bindings[":StartDate"] = dtStartTime;
+
+    if (!dtEndTime.isNull())
+    {
+        sSQL += "AND program.starttime <= :EndDate ";
+        bindings[":EndDate"] = dtEndTime;
+    }
+
+    if (!sTitleFilter.isEmpty())
+    {
+        sSQL += "AND program.title LIKE :Title ";
+        bindings[":Title"] = QString("%%1%").arg(sTitleFilter);
+    }
+
+    if (!sCategoryFilter.isEmpty())
+    {
+        sSQL += "AND program.category LIKE :Category ";
+        bindings[":Category"] = sCategoryFilter;
+    }
+
+    if (!sKeywordFilter.isEmpty())
+    {
+        sSQL += "AND (program.title LIKE :Keyword1 "
+                "OR   program.subtitle LIKE :Keyword2 "
+                "OR   program.description LIKE :Keyword3) ";
+
+        QString filter = QString("%%1%").arg(sKeywordFilter);
+        bindings[":Keyword1"] = filter;
+        bindings[":Keyword2"] = filter;
+        bindings[":Keyword3"] = filter;
+    }
+
+    if (sSort == "starttime")
+        sSQL += "ORDER BY program.starttime ";
+    else if (sSort == "title")
+        sSQL += "ORDER BY program.title ";
+    else if (sSort == "channel")
+        sSQL += "ORDER BY channel.channum ";
+    else if (sSort == "duration")
+        sSQL += "ORDER BY (program.endtime - program.starttime) ";
+    else
+        sSQL += "ORDER BY program.starttime ";
+
+    if (bDescending)
+        sSQL += "DESC ";
+    else
+        sSQL += "ASC ";
+
+    // ----------------------------------------------------------------------
+    // Get all Pending Scheduled Programs
+    // ----------------------------------------------------------------------
+
+    bool hasConflicts;
+    LoadFromScheduler(schedList, hasConflicts);
+
+    // ----------------------------------------------------------------------
+
+    uint nTotalAvailable = 0;
+    LoadFromProgram( progList, sSQL, bindings, schedList,
+                     (uint)nStartIndex, (uint)nCount, nTotalAvailable);
+
+    // ----------------------------------------------------------------------
+    // Build Response
+    // ----------------------------------------------------------------------
+
+    DTC::ProgramList *pPrograms = new DTC::ProgramList();
+
+    nCount        = (int)progList.size();
+    int nEndIndex = (int)progList.size();
+
+    for( int n = 0; n < nEndIndex; n++)
+    {
+        ProgramInfo *pInfo = progList[ n ];
+
+        DTC::Program *pProgram = pPrograms->AddNewProgram();
+
+        FillProgramInfo( pProgram, pInfo, true, bDetails, false ); // No cast info, loading this takes far too long
+    }
+
+    // ----------------------------------------------------------------------
+
+    pPrograms->setStartIndex    ( nStartIndex     );
+    pPrograms->setCount         ( nCount          );
+    pPrograms->setTotalAvailable( nTotalAvailable );
+    pPrograms->setAsOf          ( MythDate::current() );
+    pPrograms->setVersion       ( MYTH_BINARY_VERSION );
+    pPrograms->setProtoVer      ( MYTH_PROTO_VERSION  );
+
+    return pPrograms;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////////////
@@ -323,9 +483,13 @@ QFileInfo Guide::GetChannelIcon( int nChanId,
     return QFileInfo( sNewFileName );
 }
 
-DTC::ChannelGroupList* Guide::GetChannelGroupList( bool IncludeEmpty )
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+DTC::ChannelGroupList* Guide::GetChannelGroupList( bool bIncludeEmpty )
 {
-    ChannelGroupList list = ChannelGroup::GetChannelGroups(IncludeEmpty);
+    ChannelGroupList list = ChannelGroup::GetChannelGroups(bIncludeEmpty);
     DTC::ChannelGroupList *pGroupList = new DTC::ChannelGroupList();
 
     ChannelGroupList::iterator it;
@@ -337,3 +501,60 @@ DTC::ChannelGroupList* Guide::GetChannelGroupList( bool IncludeEmpty )
 
     return pGroupList;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QStringList Guide::GetCategoryList( ) //int nStartIndex, int nCount)
+{
+    QStringList catList;
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    query.prepare("SELECT DISTINCT category FROM program WHERE category != '' "
+                  "ORDER BY category");
+
+    if (!query.exec())
+        return catList;
+
+    while (query.next())
+    {
+        catList << query.value(0).toString();
+    }
+
+    return catList;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QStringList Guide::GetStoredSearches( const QString& sType )
+{
+    QStringList keywordList;
+    MSqlQuery query(MSqlQuery::InitCon());
+
+    RecSearchType iType = searchTypeFromString(sType);
+
+    if (iType == kNoSearch)
+    {
+        //throw( "Invalid Type" );
+        return keywordList;
+    }
+
+    query.prepare("SELECT DISTINCT phrase FROM keyword "
+                  "WHERE searchtype = :TYPE "
+                  "ORDER BY phrase");
+    query.bindValue(":TYPE", static_cast<int>(iType));
+
+    if (!query.exec())
+        return keywordList;
+
+    while (query.next())
+    {
+        keywordList << query.value(0).toString();
+    }
+
+    return keywordList;
+}
+

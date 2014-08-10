@@ -75,6 +75,7 @@ MetadataLookup::MetadataLookup(void) :
     m_collectionref(),
     m_tmsref(),
     m_imdb(),
+    m_iscollection(false),
     m_people(),
     m_studios(),
     m_homepage(),
@@ -210,6 +211,7 @@ MetadataLookup::MetadataLookup(
     m_collectionref(collectionref),
     m_tmsref(tmsref),
     m_imdb(imdb),
+    m_iscollection(false),
     m_people(people),
     m_studios(studios),
     m_homepage(homepage),
@@ -303,7 +305,8 @@ MetadataLookup::MetadataLookup(
     m_releasedate(releasedate),
     m_lastupdated(lastupdated),
     m_runtime(runtime),
-    m_runtimesecs(runtimesecs)
+    m_runtimesecs(runtimesecs),
+    m_iscollection(false)
 {
     m_tracknum = 0;
     m_popularity = 0;
@@ -379,6 +382,7 @@ MetadataLookup::MetadataLookup(
     m_runtime(runtime),
     m_runtimesecs(runtimesecs),
     m_inetref(inetref),
+    m_iscollection(false),
     m_people(people),
     m_trailerURL(trailerURL),
     m_artwork(artwork),
@@ -1173,22 +1177,29 @@ MetadataLookup* ParseMetadataItem(const QDomElement& item,
         season = lookup->GetSeason();
         episode = lookup->GetEpisode();
     }
-    else
+
+    if (lookup->GetPreferDVDOrdering())
     {
-        if (lookup->GetPreferDVDOrdering())
+        if (!season)
         {
             season = item.firstChildElement("dvdseason").text().toUInt();
+        }
+        if (!episode)
+        {
             episode = item.firstChildElement("dvdepisode").text().toUInt();
         }
-
-        if ((season == 0) && (episode == 0))
-        {
-            season = item.firstChildElement("season").text().toUInt();
-            episode = item.firstChildElement("episode").text().toUInt();
-        }
-        LOG(VB_GENERAL, LOG_INFO, QString("Result Found, Season %1 Episode %2")
-            .arg(season).arg(episode));
     }
+
+    if (!season)
+    {
+        season = item.firstChildElement("season").text().toUInt();
+    }
+    if (!episode)
+    {
+        episode = item.firstChildElement("episode").text().toUInt();
+    }
+    LOG(VB_GENERAL, LOG_INFO, QString("Result Found, Season %1 Episode %2")
+        .arg(season).arg(episode));
 
     return new MetadataLookup(lookup->GetType(), lookup->GetSubtype(),
         lookup->GetData(), lookup->GetStep(), lookup->GetAutomatic(),
@@ -1510,68 +1521,4 @@ QDateTime RFC822TimeToQDateTime(const QString& t)
     return result;
 }
 
-MetaGrabberScript::MetaGrabberScript(
-    const QString &name,
-    const QString &author,
-    const QString &thumbnail,
-    const QString &command,
-    const GrabberType type,
-    const QString &typestring,
-    const QString &description,
-    const float version
-    ) :
-    m_name(name),
-    m_author(author),
-    m_thumbnail(thumbnail),
-    m_command(command),
-    m_type(type),
-    m_typestring(typestring),
-    m_description(description),
-    m_version(version)
-{
-}
 
-MetaGrabberScript::~MetaGrabberScript()
-{
-}
-
-MetaGrabberScript* ParseGrabberVersion(const QDomElement& item)
-{
-    QString name, author, thumbnail, command, description, typestring;
-    float version = 0;
-    GrabberType type = kGrabberMovie;
-
-    name = item.firstChildElement("name").text();
-    author = item.firstChildElement("author").text();
-    thumbnail = item.firstChildElement("thumbnail").text();
-    command = item.firstChildElement("command").text();
-    description = item.firstChildElement("description").text();
-    version = item.firstChildElement("version").text().toFloat();
-    typestring = item.firstChildElement("type").text();
-
-    if (!typestring.isEmpty())
-    {
-        if (typestring.toLower() == "movie")
-            type = kGrabberMovie;
-        else if (typestring.toLower() == "television")
-            type = kGrabberTelevision;
-        else if (typestring.toLower() == "game")
-            type = kGrabberGame;
-        else if (typestring.toLower() == "music")
-            type = kGrabberMusic;
-    }
-
-    return new MetaGrabberScript(name, author, thumbnail, command,
-                             type, typestring, description, version);
-}
-
-void MetaGrabberScript::toMap(InfoMap &metadataMap)
-{
-    metadataMap["name"] = m_name;
-    metadataMap["author"] = m_author;
-    metadataMap["thumbnailfilename"] = m_thumbnail;
-    metadataMap["command"] = m_command;
-    metadataMap["description"] = m_description;
-    metadataMap["version"] = QString::number(m_version);
-    metadataMap["type"] = m_typestring;
-}

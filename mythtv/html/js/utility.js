@@ -27,7 +27,15 @@ function getIntegerArg(name)
 function getBoolArg(name)
 {
     // Should check for string types here such as 'true' and 'false'
-    return Boolean(getIntArg(name));
+    return Boolean(getIntegerArg(name));
+}
+
+function getArgCount()
+{
+    if (isValidObject(this.Parameters))
+        return Number(Object.keys(this.Parameters).length);
+    else
+        return Number(0);
 }
 
 function toCapitalCase(str)
@@ -51,6 +59,11 @@ function isValidObject(variable)
     return ((typeof variable === "object")
             && typeof variable !== "undefined"
             && (variable != null));
+}
+
+function isValidVar(variable)
+{
+    return ((variable != null) && (variable != ""));
 }
 
 // For debugging only, this isn't JSON
@@ -84,4 +97,17 @@ function objectDump(arr)
     }
     objectString += "</dl>\n";
     return objectString;
+}
+
+function toQueryString(obj)
+{
+  var str = [];
+  for(var key in obj)
+  {
+    if (obj.hasOwnProperty(key))
+    {
+      str.push(encodeURIComponent(key) + "=" + encodeURIComponent(obj[key]));
+    }
+  }
+  return str.join("&amp;");
 }

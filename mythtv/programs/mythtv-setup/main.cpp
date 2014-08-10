@@ -140,7 +140,7 @@ static void SetupMenuCallback(void* data, QString& selection)
         else
             delete msee;
     }
-    else if (sel.startsWith("exiting_app"))
+    else if (sel.startsWith("exiting_app") || (sel == "standby_mode"))
     {
         if (!exitPrompt)
             exitPrompt = new ExitPrompter();
@@ -173,7 +173,7 @@ static bool RunMenu(QString themedir, QString themename)
 
 // If the theme specified in the DB is somehow broken, try a standard one:
 //
-static bool resetTheme(QString themedir, const QString badtheme)
+static bool resetTheme(QString themedir, const QString &badtheme)
 {
     QString themename = DEFAULT_UI_THEME;
 
@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
             cerr << "Valid cards: " << endl;
             for (uint i = 0; i < cardids.size(); i++)
             {
-                fprintf(stderr, "%5i: %s %s\n",
+                fprintf(stderr, "%5u: %s %s\n",
                         cardids[i],
                         CardUtil::GetRawCardType(cardids[i])
                         .toLatin1().constData(),
@@ -499,7 +499,6 @@ int main(int argc, char *argv[])
 
     if (scanImport)
     {
-        vector<ScanInfo> scans = LoadScanList();
         cout<<"*** SCAN IMPORT START ***"<<endl;
         {
             ScanDTVTransportList list = LoadScan(scanImport);

@@ -26,7 +26,7 @@ HEADERS += musicmetadata.h musicutils.h metaio.h metaiotaglib.h
 HEADERS += metaioflacvorbis.h metaioavfcomment.h metaiomp4.h
 HEADERS += metaiowavpack.h metaioid3.h metaiooggvorbis.h
 HEADERS += imagemetadata.h imageutils.h imagescan.h imagescanthread.h
-HEADERS += imagethumbgenthread.h musicfilescanner.h
+HEADERS += imagethumbgenthread.h musicfilescanner.h metadatagrabber.h
 
 SOURCES += cleanup.cpp  dbaccess.cpp  dirscan.cpp  globals.cpp
 SOURCES += parentalcontrols.cpp  videoscan.cpp  videoutils.cpp
@@ -38,28 +38,21 @@ SOURCES += musicmetadata.cpp musicutils.cpp metaio.cpp metaiotaglib.cpp
 SOURCES += metaioflacvorbis.cpp metaioavfcomment.cpp metaiomp4.cpp
 SOURCES += metaiowavpack.cpp metaioid3.cpp metaiooggvorbis.cpp
 SOURCES += imagemetadata.cpp imageutils.cpp imagescan.cpp imagescanthread.cpp
-SOURCES += imagethumbgenthread.cpp musicfilescanner.cpp
+SOURCES += imagethumbgenthread.cpp musicfilescanner.cpp metadatagrabber.cpp
 
 INCLUDEPATH += ../libmythbase ../libmythtv
-INCLUDEPATH += ../.. ../ ./ ../libmythupnp ../libmythui
+INCLUDEPATH += ../.. ../ ./ ../libmythui
 INCLUDEPATH += ../../external/FFmpeg ../libmyth  ../../external/libmythbluray
 
 # for TagLib
 INCLUDEPATH += $${CONFIG_TAGLIB_INCLUDES}
 
-win32-msvc*:INCLUDEPATH += ../../platform/win32/msvc/external/taglib/taglib/Headers
-
-DEPENDPATH += ../../external/libsamplerate ../libmythsoundtouch
-DEPENDPATH += ../libmythfreesurround
 DEPENDPATH += ../ ../libmythui ../libmythbase
-DEPENDPATH += ../libmythupnp ../libmythtv ../libmyth
+DEPENDPATH += ../libmythtv ../libmyth
 DEPENDPATH += ../../external/libmythbluray ../../external/live555
 
-LIBS += -L../../external/libsamplerate      -lmythsamplerate-$${LIBVERSION}
-LIBS += -L../libmythsoundtouch              -lmythsoundtouch-$${LIBVERSION}
 LIBS += -L../libmythbase                    -lmythbase-$${LIBVERSION}
 LIBS += -L../libmythui                      -lmythui-$${LIBVERSION}
-LIBS += -L../libmythupnp                    -lmythupnp-$${LIBVERSION}
 LIBS += -L../libmythservicecontracts        -lmythservicecontracts-$${LIBVERSION}
 LIBS += -L../libmythfreesurround            -lmythfreesurround-$${LIBVERSION}
 LIBS += -L../../external/FFmpeg/libavcodec  -lmythavcodec
@@ -84,7 +77,7 @@ win32-msvc* {
 
     LIBS += -lws2_32
     LIBS += -ltag
-    INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/external/taglib/include/taglib
+    INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/external/taglib/include/taglib
 }
 
 inc.path = $${PREFIX}/include/mythtv/metadata/
@@ -99,7 +92,7 @@ inc.files += metaio.h metaiotaglib.h
 inc.files += metaioflacvorbis.h metaioavfcomment.h metaiomp4.h
 inc.files += metaiowavpack.h metaioid3.h metaiooggvorbis.h
 inc.files += imagemetadata.h imageutils.h imagescan.h imagescanthread.h
-inc.files += imagethumbgenthread.h musicfilescanner.h
+inc.files += imagethumbgenthread.h musicfilescanner.h metadatagrabber.h
 
 INSTALLS += inc
 

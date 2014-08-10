@@ -156,7 +156,7 @@ class VDPAULayer
 class VDPAUResource
 {
   public:
-    VDPAUResource() : m_id(0) {} 
+    VDPAUResource() : m_id(0) {}
     VDPAUResource(uint id, QSize size) : m_id(id), m_size(size) { }
     virtual ~VDPAUResource() {}
 
@@ -275,6 +275,7 @@ static void vdpau_preemption_callback(VdpDevice device, void *myth_render)
 bool MythRenderVDPAU::gVDPAUSupportChecked = false;
 bool MythRenderVDPAU::gVDPAUMPEG4Accel     = false;
 uint MythRenderVDPAU::gVDPAUBestScaling    = 0;
+bool MythRenderVDPAU::gVDPAUNVIDIA         = false;
 
 MythRenderVDPAU::MythRenderVDPAU()
   : MythRender(kRenderVDPAU), m_preempted(false), m_recreating(false),
@@ -296,6 +297,19 @@ MythRenderVDPAU::~MythRenderVDPAU(void)
     Destroy();
 }
 
+bool MythRenderVDPAU::IsVDPAUAvailable(void)
+{
+    if (gVDPAUSupportChecked)
+        return true;
+
+    LOG(VB_PLAYBACK, LOG_INFO, LOC + "Checking VDPAU support.");
+    MythRenderVDPAU *dummy = new MythRenderVDPAU();
+    bool supported = dummy->CreateDummy();
+    delete dummy;
+
+    return supported;
+}
+
 bool MythRenderVDPAU::IsMPEG4Available(void)
 {
     if (gVDPAUSupportChecked)
@@ -303,12 +317,11 @@ bool MythRenderVDPAU::IsMPEG4Available(void)
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "Checking VDPAU capabilities.");
     MythRenderVDPAU *dummy = new MythRenderVDPAU();
-    if (dummy)
-    {
-        if (dummy->CreateDummy())
-            return gVDPAUMPEG4Accel;
-        delete dummy;
-    }
+    bool ok = dummy->CreateDummy();
+    delete dummy;
+
+    if (ok)
+        return gVDPAUMPEG4Accel;
 
     return false;
 }
@@ -560,7 +573,7 @@ bool MythRenderVDPAU::GetScreenShot(int width, int height, QString filename)
         if (height <= 0)
             height = img.height();
 
-        img = img.scaled(width, height, Qt::KeepAspectRatio, 
+        img = img.scaled(width, height, Qt::KeepAspectRatio,
                          Qt::SmoothTransformation);
         success = window->SaveScreenShot(img, filename);
     }
@@ -636,7 +649,6 @@ uint MythRenderVDPAU::CreateOutputSurface(const QSize &size, VdpRGBAFormat fmt,
     m_outputSurfaces.insert(id, VDPAUOutputSurface(tmp, size, fmt));
     id_lock.unlock();
 
-    DrawBitmap(0, id, NULL, NULL);
     return id;
 }
 
@@ -796,7 +808,7 @@ uint MythRenderVDPAU::CreateVideoMixer(const QSize &size, uint layers,
 
     int count = 0;
     VdpVideoMixerFeature feat[6];
-    VdpBool enable = true;
+    VdpBool enable = VDP_TRUE;
     const VdpBool enables[6] = { enable, enable, enable, enable, enable, enable };
 
     bool temporal = (features & kVDPFeatTemporal) ||
@@ -854,13 +866,16 @@ uint MythRenderVDPAU::CreateVideoMixer(const QSize &size, uint layers,
         return 0;
     }
 
-    vdp_st = vdp_video_mixer_set_feature_enables(
-        tmp, count, count ? feat : NULL, count ? enables : NULL);
-    CHECK_ST
+    if (count)
+    {
+        vdp_st = vdp_video_mixer_set_feature_enables(
+            tmp, count, feat, enables);
+        CHECK_ST
 
-    if (!ok)
-        LOG(VB_PLAYBACK, LOG_WARNING, LOC +
-            "WARNING: Failed to enable video mixer features.");
+        if (!ok)
+            LOG(VB_PLAYBACK, LOG_WARNING, LOC +
+                "WARNING: Failed to enable video mixer features.");
+    }
 
     if (existing)
     {
@@ -1368,7 +1383,6 @@ bool MythRenderVDPAU::DrawBitmap(uint id, uint target,
         vdest.y0 = (dst->y() < 0) ? 0 : dst->y();
         vdest.x1 = dst->x() + width;
         vdest.y1 = dst->y() + height;
-
     }
 
     if (src)
@@ -1389,12 +1403,48 @@ bool MythRenderVDPAU::DrawBitmap(uint id, uint target,
     }
 
     INIT_ST
+
+    bool createdBitmap = false;
+
+    if (!id && !gVDPAUNVIDIA)
+    {
+        // Work around MESA bug #80561
+        vdp_st = vdp_bitmap_surface_create(m_device, VDP_RGBA_FORMAT_B8G8R8A8,
+                                           1, 1, true,
+                                           &bitmap);
+        CHECK_ST
+
+        if (ok)
+        {
+            uint8_t bmp[] = { 255, 255, 255, 255 };
+            void *plane[1] = { bmp };
+            uint32_t pitch[1] = { 4 };
+            vdp_st =
+                vdp_bitmap_surface_put_bits_native(bitmap, plane, pitch, NULL);
+            CHECK_ST
+            if (!ok)
+            {
+                vdp_st = vdp_bitmap_surface_destroy(bitmap);
+                bitmap = VDP_INVALID_HANDLE;
+            }
+            else
+            {
+                createdBitmap = ok;
+            }
+        }
+    }
+
     vdp_st = vdp_output_surface_render_bitmap_surface(
-                surface,
-                dst ? &vdest : NULL, bitmap, src ? &vsrc  : NULL,
+                surface, dst ? &vdest : NULL, bitmap, src ? &vsrc  : NULL,
                 alpha >= 0 ? &color : NULL, &VDPBlends[blend],
                 VDP_OUTPUT_SURFACE_RENDER_ROTATE_0);
     CHECK_ST
+
+    if (createdBitmap)
+    {
+        vdp_st = vdp_bitmap_surface_destroy(bitmap);
+    }
+
     return ok;
 }
 
@@ -1515,8 +1565,13 @@ void MythRenderVDPAU::ChangeVideoSurfaceOwner(uint id)
     m_videoSurfaces[id].m_owner = QThread::currentThread();
 }
 
+void MythRenderVDPAU::Decode(uint id, struct vdpau_render_state *render)
+{
+    Decode(id, render, (VdpPictureInfo const *)&render->info);
+}
+
 void MythRenderVDPAU::Decode(uint id, struct vdpau_render_state *render,
-                             AVVDPAUContext *context)
+                             const VdpPictureInfo *info)
 {
     CHECK_VIDEO_SURFACES()
 
@@ -1528,10 +1583,11 @@ void MythRenderVDPAU::Decode(uint id, struct vdpau_render_state *render,
     }
 
     INIT_ST
-    vdp_st = vdp_decoder_render(m_decoders[id].m_id, render->surface,
-                               (VdpPictureInfo const *)&(context->info),
-                                context->bitstream_buffers_used,
-                                context->bitstream_buffers);
+
+    vdp_st = vdp_decoder_render(m_decoders[id].m_id, render->surface, info,
+                                render->bitstream_buffers_used,
+                                render->bitstream_buffers);
+
     CHECK_ST
 }
 
@@ -1727,6 +1783,10 @@ bool MythRenderVDPAU::CheckHardwareSupport(void)
         {
             const char * info;
             vdp_get_information_string(&info);
+            QString vendor(info);
+
+            gVDPAUNVIDIA = vendor.contains("nvidia", Qt::CaseInsensitive);
+
             LOG(VB_GENERAL, LOG_INFO, LOC +
                 QString("Information %2").arg(info));
         }

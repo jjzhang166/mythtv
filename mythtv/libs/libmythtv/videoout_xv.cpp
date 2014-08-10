@@ -44,8 +44,8 @@ using namespace std;
 #include "tv.h"
 #include "fourcc.h"
 #include "mythmainwindow.h"
-#include "myth_imgconvert.h"
 #include "mythuihelper.h"
+#include "mythavutil.h"
 
 #define LOC      QString("VideoOutputXv: ")
 
@@ -303,7 +303,7 @@ bool VideoOutputXv::InputChanged(const QSize &video_dim_buf,
 
     if (!ok)
     {
-        LOG(VB_GENERAL, LOG_ERR, LOC + 
+        LOG(VB_GENERAL, LOG_ERR, LOC +
             "InputChanged(): Failed to recreate buffers");
         errorState = kError_Unknown;
     }
@@ -524,15 +524,17 @@ void VideoOutputXv::CreatePauseFrame(VOSType subtype)
 {
     if (av_pause_frame.buf)
     {
-        delete [] av_pause_frame.buf;
-        av_pause_frame.buf = NULL;
+        av_freep(&av_pause_frame.buf);
     }
 
-    init(&av_pause_frame, FMT_YV12,
-         new unsigned char[vbuffers.GetScratchFrame()->size + 128],
+    int size = buffersize(FMT_YV12,
+                          vbuffers.GetScratchFrame()->width,
+                          vbuffers.GetScratchFrame()->height);
+    unsigned char* buf = (unsigned char*)av_malloc(size);
+    init(&av_pause_frame, FMT_YV12, buf,
          vbuffers.GetScratchFrame()->width,
          vbuffers.GetScratchFrame()->height,
-         vbuffers.GetScratchFrame()->size);
+         size);
 
     av_pause_frame.frameNumber = vbuffers.GetScratchFrame()->frameNumber;
 
@@ -769,7 +771,7 @@ bool VideoOutputXv::CreateOSD(void)
         if ((xv_colorkey == (int)XJ_letterbox_colour) ||
             (video_output_subtype < XVideo))
         {
-            LOG(VB_PLAYBACK, LOG_ERR, LOC + 
+            LOG(VB_PLAYBACK, LOG_ERR, LOC +
                 "Disabling ChromaKeyOSD as colorkeying will not work.");
         }
         else if (!((32 == disp->GetDepth()) || (24 == disp->GetDepth())))
@@ -1277,13 +1279,11 @@ void VideoOutputXv::DeleteBuffers(VOSType subtype, bool delete_pause_frame)
     {
         if (av_pause_frame.buf)
         {
-            delete [] av_pause_frame.buf;
-            av_pause_frame.buf = NULL;
+            av_freep(&av_pause_frame.buf);
         }
         if (av_pause_frame.qscale_table)
         {
-            delete [] av_pause_frame.qscale_table;
-            av_pause_frame.qscale_table = NULL;
+            av_freep(&av_pause_frame.qscale_table);
         }
     }
 
@@ -1436,22 +1436,24 @@ void VideoOutputXv::PrepareFrameMem(VideoFrame *buffer, FrameScanType /*scan*/)
 
     int out_width  = display_visible_rect.width()  & ~0x1;
     int out_height = display_visible_rect.height() & ~0x1;
-    unsigned char *sbuf = new unsigned char[out_width * out_height * 3 / 2];
     AVPicture image_in, image_out;
-    static struct SwsContext  *scontext;
-
-    avpicture_fill(&image_out, (uint8_t *)sbuf, PIX_FMT_YUV420P,
-                   out_width, out_height);
 
     if ((out_width  == width) &&
         (out_height == height))
     {
-        memcpy(sbuf, buffer->buf, width * height * 3 / 2);
+        m_copyFrame.Copy(&image_out, buffer);
     }
     else
     {
-        avpicture_fill(&image_in, buffer->buf, PIX_FMT_YUV420P,
-                       width, height);
+        static QMutex lock;
+        static struct SwsContext *scontext = NULL;
+        int size = buffersize(FMT_YV12, out_width, out_height);
+        unsigned char *sbuf = (unsigned char*)av_malloc(size);
+
+        avpicture_fill(&image_out, (uint8_t *)sbuf, PIX_FMT_YUV420P,
+                       out_width, out_height);
+        AVPictureFill(&image_in, buffer);
+        QMutexLocker locker(&lock);
         scontext = sws_getCachedContext(scontext, width, height,
                        PIX_FMT_YUV420P, out_width,
                        out_height, PIX_FMT_YUV420P,
@@ -1464,11 +1466,8 @@ void VideoOutputXv::PrepareFrameMem(VideoFrame *buffer, FrameScanType /*scan*/)
     avpicture_fill(&image_in, (uint8_t *)XJ_non_xv_image->data,
                    non_xv_av_format, out_width, out_height);
 
-
-    // XXX TODO: join with the scaling after removing img_convert, img_resample
-    myth_sws_img_convert(
-        &image_in, non_xv_av_format, &image_out, PIX_FMT_YUV420P,
-         out_width, out_height);
+    m_copyFrame.Copy(&image_in, non_xv_av_format, &image_out, PIX_FMT_YUV420P,
+                out_width, out_height);
 
     {
         QMutexLocker locker(&global_lock);
@@ -1482,7 +1481,7 @@ void VideoOutputXv::PrepareFrameMem(VideoFrame *buffer, FrameScanType /*scan*/)
         disp->Unlock();
     }
 
-    delete [] sbuf;
+    av_freep(&image_out.data[0]);
 }
 
 // this is documented in videooutbase.cpp

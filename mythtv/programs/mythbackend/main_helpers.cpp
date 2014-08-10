@@ -219,13 +219,14 @@ bool setupTVs(bool ismaster, bool &error)
 
 void cleanup(void)
 {
-    if (gCoreContext)
+    if (mainServer)
     {
-        gCoreContext->SetExiting();
+        mainServer->Stop();
+        qApp->processEvents();
     }
 
-    if (mainServer)
-        mainServer->Stop();
+    if (gCoreContext)
+        gCoreContext->SetExiting();
 
     delete housekeeping;
     housekeeping = NULL;
@@ -263,11 +264,15 @@ void cleanup(void)
         delete rec;
     }
 
+
     delete gContext;
     gContext = NULL;
 
     delete mainServer;
     mainServer = NULL;
+
+     delete gBackendContext;
+     gBackendContext = NULL;
 
     if (pidfile.size())
     {
@@ -435,8 +440,8 @@ int connect_to_master(void)
 {
     MythSocket *tempMonitorConnection = new MythSocket();
     if (tempMonitorConnection->ConnectToHost(
-            gCoreContext->GetSetting("MasterServerIP", "127.0.0.1"),
-            gCoreContext->GetNumSetting("MasterServerPort", 6543)))
+            gCoreContext->GetMasterServerIP(),
+            gCoreContext->GetMasterServerPort()))
     {
         if (!gCoreContext->CheckProtoVersion(tempMonitorConnection))
         {
@@ -448,7 +453,8 @@ int connect_to_master(void)
 
         QStringList tempMonitorDone("DONE");
 
-        QStringList tempMonitorAnnounce("ANN Monitor tzcheck 0");
+        QStringList tempMonitorAnnounce(QString("ANN Monitor %1 0")
+                                            .arg(gCoreContext->GetHostName()));
         tempMonitorConnection->SendReceiveStringList(tempMonitorAnnounce);
         if (tempMonitorAnnounce.empty() ||
             tempMonitorAnnounce[0] == "ERROR")
@@ -544,6 +550,8 @@ void print_warnings(const MythBackendCommandLineParser &cmdline)
 
 int run_backend(MythBackendCommandLineParser &cmdline)
 {
+    gBackendContext = new BackendContext();
+
     if (!DBUtil::CheckTimeZoneSupport())
     {
         LOG(VB_GENERAL, LOG_ERR,
@@ -570,9 +578,8 @@ int run_backend(MythBackendCommandLineParser &cmdline)
             return ret;
     }
 
-    int     port = gCoreContext->GetNumSetting("BackendServerPort", 6543);
-    if (gCoreContext->GetSetting("BackendServerIP").isEmpty() &&
-        gCoreContext->GetSetting("BackendServerIP6").isEmpty())
+    int     port = gCoreContext->GetBackendServerPort();
+    if (gCoreContext->GetBackendServerIP().isEmpty())
     {
         cerr << "No setting found for this machine's BackendServerIP.\n"
              << "Please run setup on this machine and modify the first page\n"
@@ -685,7 +692,7 @@ int run_backend(MythBackendCommandLineParser &cmdline)
         LOG(VB_GENERAL, LOG_CRIT,
             "Backend exiting, MainServer initialization error.");
         cleanup();
-	return exitCode;
+        return exitCode;
     }
 
     if (httpStatus && mainServer)

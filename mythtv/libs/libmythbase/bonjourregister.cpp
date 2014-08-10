@@ -99,8 +99,11 @@ void BonjourRegister::BonjourCallback(DNSServiceRef ref, DNSServiceFlags flags,
     (void)flags;
 
     BonjourRegister *bonjour = static_cast<BonjourRegister *>(object);
-    delete bonjour->m_lock;
-    bonjour->m_lock = NULL;
+    if (bonjour)
+    {
+        delete bonjour->m_lock;
+        bonjour->m_lock = NULL;
+    }
 
     if (kDNSServiceErr_NoError != errorcode)
     {

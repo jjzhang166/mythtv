@@ -173,6 +173,8 @@ void MythUIButtonList::Reset()
     StopLoad();
     Update();
     MythUIType::Reset();
+
+    emit DependChanged(true);
 }
 
 void MythUIButtonList::Update()
@@ -1499,6 +1501,7 @@ void MythUIButtonList::InsertItem(MythUIButtonListItem *item, int listPosition)
     {
         m_selPosition = m_topPosition = 0;
         emit itemSelected(item);
+        emit DependChanged(false);
     }
 
     Update();
@@ -1537,6 +1540,9 @@ void MythUIButtonList::RemoveItem(MythUIButtonListItem *item)
         emit itemSelected(m_itemList.at(m_selPosition));
     else
         emit itemSelected(NULL);
+
+    if (IsEmpty())
+        emit DependChanged(true);
 }
 
 void MythUIButtonList::SetValueByData(QVariant data)
@@ -3424,25 +3430,28 @@ void MythUIButtonListItem::SetToRealButton(MythUIStateType *button, bool selecte
     else
         state = m_parent->m_active ? "active" : "inactive";
 
+    // Begin compatibility code
+    // Attempt to fallback if the theme is missing certain states
+    if (state == "disabled" && !button->GetState(state))
+    {
+        LOG(VB_GUI, LOG_WARNING, "Theme Error: Missing buttonlist state: disabled");
+        state = "inactive";
+    }
+
     if (state == "inactive" && !button->GetState(state))
+    {
+        LOG(VB_GUI, LOG_WARNING, "Theme Error: Missing buttonlist state: inactive");
         state = "active";
+    }
+    // End compatibility code
 
     MythUIGroup *buttonstate = dynamic_cast<MythUIGroup *>
                                (button->GetState(state));
-
     if (!buttonstate)
     {
-        LOG(VB_GENERAL, LOG_ERR, QString("Failed to query buttonlist state: %1")
+        LOG(VB_GENERAL, LOG_CRIT, QString("Theme Error: Missing buttonlist state: %1")
             .arg(state));
-        if (state == "disabled")
-        {
-            state = "inactive";
-            if (!button->GetState(state))
-                state = "active";
-            buttonstate = dynamic_cast<MythUIGroup *>(button->GetState(state));
-        }
-        else
-            return;
+        return;
     }
 
     buttonstate->Reset();

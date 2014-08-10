@@ -54,6 +54,7 @@ class MTV_PUBLIC AudioPlayer
     uint  GetVolume(void);
     uint  AdjustVolume(int change);
     uint  SetVolume(int newvolume);
+    void  SaveVolume(void);
     float GetStretchFactor(void) const { return m_stretchfactor; }
     void  SetStretchFactor(float factor);
     bool  IsUpmixing(void);
@@ -87,6 +88,7 @@ class MTV_PUBLIC AudioPlayer
     int64_t LengthLastData(void);
     bool GetBufferStatus(uint &fill, uint &total);
     bool IsBufferAlmostFull(void);
+    int64_t GetAudioBufferedTime(void);
     
     /**
      * Return internal AudioOutput object

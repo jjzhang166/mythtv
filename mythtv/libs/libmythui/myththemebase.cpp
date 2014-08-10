@@ -7,8 +7,9 @@
 #include "mythfontmanager.h"
 
 #include "mythdirs.h"
-#include "oldsettings.h"
 #include "mythuihelper.h"
+
+#include "oldsettings.h" // Deprecated
 
 class MythThemeBasePrivate
 {
@@ -101,4 +102,3 @@ void MythThemeBase::Init(void)
 
     new MythScreenStack(mainWindow, "popup stack");
 }
-

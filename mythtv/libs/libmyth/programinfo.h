@@ -30,7 +30,7 @@
    mythtv/bindings/python/MythTV/static.py (version number)
    mythtv/bindings/python/MythTV/mythproto.py (layout)
 */
-#define NUMPROGRAMLINES 49
+#define NUMPROGRAMLINES 50
 
 class ProgramInfo;
 typedef AutoDeleteDeque<ProgramInfo*> ProgramList;
@@ -81,9 +81,12 @@ class MPUBLIC ProgramInfo
     /// Copy constructor
     ProgramInfo(const ProgramInfo &other);
     /// Constructs a ProgramInfo from data in 'recorded' table
+    ProgramInfo(uint recordedid);
+    /// Constructs a ProgramInfo from data in 'recorded' table
     ProgramInfo(uint chanid, const QDateTime &recstartts);
     /// Constructs a ProgramInfo from data in 'recorded' table
-    ProgramInfo(const QString &title,
+    ProgramInfo(uint recordedid,
+                const QString &title,
                 const QString &subtitle,
                 const QString &description,
                 uint season,
@@ -423,6 +426,7 @@ class MPUBLIC ProgramInfo
     uint    GetStars(uint range_max)      const
         { return (int)(stars * range_max + 0.5f); }
 
+    uint    GetRecordingID(void)              const { return recordedid; }
     RecStatusType GetRecordingStatus(void)    const
         { return (RecStatusType)recstatus; }
     RecStatusType GetOldRecordingStatus(void) const
@@ -530,6 +534,7 @@ class MPUBLIC ProgramInfo
         programflags &= ~FL_IGNOREBOOKMARK;
         programflags |= (ignore) ? FL_IGNOREBOOKMARK : 0;
     }
+    void SetRecordingID(uint _recordedid) { recordedid = _recordedid; }
     void SetRecordingStatus(RecStatusType status) { recstatus = status; }
     void SetRecordingRuleType(RecordingType type) { rectype   = type;   }
     void SetPositionMapDBReplacement(PMapDBReplacement *pmap)
@@ -745,6 +750,8 @@ class MPUBLIC ProgramInfo
     uint8_t dupin;
     uint8_t dupmethod;
 
+    uint    recordedid;
+
 // everything below this line is not serialized
     uint8_t availableStatus; // only used for playbackbox.cpp
   public:
@@ -766,12 +773,20 @@ class MPUBLIC ProgramInfo
     static bool usingProgIDAuth;
 };
 
-
 MPUBLIC bool LoadFromProgram(
     ProgramList        &destination,
     const QString      &sql,
     const MSqlBindings &bindings,
     const ProgramList  &schedList);
+
+MPUBLIC bool LoadFromProgram(
+    ProgramList        &destination,
+    const QString      &sql,
+    const MSqlBindings &bindings,
+    const ProgramList  &schedList,
+    const uint         &start,
+    const uint         &limit,
+    uint               &count);
 
 MPUBLIC ProgramInfo*  LoadProgramFromProgram(
         const uint chanid, const QDateTime &starttime);
@@ -843,12 +858,11 @@ bool LoadFromScheduler(
 
             if ((*dit)->GetChannelSchedulingID() != other.GetChannelSchedulingID())
             {
-                if (other.GetRecordingStatus() == rsWillRecord)
-                    (*dit)->SetRecordingStatus(rsOtherShowing);
-                else if (other.GetRecordingStatus() == rsRecording)
-                    (*dit)->SetRecordingStatus(rsOtherRecording);
-                else if (other.GetRecordingStatus() == rsTuning)
-                    (*dit)->SetRecordingStatus(rsOtherTuning);
+                if (other.GetRecordingStatus() == rsWillRecord ||
+                    other.GetRecordingStatus() == rsRecording ||
+                    other.GetRecordingStatus() == rsTuning ||
+                    other.GetRecordingStatus() == rsFailing)
+                (*dit)->SetRecordingStatus(other.GetRecordingStatus());
             }
         }
     }
@@ -873,7 +887,7 @@ bool LoadFromScheduler(AutoDeleteDeque<T> &destination)
 // could be factored out
 MPUBLIC bool GetNextRecordingList(QDateTime &nextRecordingStart,
                                   bool *hasConflicts = NULL,
-                                  vector<ProgramInfo> *list = NULL);
+                                  std::vector<ProgramInfo> *list = NULL);
 
 class QMutex;
 class MPUBLIC PMapDBReplacement

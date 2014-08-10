@@ -66,7 +66,7 @@ MythMediaType FindMediaType(io_service_t service)
         // A reference on the initial service object is released in
         // the do-while loop below, so add a reference to balance
         IOObjectRetain(service);
-        
+
         do
         {
             isWholeMedia = false;
@@ -75,7 +75,7 @@ MythMediaType FindMediaType(io_service_t service)
                 CFTypeRef wholeMedia;
 
                 wholeMedia = IORegistryEntryCreateCFProperty
-                             (service, CFSTR(kIOMediaWholeKey), 
+                             (service, CFSTR(kIOMediaWholeKey),
                               kCFAllocatorDefault, 0);
 
                 if (!wholeMedia)
@@ -129,7 +129,7 @@ MythMediaType MediaTypeForBSDName(const char *bsdName)
     matchingDict = IOBSDNameMatching(sMasterPort, 0, bsdName);
     if (!matchingDict)
     {
-        LOG(VB_GENERAL, LOG_ALERT, 
+        LOG(VB_GENERAL, LOG_ALERT,
                  msg + " - IOBSDNameMatching() returned a NULL dictionary.");
         return MEDIATYPE_UNKNOWN;
     }
@@ -161,7 +161,7 @@ MythMediaType MediaTypeForBSDName(const char *bsdName)
 
     if (!service)
     {
-        LOG(VB_GENERAL, LOG_ALERT, 
+        LOG(VB_GENERAL, LOG_ALERT,
                  msg + " - IOIteratorNext() returned a NULL iterator");
         return MEDIATYPE_UNKNOWN;
     }
@@ -190,7 +190,7 @@ static char * getVolName(CFDictionaryRef diskDetails)
     volName = (char *) malloc(size);
     if (!volName)
     {
-        LOG(VB_GENERAL, LOG_ALERT, 
+        LOG(VB_GENERAL, LOG_ALERT,
                 QString("getVolName() - Can't malloc(%1)?").arg(size));
         return NULL;
     }
@@ -307,12 +307,22 @@ void diskAppearedCallback(DADiskRef disk, void *context)
     }
 
     model     = getModel(details);
+
+    if (model.contains("Apple Disk Image"))
+    {
+        LOG(VB_MEDIA, LOG_INFO, msg + QString("DMG %1 mounted, ignoring")
+            .arg(BSDname));
+        CFRelease(details);
+        free(volName);
+        return;
+    }
+
     mediaType = MediaTypeForBSDName(BSDname);
     isCDorDVD = (mediaType == MEDIATYPE_DVD) || (mediaType == MEDIATYPE_AUDIO);
 
 
     // We know it is removable, and have guessed the type.
-    // Call a helper function to create appropriate objects and insert 
+    // Call a helper function to create appropriate objects and insert
 
     LOG(VB_MEDIA, LOG_INFO, QString("Found disk %1 - volume name '%2'.")
                       .arg(BSDname).arg(volName));
@@ -373,9 +383,9 @@ void MonitorThreadDarwin::run(void)
                                  CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 
 
-    // Nice and simple, as long as our monitor is valid and active, 
+    // Nice and simple, as long as our monitor is valid and active,
     // loop and let daSession check the devices.
-    while (m_Monitor && m_Monitor->IsActive())        
+    while (m_Monitor && m_Monitor->IsActive())
     {
         // Run the run loop for interval (milliseconds) - this will
         // handle any disk arbitration appeared/dissappeared events
@@ -544,8 +554,8 @@ bool MediaMonitorDarwin::AddDevice(MythMediaDevice* pDevice)
         return false;
     }
 
-    // If the user doesn't want this device to be monitored, stop now: 
-    if (shouldIgnore(pDevice)) 
+    // If the user doesn't want this device to be monitored, stop now:
+    if (shouldIgnore(pDevice))
         return false;
 
     m_Devices.push_back( pDevice );
@@ -667,7 +677,7 @@ QStringList MediaMonitorDarwin::GetCDROMBlockDevices()
             }
         }
         else
-            LOG(VB_GENERAL, LOG_ALERT, 
+            LOG(VB_GENERAL, LOG_ALERT,
                      msg + "Could not retrieve drive properties");
 
         IOObjectRelease(drive);

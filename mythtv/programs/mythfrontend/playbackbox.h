@@ -22,6 +22,7 @@ using namespace std;
 #include "tv_play.h"
 
 #include "mythscreentype.h"
+#include "metadatafactory.h"
 
 // mythfrontend
 #include "schedulecommon.h"
@@ -44,6 +45,7 @@ class MythUITextEdit;
 class MythUIButton;
 class MythDialogBox;
 class MythMenu;
+class MythUIBusyDialog;
 
 typedef QMap<QString,ProgramList>       ProgramMap;
 typedef QMap<QString,QString>           Str2StrMap;
@@ -145,11 +147,6 @@ class PlaybackBox : public ScheduleCommon
     void SwitchList(void);
 
     void ShowGroupPopup(void);
-    void customEdit();
-    void previous();
-    void upcoming();
-    void upcomingScheduled();
-    void details();
     void StopSelected(void);
     void showMetadataEditor();
     void showGroupFilter();
@@ -163,7 +160,6 @@ class PlaybackBox : public ScheduleCommon
     MythMenu* createPlaylistStorageMenu();
     MythMenu* createPlaylistJobMenu();
     void changeProfileAndTranscode(int id);
-    void showProgramDetails();
     void showIconHelp();
     void ShowRecGroupChangerUsePlaylist(void)  { ShowRecGroupChanger(true);  }
     void ShowPlayGroupChangerUsePlaylist(void) { ShowPlayGroupChanger(true); }
@@ -176,7 +172,6 @@ class PlaybackBox : public ScheduleCommon
 
     void askStop();
 
-    void doEditScheduled();
     void doAllowRerecord();
 
     void askDelete();
@@ -189,6 +184,9 @@ class PlaybackBox : public ScheduleCommon
         { Delete((DeleteFlags)((int)kForce |(int)kAllRemaining)); }
     void DeleteIgnoreAllRemaining(void)
         { Delete((DeleteFlags)((int)kIgnore|(int)kAllRemaining)); }
+
+    void ShowRecordedEpisodes();
+    void ShowAllRecordings();
 
     void toggleWatched();
     void toggleAutoExpire();
@@ -279,7 +277,7 @@ class PlaybackBox : public ScheduleCommon
               bool ignoreBookmark,
               bool underNetworkControl);
 
-    ProgramInfo *CurrentItem(void);
+    virtual ProgramInfo *GetCurrentProgram(void) const;
 
     void togglePlayListItem(ProgramInfo *pginfo);
     void randomizePlayList(void);
@@ -373,7 +371,6 @@ class PlaybackBox : public ScheduleCommon
     // Recording Group settings
     QString             m_groupDisplayName;
     QString             m_recGroup;
-    int                 m_recGroupID;
     QString             m_curGroupPassword;
     QString             m_newRecGroup;
     QString             m_watchGroupName;
@@ -530,16 +527,25 @@ class RecMetadataEdit : public MythScreenType
 
   protected slots:
     void SaveChanges(void);
+    void PerformQuery(void);
+    void OnSearchListSelection(RefCountHandler<MetadataLookup> lookup);
 
   private:
+    void customEvent(QEvent *event);
+    void QueryComplete(MetadataLookup *lookup);
+
     MythUITextEdit     *m_titleEdit;
     MythUITextEdit     *m_subtitleEdit;
     MythUITextEdit     *m_descriptionEdit;
     MythUITextEdit     *m_inetrefEdit;
     MythUISpinBox      *m_seasonSpin;
     MythUISpinBox      *m_episodeSpin;
+    MythUIBusyDialog   *m_busyPopup;
+    MythUIButton       *m_queryButton;
 
-    ProgramInfo *m_progInfo;
+    ProgramInfo        *m_progInfo;
+    MythScreenStack    *m_popupStack;
+    MetadataFactory    *m_metadataFactory;
 };
 
 class HelpPopup : public MythScreenType

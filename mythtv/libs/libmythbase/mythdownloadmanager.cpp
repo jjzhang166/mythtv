@@ -408,7 +408,7 @@ bool MythDownloadManager::processItem(const QString &url, QNetworkRequest *req,
     dlInfo->m_authArg  = authArg;
     dlInfo->m_headers  = headers;
 
-    return downloadNow(dlInfo);
+    return downloadNow(dlInfo, true);
 }
 
 /** \brief Downloads a URL but doesn't store the resulting data anywhere
@@ -854,10 +854,7 @@ bool MythDownloadManager::downloadNow(MythDownloadInfo *dlInfo, bool deleteInfo)
         }
     }
     else if (deleteInfo)
-    {
         delete dlInfo;
-        dlInfo = NULL;
-    }
 
     m_infoLock->unlock();
 
@@ -1077,7 +1074,7 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
              redirectUrl(possibleRedirectUrl, dlInfo->m_redirectedTo);
     }
 
-    if(!dlInfo->m_redirectedTo.isEmpty())
+    if(reply && !dlInfo->m_redirectedTo.isEmpty())
     {
         LOG(VB_FILE, LOG_DEBUG, LOC +
             QString("downloadFinished(%1): Redirect: %2 -> %3")
@@ -1238,7 +1235,6 @@ void MythDownloadManager::downloadFinished(MythDownloadInfo *dlInfo)
             }
 
             delete dlInfo;
-            dlInfo = NULL;
         }
 
         m_queueWaitCond.wakeAll();

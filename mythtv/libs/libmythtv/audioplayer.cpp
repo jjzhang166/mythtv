@@ -343,6 +343,14 @@ uint AudioPlayer::SetVolume(int newvolume)
     return GetVolume();
 }
 
+void AudioPlayer::SaveVolume(void)
+{
+    if (!m_audioOutput || m_no_audio_out)
+        return;
+    QMutexLocker lock(&m_lock);
+    m_audioOutput->SaveCurrentVolume();
+}
+
 int64_t AudioPlayer::GetAudioTime(void)
 {
     if (!m_audioOutput || m_no_audio_out)
@@ -509,10 +517,18 @@ bool AudioPlayer::IsBufferAlmostFull(void)
     if (GetBufferStatus(ofill, ototal))
     {
         othresh =  ((ototal>>1) + (ototal>>2));
-        return ofill > othresh;
+        if (ofill > othresh)
+            return true;
+        return GetAudioBufferedTime() > 2000;
     }
     return false;
 }
+
+int64_t AudioPlayer::GetAudioBufferedTime(void)
+{
+    return m_audioOutput ? m_audioOutput->GetAudioBufferedTime() : 0;
+}
+
 
 bool AudioPlayer::CanProcess(AudioFormat fmt)
 {

@@ -37,18 +37,11 @@ class ProgFinder : public ScheduleCommon
     void timesListTakeFocus(void);
     void timesListLosingFocus(void);
 
-    void showGuide();
+    virtual void ShowGuide() const;
     void select();
-    void customEdit();
-    void upcoming();
-    void previous();
-    void details();
-    void quickRecord();
 
     void customEvent(QEvent *e);
     void updateInfo(void);
-    void getInfo(bool toggle = false);
-    void edit(void);
 
   protected:
     typedef QMap<QString,QString> ShowName;
@@ -60,6 +53,7 @@ class ProgFinder : public ScheduleCommon
     virtual bool formatSelectedData(QString &data, int charNum);
     virtual void restoreSelectedData(QString &data);
     virtual void whereClauseGetSearchData(QString &where, MSqlBindings &bindings);
+    virtual ProgramInfo *GetCurrentProgram(void) const;
 
     void ShowMenu(void);
     void getShowNames(void);

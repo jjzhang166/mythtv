@@ -34,6 +34,7 @@
 
 #include "datacontracts/programAndChannel.h"
 #include "datacontracts/channelGroupList.h"
+#include "datacontracts/programList.h"
 #include "programinfo.h"
 
 class Guide : public GuideServices
@@ -54,6 +55,20 @@ class Guide : public GuideServices
                                                   bool             Details,
                                                   int              ChannelGroupId );
 
+        DTC::ProgramList*   GetProgramList      ( int              StartIndex,
+                                                  int              Count,
+                                                  const QDateTime &StartTime  ,
+                                                  const QDateTime &EndTime    ,
+                                                  int              ChanId,
+                                                  const QString   &TitleFilter,
+                                                  const QString   &CategoryFilter,
+                                                  const QString   &PersonFilter,
+                                                  const QString   &KeywordFilter,
+                                                  bool             OnlyNew,
+                                                  bool             Details,
+                                                  const QString   &Sort,
+                                                  bool             Descending );
+
         DTC::Program*       GetProgramDetails   ( int              ChanId,
                                                   const QDateTime &StartTime );
 
@@ -61,7 +76,11 @@ class Guide : public GuideServices
                                                   int              Width ,
                                                   int              Height );
 
-        DTC::ChannelGroupList*  GetChannelGroupList ( bool IncludeEmpty );
+        DTC::ChannelGroupList*  GetChannelGroupList ( bool         IncludeEmpty );
+
+        QStringList         GetCategoryList     ( );
+
+        QStringList         GetStoredSearches( const QString   &Type );
 };
 
 // --------------------------------------------------------------------------
@@ -103,6 +122,28 @@ class ScriptableGuide : public QObject
             return m_obj.GetProgramGuide( StartTime, EndTime, StartChanId, NumChannels, Details, ChannelGroupId );
         }
 
+        QObject* GetProgramList(int              StartIndex,
+                                int              Count,
+                                const QDateTime &StartTime,
+                                const QDateTime &EndTime,
+                                int              ChanId,
+                                const QString   &TitleFilter,
+                                const QString   &CategoryFilter,
+                                const QString   &PersonFilter,
+                                const QString   &KeywordFilter,
+                                bool             OnlyNew,
+                                bool             Details,
+                                const QString   &Sort,
+                                bool             Descending)
+        {
+            return m_obj.GetProgramList( StartIndex, Count,
+                                         StartTime, EndTime, ChanId,
+                                         TitleFilter, CategoryFilter,
+                                         PersonFilter, KeywordFilter,
+                                         OnlyNew, Details,
+                                         Sort, Descending );
+        }
+
         QObject* GetProgramDetails( int ChanId, const QDateTime &StartTime )
         {
             return m_obj.GetProgramDetails( ChanId, StartTime );
@@ -113,9 +154,19 @@ class ScriptableGuide : public QObject
             return m_obj.GetChannelIcon( ChanId, Width, Height );
         }
 
-        QObject* GetChannelGroupList( bool IncludeEmpty )
+        QObject* GetChannelGroupList( bool IncludeEmpty = false )
         {
             return m_obj.GetChannelGroupList( IncludeEmpty );
+        }
+
+        QStringList GetCategoryList( )
+        {
+            return m_obj.GetCategoryList();
+        }
+
+        QStringList GetStoredSearches( QString Type )
+        {
+            return m_obj.GetStoredSearches( Type );
         }
 };
 

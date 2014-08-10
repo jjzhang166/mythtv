@@ -434,6 +434,7 @@ bool TV::StartTV(ProgramInfo *tvrec, uint flags,
             mctx->UnlockDeletePlayer(__FILE__, __LINE__);
         }
         tv->ReturnPlayerLock(mctx);
+        quitAll |= !playerError.isEmpty();
     }
 
     LOG(VB_PLAYBACK, LOG_INFO, LOC + "StartTV -- process events 2 begin");
@@ -539,6 +540,8 @@ void TV::InitKeys(void)
             "Show the Program Guide"), "S");
     REG_KEY("TV Frontend", ACTION_FINDER, QT_TRANSLATE_NOOP("MythControls",
             "Show the Program Finder"), "#");
+    REG_KEY("TV Frontend", ACTION_CHANNELSEARCH, QT_TRANSLATE_NOOP("MythControls",
+            "Show the Channel Search"), "");
     REG_KEY("TV Frontend", "NEXTFAV", QT_TRANSLATE_NOOP("MythControls",
             "Cycle through channel groups and all channels in the "
             "program guide."), "/");
@@ -574,6 +577,8 @@ void TV::InitKeys(void)
             "Change Recording Group"), "");
     REG_KEY("TV Frontend", "CHANGEGROUPVIEW", QT_TRANSLATE_NOOP("MythControls",
             "Change Group View"), "");
+    REG_KEY("TV Frontend", ACTION_LISTRECORDEDEPISODES, QT_TRANSLATE_NOOP("MythControls",
+            "List recorded episodes"), "");
 
     REG_KEY("TV Playback", "BACK", QT_TRANSLATE_NOOP("MythControls",
             "Exit or return to DVD menu"), "Esc");
@@ -1874,7 +1879,7 @@ void TV::ShowOSDAskAllow(PlayerContext *ctx)
         // get the currently used input on our card
         bool busy_input_grps_loaded = false;
         vector<uint> busy_input_grps;
-        TunedInputInfo busy_input;
+        InputInfo busy_input;
         RemoteIsBusy(cardid, busy_input);
 
         // check if current input can conflict
@@ -1919,8 +1924,10 @@ void TV::ShowOSDAskAllow(PlayerContext *ctx)
                 (*it).is_conflicting = true;
             else if (!CardUtil::IsTunerShared(cardid, (*it).info->GetCardID()))
                 (*it).is_conflicting = true;
-            else if ((busy_input.sourceid == (uint)(*it).info->GetSourceID()) &&
-                     (busy_input.mplexid  == (uint)(*it).info->QueryMplexID()))
+            else if ((busy_input.mplexid &&
+                      (busy_input.mplexid  == (*it).info->QueryMplexID())) ||
+                     (!busy_input.mplexid &&
+                      (busy_input.chanid == (*it).info->GetChanID())))
                 (*it).is_conflicting = false;
             else
                 (*it).is_conflicting = true;
@@ -3317,6 +3324,11 @@ void TV::PrepareToExitPlayer(PlayerContext *ctx, int line, BookmarkAction bookma
         }
         if (db_auto_set_watched)
             ctx->player->SetWatched();
+
+        if (ctx->player->GetAudio()->ControlsVolume())
+        {
+            ctx->player->SaveVolume();
+        }
     }
     ctx->UnlockDeletePlayer(__FILE__, line);
 }
@@ -4624,7 +4636,7 @@ bool TV::FFRewHandleAction(PlayerContext *ctx, const QStringList &actions)
         if (!handled)
         {
             DoPlayerSeek(ctx, StopFFRew(ctx));
-            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
             handled = true;
         }
     }
@@ -4632,7 +4644,7 @@ bool TV::FFRewHandleAction(PlayerContext *ctx, const QStringList &actions)
     if (ctx->ff_rew_speed)
     {
         NormalSpeed(ctx);
-        UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+        UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
         handled = true;
     }
 
@@ -5848,7 +5860,8 @@ void TV::PxPToggleType(PlayerContext *mctx, bool wantPBP)
     if (wantPBP)
     {
         GetPlayer(mctx, 0)->SetPIPState(kPBPLeft);
-        GetPlayer(mctx, 1)->SetPIPState(kPBPRight);
+        if (player.size() > 1)
+            GetPlayer(mctx, 1)->SetPIPState(kPBPRight);
     }
     else
     {
@@ -6239,7 +6252,7 @@ void TV::DoTogglePauseFinish(PlayerContext *ctx, float time, bool showOSD)
     {
         DoPlayerSeek(ctx, time);
         if (showOSD)
-            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
         GetMythUI()->DisableScreensaver();
     }
 
@@ -6425,7 +6438,7 @@ bool TV::SeekHandleAction(PlayerContext *actx, const QStringList &actions,
                     actx->player->TranslatePositionRelToAbs(targetRel);
                 actx->UnlockDeletePlayer(__FILE__, __LINE__);
                 DoPlayerSeekToFrame(actx, targetAbs);
-                UpdateOSDSeekMessage(actx, message, kOSDTimeout_Med);
+                UpdateOSDSeekMessage(actx, message, kOSDTimeout_Short);
             }
         }
     }
@@ -7540,7 +7553,7 @@ void TV::ChangeChannel(PlayerContext *ctx, ChannelChangeDirection direction)
             if (channelGroupId > -1)
             {
                 uint chanid = ChannelUtil::GetNextChannel(
-                    channelGroupChannelList, old_chanid, 0, direction);
+                    channelGroupChannelList, old_chanid, 0, 0, direction);
                 if (chanid)
                     ChangeChannel(ctx, chanid, "");
                 return;
@@ -7747,7 +7760,8 @@ void TV::ChangeChannel(PlayerContext *ctx, uint chanid, const QString &chan)
     if (ctx->prevChan.empty())
         ctx->PushPreviousChannel();
 
-    PauseAudioUntilBuffered(ctx);
+    if (ctx->player)
+        ctx->player->GetAudio()->Pause(true);
     PauseLiveTV(ctx);
 
     ctx->LockDeletePlayer(__FILE__, __LINE__);
@@ -7764,6 +7778,7 @@ void TV::ChangeChannel(PlayerContext *ctx, uint chanid, const QString &chan)
         ctx->player->GetAudio()->Reset();
 
     UnpauseLiveTV(ctx, chanid && GetQueuedChanID());
+    PauseAudioUntilBuffered(ctx);
 
     if (oldinputname != ctx->recorder->GetInput())
         UpdateOSDInput(ctx);
@@ -8492,11 +8507,12 @@ QSet<uint> TV::IsTunableOn(TV *tv,
 
         for (uint j = 0; j < inputs.size(); j++)
         {
-            if (inputs[j].sourceid != sourceid)
-                continue;
-
             if (inputs[j].mplexid &&
                 inputs[j].mplexid != mplexid)
+                continue;
+
+            if (!inputs[j].mplexid && inputs[j].chanid &&
+                inputs[j].chanid != chanid)
                 continue;
 
             tunable_cards.insert(cardids[i]);
@@ -8880,7 +8896,7 @@ void TV::ChangeTimeStretch(PlayerContext *ctx, int dir, bool allowEdit)
     {
         if (!allowEdit)
         {
-            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Med);
+            UpdateOSDSeekMessage(ctx, ctx->GetPlayMessage(), kOSDTimeout_Short);
         }
         else
         {
@@ -9817,6 +9833,21 @@ void TV::customEvent(QEvent *e)
                 ctx->UnlockDeletePlayer(__FILE__, __LINE__);
             }
         }
+        ReturnPlayerLock(mctx);
+    }
+
+    if (message == "NOTIFICATION")
+    {
+        if (!GetNotificationCenter())
+            return;
+
+        PlayerContext *mctx = GetPlayerReadLock(0, __FILE__, __LINE__);
+        OSD *osd = GetOSDLock(mctx);
+
+        MythNotification mn(*me);
+        MythNotificationCenter::GetInstance()->Queue(mn);
+
+        ReturnOSDLock(mctx, osd);
         ReturnPlayerLock(mctx);
     }
 }
@@ -12907,7 +12938,7 @@ void TV::UnpauseLiveTV(PlayerContext *ctx, bool bQuietly /*=false*/)
     if (ctx->HasPlayer() && ctx->tvchain)
     {
         ctx->ReloadTVChain();
-        ctx->tvchain->JumpTo(-1, 1);
+        ctx->tvchain->SwitchTo(-1);
         ctx->LockDeletePlayer(__FILE__, __LINE__);
         if (ctx->player)
             ctx->player->Play(ctx->ts_normal, true, false);

@@ -32,10 +32,12 @@ using namespace std;
 #include "mythlogging.h"
 #include "vbitext/cc.h"
 #include "vbitext/vbi.h"
+#include "mythavutil.h"
+#include "fourcc.h"
 
 #if HAVE_BIGENDIAN
 extern "C" {
-#include "byteswap.h"
+#include "bswap.h"
 }
 #endif
 
@@ -175,6 +177,8 @@ NuppelVideoRecorder::NuppelVideoRecorder(TVRec *rec, ChannelBase *channel) :
     hmjpg_vdecimation = 2;
     hmjpg_maxw = 640;
 
+    cleartimeonpause = false;
+
     videoFilterList = "";
     videoFilters = NULL;
     FiltMan = new FilterManager;
@@ -191,7 +195,6 @@ NuppelVideoRecorder::NuppelVideoRecorder(TVRec *rec, ChannelBase *channel) :
 
     go7007 = false;
     resetcapture = false;
-    memset(&mpa_picture, 0, sizeof(mpa_picture));
 
     SetPositionMapType(MARK_KEYFRAME);
 }
@@ -523,17 +526,12 @@ bool NuppelVideoRecorder::SetupAVCodecVideo(void)
 
     mpa_vidctx = avcodec_alloc_context3(NULL);
 
-    avcodec_get_frame_defaults(&mpa_picture);
-
     switch (picture_format)
     {
         case PIX_FMT_YUV420P:
         case PIX_FMT_YUV422P:
         case PIX_FMT_YUVJ420P:
             mpa_vidctx->pix_fmt = picture_format;
-            mpa_picture.linesize[0] = w_out;
-            mpa_picture.linesize[1] = w_out / 2;
-            mpa_picture.linesize[2] = w_out / 2;
             break;
         default:
             LOG(VB_GENERAL, LOG_ERR, LOC + QString("Unknown picture format: %1")
@@ -1243,7 +1241,7 @@ void NuppelVideoRecorder::DoV4L1(void)
                                                PROT_READ|PROT_WRITE,
                                                MAP_SHARED,
                                                fd, 0);
-    if (buf <= 0)
+    if (buf == MAP_FAILED)
     {
         QString tmp = "mmap: " + ENO;
         KillChildren();
@@ -2936,18 +2934,30 @@ void NuppelVideoRecorder::WriteVideo(VideoFrame *frame, bool skipsync,
 
     if (useavcodec)
     {
-        mpa_picture.data[0] = planes[0];
-        mpa_picture.data[1] = planes[1];
-        mpa_picture.data[2] = planes[2];
-        mpa_picture.linesize[0] = frame->width;
-        mpa_picture.linesize[1] = frame->width / 2;
-        mpa_picture.linesize[2] = frame->width / 2;
-        mpa_picture.type = FF_BUFFER_TYPE_SHARED;
+        MythAVFrame mpa_picture;
+
+        switch (picture_format)
+        {
+            case PIX_FMT_YUV420P:
+            case PIX_FMT_YUV422P:
+            case PIX_FMT_YUVJ420P:
+                mpa_picture->linesize[0] = w_out;
+                mpa_picture->linesize[1] = w_out / 2;
+                mpa_picture->linesize[2] = w_out / 2;
+                break;
+        }
+        mpa_picture->data[0] = planes[0];
+        mpa_picture->data[1] = planes[1];
+        mpa_picture->data[2] = planes[2];
+        mpa_picture->linesize[0] = frame->width;
+        mpa_picture->linesize[1] = frame->width / 2;
+        mpa_picture->linesize[2] = frame->width / 2;
+        mpa_picture->type = FF_BUFFER_TYPE_SHARED;
 
         if (wantkeyframe)
-            mpa_picture.pict_type = AV_PICTURE_TYPE_I;
+            mpa_picture->pict_type = AV_PICTURE_TYPE_I;
         else
-            mpa_picture.pict_type = AV_PICTURE_TYPE_NONE;
+            mpa_picture->pict_type = AV_PICTURE_TYPE_NONE;
 
         if (!hardware_encode)
         {
@@ -2959,7 +2969,7 @@ void NuppelVideoRecorder::WriteVideo(VideoFrame *frame, bool skipsync,
             int got_packet = 0;
 
             QMutexLocker locker(avcodeclock);
-            tmp = avcodec_encode_video2(mpa_vidctx, &packet, &mpa_picture,
+            tmp = avcodec_encode_video2(mpa_vidctx, &packet, mpa_picture,
                                         &got_packet);
 
             if (tmp < 0 || !got_packet)
@@ -3265,4 +3275,3 @@ void NuppelVideoRecorder::WriteText(unsigned char *buf, int len, int timecode,
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
-

@@ -69,6 +69,8 @@ class PlaybackSock : public ReferenceCounter
     QStringList GetSGFileQuery(QString &host, QString &groupname,
                                QString &filename);
     QString GetFileHash(QString filename, QString storageGroup);
+    QStringList GetFindFile(const QString &host, const QString &filename,
+                            const QString &storageGroup, bool useRegex);
 
     QStringList GenPreviewPixmap(const QString     &token,
                                  const ProgramInfo *pginfo);
@@ -89,7 +91,7 @@ class PlaybackSock : public ReferenceCounter
     ProgramInfo *GetRecording(uint cardid);
     bool EncoderIsRecording(int capturecardnum, const ProgramInfo *pginfo);
     RecStatusType StartRecording(int capturecardnum,
-                                 const ProgramInfo *pginfo);
+                                 ProgramInfo *pginfo);
     RecStatusType GetRecordingStatus(int capturecardnum);
     void RecordPending(int capturecardnum, const ProgramInfo *pginfo,
                        int secsleft, bool hasLater);

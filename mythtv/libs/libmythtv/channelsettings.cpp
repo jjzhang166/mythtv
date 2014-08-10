@@ -11,6 +11,8 @@
 #include "mythdirs.h"
 #include "cardutil.h"
 
+using std::vector;
+
 QString ChannelDBStorage::GetWhereClause(MSqlBindings &bindings) const
 {
     QString fieldTag = (":WHERE" + id.getField().toUpper());
@@ -168,7 +170,7 @@ class TimeOffset : public SpinBoxSetting, public ChannelDBStorage
         SpinBoxSetting(this, -1440, 1440, 1),
         ChannelDBStorage(this, id, "tmoffset")
     {
-        setLabel(QCoreApplication::translate("(ChannelSettings)", 
+        setLabel(QCoreApplication::translate("(ChannelSettings)",
                                              "DataDirect Time Offset"));
 
         setHelpText(QCoreApplication::translate("(ChannelSettings)",
@@ -216,7 +218,7 @@ class VideoFilters : public LineEditSetting, public ChannelDBStorage
     VideoFilters(const ChannelID &id) :
         LineEditSetting(this), ChannelDBStorage(this, id, "videofilters")
     {
-        setLabel(QCoreApplication::translate("(ChannelSettings)", 
+        setLabel(QCoreApplication::translate("(ChannelSettings)",
                                              "Video filters"));
 
         setHelpText(QCoreApplication::translate("(ChannelSettings)",
@@ -251,7 +253,7 @@ class XmltvID : public ComboBoxSetting, public ChannelDBStorage
     {
         setLabel(QCoreApplication::translate("(Common)", "XMLTV ID"));
 
-        setHelpText(QCoreApplication::translate("(ChannelSettings)", 
+        setHelpText(QCoreApplication::translate("(ChannelSettings)",
             "ID used by listing services to get an exact correspondence "
             "between a channel in your line-up and a channel in their "
             "database. Normally this is set automatically when "
@@ -300,6 +302,40 @@ class XmltvID : public ComboBoxSetting, public ChannelDBStorage
     QString sourceName;
 };
 
+class ServiceID : public SpinBoxSetting, public ChannelDBStorage
+{
+  public:
+    ServiceID(const ChannelID &id)
+        : SpinBoxSetting(this, -1, 999, 1, true, "NULL"),
+          ChannelDBStorage(this, id, "serviceid")
+    {
+        setLabel(QCoreApplication::translate("(ChannelSettings)", "ServiceID"));
+
+        setHelpText(QCoreApplication::translate("(ChannelSettings)",
+                "Servide ID (Primary PID) of desired channel within the transport stream. "
+                "If there is only one channel, then setting this to zero will find it."));
+    }
+
+    void Load(void)
+    {
+        ChannelDBStorage::Load();
+
+        if (initval.isNull())
+        {
+            user->SetDBValue("-1");
+            initval = "-1";
+        }
+    }
+
+    QString getValue(void) const
+    {
+        if (settingValue.toInt() == -1)
+            return QString();
+        else
+            return settingValue;
+    }
+};
+
 class CommMethod : public ComboBoxSetting, public ChannelDBStorage
 {
   public:
@@ -333,7 +369,7 @@ class Visible : public CheckBoxSetting, public ChannelDBStorage
 
         setLabel(QCoreApplication::translate("(ChannelSettings)", "Visible"));
 
-        setHelpText(QCoreApplication::translate("(ChannelSettings)", 
+        setHelpText(QCoreApplication::translate("(ChannelSettings)",
             "If enabled, the channel will be visible in the EPG."));
     }
 };
@@ -347,7 +383,7 @@ class OnAirGuide : public CheckBoxSetting, public ChannelDBStorage
         setLabel(QCoreApplication::translate("(ChannelSettings)",
                                              "Use on air guide"));
 
-        setHelpText(QCoreApplication::translate("(ChannelSettings)", 
+        setHelpText(QCoreApplication::translate("(ChannelSettings)",
             "If enabled, guide information for this channel will be updated "
             "using 'Over-the-Air' program listings."));
     }
@@ -378,10 +414,10 @@ class Finetune : public SliderSetting, public ChannelDBStorage
         : SliderSetting(this, -300, 300, 1),
         ChannelDBStorage(this, id, "finetune")
     {
-        setLabel(QCoreApplication::translate("(ChannelSettings)", 
+        setLabel(QCoreApplication::translate("(ChannelSettings)",
                                              "Finetune (kHz)"));
 
-        setHelpText(QCoreApplication::translate("(ChannelSettings)", 
+        setHelpText(QCoreApplication::translate("(ChannelSettings)",
             "Value to be added to your desired frequency (in kHz) for "
             "'fine tuning'."));
     }
@@ -451,11 +487,15 @@ ChannelOptionsCommon::ChannelOptionsCommon(const ChannelID &id,
         new VerticalConfigurationGroup(false, true);
     VerticalConfigurationGroup *right =
         new VerticalConfigurationGroup(false, true);
-
+    HorizontalConfigurationGroup *subgroup1 =
+        new HorizontalConfigurationGroup(false,false,true,true);
 
     left->addChild(new Channum(id));
     left->addChild(new Callsign(id));
-    left->addChild(new Visible(id));
+
+    subgroup1->addChild(new Visible(id));
+    subgroup1->addChild(new ServiceID(id));
+    left->addChild(subgroup1);
 
     right->addChild(source);
     right->addChild(new ChannelTVFormat(id));
@@ -649,7 +689,7 @@ void ChannelOptionsRawTS::Load(void)
                           .arg(it->GetPID(),2,16,QLatin1Char('0')));
         sids[i]->setValue(QString::number(it->GetComposite()&0x1ff));
         pcrs[i]->setValue(it->IsPCRPID());
-        
+
         ++it;
         ++i;
     }

@@ -28,14 +28,12 @@ class UPnpCDSVideo : public UPnpCDSExtension
         static int             g_nRootCount;
 
         QStringMap             m_mapBackendIp;
-        QStringMap             m_mapBackendPort;
+        QMap<QString, int>     m_mapBackendPort;
 
     protected:
 
         virtual bool             IsBrowseRequestForUs( UPnpCDSRequest *pRequest );
         virtual bool             IsSearchRequestForUs( UPnpCDSRequest *pRequest );
-
-        virtual int              GetDistinctCount( UPnpCDSRootInfo *pInfo );
 
         virtual UPnpCDSRootInfo *GetRootInfo   (int nIdx);
         virtual int              GetRootCount  ( );
@@ -51,6 +49,10 @@ class UPnpCDSVideo : public UPnpCDSExtension
                                           bool                     bAddRef, 
                                           MSqlQuery               &query );
 
+        virtual CDSObject       *CreateContainer( const QString &sId,
+                                                  const QString &sTitle,
+                                                  const QString &sParentId,
+                                                  const QString &sClass );
     public:
 
         UPnpCDSVideo( ) : UPnpCDSExtension( "Videos", "Videos",

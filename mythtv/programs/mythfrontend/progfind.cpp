@@ -24,7 +24,8 @@
 
 // mythfrontend
 #include "guidegrid.h"
-#include "customedit.h"
+#include "mythplayer.h"
+#include "mythplayer.h"
 #include "progfind.h"
 
 #define LOC      QString("ProgFinder: ")
@@ -187,19 +188,21 @@ bool ProgFinder::keyPressEvent(QKeyEvent *event)
         handled = true;
 
         if (action == "EDIT")
-            edit();
+            EditScheduled();
         else if (action == "CUSTOMEDIT")
-            customEdit();
+            EditCustom();
         else if (action == "UPCOMING")
-            upcoming();
+            ShowUpcoming();
         else if (action == "PREVRECORDED")
-            previous();
+            ShowPrevious();
         else if (action == "DETAILS" || action == "INFO")
-            details();
+            ShowDetails();
         else if (action == "TOGGLERECORD")
-            quickRecord();
+            QuickRecord();
         else if (action == "GUIDE" || action == "4")
-            showGuide();
+            ShowGuide();
+        else if (action == ACTION_CHANNELSEARCH)
+            ShowChannelSearch();
         else if (action == "ESCAPE")
         {
             // don't fade the screen if we are returning to the player
@@ -242,6 +245,7 @@ void ProgFinder::ShowMenu(void)
             menuPopup->AddButton(tr("Previously Recorded"));
             menuPopup->AddButton(tr("Custom Edit"));
             menuPopup->AddButton(tr("Program Guide"));
+            menuPopup->AddButton(tr("Channel Search"));
         }
 
         popupStack->AddScreen(menuPopup);
@@ -301,27 +305,31 @@ void ProgFinder::customEvent(QEvent *event)
             }
             else if (resulttext == tr("Toggle Record"))
             {
-                quickRecord();
+                QuickRecord();
             }
             else if (resulttext == tr("Program Details"))
             {
-                details();
+                ShowDetails();
             }
             else if (resulttext == tr("Upcoming"))
             {
-                upcoming();
+                ShowUpcoming();
             }
             else if (resulttext == tr("Previously Recorded"))
             {
-                previous();
+                ShowPrevious();
             }
             else if (resulttext == tr("Custom Edit"))
             {
-                customEdit();
+                EditCustom();
             }
             else if (resulttext == tr("Program Guide"))
             {
-                showGuide();
+                ShowGuide();
+            }
+            else if (resulttext == tr("Channel Search"))
+            {
+                ShowChannelSearch();
             }
         }
         else if (resultid == "searchtext")
@@ -401,7 +409,7 @@ void ProgFinder::updateInfo(void)
     }
 }
 
-void ProgFinder::showGuide()
+void ProgFinder::ShowGuide() const
 {
     if (m_allowEPG)
     {
@@ -421,96 +429,14 @@ void ProgFinder::showGuide()
     }
 }
 
-void ProgFinder::getInfo(bool toggle)
-{
-    if (GetFocusWidget() == m_timesList)
-    {
-        ProgramInfo *curPick = m_showData[m_timesList->GetCurrentPos()];
-
-        if (curPick)
-        {
-            if (toggle)
-                QuickRecord(curPick);
-            else
-                EditRecording(curPick);
-        }
-        else
-            return;
-
-        // TODO: When schedule editor is non-blocking, move
-        selectShowData(curPick->GetTitle(), m_timesList->GetCurrentPos());
-    }
-}
-
-void ProgFinder::edit()
-{
-    if (GetFocusWidget() == m_timesList)
-    {
-        ProgramInfo *curPick = m_showData[m_timesList->GetCurrentPos()];
-
-        if (curPick)
-        {
-            EditScheduled(curPick);
-            // TODO: When schedule editor is non-blocking, move
-            selectShowData(curPick->GetTitle(), m_timesList->GetCurrentPos());
-        }
-    }
-}
-
 void ProgFinder::select()
 {
     if (GetFocusWidget() == m_timesList)
-        getInfo();
+        EditRecording();
     else if (GetFocusWidget() == m_alphabetList && m_showList->GetCount())
         SetFocusWidget(m_showList);
     else if (GetFocusWidget() == m_showList)
         SetFocusWidget(m_timesList);
-}
-
-void ProgFinder::customEdit()
-{
-    if (GetFocusWidget() == m_timesList)
-    {
-        ProgramInfo *pginfo = m_showData[m_timesList->GetCurrentPos()];
-        EditCustom(pginfo);
-    }
-}
-
-void ProgFinder::upcoming()
-{
-    if (GetFocusWidget() == m_timesList)
-    {
-        ProgramInfo *pginfo = m_showData[m_timesList->GetCurrentPos()];
-        ShowUpcoming(pginfo);
-    }
-}
-
-void ProgFinder::previous()
-{
-    if (GetFocusWidget() == m_timesList)
-    {
-        ProgramInfo *pginfo = m_showData[m_timesList->GetCurrentPos()];
-        ShowPrevious(pginfo);
-    }
-    else if (GetFocusWidget() == m_showList &&
-             m_showList->GetCount() > 0)
-    {
-        ShowPrevious(0, m_showList->GetValue());
-    }
-}
-
-void ProgFinder::details()
-{
-    if (GetFocusWidget() != m_timesList)
-        return;
-
-    ProgramInfo *curPick = m_showData[m_timesList->GetCurrentPos()];
-    ShowDetails(curPick);
-}
-
-void ProgFinder::quickRecord()
-{
-    getInfo(true);
 }
 
 void ProgFinder::updateTimesList()
@@ -1131,6 +1057,13 @@ void RuProgFinder::restoreSelectedData(QString& data)
 {
     (void)data;
 }
+
+ProgramInfo *ProgFinder::GetCurrentProgram(void) const
+{
+    return (GetFocusWidget() == m_timesList) ?
+        m_showData[m_timesList->GetCurrentPos()] : NULL;
+};
+
 //////////////////////////////////////////////////////////////////////////////
 
 SearchInputDialog::SearchInputDialog(MythScreenStack *parent,

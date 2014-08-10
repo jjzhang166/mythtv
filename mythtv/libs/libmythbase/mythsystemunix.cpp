@@ -14,10 +14,11 @@
 #include <fcntl.h>
 #include <time.h>
 #include <signal.h>  // for kill()
-#include <string.h>
+#include <string.h> // for strerror()
 #include <sys/select.h>
 #include <sys/wait.h>
-#include <iostream>
+#include <iostream> // for cerr()
+using namespace std; // for most of the above
 
 // QT headers
 #include <QCoreApplication>
@@ -893,19 +894,26 @@ void MythSystemLegacyUnix::Fork(time_t timeout)
     SetArgs( args );
 
     QByteArray cmdUTF8 = GetCommand().toUtf8();
-    const char *command = strdup(cmdUTF8.constData());
+    char *command = strdup(cmdUTF8.constData());
 
     char **cmdargs = (char **)malloc((args.size() + 1) * sizeof(char *));
     int i;
     QStringList::const_iterator it;
 
-    for (i = 0, it = args.constBegin(); it != args.constEnd(); ++it)
+    if (cmdargs)
     {
-        cmdargs[i++] = strdup(it->toUtf8().constData());
+        for (i = 0, it = args.constBegin(); it != args.constEnd(); ++it)
+        {
+            cmdargs[i++] = strdup(it->toUtf8().constData());
+        }
+        cmdargs[i] = (char *)NULL;
     }
-    cmdargs[i] = NULL;
+    else
+        LOG(VB_GENERAL, LOG_CRIT, LOC_ERR +
+                        "Failed to allocate memory for cmdargs " +
+                        ENO);
 
-    const char *directory = NULL;
+    char *directory = NULL;
     QString dir = GetDirectory();
     if (GetSetting("SetDirectory") && !dir.isEmpty())
         directory = strdup(dir.toUtf8().constData());
@@ -1121,11 +1129,9 @@ void MythSystemLegacyUnix::Fork(time_t timeout)
     /* Parent */
 
     // clean up the memory use
-    if( command )
-        free((void *)command);
+    free(command);
 
-    if( directory )
-        free((void *)directory);
+    free(directory);
 
     if( cmdargs )
     {

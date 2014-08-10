@@ -120,13 +120,11 @@ void VideoOutputOpenGL::DestroyCPUResources(void)
 
     if (av_pause_frame.buf)
     {
-        delete [] av_pause_frame.buf;
-        av_pause_frame.buf = NULL;
+        av_freep(&av_pause_frame.buf);
     }
     if (av_pause_frame.qscale_table)
     {
-        delete [] av_pause_frame.qscale_table;
-        av_pause_frame.qscale_table = NULL;
+        av_freep(&av_pause_frame.qscale_table);
     }
     gl_context_lock.unlock();
 }
@@ -320,7 +318,7 @@ bool VideoOutputOpenGL::SetupContext(void)
         return false;
     }
 
-    gl_context = MythRenderOpenGL::Create("", device);
+    gl_context = MythRenderOpenGL::Create(QString(), device);
     if (gl_context && gl_context->create())
     {
         gl_context->Init();
@@ -424,11 +422,15 @@ bool VideoOutputOpenGL::CreateBuffers(void)
 
 bool VideoOutputOpenGL::CreatePauseFrame(void)
 {
+    int size = buffersize(FMT_YV12,
+                          vbuffers.GetScratchFrame()->width,
+                          vbuffers.GetScratchFrame()->height);
+    unsigned char *buffer = (unsigned char *)av_malloc(size);
     init(&av_pause_frame, FMT_YV12,
-         new unsigned char[vbuffers.GetScratchFrame()->size + 128],
+         buffer,
          vbuffers.GetScratchFrame()->width,
          vbuffers.GetScratchFrame()->height,
-         vbuffers.GetScratchFrame()->size);
+         size);
 
     av_pause_frame.frameNumber = vbuffers.GetScratchFrame()->frameNumber;
 
@@ -477,7 +479,10 @@ void VideoOutputOpenGL::ProcessFrame(VideoFrame *frame, OSD *osd,
         pauseframe = true;
     }
 
-    CropToDisplay(frame);
+    if (sw_frame)
+    {
+        CropToDisplay(frame);
+    }
 
     bool dummy = frame->dummy;
     if (filterList && sw_frame && !dummy)
@@ -652,7 +657,7 @@ void VideoOutputOpenGL::Show(FrameScanType scan)
         return;
     }
 
-    if (gl_context)
+    if (gl_context && gl_context->format().doubleBuffer())
         gl_context->swapBuffers();
 }
 
@@ -869,8 +874,7 @@ void VideoOutputOpenGL::ShowPIP(VideoFrame  *frame,
                      dvr, position,
                      QRect(0, 0, pipVideoWidth, pipVideoHeight),
                      false, options, false);
-        QSize viewport = gl_videochain ? gl_videochain->GetViewPort() :
-                                         window.GetDisplayVisibleRect().size();
+        QSize viewport = window.GetDisplayVisibleRect().size();
         gl_pipchain->SetMasterViewport(viewport);
         if (!success)
         {
@@ -895,8 +899,7 @@ void VideoOutputOpenGL::ShowPIP(VideoFrame  *frame,
             QRect(0, 0, pipVideoWidth, pipVideoHeight),
             false, options, false);
 
-        QSize viewport = gl_videochain ? gl_videochain->GetViewPort() :
-                                         window.GetDisplayVisibleRect().size();
+        QSize viewport = window.GetDisplayVisibleRect().size();
         gl_pipchain->SetMasterViewport(viewport);
 
         if (!success)

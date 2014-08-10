@@ -11,6 +11,7 @@
 #include "mythsystemlegacy.h"
 #include "storagegroup.h"
 #include "metadatadownload.h"
+#include "metadatafactory.h"
 #include "mythmiscutil.h"
 #include "remotefile.h"
 #include "mythlogging.h"
@@ -92,44 +93,30 @@ void MetadataDownload::run()
         MetadataLookupList list;
 
         // Go go gadget Metadata Lookup
-        if (lookup->GetType() == kMetadataVideo)
+        if (lookup->GetType() == kMetadataVideo ||
+            lookup->GetType() == kMetadataRecording)
         {
             if (lookup->GetSubtype() == kProbableTelevision)
                 list = handleTelevision(lookup);
             else if (lookup->GetSubtype() == kProbableMovie)
                 list = handleMovie(lookup);
             else
+            {
+                // will try both movie and TV
                 list = handleVideoUndetermined(lookup);
+            }
 
-            if (list.isEmpty() &&
-                lookup->GetSubtype() == kUnknownVideo)
+            if ((list.isEmpty() ||
+                 (list.size() > 1 && !lookup->GetAutomatic())) &&
+                lookup->GetSubtype() == kProbableTelevision)
             {
-                list = handleMovie(lookup);
+                list.append(handleMovie(lookup));
             }
-        }
-        else if (lookup->GetType() == kMetadataRecording)
-        {
-            if (lookup->GetSubtype() == kProbableTelevision)
+            else if ((list.isEmpty() ||
+                      (list.size() > 1 && !lookup->GetAutomatic())) &&
+                     lookup->GetSubtype() == kProbableMovie)
             {
-                if (lookup->GetSeason() > 0 || lookup->GetEpisode() > 0)
-                    list = handleTelevision(lookup);
-                else if (!lookup->GetSubtitle().isEmpty())
-                    list = handleVideoUndetermined(lookup);
-
-                if (list.isEmpty())
-                    list = handleRecordingGeneric(lookup);
-            }
-            else if (lookup->GetSubtype() == kProbableMovie)
-            {
-                list = handleMovie(lookup);
-                if (lookup->GetInetref().isEmpty())
-                    list.append(handleRecordingGeneric(lookup));
-            }
-            else
-            {
-                list = handleRecordingGeneric(lookup);
-                if (lookup->GetInetref().isEmpty())
-                    list.append(handleMovie(lookup));
+                list.append(handleTelevision(lookup));
             }
         }
         else if (lookup->GetType() == kMetadataGame)
@@ -144,8 +131,15 @@ void MetadataDownload::run()
             if (list.count() == 1 && list[0]->GetStep() == kLookupSearch)
             {
                 MetadataLookup *newlookup = list.takeFirst();
+
                 newlookup->SetStep(kLookupData);
                 prependLookup(newlookup);
+                // Type may have changed
+                LookupType ret = GuessLookupType(newlookup);
+                if (ret != kUnknownVideo)
+                {
+                    newlookup->SetSubtype(ret);
+                }
                 continue;
             }
 
@@ -158,9 +152,16 @@ void MetadataDownload::run()
                 if (bestLookup)
                 {
                     MetadataLookup *newlookup = bestLookup;
+
                     // bestlookup is owned by list, we need an extra reference
                     newlookup->IncrRef();
                     newlookup->SetStep(kLookupData);
+                    // Type may have changed
+                    LookupType ret = GuessLookupType(newlookup);
+                    if (ret != kUnknownVideo)
+                    {
+                        newlookup->SetSubtype(ret);
+                    }
                     prependLookup(newlookup);
                     continue;
                 }
@@ -256,8 +257,8 @@ MetadataLookup* MetadataDownload::findBestMatch(MetadataLookupList list,
                     .arg(originaltitle).arg(bestTitle));
 
     // Grab the one item that matches the besttitle (IMPERFECT)
-    for (MetadataLookupList::const_iterator i = list.begin();
-            i != list.end(); ++i)
+    MetadataLookupList::const_iterator i = list.begin();
+    for (; i != list.end(); ++i)
     {
         if ((*i)->GetTitle() == bestTitle)
         {
@@ -291,8 +292,7 @@ MetadataLookupList MetadataDownload::runGrabber(QString cmd, QStringList args,
 
         while (!item.isNull())
         {
-            MetadataLookup *tmp = ParseMetadataItem(item, lookup,
-                passseas);
+            MetadataLookup *tmp = ParseMetadataItem(item, lookup, passseas);
             list.append(tmp);
             // MetadataLookup is to be owned by list
             tmp->DecrRef();
@@ -304,48 +304,22 @@ MetadataLookupList MetadataDownload::runGrabber(QString cmd, QStringList args,
 
 QString MetadataDownload::GetMovieGrabber()
 {
-    QString def_cmd = "metadata/Movie/tmdb3.py";
-    QString db_cmd = gCoreContext->GetSetting("MovieGrabber", def_cmd);
-
-    return QDir::cleanPath(QString("%1/%2")
-            .arg(GetShareDir())
-            .arg(db_cmd));
+    return MetaGrabberScript::GetType(kGrabberMovie).GetPath();
 }
 
 QString MetadataDownload::GetTelevisionGrabber()
 {
-    QString def_cmd = "metadata/Television/ttvdb.py";
-    QString db_cmd = gCoreContext->GetSetting("TelevisionGrabber", def_cmd);
-
-    return QDir::cleanPath(QString("%1/%2")
-            .arg(GetShareDir())
-            .arg(db_cmd));
+    return MetaGrabberScript::GetType(kGrabberTelevision).GetPath();
 }
 
 QString MetadataDownload::GetGameGrabber()
 {
-    QString def_cmd = "metadata/Game/giantbomb.py";
-    QString db_cmd = gCoreContext->GetSetting("mythgame.MetadataGrabber", def_cmd);
-
-    return QDir::cleanPath(QString("%1/%2")
-            .arg(GetShareDir())
-            .arg(db_cmd));
+    return MetaGrabberScript::GetType(kGrabberGame).GetPath();
 }
 
 bool MetadataDownload::runGrabberTest(const QString &grabberpath)
 {
-    QStringList args;
-    args.append("-t");
-
-    MythSystemLegacy grabber(grabberpath, args, kMSStdOut);
-
-    grabber.Run();
-    uint exitcode = grabber.Wait();
-
-    if (exitcode != 0)
-        return false;
-
-    return true;
+    return MetaGrabberScript(grabberpath).Test();
 }
 
 bool MetadataDownload::MovieGrabberWorks()
@@ -440,9 +414,11 @@ MetadataLookupList MetadataDownload::readNFO(QString NFOpath,
         if (rf->isOpen())
         {
             bool loaded = rf->SaveAs(nforaw);
+
             if (loaded)
             {
                 QDomDocument doc;
+
                 if (doc.setContent(nforaw, true))
                 {
                     lookup->SetStep(kLookupData);
@@ -463,6 +439,7 @@ MetadataLookupList MetadataDownload::readNFO(QString NFOpath,
         if (!error)
         {
             MetadataLookup *tmp = ParseMetadataMovieNFO(item, lookup);
+
             list.append(tmp);
             // MetadataLookup is owned by the MetadataLookupList returned
             tmp->DecrRef();
@@ -475,38 +452,45 @@ MetadataLookupList MetadataDownload::readNFO(QString NFOpath,
 MetadataLookupList MetadataDownload::handleGame(MetadataLookup *lookup)
 {
     MetadataLookupList list;
-
-    QString cmd = GetGameGrabber();
-
-    QStringList args;
-    args.append(QString("-l")); // Language Flag
-    args.append(gCoreContext->GetLanguage()); // UI Language
-    args.append(QString("-a"));
-    args.append(gCoreContext->GetLocale()->GetCountryCode());
+    MetaGrabberScript grabber =
+        MetaGrabberScript::GetGrabber(kGrabberGame, lookup);
 
     // If the inetref is populated, even in kLookupSearch mode,
     // become a kLookupData grab and use that.
     if (lookup->GetStep() == kLookupSearch &&
         (!lookup->GetInetref().isEmpty() &&
          lookup->GetInetref() != "00000000"))
+    {
         lookup->SetStep(kLookupData);
+    }
 
     if (lookup->GetStep() == kLookupSearch)
     {
-        args.append(QString("-M"));
-        QString title = lookup->GetTitle();
-        args.append(title);
+        if (lookup->GetTitle().isEmpty())
+        {
+            // no point searching on nothing...
+            return list;
+        }
+        // we're searching
+        list = grabber.Search(lookup->GetTitle(), lookup);
     }
     else if (lookup->GetStep() == kLookupData)
     {
-        args.append(QString("-D"));
-        args.append(lookup->GetInetref());
+        // we're just grabbing data
+        list = grabber.LookupData(lookup->GetInetref(), lookup);
     }
-    list = runGrabber(cmd, args, lookup);
 
     return list;
 }
 
+/**
+ * handleMovie:
+ * attempt to find movie data via the following (in order)
+ * 1- Local MXML
+ * 2- Local NFO
+ * 3- By title
+ * 4- By inetref (if present)
+ */
 MetadataLookupList MetadataDownload::handleMovie(MetadataLookup *lookup)
 {
     MetadataLookupList list;
@@ -525,98 +509,125 @@ MetadataLookupList MetadataDownload::handleMovie(MetadataLookup *lookup)
     else if (!nfo.isEmpty())
         list = readNFO(nfo, lookup);
 
-    if (list.isEmpty())
+    if (!list.isEmpty())
+        return list;
+
+    MetaGrabberScript grabber =
+        MetaGrabberScript::GetGrabber(kGrabberMovie, lookup);
+
+    // initial search mode
+    if (!lookup->GetInetref().isEmpty() && lookup->GetInetref() != "00000000" &&
+        (lookup->GetStep() == kLookupSearch || lookup->GetStep() == kLookupData))
     {
-        QString cmd = GetMovieGrabber();
-
-        QStringList args;
-        args.append(QString("-l")); // Language Flag
-        args.append(gCoreContext->GetLanguage()); // UI Language
-
-        args.append(QString("-a"));
-        args.append(gCoreContext->GetLocale()->GetCountryCode());
-
-        // If the inetref is populated, even in kLookupSearch mode,
-        // become a kLookupData grab and use that.
-        if (lookup->GetStep() == kLookupSearch &&
-            (!lookup->GetInetref().isEmpty() &&
-             lookup->GetInetref() != "00000000"))
-            lookup->SetStep(kLookupData);
-
-        if (lookup->GetStep() == kLookupSearch)
+        // with inetref
+        lookup->SetStep(kLookupData);
+        // we're just grabbing data
+        list = grabber.LookupData(lookup->GetInetref(), lookup);
+    }
+    else if (lookup->GetStep() == kLookupSearch)
+    {
+        if (lookup->GetTitle().isEmpty())
         {
-            args.append(QString("-M"));
-            QString title = lookup->GetTitle();
-            args.append(title);
+            // no point searching on nothing...
+            return list;
         }
-        else if (lookup->GetStep() == kLookupData)
-        {
-            args.append(QString("-D"));
-            args.append(lookup->GetInetref());
-        }
-        list = runGrabber(cmd, args, lookup);
+        list = grabber.Search(lookup->GetTitle(), lookup);
     }
 
     return list;
 }
 
+/**
+ * handleTelevision
+ * attempt to find television data via the following (in order)
+ * 1- By inetref with subtitle
+ * 2- By inetref with season and episode
+ * 3- By inetref
+ * 4- By title and subtitle
+ * 5- By title
+ */
 MetadataLookupList MetadataDownload::handleTelevision(MetadataLookup *lookup)
 {
     MetadataLookupList list;
+    MetaGrabberScript grabber =
+        MetaGrabberScript::GetGrabber(kGrabberTelevision, lookup);
+    bool searchcollection = false;
 
-    QString cmd = GetTelevisionGrabber();
-
-    QStringList args;
-    args.append(QString("-l")); // Language Flag
-    args.append(gCoreContext->GetLanguage()); // UI Language
-    args.append(QString("-a"));
-    args.append(gCoreContext->GetLocale()->GetCountryCode());
-
-    // If the inetref is populated, even in kLookupSearch mode,
-    // become a kLookupData grab and use that.
-    if (lookup->GetStep() == kLookupSearch &&
-        (!lookup->GetInetref().isEmpty() &&
-         lookup->GetInetref() != "00000000"))
-        lookup->SetStep(kLookupData);
-
-    if (lookup->GetStep() == kLookupSearch)
+    // initial search mode
+    if (!lookup->GetInetref().isEmpty() && lookup->GetInetref() != "00000000" &&
+        (lookup->GetStep() == kLookupSearch || lookup->GetStep() == kLookupData))
     {
-        args.append(QString("-M"));
-        if (lookup->GetInetref().isEmpty() ||
-            lookup->GetInetref() == "00000000")
+        // with inetref
+        lookup->SetStep(kLookupData);
+        if (!lookup->GetSubtitle().isEmpty())
         {
-            QString title = lookup->GetTitle();
-            args.append(title);
+            list = grabber.SearchSubtitle(lookup->GetInetref(),
+                                          lookup->GetTitle() /* unused */,
+                                          lookup->GetSubtitle(), lookup, false);
         }
-        else
+
+        if (list.isEmpty() && lookup->GetSeason() && lookup->GetEpisode())
         {
-            QString inetref = lookup->GetInetref();
-            args.append(inetref);
+            list = grabber.LookupData(lookup->GetInetref(), lookup->GetSeason(),
+                                      lookup->GetEpisode(), lookup);
+        }
+
+        if (list.isEmpty() && !lookup->GetCollectionref().isEmpty())
+        {
+            list = grabber.LookupCollection(lookup->GetCollectionref(), lookup);
+            searchcollection = true;
+        }
+        else if (list.isEmpty())
+        {
+            // We do not store CollectionRef in our database
+            // so try with the inetref, for all purposes with TVDB, they are
+            // always identical
+            list = grabber.LookupCollection(lookup->GetInetref(), lookup);
+            searchcollection = true;
         }
     }
-    else if (lookup->GetStep() == kLookupData)
+    else if (lookup->GetStep() == kLookupSearch)
     {
-        args.append(QString("-D"));
-        args.append(lookup->GetInetref());
-        args.append(QString::number(lookup->GetSeason()));
-        args.append(QString::number(lookup->GetEpisode()));
+        if (lookup->GetTitle().isEmpty())
+        {
+            // no point searching on nothing...
+            return list;
+        }
+        if (!lookup->GetSubtitle().isEmpty())
+        {
+            list = grabber.SearchSubtitle(lookup->GetTitle(),
+                                          lookup->GetSubtitle(), lookup, false);
+        }
+        if (list.isEmpty())
+        {
+            list = grabber.Search(lookup->GetTitle(), lookup);
+        }
     }
     else if (lookup->GetStep() == kLookupCollection)
     {
-        args.append(QString("-C"));
-        args.append(lookup->GetCollectionref());
+        list = grabber.LookupCollection(lookup->GetCollectionref(), lookup);
     }
-    list = runGrabber(cmd, args, lookup);
 
     // Collection Fallback
     // If the lookup allows generic metadata, and the specific
     // season and episode are not available, try for series metadata.
-    if (list.isEmpty() &&
-        lookup->GetAllowGeneric() &&
-        lookup->GetStep() == kLookupData)
+    if (!searchcollection && list.isEmpty() &&
+        !lookup->GetCollectionref().isEmpty() &&
+        lookup->GetAllowGeneric() && lookup->GetStep() == kLookupData)
     {
         lookup->SetStep(kLookupCollection);
-        list = handleTelevision(lookup);
+        list = grabber.LookupCollection(lookup->GetCollectionref(), lookup);
+    }
+
+    if (!list.isEmpty())
+    {
+        // mark all results so that search collection is properly handled later
+        lookup->SetIsCollection(searchcollection);
+        for (MetadataLookupList::iterator it = list.begin();
+             it != list.end(); ++it)
+        {
+            (*it)->SetIsCollection(searchcollection);
+        }
     }
 
     return list;
@@ -626,36 +637,21 @@ MetadataLookupList MetadataDownload::handleVideoUndetermined(MetadataLookup *loo
 {
     MetadataLookupList list;
 
-    QString cmd = GetTelevisionGrabber();
-
-    // Can't trust the inetref with so little information.
-
-    QStringList args;
-    args.append(QString("-l")); // Language Flag
-    args.append(gCoreContext->GetLanguage()); // UI Language
-
-    args.append(QString("-a"));
-    args.append(gCoreContext->GetLocale()->GetCountryCode());
-
-    args.append(QString("-N"));
-    if (!lookup->GetInetref().isEmpty())
+    if (lookup->GetSubtype() != kProbableMovie &&
+        !lookup->GetSubtitle().isEmpty())
     {
-        QString inetref = lookup->GetInetref();
-        args.append(inetref);
+        list.append(handleTelevision(lookup));
     }
-    else
-    {
-        QString title = lookup->GetTitle();
-        args.append(title);
-    }
-    QString subtitle = lookup->GetSubtitle();
-    args.append(subtitle);
 
-    // Try to do a title/subtitle lookup
-    list = runGrabber(cmd, args, lookup, false);
+    if (lookup->GetSubtype() != kProbableTelevision)
+    {
+        list.append(handleMovie(lookup));
+    }
 
     if (list.count() == 1)
+    {
         list[0]->SetStep(kLookupData);
+    }
 
     return list;
 }
@@ -669,25 +665,19 @@ MetadataLookupList MetadataDownload::handleRecordingGeneric(MetadataLookup *look
 
     MetadataLookupList list;
 
-    QString cmd = GetTelevisionGrabber();
+    if (lookup->GetTitle().isEmpty())
+    {
+        // no point searching on nothing...
+        return list;
+    }
 
-    QStringList args;
+    // no inetref known, just pull the default grabber
+    MetaGrabberScript grabber = MetaGrabberScript::GetType(kGrabberTelevision);
 
-    args.append(QString("-l")); // Language Flag
-    args.append(gCoreContext->GetLanguage()); // UI Language
-
-    args.append(QString("-a"));
-    args.append(gCoreContext->GetLocale()->GetCountryCode());
-
-
-    args.append("-M");
-    QString title = lookup->GetTitle();
-    args.append(title);
+    // cache some initial values so we can change them in the lookup later
     LookupType origtype = lookup->GetSubtype();
     int origseason = lookup->GetSeason();
     int origepisode = lookup->GetEpisode();
-
-    lookup->SetSubtype(kProbableGenericTelevision);
 
     if (origseason == 0 && origepisode == 0)
     {
@@ -695,10 +685,11 @@ MetadataLookupList MetadataDownload::handleRecordingGeneric(MetadataLookup *look
         lookup->SetEpisode(1);
     }
 
-    list = runGrabber(cmd, args, lookup, true);
+    list = grabber.Search(lookup->GetTitle(), lookup);
 
     if (list.count() == 1)
     {
+        // search was successful, rerun as normal television mode
         lookup->SetInetref(list[0]->GetInetref());
         lookup->SetCollectionref(list[0]->GetCollectionref());
         list = handleTelevision(lookup);
@@ -711,58 +702,36 @@ MetadataLookupList MetadataDownload::handleRecordingGeneric(MetadataLookup *look
     return list;
 }
 
-QString MetadataDownload::getMXMLPath(QString filename)
+static QString getNameWithExtension(const QString &filename, const QString &type)
 {
     QString ret;
-    QString xmlname;
+    QString newname;
     QUrl qurl(filename);
     QString ext = QFileInfo(qurl.path()).suffix();
-    xmlname = filename.left(filename.size() - ext.size()) + "mxml";
-    QUrl xurl(xmlname);
 
-    if (RemoteFile::isLocal(xmlname) ||
-        (xmlname.startsWith("myth://") &&
-         qurl.host().toLower() != gCoreContext->GetHostName().toLower() &&
-         !gCoreContext->IsThisHost(qurl.host())))
+    if (ext.isEmpty())
     {
-        if (RemoteFile::Exists(xmlname))
-            ret = xmlname;
+        // no extension, assume it is a directory
+        newname = filename + "/" + QFileInfo(qurl.path()).fileName() + "." + type;
     }
     else
     {
-        StorageGroup sg;
-        QString fn = sg.FindFile(xurl.path());
-        if (!fn.isEmpty() && QFile::exists(fn))
-            ret = xmlname;
+        newname = filename.left(filename.size() - ext.size()) + type;
     }
+    QUrl xurl(newname);
+
+    if (RemoteFile::Exists(newname))
+        ret = newname;
 
     return ret;
 }
 
+QString MetadataDownload::getMXMLPath(QString filename)
+{
+    return getNameWithExtension(filename, "mxml");
+}
+
 QString MetadataDownload::getNFOPath(QString filename)
 {
-    QString ret;
-    QString nfoname;
-    QUrl qurl(filename);
-    QString ext = QFileInfo(qurl.path()).suffix();
-    nfoname = filename.left(filename.size() - ext.size()) + "nfo";
-    QUrl nurl(nfoname);
-
-    if (RemoteFile::isLocal(nfoname) ||
-        (nfoname.startsWith("myth://") &&
-         qurl.host().toLower() != gCoreContext->GetHostName().toLower() &&
-         !gCoreContext->IsThisHost(qurl.host())))
-    {
-        if (RemoteFile::Exists(nfoname))
-            ret = nfoname;
-    }
-    else
-    {
-        StorageGroup sg;
-        QString fn = sg.FindFile(nurl.path());
-        if (!fn.isEmpty() && QFile::exists(fn))
-            ret = nfoname;
-    }
-
-    return ret;
+    return getNameWithExtension(filename, "nfo");
 }

@@ -2,6 +2,11 @@
 #include <cmath>
 #include <limits>
 
+// C++ headers
+#include <algorithm>
+
+using namespace std;
+
 // POSIX headers
 #include <unistd.h>
 #include <sys/time.h>
@@ -367,8 +372,13 @@ void AudioOutputBase::SetStretchFactorLocked(float lstretchfactor)
             m_previousbpf = bytes_per_frame;
             bytes_per_frame = source_channels *
                               AudioOutputSettings::SampleSize(FORMAT_FLT);
+            audbuf_timecode = audiotime = frames_buffered = 0;
             waud = raud = 0;
             reset_active.Ref();
+            was_paused = pauseaudio;
+            pauseaudio = true;
+            actually_paused = false;
+            unpause_when_ready = true;
         }
     }
 }
@@ -643,7 +653,7 @@ void AudioOutputBase::Reconfigure(const AudioSettings &orig_settings)
     }
 
     VBAUDIO(QString("Original codec was %1, %2, %3 kHz, %4 channels")
-            .arg(ff_codec_id_string((CodecID)codec))
+            .arg(ff_codec_id_string((AVCodecID)codec))
             .arg(output_settings->FormatToString(format))
             .arg(samplerate/1000)
             .arg(source_channels));
@@ -914,12 +924,13 @@ void AudioOutputBase::KillAudio()
 
 void AudioOutputBase::Pause(bool paused)
 {
-    if (unpause_when_ready)
+    if (!paused && unpause_when_ready)
         return;
     VBAUDIO(QString("Pause %1").arg(paused));
     if (pauseaudio != paused)
         was_paused = pauseaudio;
     pauseaudio = paused;
+    unpause_when_ready = false;
     actually_paused = false;
 }
 
@@ -1081,8 +1092,8 @@ int64_t AudioOutputBase::GetAudiotime(void)
               .arg(main_buffer+soundcard_buffer)
               .arg(samplerate).arg(obpf).arg(bytes_per_frame).arg(stretchfactor)
               .arg((main_buffer + soundcard_buffer) * eff_stretchfactor)
-              .arg(((main_buffer + soundcard_buffer) * eff_stretchfactor ) /
-                   (effdsp * obpf))
+              .arg((effdsp && obpf) ? ((main_buffer + soundcard_buffer) *
+                   eff_stretchfactor ) / (effdsp * obpf) : 0)
               );
 
     return audiotime;
@@ -1813,8 +1824,15 @@ int AudioOutputBase::GetAudioData(uchar *buffer, int size, bool full_buffer,
  */
 void AudioOutputBase::Drain()
 {
-    while (audioready() > fragment_size)
+    while (!pauseaudio && audioready() > fragment_size)
         usleep(1000);
+    if (pauseaudio)
+    {
+        // Audio is paused and can't be drained, clear ringbuffer
+        QMutexLocker lock(&audio_buflock);
+
+        waud = raud = 0;
+    }
 }
 
 /**

@@ -105,12 +105,7 @@ QMAKE_CLEAN += $(TARGET) $(TARGETA) $(TARGETD) $(TARGET0) $(TARGET1) $(TARGET2)
 
 # Headers needed by frontend & backend
 HEADERS += filter.h                 format.h
-HEADERS += frame.h
-
-# LZO used by NuppelDecoder & NuppelVideoRecorder
-HEADERS += lzoconf.h
-HEADERS += minilzo.h
-SOURCES += minilzo.cpp
+HEADERS += mythframe.h
 
 # Misc. needed by backend/frontend
 HEADERS += mythtvexp.h
@@ -133,7 +128,6 @@ HEADERS += livetvchain.h            playgroup.h
 HEADERS += channelsettings.h
 HEADERS += previewgenerator.h       previewgeneratorqueue.h
 HEADERS += transporteditor.h        listingsources.h
-HEADERS += myth_imgconvert.h
 HEADERS += channelgroup.h           channelgroupsettings.h
 HEADERS += recordingrule.h
 HEADERS += mythsystemevent.h
@@ -141,6 +135,7 @@ HEADERS += avfringbuffer.h
 HEADERS += ringbuffer.h             fileringbuffer.h
 HEADERS += streamingringbuffer.h    metadataimagehelper.h
 HEADERS += icringbuffer.h
+HEADERS += mythavutil.h
 
 SOURCES += recordinginfo.cpp
 SOURCES += dbcheck.cpp
@@ -162,13 +157,13 @@ SOURCES += channelsettings.cpp
 SOURCES += previewgenerator.cpp     previewgeneratorqueue.cpp
 SOURCES += transporteditor.cpp
 SOURCES += channelgroup.cpp         channelgroupsettings.cpp
-SOURCES += myth_imgconvert.cpp
 SOURCES += recordingrule.cpp
 SOURCES += mythsystemevent.cpp
 SOURCES += avfringbuffer.cpp
 SOURCES += ringbuffer.cpp           fileringBuffer.cpp
 SOURCES += streamingringbuffer.cpp  metadataimagehelper.cpp
 SOURCES += icringbuffer.cpp
+SOURCES += mythframe.cpp            mythavutil.cpp
 
 # DiSEqC
 HEADERS += diseqc.h                 diseqcsettings.h
@@ -248,6 +243,7 @@ SOURCES += srtwriter.cpp
 inc.path = $${PREFIX}/include/mythtv/
 inc.files  = playgroup.h
 inc.files += mythtvexp.h            metadataimagehelper.h
+inc.files += mythavutil.h
 
 INSTALLS += inc
 
@@ -292,6 +288,8 @@ HEADERS += HLS/httplivestream.h
 SOURCES += HLS/httplivestream.cpp
 HEADERS += HLS/httplivestreambuffer.h
 SOURCES += HLS/httplivestreambuffer.cpp
+HEADERS += HLS/m3u.h
+SOURCES += HLS/m3u.cpp
 using_libcrypto:DEFINES += USING_LIBCRYPTO
 using_libcrypto:LIBS    += -lcrypto
 
@@ -319,7 +317,7 @@ using_frontend {
     SOURCES += mythiowrapper.cpp        tvbrowsehelper.cpp
     SOURCES += netstream.cpp
 
-    win32-msvc*:SOURCES += ../../platform/win32/msvc/src/posix/dirent.c
+    win32-msvc*:SOURCES += ../../../platform/win32/msvc/src/posix/dirent.c
 
     # Text subtitle parser
     HEADERS += textsubtitleparser.h     xine_demux_sputext.h
@@ -570,6 +568,8 @@ using_backend {
     SOURCES += recorders/importrecorder.cpp
 
     # Simple NuppelVideo Recorder
+    INCLUDEPATH += ../../external/minilzo
+    DEPENDPATH += ../../external/minilzo
     using_ffmpeg_threads:DEFINES += USING_FFMPEG_THREADS
     !mingw:!win32-msvc*:HEADERS += recorders/NuppelVideoRecorder.h
     HEADERS += recorders/RTjpegN.h
@@ -844,6 +844,7 @@ LIBS += -lmythservicecontracts-$$LIBVERSION
 using_mheg: LIBS += -L../libmythfreemheg -lmythfreemheg-$$LIBVERSION
 using_hdhomerun: LIBS += -L../../external/libhdhomerun -lmythhdhomerun-$$LIBVERSION
 using_backend: LIBS += -lmp3lame
+using_backend: LIBS += -L../../external/minilzo -lmythminilzo-$$LIBVERSION
 LIBS += $$EXTRA_LIBS $$QMAKE_LIBS_DYNLOAD
 
 !win32-msvc* {
@@ -856,6 +857,7 @@ LIBS += $$EXTRA_LIBS $$QMAKE_LIBS_DYNLOAD
 
     using_mheg: POST_TARGETDEPS += ../libmythfreemheg/libmythfreemheg-$${MYTH_SHLIB_EXT}
     using_hdhomerun: POST_TARGETDEPS += ../../external/libhdhomerun/libmythhdhomerun-$${LIBVERSION}.$${QMAKE_EXTENSION_SHLIB}
+    using_backend: POST_TARGETDEPS += ../../external/minilzo/libmythminilzo-$${MYTH_LIB_EXT}
 }
 
 include ( ../libs-targetfix.pro )

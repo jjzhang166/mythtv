@@ -70,6 +70,9 @@ static void UpdatePositionMap(frm_pos_map_t &posMap, frm_pos_map_t &durMap, QStr
 static int BuildKeyframeIndex(MPEG2fixup *m2f, QString &infile,
                        frm_pos_map_t &posMap, frm_pos_map_t &durMap, int jobID)
 {
+    if (!m2f)
+        return 0;
+
     if (jobID < 0 || JobQueue::GetJobCmd(jobID) != JOB_STOP)
     {
         if (jobID >= 0)
@@ -649,11 +652,20 @@ int main(int argc, char *argv[])
                                          showprogress, otype, update_func,
                                          check_func);
 
+        if (cmdline.toBool("allaudio"))
+        {
+            m2f->SetAllAudio(true);
+        }
+
         if (build_index)
         {
             int err = BuildKeyframeIndex(m2f, infile, posMap, durMap, jobID);
             if (err)
+            {
+                delete m2f;
+                m2f = NULL;
                 return err;
+            }
             if (update_index)
                 UpdatePositionMap(posMap, durMap, NULL, pginfo);
             else
@@ -676,6 +688,7 @@ int main(int argc, char *argv[])
             }
         }
         delete m2f;
+        m2f = NULL;
     }
 
     if (result == REENCODE_OK)
@@ -722,12 +735,13 @@ int main(int argc, char *argv[])
 
 static int transUnlink(QString filename, ProgramInfo *pginfo)
 {
-    if (pginfo != NULL && !pginfo->GetStorageGroup().isEmpty() &&
-        !pginfo->GetHostname().isEmpty())
+    QString hostname = pginfo->GetHostname();
+
+    if (!pginfo->GetStorageGroup().isEmpty() &&
+        !hostname.isEmpty())
     {
-        QString ip = gCoreContext->GetBackendServerIP(pginfo->GetHostname());
-        QString port = gCoreContext->GetSettingOnHost("BackendServerPort",
-                                                      pginfo->GetHostname());
+        QString ip = gCoreContext->GetBackendServerIP(hostname);
+        int port = gCoreContext->GetBackendServerPort(hostname);
         QString basename = filename.section('/', -1);
         QString uri = gCoreContext->GenMythURL(ip, port, basename,
                                                pginfo->GetStorageGroup());

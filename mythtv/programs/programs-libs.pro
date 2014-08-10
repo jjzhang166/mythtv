@@ -4,6 +4,7 @@ INCLUDEPATH += ../../libs/libmythupnp ../../libs/libmythui ../../libs/libmythmet
 INCLUDEPATH +=  ../../libs/libmythbase
 INCLUDEPATH += ../../external/libmythdvdnav/dvdnav ../../external/libmythdvdnav/dvdread
 INCLUDEPATH += ../../external/libmythbluray
+INCLUDEPATH += ../../external/libmythsoundtouch
 INCLUDEPATH += ../../external/libsamplerate
 INCLUDEPATH += ../../external/libmythlivemedia
 INCLUDEPATH += ../../libs/libmythtv/mpeg

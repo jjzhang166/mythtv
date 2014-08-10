@@ -4,10 +4,17 @@
 // Qt headers
 #include <QFile>
 
-// MythTV headers
+// libmyth headers
 #include "mythcontext.h"
+
+// libmythbase headers
 #include "storagegroup.h"
+
+// libmythmetadata headers
 #include "imageutils.h"
+
+// libmythui headers
+#include "mythuibuttonlist.h"
 
 /** \fn     GalleryViewHelper::GalleryViewHelper(MythScreenType *)
  *  \brief  Constructor
@@ -570,7 +577,7 @@ void GallerySyncStatusThread::run()
 
         // Wait some time before trying to get and update the status
         // This also avoids too many calls to the service api.
-        usleep(1000000);
+        usleep(999999);
 
         ++loopCounter;
     }

@@ -39,6 +39,7 @@ function checkRecordingStatus(chanID, startTime)
 function reloadGuideContent()
 {
     loadTVContent(currentContentURL, "guideGrid", "dissolve", {"GuideOnly": "1"});  // currentContentURL is defined in util.qjs
+    fixGuideHeight();
 }
 
 function pageLeft()
@@ -114,9 +115,16 @@ function changeGuideStartTime(selectBox)
     var transition = (selectBox.selectedIndex > oldIndex) ? 'left' : 'right'
 
     submitForm(selectBox.form, 'guideGrid', transition);
+    fixGuideHeight();
 }
 
-function scrollCallback()
+function submitGuideForm(context)
 {
-    $("#NumPages").val(Number($("#NumPages").val())+1);
+    submitForm(context.form, 'guideGrid', 'dissolve');
+    fixGuideHeight();
+}
+
+function fixGuideHeight()
+{
+    $('.channels').height($(window).height() - $('.channels').offset().top - 15);
 }

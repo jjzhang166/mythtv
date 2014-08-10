@@ -157,7 +157,7 @@ void IPTVChannelFetcher::run(void)
             QString channum = it.key();
             QString name    = (*it).m_name;
             QString xmltvid = (*it).m_xmltvid.isEmpty() ? "" : (*it).m_xmltvid;
-            uint programnumber = (*it).m_programnumber;
+            uint programnumber = (*it).m_programNumber;
             //: %1 is the channel number, %2 is the channel name
             QString msg = tr("Channel #%1 : %2").arg(channum).arg(name);
 
@@ -435,31 +435,16 @@ static bool parse_extinf(const QString &line1,
         .arg(line1);
 
     // Parse extension portion
-    int pos = line1.indexOf(",");
+    QRegExp chanNumName("^-?\\d+,(\\d+)(?:\\.\\s|\\s-\\s)(.*)$");
+    int pos = chanNumName.indexIn(line1);
     if (pos < 0)
     {
         LOG(VB_GENERAL, LOG_ERR, msg);
         return false;
     }
 
-    // Parse iptv channel number
-    int oldpos = pos + 1;
-    pos = line1.indexOf(" ", pos + 1);
-    if (pos < 0)
-    {
-        LOG(VB_GENERAL, LOG_ERR, msg);
-        return false;
-    }
-    channum = line1.mid(oldpos, pos - oldpos);
-
-    // Parse iptv channel name
-    pos = line1.indexOf("- ", pos + 1);
-    if (pos < 0)
-    {
-        LOG(VB_GENERAL, LOG_ERR, msg);
-        return false;
-    }
-    name = line1.mid(pos + 2, line1.length());
+    channum = chanNumName.cap(1);
+    name = chanNumName.cap(2);
 
     return true;
 }

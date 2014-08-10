@@ -7,7 +7,6 @@
 extern "C" {
 #include "libavcodec/avcodec.h"
 #include "libavcodec/mpegvideo.h"
-#include "libavutil/internal.h"
 #include "libavcodec/golomb.h"
 }
 
@@ -107,6 +106,7 @@ void H264Parser::Reset(void)
     state_changed = false;
     seen_sps = false;
     is_keyframe = false;
+    SPS_offset = 0;
 
     sync_accumulator = 0xffffffff;
     AU_pending = false;
@@ -412,7 +412,7 @@ uint32_t H264Parser::addBytes(const uint8_t  *bytes,
 
     while (startP < bytes + byte_count && !on_frame)
     {
-        endP = avpriv_mpv_find_start_code(startP,
+        endP = avpriv_find_start_code(startP,
                                   bytes + byte_count, &sync_accumulator);
 
         found_start_code = ((sync_accumulator & 0xffffff00) == 0x00000100);

@@ -175,6 +175,7 @@ bool MetaIOID3::write(const QString &filename, MusicMetadata* mdata)
     // MythTV rating and playcount, stored in POPM frame
     writeRating(tag, mdata->Rating());
     writePlayCount(tag, mdata->PlayCount());
+    writeLastPlay(tag, mdata->LastPlay());
 
     // MusicBrainz ID
     UserTextIdentificationFrame *musicbrainz = NULL;
@@ -286,9 +287,16 @@ MusicMetadata *MetaIOID3::read(const QString &filename)
         metadata->setCompilationArtist(compilation_artist);
     }
 
-    // MythTV rating and playcount, stored in POPM frame
-    PopularimeterFrame *popm = findPOPM(tag, email);
+    // Rating and playcount, stored in POPM frame
+    PopularimeterFrame *popm = findPOPM(tag, ""); // Global (all apps) tag
 
+    // If no 'global' tag exists, look for the MythTV specific one
+    if (!popm)
+    {
+        popm = findPOPM(tag, email);
+    }
+
+    // Fallback to using any POPM tag we can find
     if (!popm)
     {
         if (!tag->frameListMap()["POPM"].isEmpty())
@@ -358,6 +366,14 @@ MusicMetadata *MetaIOID3::read(const QString &filename)
 
     LOG(VB_FILE, LOG_DEBUG,
             QString("MetaIOID3::read: Length for '%1' from properties is '%2'\n").arg(filename).arg(metadata->Length()));
+
+    // Look for MythTVLastPlayed in TXXX Frame
+    UserTextIdentificationFrame *lastplayed = find(tag, "MythTVLastPlayed");
+    if (lastplayed)
+    {
+        QString lastPlayStr = TStringToQString(lastplayed->toString());
+        metadata->setLastPlay(QDateTime::fromString(lastPlayStr, Qt::ISODate));
+    }
 
     return metadata;
 }
@@ -833,6 +849,7 @@ bool MetaIOID3::writePlayCount(TagLib::ID3v2::Tag *tag, int playcount)
     if (!tag)
         return false;
 
+    // MythTV Specific playcount Tag
     PopularimeterFrame *popm = findPOPM(tag, email);
 
     if (!popm)
@@ -842,7 +859,23 @@ bool MetaIOID3::writePlayCount(TagLib::ID3v2::Tag *tag, int playcount)
         popm->setEmail(email);
     }
 
-    popm->setCounter(playcount);
+    int prevCount = popm->counter();
+    int countDiff = playcount - prevCount;
+    // Allow for situations where the user has rolled back to an old DB backup
+    if (countDiff > 0)
+    {
+        popm->setCounter(playcount);
+
+        // Global playcount Tag - Updated by all apps/hardware that support it
+        PopularimeterFrame *gpopm = findPOPM(tag, "");
+        if (!gpopm)
+        {
+            gpopm = new PopularimeterFrame();
+            tag->addFrame(gpopm);
+            gpopm->setEmail("");
+        }
+        gpopm->setCounter((gpopm->counter() > 0) ? gpopm->counter() + countDiff : playcount);
+    }
 
     return true;
 }
@@ -854,6 +887,7 @@ bool MetaIOID3::writeVolatileMetadata(const QString &filename, MusicMetadata* md
 
     int rating = mdata->Rating();
     int playcount = mdata->PlayCount();
+    QDateTime lastPlay = mdata->LastPlay();
 
     if (!OpenFile(filename, true))
         return false;
@@ -863,7 +897,8 @@ bool MetaIOID3::writeVolatileMetadata(const QString &filename, MusicMetadata* md
     if (!tag)
         return false;
 
-    bool result = (writeRating(tag, rating) && writePlayCount(tag, playcount));
+    bool result = (writeRating(tag, rating) && writePlayCount(tag, playcount) &&
+                   writeLastPlay(tag, lastPlay));
 
     if (!SaveFile())
         return false;
@@ -876,6 +911,10 @@ bool MetaIOID3::writeRating(TagLib::ID3v2::Tag *tag, int rating)
     if (!tag)
         return false;
 
+    int popmrating = static_cast<int>(((static_cast<float>(rating) / 10.0)
+                                                               * 255.0) + 0.5);
+
+    // MythTV Specific Rating Tag
     PopularimeterFrame *popm = findPOPM(tag, email);
 
     if (!popm)
@@ -884,9 +923,37 @@ bool MetaIOID3::writeRating(TagLib::ID3v2::Tag *tag, int rating)
         tag->addFrame(popm);
         popm->setEmail(email);
     }
-    int popmrating = static_cast<int>(((static_cast<float>(rating) / 10.0)
-                                                               * 255.0) + 0.5);
     popm->setRating(popmrating);
+
+    // Global Rating Tag
+    PopularimeterFrame *gpopm = findPOPM(tag, "");
+    if (!gpopm)
+    {
+        gpopm = new PopularimeterFrame();
+        tag->addFrame(gpopm);
+        gpopm->setEmail("");
+    }
+    gpopm->setRating(popmrating);
+
+    return true;
+}
+
+bool MetaIOID3::writeLastPlay(TagLib::ID3v2::Tag *tag, QDateTime lastPlay)
+{
+    if (!tag)
+        return false;
+
+    // MythTV Specific Rating Tag
+    UserTextIdentificationFrame *txxx = find(tag, "MythTVLastPlayed");
+
+    if (!txxx)
+    {
+        txxx = new UserTextIdentificationFrame();
+        tag->addFrame(txxx);
+        txxx->setDescription("MythTVLastPlayed");
+    }
+    lastPlay.setTimeSpec(Qt::UTC);
+    txxx->setText(QStringToTString(lastPlay.toString(Qt::ISODate)));
 
     return true;
 }

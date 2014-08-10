@@ -34,13 +34,13 @@ struct SortData
 
 static bool operator<(const SortData &lhs, const SortData &rhs)
 {
-    int ret = QString::localeAwareCompare(lhs.m_title, rhs.m_title);
+    int ret = naturalCompare(lhs.m_title, rhs.m_title);
 
     if (ret == 0)
-        ret = QString::localeAwareCompare(lhs.m_filename, rhs.m_filename);
+        ret = naturalCompare(lhs.m_filename, rhs.m_filename);
 
     if (ret == 0)
-        ret = QString::localeAwareCompare(lhs.m_id, rhs.m_id);
+        ret = naturalCompare(lhs.m_id, rhs.m_id);
 
     return ret < 0;
 }
@@ -565,7 +565,7 @@ void VideoMetadataImp::fromDBRow(MSqlQuery &query)
     m_year = query.value(5).toInt();
     m_releasedate = query.value(6).toDate();
     m_userrating = (float)query.value(7).toDouble();
-    if (isnan(m_userrating) || m_userrating < 0)
+    if (std::isnan(m_userrating) || m_userrating < 0)
         m_userrating = 0.0;
     if (m_userrating > 10.0)
         m_userrating = 10.0;
@@ -644,7 +644,7 @@ void VideoMetadataImp::saveToDatabase()
         m_trailer = VIDEO_TRAILER_DEFAULT;
     if (m_inetref.isEmpty())
         m_inetref = VIDEO_INETREF_DEFAULT;
-    if (isnan(m_userrating))
+    if (std::isnan(m_userrating))
         m_userrating = 0.0;
     if (m_userrating < -10.0 || m_userrating > 10.0)
         m_userrating = 0.0;
@@ -1066,19 +1066,20 @@ int VideoMetadata::UpdateHashedDBRecord(const QString &hash,
 QString VideoMetadata::VideoFileHash(const QString &file_name,
                            const QString &host)
 {
-    if (!host.isEmpty() && !gCoreContext->IsMasterHost(host))
-    {
-        QString url = generate_file_url("Videos", host, file_name);
-        return RemoteFile::GetFileHash(url);
-    }
-    else if (!host.isEmpty())
+    if (host.isEmpty())
+        return FileHash(file_name);
+
+    if (gCoreContext->IsMasterBackend() && gCoreContext->IsThisHost(host))
     {
         StorageGroup sgroup("Videos", host);
         QString fullname = sgroup.FindFile(file_name);
+
         return FileHash(fullname);
     }
-    else
-        return FileHash(file_name);
+
+    QString url = generate_file_url("Videos", host, file_name);
+
+    return RemoteFile::GetFileHash(url);
 }
 
 QString VideoMetadata::FilenameToMeta(const QString &file_name, int position)

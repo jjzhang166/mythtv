@@ -125,14 +125,14 @@ win32 {
             INCLUDEPATH += $$SRC_PATH_BARE/external/nzmqt/include/nzmqt
         }
 
-        INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/include
-        INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/external/pthreads.2
-        INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/external/zlib
-        INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/external
+        INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/include
+        INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/external/pthreads.2
+        INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/external/zlib
+        INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/external
 
-        win32-msvc2010:INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/include-2010
+        win32-msvc2010:INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/include-2010
 
-        INCLUDEPATH += $$SRC_PATH_BARE/platform/win32/msvc/external/exiv2/msvc64/include
+        INCLUDEPATH += $$SRC_PATH_BARE/../platform/win32/msvc/external/exiv2/msvc64/include
 
         # have visual studio place all DLL, EXE & lib files in the following directory
 

@@ -54,7 +54,7 @@ class SystemEventThread : public QRunnable
                 QString("Command '%1' returned %2")
                     .arg(m_command).arg(result));
 
-        if (m_event.isEmpty()) 
+        if (m_event.isEmpty())
             return;
 
         gCoreContext->SendMessage(
@@ -381,6 +381,8 @@ MythSystemEventEditor::MythSystemEventEditor(MythScreenStack *parent,
     // base, the event names are listed in comments.
     m_settings["EventCmdRecPending"]           = // REC_PENDING
         tr("Recording pending");
+    m_settings["EventCmdRecFailing"]           = // REC_FAILING
+        tr("Recording failing");
     m_settings["EventCmdRecStarted"]           = // REC_STARTED
         tr("Recording started");
     m_settings["EventCmdRecStartedWriting"]    = // REC_STARTED_WRITING

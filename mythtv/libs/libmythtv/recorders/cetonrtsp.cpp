@@ -25,7 +25,8 @@ CetonRTSP::CetonRTSP(const QString &ip, uint tuner, ushort port) :
     _sessionId("0"),
     _responseCode(-1),
     _timeout(60),
-    _timer(0)
+    _timer(0),
+    _canGetParameter(false)
 {
     _requestUrl.setHost(ip);
     _requestUrl.setPort(port);
@@ -40,7 +41,8 @@ CetonRTSP::CetonRTSP(const QUrl &url) :
     _requestUrl(url),
     _responseCode(-1),
     _timeout(60),
-    _timer(0)
+    _timer(0),
+    _canGetParameter(false)
 {
     if (url.port() < 0)
     {
@@ -56,7 +58,7 @@ CetonRTSP::~CetonRTSP()
 
 bool CetonRTSP::ProcessRequest(
     const QString &method, const QStringList* headers,
-    bool use_control, bool waitforanswer)
+    bool use_control, bool waitforanswer, const QString &alternative)
 {
     QMutexLocker locker(&_rtspMutex);
 
@@ -106,7 +108,8 @@ bool CetonRTSP::ProcessRequest(
     QStringList requestHeaders;
     requestHeaders.append(QString("%1 %2 RTSP/1.0")
         .arg(method)
-        .arg(use_control ? _controlUrl.toString() :  _requestUrl.toString()));
+        .arg(alternative.size() ? alternative :
+             (use_control ? _controlUrl.toString() : _requestUrl.toString())));
     requestHeaders.append(QString("User-Agent: MythTV Ceton Recorder"));
     requestHeaders.append(QString("CSeq: %1").arg(++_sequenceNumber));
     if (_sessionId != "0")
@@ -253,6 +256,8 @@ bool CetonRTSP::GetOptions(QStringList &options)
     if (ProcessRequest("OPTIONS"))
     {
         options = _responseHeaders.value("Public").split(QRegExp(",\\s*"));
+        _canGetParameter = options.contains("GET_PARAMETER");
+
         return true;
     }
     return false;
@@ -281,10 +286,10 @@ QStringList CetonRTSP::splitLines(const QByteArray &lines)
 }
 
 /**
- * readParamaters. Scan a line like: Session: 1234556;destination=xx;client_port
+ * readParameters. Scan a line like: Session: 1234556;destination=xx;client_port
  * and return the first entry and fill the arguments in the provided Params
  */
-QString CetonRTSP::readParamaters(const QString &key, Params &parameters)
+QString CetonRTSP::readParameters(const QString &key, Params &parameters)
 {
     QString val;
 
@@ -416,7 +421,7 @@ bool CetonRTSP::Setup(ushort clientPort1, ushort clientPort2,
         return false;
 
     Params params;
-    QString session = readParamaters("Session", params);
+    QString session = readParameters("Session", params);
 
     if (session.isEmpty())
     {
@@ -436,7 +441,7 @@ bool CetonRTSP::Setup(ushort clientPort1, ushort clientPort2,
         _timeout = params["timeout"].toInt();
     }
 
-    QString transport = readParamaters("Transport", params);
+    QString transport = readParameters("Transport", params);
     if (params.contains("ssrc"))
     {
         bool ok;
@@ -502,5 +507,12 @@ void CetonRTSP::timerEvent(QTimerEvent*)
     QStringList dummy;
 
     LOG(VB_RECORD, LOG_DEBUG, LOC + "Sending KeepAlive");
-    ProcessRequest("GET_PARAMETER", NULL, false, false);
+    if (_canGetParameter)
+    {
+        ProcessRequest("GET_PARAMETER", NULL, false, false);
+    }
+    else
+    {
+        ProcessRequest("OPTIONS", NULL, false, false, "*");
+    }
 }

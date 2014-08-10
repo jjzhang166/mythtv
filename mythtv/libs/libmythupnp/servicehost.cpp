@@ -16,6 +16,7 @@
 #include "servicehost.h"
 #include "wsdl.h"
 #include "xsd.h"
+//#include "services/rtti.h"
 
 #define _MAX_PARAMS 256
 
@@ -199,9 +200,15 @@ ServiceHost::ServiceHost(const QMetaObject &metaObject,
     m_oMetaObject = metaObject;
     m_sBaseUrl    = sBaseUrl;
 
-    // --------------------------------------------------------------
+    // ----------------------------------------------------------------------
+    // Create an instance of the service so custom types get registered.
+    // ----------------------------------------------------------------------
+
+    QObject *pService =  m_oMetaObject.newInstance();
+
+    // ----------------------------------------------------------------------
     // Read in all callable methods and cache information about them
-    // --------------------------------------------------------------
+    // ----------------------------------------------------------------------
 
     for (int nIdx = 0; nIdx < m_oMetaObject.methodCount(); nIdx++)
     {
@@ -216,14 +223,14 @@ ServiceHost::ServiceHost(const QMetaObject &metaObject,
             QString sName( method.methodSignature() );      
 #endif
 
-            // ------------------------------------------------------
+            // --------------------------------------------------------------
             // Ignore the following methods...
-            // ------------------------------------------------------
+            // --------------------------------------------------------------
 
             if (sName == "deleteLater()")
                 continue;
 
-            // ------------------------------------------------------
+            // --------------------------------------------------------------
 
             MethodInfo oInfo;
 
@@ -254,6 +261,11 @@ ServiceHost::ServiceHost(const QMetaObject &metaObject,
             m_Methods.insert( oInfo.m_sName, oInfo );
         }
     }
+
+    // ----------------------------------------------------------------------
+
+    if (pService != NULL)
+        delete pService;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -323,13 +335,18 @@ bool ServiceHost::ProcessRequest( HTTPRequest *pRequest )
 
                     Xsd xsd;
 
-                    xsd.GetXSD( pRequest, pRequest->m_mapParams[ "type" ] );
+                    if (pRequest->m_mapParams.contains( "type" ))
+                        xsd.GetXSD( pRequest, pRequest->m_mapParams[ "type" ] );
+                    else
 
+                        xsd.GetEnumXSD( pRequest, pRequest->m_mapParams[ "enum" ] );
                     delete pService;
                 }
 
                 return true;
             }
+
+            // --------------------------------------------------------------
 
             if (( pRequest->m_eType   == RequestTypeGet ) &&
                 ( pRequest->m_sMethod == "version"         ))

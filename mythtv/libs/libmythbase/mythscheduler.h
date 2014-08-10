@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <deque>
-using namespace std;
 
 #include <QStringList>
 #include <QMap>
@@ -11,9 +10,9 @@ using namespace std;
 class ProgramInfo;
 class RecordingInfo;
 
-typedef deque<RecordingInfo*> RecList;
+typedef std::deque<RecordingInfo*> RecList;
 #define SORT_RECLIST(LIST, ORDER) \
-  do { stable_sort((LIST).begin(), (LIST).end(), ORDER); } while (0)
+  do { std::stable_sort((LIST).begin(), (LIST).end(), ORDER); } while (0)
 
 typedef RecList::const_iterator RecConstIter;
 typedef RecList::iterator RecIter;
@@ -30,8 +29,8 @@ class MythScheduler
     // the list, followed by ProgramInfo's serialized
     // to string lists.
     virtual void GetAllPending(QStringList &strList) const = 0;
-    // Returns all the pending recording with a rsRecording or
-    // rsTuning status (i.e. currently attempting to record.)
+    // Returns all the pending recording with a rsRecording, rsTuning
+    // or rsFailing status (i.e. currently attempting to record.)
     virtual QMap<QString,ProgramInfo*> GetRecording(void) const = 0;
 };
 

@@ -237,7 +237,7 @@ static HostComboBox *AutoCommercialSkip()
     gc->addSelection(QCoreApplication::translate("(Common)", "Off"), "0");
     gc->addSelection(PlaybackSettings::tr("Notify, but do not skip",
                                           "Skip commercials"), "2");
-    gc->addSelection(PlaybackSettings::tr("Automatically Skip", 
+    gc->addSelection(PlaybackSettings::tr("Automatically Skip",
                                           "Skip commercials"), "1");
 
     gc->setHelpText(PlaybackSettings::tr("Automatically skip commercial breaks "
@@ -915,14 +915,14 @@ void PlaybackProfileItemConfig::orenderChanged(const QString &renderer)
 void PlaybackProfileItemConfig::deint0Changed(const QString &deint)
 {
     deint0->setHelpText(
-        tr("Main deinterlacing method. %1") 
+        tr("Main deinterlacing method. %1")
         .arg(VideoDisplayProfile::GetDeinterlacerHelp(deint)));
 }
 
 void PlaybackProfileItemConfig::deint1Changed(const QString &deint)
 {
     deint1->setHelpText(
-        tr("Fallback deinterlacing method. %1") 
+        tr("Fallback deinterlacing method. %1")
         .arg(VideoDisplayProfile::GetDeinterlacerHelp(deint)));
 }
 
@@ -1870,6 +1870,7 @@ static HostComboBox *OverrideExitMenu()
     gc->addSelection(MainGeneralSettings::tr("Show shutdown"), "4");
     gc->addSelection(MainGeneralSettings::tr("Show reboot"), "5");
     gc->addSelection(MainGeneralSettings::tr("Show reboot and shutdown"), "6");
+    gc->addSelection(MainGeneralSettings::tr("Show standby"), "7");
 
     gc->setHelpText(
         MainGeneralSettings::tr("By default, only remote frontends are shown "
@@ -2342,7 +2343,7 @@ static HostComboBox *TVVidModeForceAspect(int idx=-1)
     return gc;
 }
 
-VideoModeSettings::VideoModeSettings() : 
+VideoModeSettings::VideoModeSettings() :
     TriggeredConfigurationGroup(false, true, false, false)
 {
     setLabel(tr("Video Mode Settings"));
@@ -2428,7 +2429,6 @@ static HostCheckBox *RunInWindow()
 
 static HostCheckBox *UseFixedWindowSize()
 {
-{
     HostCheckBox *gc = new HostCheckBox("UseFixedWindowSize");
 
     gc->setLabel(AppearanceSettings::tr("Use fixed window size"));
@@ -2439,6 +2439,18 @@ static HostCheckBox *UseFixedWindowSize()
                                            "window can be resized"));
     return gc;
 }
+
+static HostCheckBox *AlwaysOnTop()
+{
+    HostCheckBox *gc = new HostCheckBox("AlwaysOnTop");
+
+    gc->setLabel(AppearanceSettings::tr("Always On Top"));
+
+    gc->setValue(false);
+
+    gc->setHelpText(AppearanceSettings::tr("If enabled, MythTV will always be "
+                                           "on top"));
+    return gc;
 }
 
 static HostComboBox *MythDateFormatCB()
@@ -2529,6 +2541,8 @@ static HostComboBox *MythShortDateFormat()
     gc->addSelection(locale.toString(sampdate, "d ddd"), "d ddd");
     gc->addSelection(locale.toString(sampdate, "ddd M/d"), "ddd M/d");
     gc->addSelection(locale.toString(sampdate, "ddd d/M"), "ddd d/M");
+    gc->addSelection(locale.toString(sampdate, "ddd d.M"), "ddd d.M");
+    gc->addSelection(locale.toString(sampdate, "ddd dd.MM"), "ddd dd.MM");
     gc->addSelection(locale.toString(sampdate, "M/d ddd"), "M/d ddd");
     gc->addSelection(locale.toString(sampdate, "d/M ddd"), "d/M ddd");
 
@@ -2537,7 +2551,7 @@ static HostComboBox *MythShortDateFormat()
     gc->addSelection(locale.toString(sampdate, cn), cn);
 
     //: %1 gives additional information regarding the date format
-    gc->setHelpText(AppearanceSettings::tr("Your preferred short date format. %1") 
+    gc->setHelpText(AppearanceSettings::tr("Your preferred short date format. %1")
                     .arg(sampleStr));
     return gc;
 }
@@ -2582,8 +2596,6 @@ static HostComboBox *ThemePainter()
 #ifdef USING_OPENGL
     gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 1"),
                      OPENGL_PAINTER);
-    gc->addSelection(QCoreApplication::translate("(Common)", "OpenGL 2"),
-                     OPENGL2_PAINTER);
 #endif
 #ifdef _WIN32
     gc->addSelection(QCoreApplication::translate("(Common)", "Direct3D"),
@@ -2597,7 +2609,7 @@ static HostComboBox *ThemePainter()
                                "systems) where only Qt works.")
         .arg(QCoreApplication::translate("(Common)", "Auto", "Automatic")));
 
-    return gc; 
+    return gc;
 }
 #endif
 
@@ -2700,7 +2712,7 @@ static HostCheckBox *BrowseChannelGroup()
 }
 
 // Channel Group Settings
-ChannelGroupSettings::ChannelGroupSettings() : 
+ChannelGroupSettings::ChannelGroupSettings() :
     TriggeredConfigurationGroup(false, true, false, false)
 {
     setLabel(tr("Remember last channel group"));
@@ -4153,7 +4165,7 @@ GeneralRecPrioritiesSettings::GeneralRecPrioritiesSettings()
     addChild(sched);
 
     VerticalConfigurationGroup* access = new VerticalConfigurationGroup(false);
-    
+
     access->setLabel(tr("Accessibility Options"));
 
     access->addChild(GRSignLangRecPriority());
@@ -4199,6 +4211,7 @@ AppearanceSettings::AppearanceSettings()
     column2->addChild(HideMouseCursor());
     column2->addChild(RunInWindow());
     column2->addChild(UseFixedWindowSize());
+    column2->addChild(AlwaysOnTop());
 #ifdef USING_AIRPLAY
     column2->addChild(AirPlayFullScreen());
 #endif

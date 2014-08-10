@@ -436,7 +436,7 @@ void CommDetector2::reportState(int elapsedms, long long frameno,
     int prevpercent = -1;
 
     /* Assume that 0-th pass is negligible in terms of computational cost. */
-    int percentage = passno == 0 ? 0 :
+    int percentage = (passno == 0 || npasses == 1 || nframes == 0) ? 0 :
         (passno - 1) * 100 / (npasses - 1) +
         min((long long)100, (frameno * 100 / nframes) / (npasses - 1));
 
@@ -658,7 +658,8 @@ bool CommDetector2::go(void)
                     QString("processFrame %1 of %2 (%3%) - %4 fps")
                         .arg(currentFrameNumber)
                         .arg(nframes)
-                        .arg((int)roundf(currentFrameNumber * 100.0 / nframes))
+                        .arg((nframes == 0) ? 0 : 
+                            (int)roundf(currentFrameNumber * 100.0 / nframes))
                         .arg((currentFrameNumber - lastLoggedFrame) * 1000 /
                             elapsed));
                 lastLoggedFrame = currentFrameNumber;

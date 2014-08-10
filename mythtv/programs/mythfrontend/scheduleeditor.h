@@ -158,11 +158,8 @@ class ScheduleEditor : public ScheduleCommon,
     void customEvent(QEvent *event);
 
     void showMenu(void);
-    void showPrevious(void);
     void showUpcomingByRule(void);
     void showUpcomingByTitle(void);
-    void ShowDetails(ProgramInfo *pginfo) const
-    { ScheduleCommon::ShowDetails(pginfo); };
 
     /// Callback
     static void *RunScheduleEditor(ProgramInfo *proginfo, void *player = NULL);
@@ -200,6 +197,9 @@ class ScheduleEditor : public ScheduleCommon,
     void DeleteRule(void);
 
     void showTemplateMenu(void);
+
+    virtual ProgramInfo *GetCurrentProgram(void) const
+        { return m_recInfo; };
 
     RecordingInfo *m_recInfo;
     RecordingRule *m_recordingRule;
@@ -385,6 +385,7 @@ class MetadataOptions : public SchedEditChild
     QStringList GetSupportedImageExtensionFilter();
 
     void HandleDownloadedImages(MetadataLookup *lookup);
+    MetadataLookup *CreateLookup(MetadataType mtype);
 
     bool CanSetArtwork(void);
 

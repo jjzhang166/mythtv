@@ -39,7 +39,8 @@ class ProgLister : public ScheduleCommon
 
   public:
     ProgLister(MythScreenStack *parent, ProgListType pltype,
-               const QString &view, const QString &extraArg);
+               const QString &view, const QString &extraArg,
+               const QDateTime selectedTime = QDateTime());
     explicit ProgLister(MythScreenStack *parent, uint recid = 0,
                         const QString &title = QString());
     ~ProgLister();
@@ -51,25 +52,17 @@ class ProgLister : public ScheduleCommon
   protected slots:
     void HandleSelected(MythUIButtonListItem *item);
     void HandleVisible(MythUIButtonListItem *item);
-    void HandleClicked(void);
 
     void DeleteOldEpisode(bool ok);
     void DeleteOldSeries(bool ok);
-    void RecordSelected(void);
 
     void SetViewFromList(QString item);
     void SetViewFromTime(QDateTime searchTime);
 
-    void EditScheduled(void) { ScheduleCommon::EditScheduled(GetCurrent()); }
-    void EditCustom(void)    { ScheduleCommon::EditCustom(GetCurrent());    }
-
-    void ShowDetails(void)   { ScheduleCommon::ShowDetails(GetCurrent());   }
-    void ShowGuide(void);
-    void ShowUpcoming(void);
-    void ShowPrevious(void);
     void ShowDeleteRuleMenu(void);
     void ShowDeleteOldEpisodeMenu(void);
     void ShowChooseViewMenu(void);
+    void ShowOldRecordedMenu(void);
 
   private:
     void Load(void);
@@ -86,7 +79,6 @@ class ProgLister : public ScheduleCommon
     virtual void ShowMenu(void); // MythScreenType
     void ShowDeleteItemMenu(void);
     void ShowDeleteOldSeriesMenu(void);
-    void ShowOldRecordedMenu(void);
 
     void SwitchToPreviousView(void);
     void SwitchToNextView(void);
@@ -95,8 +87,7 @@ class ProgLister : public ScheduleCommon
     SortBy GetSortBy(void) const;
     void SortList(SortBy sortby, bool reverseSort);
 
-    ProgramInfo *GetCurrent(void);
-    const ProgramInfo *GetCurrent(void) const;
+    virtual ProgramInfo *GetCurrentProgram(void) const;
 
     bool PowerStringToSQL(
         const QString &qphrase, QString &output, MSqlBindings &bindings) const;
@@ -108,6 +99,7 @@ class ProgLister : public ScheduleCommon
     QString           m_extraArg;
     QDateTime         m_startTime;
     QDateTime         m_searchTime;
+    QDateTime         m_selectedTime;
     QString           m_channelOrdering;
 
     RecSearchType     m_searchType;

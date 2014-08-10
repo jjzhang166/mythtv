@@ -110,7 +110,7 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
     // Use this function to instantiate a guidegrid instance.
     static void RunProgramGuide(uint           startChanId,
                                 const QString &startChanNum,
-                                const QDateTime startTime,
+                                const QDateTime &startTime,
                                 TV            *player = NULL,
                                 bool           embedVideo = false,
                                 bool           allowFinder = true,
@@ -152,27 +152,22 @@ class GuideGrid : public ScheduleCommon, public JumpToChannelListener
     void volumeUpdate(bool);
     void toggleMute(const bool muteIndividualChannels = false);
 
-    void quickRecord();
-    void editRecSchedule();
-    void editSchedule();
-    void customEdit();
     void deleteRule();
-    void upcoming();
-    void previous();
-    void details();
 
     void Close();
     void customEvent(QEvent *event);
 
   protected:
     GuideGrid(MythScreenStack *parentStack,
-              uint chanid, QString channum,
-              const QDateTime startTime,
+              uint chanid, const QString &channum,
+              const QDateTime &startTime,
               TV *player = NULL,
               bool embedVideo = false,
               bool allowFinder = true,
               int changrpid = -1);
    ~GuideGrid();
+    virtual ProgramInfo *GetCurrentProgram(void) const
+        { return m_programInfos[m_currentRow][m_currentCol]; };
 
   private slots:
     void updateTimeout(void);

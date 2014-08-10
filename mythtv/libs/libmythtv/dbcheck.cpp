@@ -2135,7 +2135,7 @@ NULL
                          .toLocal8Bit());
         }
 
-        // Convert DATETIME back to seperate DATE and TIME in record table
+        // Convert DATETIME back to separate DATE and TIME in record table
         const char *post_sql[] = {
             "UPDATE record, recordupdate "
             "SET record.startdate = DATE(recordupdate.starttime), "
@@ -2555,7 +2555,7 @@ NULL
         if (!performActualUpdate(&updates[0], "1318", dbver))
             return false;
     }
-    
+
     if (dbver == "1318")
     {
         const char *updates[] = {
@@ -2679,6 +2679,70 @@ NULL
             return false;
     }
 
+    if (dbver == "1324")
+    {
+        const char *updates[] = {
+            "ALTER TABLE recorded "
+            " DROP PRIMARY KEY, "
+            " ADD recordedid INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, "
+            " ADD UNIQUE KEY (chanid, starttime) ;",
+            NULL
+        };
+
+        if (!performActualUpdate(updates, "1325", dbver))
+            return false;
+    }
+
+    if (dbver == "1325")
+    {
+        const char *updates[] = {
+            "ALTER TABLE recorded ADD inputname VARCHAR(32);",
+            NULL
+        };
+
+        if (!performActualUpdate(&updates[0], "1326", dbver))
+            return false;
+    }
+
+    if (dbver == "1326")
+    {
+        const char *updates[] = {
+// Add this time filter
+"REPLACE INTO recordfilter (filterid, description, clause, newruledefault) "
+"  VALUES (8, 'This time', 'ABS(TIMESTAMPDIFF(MINUTE, CONVERT_TZ("
+"  ADDTIME(RECTABLE.startdate, RECTABLE.starttime), ''Etc/UTC'', ''SYSTEM''), "
+"  CONVERT_TZ(program.starttime, ''Etc/UTC'', ''SYSTEM''))) MOD 1440 "
+"  NOT BETWEEN 11 AND 1429', 0)",
+// Add this day and time filter
+"REPLACE INTO recordfilter (filterid, description, clause, newruledefault) "
+"  VALUES (9, 'This day and time', 'ABS(TIMESTAMPDIFF(MINUTE, CONVERT_TZ("
+"  ADDTIME(RECTABLE.startdate, RECTABLE.starttime), ''Etc/UTC'', ''SYSTEM''), "
+"  CONVERT_TZ(program.starttime, ''Etc/UTC'', ''SYSTEM''))) MOD 10080 "
+"  NOT BETWEEN 11 AND 10069', 0)",
+NULL
+};
+        if (!performActualUpdate(updates, "1327", dbver))
+            return false;
+    }
+
+    if (dbver == "1327")
+    {
+        const char *updates[] = {
+            "DELETE r1 FROM record r1, record r2 "
+            "  WHERE r1.chanid = r2.chanid AND "
+            "        r1.starttime = r2.starttime AND "
+            "        r1.startdate = r2.startdate AND "
+            "        r1.title = r2.title AND "
+            "        r1.type = r2.type AND "
+            "        r1.recordid > r2.recordid",
+            "ALTER TABLE record DROP INDEX chanid",
+            "ALTER TABLE record ADD UNIQUE INDEX "
+            " (chanid, starttime, startdate, title, type)",
+            NULL
+        };
+        if (!performActualUpdate(updates, "1328", dbver))
+            return false;
+    }
 
     return true;
 }

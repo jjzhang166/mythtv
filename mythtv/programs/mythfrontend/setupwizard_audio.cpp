@@ -263,7 +263,7 @@ AudioOutputSettings AudioSetupWizard::UpdateCapabilities(bool restore, bool AC3)
     if (m_speakerNumberButtonList->GetItemCurrent() != NULL)
     {
         cur_speakers = m_speakerNumberButtonList->GetItemCurrent()->GetData()
-			              .value<int>();
+                                      .value<int>();
     }
     if (cur_speakers > m_maxspeakers)
     {
@@ -324,6 +324,7 @@ AudioOutputSettings AudioSetupWizard::UpdateCapabilities(bool restore, bool AC3)
         // if we support AC3 and/or LPCM
     settings.SetBestSupportedChannels(cur_speakers);
     settings.setFeature(bAC3, FEATURE_AC3);
+    settings.setFeature(bDTS, FEATURE_DTS);
     settings.setFeature(bLPCM && realmax_speakers > 2, FEATURE_LPCM);
 
     return settings;
@@ -377,7 +378,7 @@ void AudioSetupWizard::save(void)
     gCoreContext->SaveSetting("PassThruOutputDevice", QString::null);
 
     int channels = m_speakerNumberButtonList->GetItemCurrent()->GetData()
-		               .value<int>();
+                               .value<int>();
     gCoreContext->SaveSetting("MaxChannels", channels);
 
     QString device =

@@ -5,7 +5,6 @@
 #include <time.h>
 
 #include <algorithm>
-using namespace std;
 
 #include <QString>
 #include <QDir>
@@ -41,11 +40,11 @@ MBASE_PUBLIC void wrapList(QStringList &list, int width);
 
 inline float clamp(float val, float minimum, float maximum)
 {
-    return min(max(val, minimum), maximum);
+    return std::min(std::max(val, minimum), maximum);
 }
 inline int   clamp(int val, int minimum, int maximum)
 {
-    return min(max(val, minimum), maximum);
+    return std::min(std::max(val, minimum), maximum);
 }
 inline float lerp(float r, float a, float b)
 {
@@ -80,6 +79,9 @@ MBASE_PUBLIC bool myth_ioprio(int val);
 MBASE_PUBLIC bool MythRemoveDirectory(QDir &aDir);
 
 MBASE_PUBLIC void setHttpProxy(void);
+
+MBASE_PUBLIC int naturalCompare(const QString &_a, const QString &_b,
+                                Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive);
 
 // CPU Tick timing function
 #ifdef MMX

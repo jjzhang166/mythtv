@@ -1,12 +1,8 @@
 #include <QDir>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QEventLoop>
 
 #include <mythdirs.h>
-#include <mythdb.h>
 #include <mythcontext.h>
-#include <netgrabbermanager.h>
+#include <remotefile.h>
 
 #include "netcommon.h"
 
@@ -35,28 +31,11 @@ QString GetThumbnailFilename(QString url, QString title)
 
 QString GetMythXMLURL(void)
 {
-    // Get MasterServerIP
-    //   The data for MasterServerIP setting is the same as the data for
-    //   BackendServerIP setting
-    QString MasterIP = gCoreContext->GetSetting("MasterServerIP");
+    QString MasterIP = gCoreContext->GetMasterServerIP();
+    int MasterStatusPort = gCoreContext->GetMasterServerStatusPort();
 
-    MSqlQuery query(MSqlQuery::InitCon());
-    // Get hostname of Master Server by comparing BackendServerIP to
-    // the just-retrieved MasterServerIP
-    query.prepare("SELECT hostname FROM settings "
-                  " WHERE value = 'BackendServerIP'"
-                  "   AND data = :IPADDRESS");
-    query.bindValue(":IPADDRESS", MasterIP);
-    if (!query.exec() || !query.next())
-        MythDB::DBError("Find Master Server Hostname", query);
-
-    QString MasterHost = query.value(0).toString();
-
-    // Use hostname to get BackendStatusPort
-    int MasterStatusPort = gCoreContext->GetNumSettingOnHost("BackendStatusPort",
-                                                          MasterHost);
-
-    return QString("http://%1:%2/InternetContent/").arg(MasterIP).arg(MasterStatusPort);
+    return QString("http://%1:%2/InternetContent/").arg(MasterIP)
+        .arg(MasterStatusPort);
 }
 
 QUrl GetMythXMLSearch(QString url, QString query, QString grabber,

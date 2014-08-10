@@ -234,6 +234,7 @@ static inline bool Recording(const RecordingInfo *p)
 {
     return (p->GetRecordingStatus() == rsRecording ||
             p->GetRecordingStatus() == rsTuning ||
+            p->GetRecordingStatus() == rsFailing ||
             p->GetRecordingStatus() == rsWillRecord);
 }
 
@@ -320,9 +321,11 @@ static bool comp_recstart(RecordingInfo *a, RecordingInfo *b)
 static bool comp_priority(RecordingInfo *a, RecordingInfo *b)
 {
     int arec = (a->GetRecordingStatus() != rsRecording &&
-                a->GetRecordingStatus() != rsTuning);
+                a->GetRecordingStatus() != rsTuning &&
+                a->GetRecordingStatus() != rsFailing);
     int brec = (b->GetRecordingStatus() != rsRecording &&
-                b->GetRecordingStatus() != rsTuning);
+                b->GetRecordingStatus() != rsTuning &&
+                b->GetRecordingStatus() != rsFailing);
 
     if (arec != brec)
         return arec < brec;
@@ -368,9 +371,11 @@ static bool comp_priority(RecordingInfo *a, RecordingInfo *b)
 static bool comp_retry(RecordingInfo *a, RecordingInfo *b)
 {
     int arec = (a->GetRecordingStatus() != rsRecording &&
-                a->GetRecordingStatus() != rsTuning);
+                a->GetRecordingStatus() != rsTuning &&
+                a->GetRecordingStatus() != rsFailing);
     int brec = (b->GetRecordingStatus() != rsRecording &&
-                b->GetRecordingStatus() != rsTuning);
+                b->GetRecordingStatus() != rsTuning &&
+                b->GetRecordingStatus() != rsFailing);
 
     if (arec != brec)
         return arec < brec;
@@ -635,7 +640,8 @@ void Scheduler::UpdateRecStatus(RecordingInfo *pginfo)
             // made after the 0.25 code freeze.
             if (pginfo->GetRecordingStatus() == rsUnknown)
             {
-                if (p->GetRecordingStatus() == rsTuning)
+                if (p->GetRecordingStatus() == rsTuning ||
+                    p->GetRecordingStatus() == rsFailing)
                     pginfo->SetRecordingStatus(rsFailed);
                 else if (p->GetRecordingStatus() == rsRecording)
                     pginfo->SetRecordingStatus(rsRecorded);
@@ -833,7 +839,8 @@ void Scheduler::SlaveConnected(RecordingList &slavelist)
             }
             else if (sp->GetCardID() == rp->GetCardID() &&
                      (rp->GetRecordingStatus() == rsRecording ||
-                      rp->GetRecordingStatus() == rsTuning))
+                      rp->GetRecordingStatus() == rsTuning ||
+                      rp->GetRecordingStatus() == rsFailing))
             {
                 rp->SetRecordingStatus(rsAborted);
                 reclist_changed = true;
@@ -872,7 +879,8 @@ void Scheduler::SlaveDisconnected(uint cardid)
 
         if (rp->GetCardID() == cardid &&
             (rp->GetRecordingStatus() == rsRecording ||
-             rp->GetRecordingStatus() == rsTuning))
+             rp->GetRecordingStatus() == rsTuning ||
+             rp->GetRecordingStatus() == rsFailing))
         {
             rp->SetRecordingStatus(rsAborted);
             reclist_changed = true;
@@ -891,7 +899,8 @@ void Scheduler::BuildWorkList(void)
     {
         RecordingInfo *p = *i;
         if (p->GetRecordingStatus() == rsRecording ||
-            p->GetRecordingStatus() == rsTuning)
+            p->GetRecordingStatus() == rsTuning ||
+            p->GetRecordingStatus() == rsFailing)
             worklist.push_back(new RecordingInfo(*p));
     }
 }
@@ -978,6 +987,7 @@ void Scheduler::BuildListMaps(void)
         RecordingInfo *p = *i;
         if (p->GetRecordingStatus() == rsRecording ||
             p->GetRecordingStatus() == rsTuning ||
+            p->GetRecordingStatus() == rsFailing ||
             p->GetRecordingStatus() == rsWillRecord ||
             p->GetRecordingStatus() == rsUnknown)
         {
@@ -1092,7 +1102,8 @@ bool Scheduler::FindNextConflict(
         // unless the programs are on the same multiplex.
         if (p->GetCardID() != q->GetCardID())
         {
-            if (p->mplexid && (p->mplexid == q->mplexid))
+            if ((p->mplexid && p->mplexid == q->mplexid) ||
+                (!p->mplexid && p->GetChanID() == q->GetChanID()))
                 continue;
         }
 
@@ -1194,7 +1205,8 @@ bool Scheduler::TryAnotherShowing(RecordingInfo *p, bool samePriority,
     PrintRec(p, "     >");
 
     if (p->GetRecordingStatus() == rsRecording ||
-        p->GetRecordingStatus() == rsTuning)
+        p->GetRecordingStatus() == rsTuning ||
+        p->GetRecordingStatus() == rsFailing)
         return false;
 
     RecList *showinglist = &recordidlistmap[p->GetRecordingRuleID()];
@@ -1427,6 +1439,7 @@ void Scheduler::PruneRedundants(void)
         // change history, can we?
         if (p->GetRecordingStatus() != rsRecording &&
             p->GetRecordingStatus() != rsTuning &&
+            p->GetRecordingStatus() != rsFailing &&
             p->GetRecordingStatus() != rsMissedFuture &&
             p->GetScheduledEndTime() < schedTime &&
             p->GetRecordingEndTime() < schedTime)
@@ -1610,7 +1623,8 @@ QMap<QString,ProgramInfo*> Scheduler::GetRecording(void) const
     for (; it != reclist.end(); ++it)
     {
         if (rsRecording == (*it)->GetRecordingStatus() ||
-            rsTuning == (*it)->GetRecordingStatus())
+            rsTuning == (*it)->GetRecordingStatus() ||
+            rsFailing == (*it)->GetRecordingStatus())
             recMap[(*it)->MakeUniqueKey()] = new ProgramInfo(**it);
     }
 
@@ -1626,7 +1640,8 @@ RecStatusType Scheduler::GetRecStatus(const ProgramInfo &pginfo)
         if (pginfo.IsSameRecording(**it))
         {
             return (rsRecording == (**it).GetRecordingStatus() ||
-                    rsTuning == (**it).GetRecordingStatus()) ?
+                    rsTuning == (**it).GetRecordingStatus() ||
+                    rsFailing == (**it).GetRecordingStatus()) ?
                 (**it).GetRecordingStatus() : pginfo.GetRecordingStatus();
         }
     }
@@ -1737,7 +1752,7 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
         return true;
 
     // now check other cards in the same input group as the recording.
-    TunedInputInfo busy_input;
+    InputInfo busy_input;
     uint inputid = rcinfo->GetInputID();
     vector<uint> cardids = CardUtil::GetConflictingCards(
         inputid, rcinfo->GetCardID());
@@ -1758,6 +1773,8 @@ bool Scheduler::IsBusyRecording(const RecordingInfo *rcinfo)
             (busy_input.mplexid == 0 ||
              busy_input.mplexid == 32767 ||
              busy_input.mplexid != rcinfo->mplexid) &&
+            (busy_input.chanid == 0 ||
+             busy_input.chanid != rcinfo->GetChanID()) &&
             igrp.GetSharedInputGroup(busy_input.inputid, inputid))
         {
             return true;
@@ -1773,10 +1790,13 @@ void Scheduler::OldRecordedFixups(void)
 
     // Mark anything that was recording as aborted.
     query.prepare("UPDATE oldrecorded SET recstatus = :RSABORTED "
-                  "  WHERE recstatus = :RSRECORDING OR recstatus = :RSTUNING");
+                  "  WHERE recstatus = :RSRECORDING OR "
+                  "        recstatus = :RSTUNING OR "
+                  "        recstatus = :RSFAILING");
     query.bindValue(":RSABORTED", rsAborted);
     query.bindValue(":RSRECORDING", rsRecording);
     query.bindValue(":RSTUNING", rsTuning);
+    query.bindValue(":RSFAILING", rsFailing);
     if (!query.exec())
         MythDB::DBError("UpdateAborted", query);
 
@@ -1863,7 +1883,8 @@ void Scheduler::run(void)
         if (idleTimeoutSecs > 0)
             sched_sleep = min(sched_sleep, 15000);
         bool haveRequests = HaveQueuedRequests();
-        bool checkSlaves = lastSleepCheck.secsTo(curtime) >= 300;
+        int const kSleepCheck = 300;
+        bool checkSlaves = lastSleepCheck.secsTo(curtime) >= kSleepCheck;
 
         // If we're about to start a recording don't do any reschedules...
         // instead sleep for a bit
@@ -1929,7 +1950,7 @@ void Scheduler::run(void)
         }
 
         nextStartTime = MythDate::current().addDays(14);
-        nextWakeTime = lastSleepCheck.addSecs(300);
+        nextWakeTime = lastSleepCheck.addSecs(kSleepCheck);
 
         // Skip past recordings that are already history
         // (i.e. AddHistory() has been called setting oldrecstatus)
@@ -1984,6 +2005,12 @@ void Scheduler::run(void)
             HandleIdleShutdown(blockShutdown, idleSince, prerollseconds,
                                idleTimeoutSecs, idleWaitForRecordingTime,
                                statuschanged);
+            if (idleSince.isValid())
+            {
+                nextWakeTime = MythDate::current().addSecs(
+                    (idleSince.addSecs(idleTimeoutSecs - 10) <= curtime) ? 1 :
+                    (idleSince.addSecs(idleTimeoutSecs - 30) <= curtime) ? 5 : 10);
+            }
         }
 
         statuschanged = false;
@@ -2612,6 +2639,8 @@ bool Scheduler::HandleRecording(
             schedLock.unlock();
             recStatus = nexttv->StartRecording(&tempri);
             schedLock.lock();
+            ri.SetRecordingID(tempri.GetRecordingID());
+            ri.SetRecordingStartTime(tempri.GetRecordingStartTime());
 
             // activate auto expirer
             if (m_expirer)
@@ -2696,13 +2725,19 @@ void Scheduler::HandleIdleShutdown(
         }
 
         // If there are BLOCKING clients, then we're not idle
-        if (!(m_mainServer->isClientConnected(true)) && !recording)
+        bool blocking = m_mainServer->isClientConnected(true);
+        if (!blocking && !recording)
         {
             // have we received a RESET_IDLETIME message?
             resetIdleTime_lock.lock();
             if (resetIdleTime)
             {
                 // yes - so reset the idleSince time
+                if (idleSince.isValid())
+                {
+                    MythEvent me(QString("SHUTDOWN_COUNTDOWN -1"));
+                    gCoreContext->dispatch(me);
+                }
                 idleSince = QDateTime();
                 resetIdleTime = false;
             }
@@ -2710,7 +2745,8 @@ void Scheduler::HandleIdleShutdown(
 
             if (statuschanged || !idleSince.isValid())
             {
-                if (!idleSince.isValid())
+                bool wasValid = idleSince.isValid();
+                if (!wasValid)
                     idleSince = curtime;
 
                 RecIter idleIter = reclist.begin();
@@ -2725,9 +2761,9 @@ void Scheduler::HandleIdleShutdown(
                         prerollseconds) <
                         ((idleWaitForRecordingTime * 60) + idleTimeoutSecs))
                     {
-                        LOG(VB_GENERAL, LOG_NOTICE, "Blocking shutdown because "
-                                                    "a recording is due to "
-                                                    "start soon.");
+                        LOG(VB_IDLE, LOG_NOTICE, "Blocking shutdown because "
+                                                 "a recording is due to "
+                                                 "start soon.");
                         idleSince = QDateTime();
                     }
                 }
@@ -2744,11 +2780,21 @@ void Scheduler::HandleIdleShutdown(
                         (curtime.secsTo(guideRunTime) <
                         (idleWaitForRecordingTime * 60)))
                     {
-                        LOG(VB_GENERAL, LOG_NOTICE, "Blocking shutdown because "
-                                                    "mythfilldatabase is due to "
-                                                    "run soon.");
+                        LOG(VB_IDLE, LOG_NOTICE, "Blocking shutdown because "
+                                                 "mythfilldatabase is due to "
+                                                 "run soon.");
                         idleSince = QDateTime();
                     }
+                }
+
+                // Before starting countdown check shutdown is OK
+                if (idleSince.isValid())
+                    CheckShutdownServer(prerollseconds, idleSince, blockShutdown);
+
+                if (wasValid && !idleSince.isValid())
+                {
+                    MythEvent me(QString("SHUTDOWN_COUNTDOWN -1"));
+                    gCoreContext->dispatch(me);
                 }
             }
 
@@ -2773,19 +2819,23 @@ void Scheduler::HandleIdleShutdown(
                             m_isShuttingDown = false;
                         }
                     }
-                    else if (!m_isShuttingDown &&
-                             CheckShutdownServer(prerollseconds,
+                    else if (CheckShutdownServer(prerollseconds,
                                                  idleSince,
                                                  blockShutdown))
                     {
                         ShutdownServer(prerollseconds, idleSince);
+                    }
+                    else
+                    {
+                        MythEvent me(QString("SHUTDOWN_COUNTDOWN -1"));
+                        gCoreContext->dispatch(me);
                     }
                 }
                 else
                 {
                     int itime = idleSince.secsTo(curtime);
                     QString msg;
-                    if (itime == 1)
+                    if (itime <= 1)
                     {
                         msg = QString("I\'m idle now... shutdown will "
                                       "occur in %1 seconds.")
@@ -2795,7 +2845,7 @@ void Scheduler::HandleIdleShutdown(
                                      .arg(idleTimeoutSecs));
                         gCoreContext->dispatch(me);
                     }
-                    else if (itime % 10 == 0)
+                    else
                     {
                         msg = QString("%1 secs left to system shutdown!")
                             .arg(idleTimeoutSecs - itime);
@@ -2809,6 +2859,13 @@ void Scheduler::HandleIdleShutdown(
         }
         else
         {
+            if (blocking)
+                LOG(VB_IDLE, LOG_NOTICE, "Blocking shutdown because "
+                                         "of a connected client");
+            else if (recording)
+                LOG(VB_IDLE, LOG_NOTICE, "Blocking shutdown because "
+                                         "of an active encoder");
+
             // not idle, make the time invalid
             if (idleSince.isValid())
             {
@@ -2832,43 +2889,45 @@ bool Scheduler::CheckShutdownServer(int prerollseconds, QDateTime &idleSince,
     {
         uint state = myth_system(preSDWUCheckCommand);
 
-        if (state != GENERIC_EXIT_NOT_OK)
+        switch(state)
         {
-            retval = false;
-            switch(state)
-            {
-                case 0:
-                    LOG(VB_GENERAL, LOG_INFO,
-                        "CheckShutdownServer returned - OK to shutdown");
-                    retval = true;
-                    break;
-                case 1:
-                    LOG(VB_IDLE, LOG_NOTICE,
-                        "CheckShutdownServer returned - Not OK to shutdown");
-                    // just reset idle'ing on retval == 1
-                    idleSince = QDateTime();
-                    break;
-                case 2:
-                    LOG(VB_IDLE, LOG_NOTICE,
-                        "CheckShutdownServer returned - Not OK to shutdown, "
-                        "need reconnect");
-                    // reset shutdown status on retval = 2
-                    // (needs a clientconnection again,
-                    // before shutdown is executed)
-                    blockShutdown =
-                        gCoreContext->GetNumSetting("blockSDWUwithoutClient",
-                                                    1);
-                    idleSince = QDateTime();
-                    break;
+            case 0:
+                LOG(VB_IDLE, LOG_INFO,
+                    "CheckShutdownServer returned - OK to shutdown");
+                retval = true;
+                break;
+            case 1:
+                LOG(VB_IDLE, LOG_NOTICE,
+                    "CheckShutdownServer returned - Not OK to shutdown");
+                // just reset idle'ing on retval == 1
+                idleSince = QDateTime();
+                break;
+            case 2:
+                LOG(VB_IDLE, LOG_NOTICE,
+                    "CheckShutdownServer returned - Not OK to shutdown, "
+                    "need reconnect");
+                // reset shutdown status on retval = 2
+                // (needs a clientconnection again,
+                // before shutdown is executed)
+                blockShutdown =
+                    gCoreContext->GetNumSetting("blockSDWUwithoutClient",
+                                                1);
+                idleSince = QDateTime();
+                break;
 #if 0
-                case 3:
-                    //disable shutdown routine generally
-                    m_noAutoShutdown = true;
-                    break;
+            case 3:
+                //disable shutdown routine generally
+                m_noAutoShutdown = true;
+                break;
 #endif
-                default:
-                    break;
-            }
+            case GENERIC_EXIT_NOT_OK:
+                LOG(VB_GENERAL, LOG_NOTICE,
+                    "CheckShutdownServer returned - Not OK");
+                break;
+            default:
+                LOG(VB_GENERAL, LOG_NOTICE, QString(
+                    "CheckShutdownServer returned - Error %1").arg(state));
+                break;
         }
     }
     else
@@ -2934,7 +2993,7 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
 
         LOG(VB_GENERAL, LOG_NOTICE,
             QString("Running the command to set the next "
-                    "scheduled wakeup time :-\n\t\t\t\t\t\t") + setwakeup_cmd);
+                    "scheduled wakeup time :-\n\t\t\t\t") + setwakeup_cmd);
 
         // now run the command to set the wakeup time
         if (myth_system(setwakeup_cmd) != GENERIC_EXIT_OK)
@@ -2965,16 +3024,14 @@ void Scheduler::ShutdownServer(int prerollseconds, QDateTime &idleSince)
 
         LOG(VB_GENERAL, LOG_NOTICE,
             QString("Running the command to shutdown "
-                    "this computer :-\n\t\t\t\t\t\t") + halt_cmd);
+                    "this computer :-\n\t\t\t\t") + halt_cmd);
 
         // and now shutdown myself
         schedLock.unlock();
         uint res = myth_system(halt_cmd);
         schedLock.lock();
-        if (res == GENERIC_EXIT_OK)
-            return;
-
-        LOG(VB_GENERAL, LOG_ERR, "ServerHaltCommand failed, shutdown aborted");
+        if (res != GENERIC_EXIT_OK)
+            LOG(VB_GENERAL, LOG_ERR, "ServerHaltCommand failed, shutdown aborted");
     }
 
     // If we make it here then either the shutdown failed
@@ -3020,9 +3077,10 @@ void Scheduler::PutInactiveSlavesToSleep(void)
     {
         RecordingInfo *pginfo = *recIter;
 
-        if ((pginfo->GetRecordingStatus() != rsRecording) &&
-            (pginfo->GetRecordingStatus() != rsTuning) &&
-            (pginfo->GetRecordingStatus() != rsWillRecord))
+        if (pginfo->GetRecordingStatus() != rsRecording &&
+            pginfo->GetRecordingStatus() != rsTuning &&
+            pginfo->GetRecordingStatus() != rsFailing &&
+            pginfo->GetRecordingStatus() != rsWillRecord)
             continue;
 
         secsleft = curtime.secsTo(
@@ -4375,6 +4433,14 @@ void Scheduler::GetAllScheduled(RecList &proglist, SchedSortColumn sortBy,
         case kSortLastRecorded:
             sortColumn = "record.last_record";
             break;
+        case kSortNextRecording:
+            // We want to shift the rules which have no upcoming recordings to
+            // the back of the pack, most of the time the user won't be interested
+            // in rules that aren't matching recordings at the present time.
+            // We still want them available in the list however since vanishing rules
+            // violates the principle of least surprise
+            sortColumn = "record.next_record = '0000-00-00 00:00:00', record.next_record";
+            break;
         case kSortType:
             sortColumn = "record.type";
             break;
@@ -4424,7 +4490,7 @@ void Scheduler::GetAllScheduled(RecList &proglist, SchedSortColumn sortBy,
                                     result.value(19).toTime(), Qt::UTC);
         // Prevent invalid date/time warnings later
         if (!startts.isValid())
-            startts = QDateTime(MythDate::current().date(), QTime(0,0), 
+            startts = QDateTime(MythDate::current().date(), QTime(0,0),
                                 Qt::UTC);
         if (!endts.isValid())
             endts = startts;
@@ -5109,7 +5175,7 @@ void Scheduler::SchedLiveTV(void)
         if (kState_WatchingLiveTV != enc->GetState())
             continue;
 
-        TunedInputInfo in;
+        InputInfo in;
         enc->IsBusy(&in);
 
         if (!in.inputid)

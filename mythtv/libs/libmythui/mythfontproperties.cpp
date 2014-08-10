@@ -256,7 +256,7 @@ MythFontProperties *MythFontProperties::ParseFromXml(
             else if (info.tagName() == "shadowoffset")
             {
                 newFont->m_hasShadow = true;
-                newFont->m_shadowOffset = parsePoint(info);
+                newFont->m_shadowOffset = parsePoint(info, false);
             }
             else if (info.tagName() == "shadowalpha")
             {
@@ -501,4 +501,3 @@ FontMap *GetGlobalFontMap(void)
 {
     return FontMap::GetGlobalFontMap();
 }
-

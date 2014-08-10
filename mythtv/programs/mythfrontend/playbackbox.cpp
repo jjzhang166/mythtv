@@ -20,6 +20,8 @@
 #include "mythuitextedit.h"
 #include "mythuispinbox.h"
 #include "mythdialogbox.h"
+#include "mythprogressdialog.h"
+#include "mythuimetadataresults.h"
 #include "recordinginfo.h"
 #include "recordingrule.h"
 #include "mythuihelper.h"
@@ -40,7 +42,6 @@
 
 //  Mythfrontend
 #include "playbackboxlistitem.h"
-#include "customedit.h"
 #include "proglist.h"
 
 #define LOC      QString("PlaybackBox: ")
@@ -261,7 +262,9 @@ static QString construct_sort_title(
 static QString extract_main_state(const ProgramInfo &pginfo, const TV *player)
 {
     QString state("normal");
-    if (pginfo.GetRecordingStatus() == rsRecording)
+    if (pginfo.GetFilesize() == 0)
+        state = "error";
+    else if (pginfo.GetRecordingStatus() == rsRecording)
         state = "running";
 
     if (((pginfo.GetRecordingStatus() != rsRecording) &&
@@ -272,8 +275,11 @@ static QString extract_main_state(const ProgramInfo &pginfo, const TV *player)
         state = "disabled";
     }
 
-    if (state == "normal" && (pginfo.GetVideoProperties() & VID_DAMAGED))
+    if ((state == "normal" || state == "running") &&
+        pginfo.GetVideoProperties() & VID_DAMAGED)
+    {
         state = "warning";
+    }
 
     return state;
 }
@@ -282,7 +288,8 @@ static QString extract_job_state(const ProgramInfo &pginfo)
 {
     QString job = "default";
 
-    if (pginfo.GetRecordingStatus() == rsRecording)
+    if (pginfo.GetRecordingStatus() == rsRecording ||
+        pginfo.GetRecordingStatus() == rsFailing)
         job = "recording";
     else if (JobQueue::IsJobQueuedOrRunning(
                  JOB_TRANSCODE, pginfo.GetChanID(),
@@ -2173,10 +2180,10 @@ void PlaybackBox::playSelectedPlaylist(bool _random)
     {
         m_playListPlay.clear();
         QStringList tmp = m_playList;
-        while (!tmp.empty())
+        while (!tmp.isEmpty())
         {
             uint i = random() % tmp.size();
-            m_playListPlay.push_back(tmp[i]);
+            m_playListPlay.append(tmp[i]);
             tmp.removeAll(tmp[i]);
         }
     }
@@ -2240,7 +2247,7 @@ void PlaybackBox::PlayX(const ProgramInfo &pginfo,
 
 void PlaybackBox::StopSelected(void)
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (pginfo)
         m_helper.StopRecording(*pginfo);
 }
@@ -2294,28 +2301,7 @@ void PlaybackBox::deleteSelected(MythUIButtonListItem *item)
     }
 }
 
-void PlaybackBox::previous()
-{
-    ProgramInfo *pginfo = CurrentItem();
-    if (pginfo)
-        ShowPrevious(pginfo);
-}
-
-void PlaybackBox::upcoming()
-{
-    ProgramInfo *pginfo = CurrentItem();
-    if (pginfo)
-        ShowUpcoming(pginfo);
-}
-
-void PlaybackBox::upcomingScheduled()
-{
-    ProgramInfo *pginfo = CurrentItem();
-    if (pginfo)
-        ShowUpcomingScheduled(pginfo);
-}
-
-ProgramInfo *PlaybackBox::CurrentItem(void)
+ProgramInfo *PlaybackBox::GetCurrentProgram(void) const
 {
     ProgramInfo *pginfo = NULL;
 
@@ -2330,20 +2316,6 @@ ProgramInfo *PlaybackBox::CurrentItem(void)
         return NULL;
 
     return pginfo;
-}
-
-void PlaybackBox::customEdit()
-{
-    ProgramInfo *pginfo = CurrentItem();
-    if (pginfo)
-        EditCustom(pginfo);
-}
-
-void PlaybackBox::details()
-{
-    ProgramInfo *pginfo = CurrentItem();
-    if (pginfo)
-        ShowDetails(pginfo);
 }
 
 void PlaybackBox::selected(MythUIButtonListItem *item)
@@ -2368,7 +2340,7 @@ void PlaybackBox::popupClosed(QString which, int result)
 
         if (which == "groupmenu")
         {
-            ProgramInfo *pginfo = CurrentItem();
+            ProgramInfo *pginfo = GetCurrentProgram();
             if (pginfo)
             {
                 m_helper.CheckAvailability(*pginfo, kCheckForMenuAction);
@@ -2400,7 +2372,7 @@ void PlaybackBox::ShowGroupPopup()
 {
     QString label = tr("Group List Menu");
 
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
 
     m_popupMenu = new MythMenu(label, this, "groupmenu");
 
@@ -2414,7 +2386,7 @@ void PlaybackBox::ShowGroupPopup()
         m_popupMenu->AddItem(tr("Change Group Password"),
                              SLOT(showRecGroupPasswordChanger()));
 
-    if (m_playList.size())
+    if (!m_playList.isEmpty())
     {
         m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
     }
@@ -2515,7 +2487,7 @@ void PlaybackBox::RemoveProgram(
         return;
     }
 
-    if (m_playList.filter(delItem->MakeUniqueKey()).size())
+    if (m_playList.contains(delItem->MakeUniqueKey()))
         togglePlayListItem(delItem);
 
     if (!forceMetadataDelete)
@@ -2564,7 +2536,7 @@ void PlaybackBox::ShowDeletePopup(DeletePopupType type)
     }
 
     ProgramInfo *delItem = NULL;
-    if (m_delList.empty() && (delItem = CurrentItem()))
+    if (m_delList.empty() && (delItem = GetCurrentProgram()))
     {
         push_onto_del(m_delList, *delItem);
     }
@@ -2911,7 +2883,7 @@ void PlaybackBox::ShowMenu()
         ShowGroupPopup();
     else
     {
-        ProgramInfo *pginfo = CurrentItem();
+        ProgramInfo *pginfo = GetCurrentProgram();
         if (pginfo)
         {
             m_helper.CheckAvailability(
@@ -2935,7 +2907,7 @@ void PlaybackBox::ShowMenu()
 
 MythMenu* PlaybackBox::createPlayFromMenu()
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return NULL;
 
@@ -2951,7 +2923,7 @@ MythMenu* PlaybackBox::createPlayFromMenu()
 
 MythMenu* PlaybackBox::createStorageMenu()
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return NULL;
 
@@ -2972,7 +2944,7 @@ MythMenu* PlaybackBox::createStorageMenu()
 
 MythMenu* PlaybackBox::createRecordingMenu(void)
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return NULL;
 
@@ -2980,22 +2952,22 @@ MythMenu* PlaybackBox::createRecordingMenu(void)
 
     MythMenu *menu = new MythMenu(title, this, "slotmenu");
 
-    menu->AddItem(tr("Edit Recording Schedule"), SLOT(doEditScheduled()));
+    menu->AddItem(tr("Edit Recording Schedule"), SLOT(EditScheduled()));
 
     menu->AddItem(tr("Allow this episode to re-record"), SLOT(doAllowRerecord()));
 
-    menu->AddItem(tr("Show Recording Details"), SLOT(showProgramDetails()));
+    menu->AddItem(tr("Show Recording Details"), SLOT(ShowDetails()));
 
     menu->AddItem(tr("Change Recording Metadata"), SLOT(showMetadataEditor()));
 
-    menu->AddItem(tr("Custom Edit"), SLOT(customEdit()));
+    menu->AddItem(tr("Custom Edit"), SLOT(EditCustom()));
 
     return menu;
 }
 
 MythMenu* PlaybackBox::createJobMenu()
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return NULL;
 
@@ -3120,7 +3092,7 @@ MythMenu* PlaybackBox::createTranscodingProfilesMenu()
 
 void PlaybackBox::changeProfileAndTranscode(int id)
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
 
     if (!pginfo)
         return;
@@ -3147,15 +3119,22 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
     if ((asFileNotFound  == pginfo.GetAvailableStatus()) ||
         (asZeroByte      == pginfo.GetAvailableStatus()))
     {
-        if (m_playList.filter(pginfo.MakeUniqueKey()).size())
+        if (m_playList.contains(pginfo.MakeUniqueKey()))
             m_popupMenu->AddItem(tr("Remove from Playlist"), SLOT(togglePlayListItem()));
         else
             m_popupMenu->AddItem(tr("Add to Playlist"), SLOT(togglePlayListItem()));
 
-        if (m_playList.size())
+        if (!m_playList.isEmpty())
             m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
 
         m_popupMenu->AddItem(tr("Recording Options"), NULL, createRecordingMenu());
+
+        if (m_groupList->GetItemPos(m_groupList->GetItemCurrent()) == 0)
+            m_popupMenu->AddItem(tr("List Recorded Episodes"),
+                                 SLOT(ShowRecordedEpisodes()));
+        else
+            m_popupMenu->AddItem(tr("List All Recordings"),
+                                 SLOT(ShowAllRecordings()));
 
         m_popupMenu->AddItem(tr("Delete"), SLOT(askDelete()));
 
@@ -3181,13 +3160,13 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
 
     if (!m_player)
     {
-        if (m_playList.filter(pginfo.MakeUniqueKey()).size())
+        if (m_playList.contains(pginfo.MakeUniqueKey()))
             m_popupMenu->AddItem(tr("Remove from Playlist"),
                                  SLOT(togglePlayListItem()));
         else
             m_popupMenu->AddItem(tr("Add to Playlist"),
                                  SLOT(togglePlayListItem()));
-        if (m_playList.size())
+        if (!m_playList.isEmpty())
         {
             m_popupMenu->AddItem(tr("Playlist Options"), NULL, createPlaylistMenu());
         }
@@ -3209,6 +3188,13 @@ void PlaybackBox::ShowActionPopup(const ProgramInfo &pginfo)
     m_popupMenu->AddItem(tr("Storage Options"), NULL, createStorageMenu());
     m_popupMenu->AddItem(tr("Recording Options"), NULL, createRecordingMenu());
     m_popupMenu->AddItem(tr("Job Options"), NULL, createJobMenu());
+
+    if (m_groupList->GetItemPos(m_groupList->GetItemCurrent()) == 0)
+        m_popupMenu->AddItem(tr("List Recorded Episodes"),
+                             SLOT(ShowRecordedEpisodes()));
+    else
+        m_popupMenu->AddItem(tr("List All Recordings"),
+                             SLOT(ShowAllRecordings()));
 
     if (!sameProgram)
     {
@@ -3284,26 +3270,12 @@ void PlaybackBox::doPlayListRandom(void)
 
 void PlaybackBox::askStop(void)
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (pginfo)
     {
         push_onto_del(m_delList, *pginfo);
         ShowDeletePopup(kStopRecording);
     }
-}
-
-void PlaybackBox::showProgramDetails()
-{
-    ProgramInfo *pginfo = CurrentItem();
-    if (pginfo)
-        ShowDetails(pginfo);
-}
-
-void PlaybackBox::doEditScheduled()
-{
-    ProgramInfo *pginfo = CurrentItem();
-    if (pginfo)
-        EditScheduled(pginfo);
 }
 
 /**
@@ -3314,7 +3286,7 @@ void PlaybackBox::doEditScheduled()
  */
 void PlaybackBox::doAllowRerecord()
 {
-   ProgramInfo *pginfo = CurrentItem();
+   ProgramInfo *pginfo = GetCurrentProgram();
 
     if (!pginfo)
         return;
@@ -3345,7 +3317,7 @@ void PlaybackBox::doPlaylistAllowRerecord()
 
 void PlaybackBox::doJobQueueJob(int jobType, int jobFlags)
 {
-   ProgramInfo *pginfo = CurrentItem();
+   ProgramInfo *pginfo = GetCurrentProgram();
 
     if (!pginfo)
         return;
@@ -3438,7 +3410,7 @@ void PlaybackBox::stopPlaylistJobQueueJob(int jobType)
 
 void PlaybackBox::askDelete()
 {
-    ProgramInfo *pginfo = CurrentItem();
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (pginfo)
     {
         push_onto_del(m_delList, *pginfo);
@@ -3507,6 +3479,35 @@ void PlaybackBox::Delete(DeleteFlags flags)
         MythEvent *e = new MythEvent("DELETE_FAILURES", m_delList);
         m_delList.clear();
         QCoreApplication::postEvent(this, e);
+    }
+}
+
+void PlaybackBox::ShowRecordedEpisodes()
+{
+    ProgramInfo *pginfo = GetCurrentProgram();
+    if (pginfo) {
+        QString title = pginfo->GetTitle().toLower();
+        MythUIButtonListItem* group = m_groupList->GetItemByData(qVariantFromValue(title));
+        if (group)
+        {
+            m_groupList->SetItemCurrent(group);
+            // set focus back to previous item
+            MythUIButtonListItem *previousItem = m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+            m_recordingList->SetItemCurrent(previousItem);
+        }
+    }
+}
+
+void PlaybackBox::ShowAllRecordings(void)
+{
+    ProgramInfo *pginfo = GetCurrentProgram();
+    m_groupList->SetItemCurrent(0);
+    if (pginfo)
+    {
+        // set focus back to previous item
+        MythUIButtonListItem *previousitem =
+            m_recordingList->GetItemByData(qVariantFromValue(pginfo));
+        m_recordingList->SetItemCurrent(previousitem);
     }
 }
 
@@ -3685,28 +3686,18 @@ void PlaybackBox::togglePlayListItem(ProgramInfo *pginfo)
     MythUIButtonListItem *item =
                     m_recordingList->GetItemByData(qVariantFromValue(pginfo));
 
-    if (m_playList.filter(key).size())
+    if (m_playList.contains(key))
     {
         if (item)
             item->DisplayState("no", "playlist");
 
-        QStringList tmpList;
-        QStringList::Iterator it;
-
-        tmpList = m_playList;
-        m_playList.clear();
-
-        for (it = tmpList.begin(); it != tmpList.end(); ++it )
-        {
-            if (*it != key)
-                m_playList << *it;
-        }
+        m_playList.removeAll(key);
     }
     else
     {
         if (item)
           item->DisplayState("yes", "playlist");
-        m_playList << key;
+        m_playList.append(key);
     }
 }
 
@@ -3878,12 +3869,33 @@ bool PlaybackBox::keyPressEvent(QKeyEvent *event)
             if (!nextGroup.isEmpty())
                 displayRecGroup(nextGroup);
         }
+        else if (action == "NEXTVIEW")
+        {
+            int curpos = m_groupList->GetItemPos(m_groupList->GetItemCurrent());
+            if (++curpos >= m_groupList->GetCount())
+                curpos = 0;
+            m_groupList->SetItemCurrent(curpos);
+        }
+        else if (action == "PREVVIEW")
+        {
+            int curpos = m_groupList->GetItemPos(m_groupList->GetItemCurrent());
+            if (--curpos < 0)
+                curpos = m_groupList->GetCount() - 1;
+            m_groupList->SetItemCurrent(curpos);
+        }
+        else if (action == ACTION_LISTRECORDEDEPISODES)
+        {
+            if (m_groupList->GetItemPos(m_groupList->GetItemCurrent()) == 0)
+                ShowRecordedEpisodes();
+            else
+                ShowAllRecordings();
+        }
         else if (action == "CHANGERECGROUP")
             showGroupFilter();
         else if (action == "CHANGEGROUPVIEW")
             showViewChanger();
         else if (action == "EDIT")
-            doEditScheduled();
+            EditScheduled();
         else if (m_titleList.size() > 1)
         {
             if (action == "DELETE")
@@ -3891,15 +3903,17 @@ bool PlaybackBox::keyPressEvent(QKeyEvent *event)
             else if (action == ACTION_PLAYBACK)
                 PlayFromBookmark();
             else if (action == "DETAILS" || action == "INFO")
-                details();
+                ShowDetails();
             else if (action == "CUSTOMEDIT")
-                customEdit();
+                EditCustom();
+            else if (action == "GUIDE")
+                ShowGuide();
             else if (action == "UPCOMING")
-                upcoming();
+                ShowUpcoming();
             else if (action == ACTION_VIEWSCHEDULED)
-                upcomingScheduled();
+                ShowUpcomingScheduled();
             else if (action == ACTION_PREVRECORDED)
-                previous();
+                ShowPrevious();
             else
                 handled = false;
         }
@@ -4623,7 +4637,7 @@ void PlaybackBox::ShowRecGroupChanger(bool use_playlist)
             pginfo = FindProgramInUILists(m_playList[0]);
     }
     else
-        pginfo = CurrentItem();
+        pginfo = GetCurrentProgram();
 
     if (!pginfo)
         return;
@@ -4685,7 +4699,7 @@ void PlaybackBox::ShowPlayGroupChanger(bool use_playlist)
             pginfo = FindProgramInUILists(m_playList[0]);
     }
     else
-        pginfo = CurrentItem();
+        pginfo = GetCurrentProgram();
 
     if (!pginfo)
         return;
@@ -4754,7 +4768,7 @@ void PlaybackBox::doPlaylistWatchedSetting(bool turnOn)
 
 void PlaybackBox::showMetadataEditor()
 {
-    ProgramInfo *pgInfo = CurrentItem();
+    ProgramInfo *pgInfo = GetCurrentProgram();
 
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
 
@@ -4897,7 +4911,7 @@ void PlaybackBox::setRecGroup(QString newRecGroup)
         return;
     }
 
-    ProgramInfo *p = CurrentItem();
+    ProgramInfo *p = GetCurrentProgram();
     if (!p)
         return;
 
@@ -4914,7 +4928,7 @@ void PlaybackBox::setRecGroup(QString newRecGroup)
 
 void PlaybackBox::setPlayGroup(QString newPlayGroup)
 {
-    ProgramInfo *tmpItem = CurrentItem();
+    ProgramInfo *tmpItem = GetCurrentProgram();
 
     if (newPlayGroup.isEmpty() || !tmpItem)
         return;
@@ -5203,11 +5217,14 @@ void PasswordChange::SendResult()
 ////////////////////////////////////////////////////////
 
 RecMetadataEdit::RecMetadataEdit(MythScreenStack *lparent, ProgramInfo *pginfo)
-                : MythScreenType(lparent, "recmetadataedit"),
-                    m_progInfo(pginfo)
+  : MythScreenType(lparent, "recmetadataedit"),
+    m_titleEdit(NULL),      m_subtitleEdit(NULL),   m_descriptionEdit(NULL),
+    m_inetrefEdit(NULL),    m_seasonSpin(NULL),     m_episodeSpin(NULL),
+    m_busyPopup(NULL),      m_queryButton(NULL),
+    m_progInfo(pginfo)
 {
-    m_titleEdit = m_subtitleEdit = m_descriptionEdit = m_inetrefEdit = NULL;
-    m_seasonSpin = m_episodeSpin = NULL;
+    m_popupStack = GetMythMainWindow()->GetStack("popup stack");
+    m_metadataFactory = new MetadataFactory(this);
 }
 
 bool RecMetadataEdit::Create()
@@ -5222,6 +5239,7 @@ bool RecMetadataEdit::Create()
     m_seasonSpin = dynamic_cast<MythUISpinBox*>(GetChild("season"));
     m_episodeSpin = dynamic_cast<MythUISpinBox*>(GetChild("episode"));
     MythUIButton *okButton = dynamic_cast<MythUIButton*>(GetChild("ok"));
+    m_queryButton = dynamic_cast<MythUIButton*>(GetChild("query_button"));
 
     if (!m_titleEdit || !m_subtitleEdit || !m_inetrefEdit || !m_seasonSpin ||
         !m_episodeSpin || !okButton)
@@ -5248,6 +5266,10 @@ bool RecMetadataEdit::Create()
     m_episodeSpin->SetValue(m_progInfo->GetEpisode());
 
     connect(okButton, SIGNAL(Clicked()), SLOT(SaveChanges()));
+    if (m_queryButton)
+    {
+        connect(m_queryButton, SIGNAL(Clicked()), SLOT(PerformQuery()));
+    }
 
     BuildFocusList();
 
@@ -5273,6 +5295,146 @@ void RecMetadataEdit::SaveChanges()
     emit result(newRecTitle, newRecSubtitle, newRecDescription,
                 newRecInetref, newRecSeason, newRecEpisode);
     Close();
+}
+
+void RecMetadataEdit::PerformQuery()
+{
+    if (m_busyPopup)
+        return;
+
+    m_busyPopup = new MythUIBusyDialog(tr("Trying to manually find this "
+                                          "recording online..."),
+                                       m_popupStack,
+                                       "metaoptsdialog");
+
+    if (m_busyPopup->Create())
+        m_popupStack->AddScreen(m_busyPopup);
+
+    MetadataLookup *lookup = new MetadataLookup();
+    lookup->SetStep(kLookupSearch);
+    lookup->SetType(kMetadataRecording);
+    LookupType type = GuessLookupType(m_inetrefEdit->GetText());
+
+    if (type == kUnknownVideo)
+    {
+        if (m_seasonSpin->GetIntValue() == 0 &&
+            m_episodeSpin->GetIntValue() == 0 &&
+            m_subtitleEdit->GetText().isEmpty())
+        {
+            lookup->SetSubtype(kProbableMovie);
+        }
+        else
+        {
+            lookup->SetSubtype(kProbableTelevision);
+        }
+    }
+    else
+    {
+        // we could determine the type from the inetref
+        lookup->SetSubtype(type);
+    }
+    lookup->SetAllowGeneric(true);
+    lookup->SetHandleImages(false);
+    lookup->SetHost(gCoreContext->GetMasterHostName());
+    lookup->SetTitle(m_titleEdit->GetText());
+    lookup->SetSubtitle(m_subtitleEdit->GetText());
+    lookup->SetInetref(m_inetrefEdit->GetText());
+    lookup->SetCollectionref(m_inetrefEdit->GetText());
+    lookup->SetSeason(m_seasonSpin->GetIntValue());
+    lookup->SetEpisode(m_episodeSpin->GetIntValue());
+    lookup->SetAutomatic(false);
+
+    m_metadataFactory->Lookup(lookup);
+}
+
+void RecMetadataEdit::QueryComplete(MetadataLookup *lookup)
+{
+    if (!lookup)
+        return;
+
+    m_inetrefEdit->SetText(lookup->GetInetref());
+    m_seasonSpin->SetValue(lookup->GetSeason());
+    m_episodeSpin->SetValue(lookup->GetEpisode());
+    if (!lookup->GetSubtitle().isEmpty())
+    {
+        m_descriptionEdit->SetText(lookup->GetSubtitle());
+    }
+    if (!lookup->GetDescription().isEmpty())
+    {
+        m_descriptionEdit->SetText(lookup->GetDescription());
+    }
+}
+
+void RecMetadataEdit::OnSearchListSelection(RefCountHandler<MetadataLookup> lookup)
+{
+    QueryComplete(lookup);
+}
+
+void RecMetadataEdit::customEvent(QEvent *levent)
+{
+    if (levent->type() == MetadataFactoryMultiResult::kEventType)
+    {
+        if (m_busyPopup)
+        {
+            m_busyPopup->Close();
+            m_busyPopup = NULL;
+        }
+
+        MetadataFactoryMultiResult *mfmr = dynamic_cast<MetadataFactoryMultiResult*>(levent);
+
+        if (!mfmr)
+            return;
+
+        MetadataLookupList list = mfmr->results;
+
+        MetadataResultsDialog *resultsdialog =
+            new MetadataResultsDialog(m_popupStack, list);
+
+        connect(resultsdialog, SIGNAL(haveResult(RefCountHandler<MetadataLookup>)),
+                SLOT(OnSearchListSelection(RefCountHandler<MetadataLookup>)),
+                Qt::QueuedConnection);
+
+        if (resultsdialog->Create())
+            m_popupStack->AddScreen(resultsdialog);
+    }
+    else if (levent->type() == MetadataFactorySingleResult::kEventType)
+    {
+        if (m_busyPopup)
+        {
+            m_busyPopup->Close();
+            m_busyPopup = NULL;
+        }
+
+        MetadataFactorySingleResult *mfsr = dynamic_cast<MetadataFactorySingleResult*>(levent);
+
+        if (!mfsr || !mfsr->result)
+            return;
+
+        QueryComplete(mfsr->result);
+    }
+    else if (levent->type() == MetadataFactoryNoResult::kEventType)
+    {
+        if (m_busyPopup)
+        {
+            m_busyPopup->Close();
+            m_busyPopup = NULL;
+        }
+
+        MetadataFactoryNoResult *mfnr = dynamic_cast<MetadataFactoryNoResult*>(levent);
+
+        if (!mfnr)
+            return;
+
+        QString title = tr("No match found for this recording. You can "
+                           "try entering a TVDB/TMDB number, season, and "
+                           "episode manually.");
+
+        MythConfirmationDialog *okPopup =
+            new MythConfirmationDialog(m_popupStack, title, false);
+
+        if (okPopup->Create())
+            m_popupStack->AddScreen(okPopup);
+    }
 }
 
 //////////////////////////////////////////

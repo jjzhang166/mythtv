@@ -223,7 +223,7 @@ const char *descriptor_tag_strings[256] =
     /* 0x1A */ "DSM-CC Stream Event",   /* 0x1B */ "MPEG-4 Video",
     /* 0x1C */ "MPEG-4 Audio",          /* 0x1D */ "IOD",
     /* 0x1E */ "SL",                    /* 0x1F */ "FMC",
-    
+
     /* 0x20 */ "External ES ID",        /* 0x21 */ "Multimpex Code",
     /* 0x22 */ "FMX buffer Size",       /* 0x23 */ "Multiplex Buffer",
     /* 0x24 */ "Content Labeling",      /* 0x25 */ "Metadata Pointer",
@@ -437,12 +437,13 @@ QString MPEGDescriptor::toString() const
     /// POSSIBLY UNSAFE ! -- end
     else if (IsValid())
     {
-        str = QString("%1 Descriptor (0x%2) length(%3)")
+        str = QString("%1 Descriptor (0x%2) length(%3). Dumping\n")
             .arg(DescriptorTagString())
             .arg(DescriptorTag(),2,16,QChar('0'))
             .arg(DescriptorLength());
         //for (uint i=0; i<DescriptorLength(); i++)
         //    str.append(QString(" 0x%1").arg(int(_data[i+2]), 0, 16));
+        str.append(hexdump());
     }
     else
     {
@@ -479,6 +480,33 @@ QString MPEGDescriptor::toStringXML(uint level) const
 
     str += indent_0 + "</Descriptor>";
 
+    return str;
+}
+
+// Dump the descriptor in the same format as hexdump -C
+QString MPEGDescriptor::hexdump(void) const
+{
+    QString str, hex, prt;
+    uint i, ch;
+    for (i=0; i<DescriptorLength(); i++)
+    {
+        ch = _data[i+2];
+        hex.append(QString(" %1").arg(ch, 2, 16, QChar('0')));
+        prt.append(QString("%1").arg(isalnum(ch) ? QChar(ch) : '.'));
+        if (((i+1) % 8) == 0)
+            hex.append(" ");
+        if (((i+1) % 16) == 0)
+        {
+            str.append(QString("      %1 %2 |%3|\n")
+                .arg(i - (i % 16),3,16,QChar('0'))
+                .arg(hex).arg(prt));
+            hex.clear();
+            prt.clear();
+        }
+    }
+    str.append(QString("      %1 %2 |%3|")
+                .arg(i - (i % 16),3,16,QChar('0'))
+                .arg(hex,-50,' ').arg(prt));
     return str;
 }
 

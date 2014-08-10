@@ -5,10 +5,10 @@
 #define LOC QString("VDADec: ")
 #define ERR QString("VDADec error: ")
 
-#include "frame.h"
-#include "myth_imgconvert.h"
+#include "mythframe.h"
 #include "util-osx-cocoa.h"
 #include "privatedecoder_vda.h"
+
 #ifdef USING_QUARTZ_VIDEO
 #undef CodecType
 #import  "QuickTime/ImageCompression.h"
@@ -319,8 +319,8 @@ bool PrivateDecoderVDA::Init(const QString &decoder,
                              PlayerFlags flags,
                              AVCodecContext *avctx)
 {
-    if ((decoder != "vda") || (avctx->codec_id != AV_CODEC_ID_H264) ||
-        !(flags & kDecodeAllowEXT) || !avctx)
+    if ((decoder != "vda") || !avctx || (avctx->codec_id != AV_CODEC_ID_H264) ||
+        !(flags & kDecodeAllowEXT))
         return false;
 
     m_lib = VDALibrary::GetVDALibrary();
@@ -645,7 +645,7 @@ int  PrivateDecoderVDA::GetFrame(AVStream *stream,
     VDAFrame vdaframe = m_decoded_frames.takeLast();
     m_frame_lock.unlock();
 
-    if (avctx->get_buffer(avctx, picture) < 0)
+    if (avctx->get_buffer2(avctx, picture, 0) < 0)
         return -1;
 
     picture->reordered_opaque = vdaframe.pts;
@@ -655,26 +655,18 @@ int  PrivateDecoderVDA::GetFrame(AVStream *stream,
     VideoFrame *frame         = (VideoFrame*)picture->opaque;
 
     PixelFormat in_fmt  = PIX_FMT_NONE;
-    PixelFormat out_fmt = PIX_FMT_NONE;
     if (vdaframe.format == 'BGRA')
         in_fmt = PIX_FMT_BGRA;
     else if (vdaframe.format == '2vuy')
         in_fmt = PIX_FMT_UYVY422;
 
-    if (frame->codec == FMT_YV12)
-        out_fmt = PIX_FMT_YUV420P;
-
-    if (out_fmt != PIX_FMT_NONE && in_fmt != PIX_FMT_NONE && frame->buf)
+    if (frame->codec == FMT_YV12 && in_fmt != PIX_FMT_NONE && frame->buf)
     {
         CVPixelBufferLockBaseAddress(vdaframe.buffer, 0);
         uint8_t* base = (uint8_t*)CVPixelBufferGetBaseAddressOfPlane(vdaframe.buffer, 0);
-        AVPicture img_in, img_out;
-        avpicture_fill(&img_out, (uint8_t *)frame->buf, out_fmt,
-                       frame->width, frame->height);
-        avpicture_fill(&img_in, base, in_fmt,
-                       frame->width, frame->height);
-        myth_sws_img_convert(&img_out, out_fmt, &img_in, in_fmt,
-                       frame->width, frame->height);
+        AVPicture img_in;
+        avpicture_fill(&img_in, base, in_fmt, frame->width, frame->height);
+        m_copyCtx.Copy(frame, &img_in, in_fmt);
         CVPixelBufferUnlockBaseAddress(vdaframe.buffer, 0);
     }
     else

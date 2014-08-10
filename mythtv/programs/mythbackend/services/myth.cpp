@@ -24,6 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "myth.h"
+#include <backendcontext.h>
 
 #include <QDir>
 #include <QCryptographicHash>
@@ -63,11 +64,11 @@ DTC::ConnectionInfo* Myth::GetConnectionInfo( const QString  &sPin )
     // Check for DBHostName of "localhost" and change to public name or IP
     // ----------------------------------------------------------------------
 
-    QString sServerIP = gCoreContext->GetSetting( "BackendServerIP", "localhost" );
+    QString sServerIP = gCoreContext->GetBackendServerIP();
     //QString sPeerIP   = pRequest->GetPeerAddress();
 
     if ((params.dbHostName == "localhost") &&
-        (sServerIP         != "localhost"))  // &&
+        !sServerIP.isEmpty())  // &&
         //(sServerIP         != sPeerIP    ))
     {
         params.dbHostName = sServerIP;
@@ -563,6 +564,31 @@ DTC::LogMessageList *Myth::GetLogs(  const QString   &HostName,
 //
 /////////////////////////////////////////////////////////////////////////////
 
+DTC::FrontendList *Myth::GetFrontends( bool OnLine )
+{
+    DTC::FrontendList *pList = new DTC::FrontendList();
+    QMap<QString, Frontend*> frontends;
+    if (OnLine)
+        frontends = gBackendContext->GetConnectedFrontends();
+    else
+        frontends = gBackendContext->GetFrontends();
+
+    QMap<QString, Frontend*>::const_iterator it;
+    for (it = frontends.begin(); it != frontends.end(); ++it)
+    {
+        DTC::Frontend *pFrontend = pList->AddNewFrontend();
+        pFrontend->setName((*it)->name);
+        pFrontend->setIP((*it)->ip.toString());
+        pFrontend->setOnLine((*it)->connectionCount > 0);
+    }
+
+    return pList;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
 DTC::SettingList *Myth::GetSetting( const QString &sHostName,
                                     const QString &sKey,
                                     const QString &sDefault )
@@ -906,14 +932,13 @@ bool Myth::BackupDatabase(void)
 {
     bool bResult = false;
 
-    DBUtil *dbutil = new DBUtil();
+    DBUtil dbutil;
     MythDBBackupStatus status = kDB_Backup_Unknown;
     QString filename;
 
     LOG(VB_GENERAL, LOG_NOTICE, "Performing API invoked DB Backup.");
 
-    if (dbutil)
-        status = dbutil->BackupDB(filename);
+    status = dbutil.BackupDB(filename);
 
     if (status == kDB_Backup_Completed)
     {
@@ -922,8 +947,6 @@ bool Myth::BackupDatabase(void)
     }
     else
         LOG(VB_GENERAL, LOG_ERR, "Database backup failed.");
-
-    delete dbutil;
 
     return bResult;
 }
@@ -936,19 +959,14 @@ bool Myth::CheckDatabase( bool repair )
 {
     bool bResult = false;
 
-    DBUtil *dbutil = new DBUtil();
-
     LOG(VB_GENERAL, LOG_NOTICE, "Performing API invoked DB Check.");
 
-    if (dbutil)
-        bResult = dbutil->CheckTables(repair);
+    bResult = DBUtil::CheckTables(repair);
 
     if (bResult)
         LOG(VB_GENERAL, LOG_NOTICE, "Database check complete.");
     else
         LOG(VB_GENERAL, LOG_ERR, "Database check failed.");
-
-    delete dbutil;
 
     return bResult;
 }
@@ -961,16 +979,12 @@ bool Myth::ProfileSubmit()
 {
     bool bResult = false;
 
-    HardwareProfile *profile = new HardwareProfile();
-    if (profile)
-    {
-        LOG(VB_GENERAL, LOG_NOTICE, "Profile Submission...");
-        profile->GenerateUUIDs();
-        bResult = profile->SubmitProfile();
-        if (bResult)
-            LOG(VB_GENERAL, LOG_NOTICE, "Profile Submitted.");
-    }
-    delete profile;
+    HardwareProfile profile;
+    LOG(VB_GENERAL, LOG_NOTICE, "Profile Submission...");
+    profile.GenerateUUIDs();
+    bResult = profile.SubmitProfile();
+    if (bResult)
+        LOG(VB_GENERAL, LOG_NOTICE, "Profile Submitted.");
 
     return bResult;
 }
@@ -983,16 +997,12 @@ bool Myth::ProfileDelete()
 {
     bool bResult = false;
 
-    HardwareProfile *profile = new HardwareProfile();
-    if (profile)
-    {
-        LOG(VB_GENERAL, LOG_NOTICE, "Profile Deletion...");
-        profile->GenerateUUIDs();
-        bResult = profile->DeleteProfile();
-        if (bResult)
-            LOG(VB_GENERAL, LOG_NOTICE, "Profile Deleted.");
-    }
-    delete profile;
+    HardwareProfile profile;
+    LOG(VB_GENERAL, LOG_NOTICE, "Profile Deletion...");
+    profile.GenerateUUIDs();
+    bResult = profile.DeleteProfile();
+    if (bResult)
+        LOG(VB_GENERAL, LOG_NOTICE, "Profile Deleted.");
 
     return bResult;
 }
@@ -1005,14 +1015,10 @@ QString Myth::ProfileURL()
 {
     QString sProfileURL;
 
-    HardwareProfile *profile = new HardwareProfile();
-    if (profile)
-    {
-        profile->GenerateUUIDs();
-        sProfileURL = profile->GetProfileURL();
-        LOG(VB_GENERAL, LOG_NOTICE, QString("ProfileURL: %1").arg(sProfileURL));
-    }
-    delete profile;
+    HardwareProfile profile;
+    profile.GenerateUUIDs();
+    sProfileURL = profile.GetProfileURL();
+    LOG(VB_GENERAL, LOG_NOTICE, QString("ProfileURL: %1").arg(sProfileURL));
 
     return sProfileURL;
 }
@@ -1025,16 +1031,12 @@ QString Myth::ProfileUpdated()
 {
     QString sProfileUpdate;
 
-    HardwareProfile *profile = new HardwareProfile();
-    if (profile)
-    {
-        profile->GenerateUUIDs();
-        QDateTime tUpdated;
-        tUpdated = profile->GetLastUpdate();
-        sProfileUpdate = tUpdated.toString(
-            gCoreContext->GetSetting( "DateFormat", "MM.dd.yyyy"));
-    }
-    delete profile;
+    HardwareProfile profile;
+    profile.GenerateUUIDs();
+    QDateTime tUpdated;
+    tUpdated = profile.GetLastUpdate();
+    sProfileUpdate = tUpdated.toString(
+    gCoreContext->GetSetting( "DateFormat", "MM.dd.yyyy"));
 
     return sProfileUpdate;
 }
@@ -1047,10 +1049,8 @@ QString Myth::ProfileText()
 {
     QString sProfileText;
 
-    HardwareProfile *profile = new HardwareProfile();
-    if (profile)
-        sProfileText = profile->GetHardwareProfile();
-    delete profile;
+    HardwareProfile profile;
+    sProfileText = profile.GetHardwareProfile();
 
     return sProfileText;
 }

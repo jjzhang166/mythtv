@@ -11,7 +11,7 @@ const unsigned char DEFAULT_PAT_HEADER[8] =
 {
     0x00, // TableID::PAT
     0xb0, // Syntax indicator
-    0x00, // Length (set seperately)
+    0x00, // Length (set separately)
     0x00, // Transport stream ID top bits
 
     0x00, // Transport stream ID bottom bits
@@ -24,10 +24,10 @@ const unsigned char DEFAULT_PMT_HEADER[12] =
 {
     0x02, // TableID::PMT
     0xb0, // Syntax indicator
-    0x00, // Length (set seperately)
-    0x00, // MPEG Program number top bits (set seperately)
+    0x00, // Length (set separately)
+    0x00, // MPEG Program number top bits (set separately)
 
-    0x00, // MPEG Program number bottom bits (set seperately)
+    0x00, // MPEG Program number bottom bits (set separately)
     0xc1, // Version + Current/Next
     0x00, // Current Section
     0x00, // Last Section
@@ -1132,7 +1132,7 @@ uint ProgramMapTable::GetAudioType(uint i) const
     if (iso_lang.AudioType() == 0x0 &&
         iso_lang.LanguageString() == "nar")
         return 0x03;
-    
+
     return iso_lang.AudioType();
 }
 
@@ -1156,7 +1156,7 @@ QString ConditionalAccessTable::toString(void) const
     QString str =
         QString("Condiditional Access Section %1")
         .arg(PSIPTable::toString());
-    
+
     vector<const unsigned char*> gdesc =
         MPEGDescriptor::Parse(Descriptors(), DescriptorsLength());
     for (uint i = 0; i < gdesc.size(); i++)
@@ -1418,7 +1418,7 @@ QString SpliceInformationTable::toString(int64_t first, int64_t last) const
 
 QString SpliceInsertView::toString(int64_t first, int64_t last) const
 {
-    QString str = 
+    QString str =
         QString("eventid(0x%1) cancel(%2) "
                 "out_of_network(%3) program_splice(%4) "
                 "duration(%5) immediate(%6)\n  ")
@@ -1450,7 +1450,7 @@ QString SpliceInformationTable::toStringXML(
     if (first >= 0)
     {
         cap_time = QString("pts=\"%1\" ").arg(first);
-        if (last >= 0) 
+        if (last >= 0)
         {
             QTime abs = QTime(0,0,0,0).addMSecs((last - first)/90);
             cap_time += QString("capture_time=\"%1\" ")
@@ -1516,7 +1516,7 @@ QString SpliceInsertView::toStringXML(
         .arg(indent_1)
         .arg(AvailNum())
         .arg(AvailsExpected());
-    
+
     if (IsProgramSplice() && !IsSpliceImmediate())
     {
         str += SpliceTime().toStringXML(indent_level + 1, first, last) + "\n";

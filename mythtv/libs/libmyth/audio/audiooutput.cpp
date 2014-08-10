@@ -79,6 +79,10 @@ AudioOutput *AudioOutput::OpenAudio(AudioSettings &settings,
     QString &main_device = settings.main_device;
     AudioOutput *ret = NULL;
 
+    // Don't suspend Pulse if unnecessary.  This can save 100mS
+    if (settings.format == FORMAT_NONE || settings.channels <= 0)
+        willsuspendpa = false;
+
 #ifdef USING_PULSE
     bool pulsestatus = false;
 #else
@@ -216,6 +220,7 @@ AudioOutput::~AudioOutput()
     if (pulsewassuspended)
         PulseHandler::Suspend(PulseHandler::kPulseResume);
 #endif
+    av_frame_free(&_frame);
 }
 
 void AudioOutput::SetStretchFactor(float /*factor*/)
@@ -275,13 +280,15 @@ void AudioOutput::ClearWarning(void)
 AudioOutput::AudioDeviceConfig* AudioOutput::GetAudioDeviceConfig(
     QString &name, QString &desc, bool willsuspendpa)
 {
-    AudioOutputSettings aosettings;
+    AudioOutputSettings aosettings(true);
     AudioOutput::AudioDeviceConfig *adc;
 
     AudioOutput *ao = OpenAudio(name, QString::null, willsuspendpa);
-    aosettings = *(ao->GetOutputSettingsCleaned());
-    delete ao;
-
+    if (ao)
+    {
+        aosettings = *(ao->GetOutputSettingsCleaned());
+        delete ao;
+    }
     if (aosettings.IsInvalid())
     {
         if (!willsuspendpa)
@@ -550,14 +557,24 @@ int AudioOutput::DecodeAudio(AVCodecContext *ctx,
                              uint8_t *buffer, int &data_size,
                              const AVPacket *pkt)
 {
-    AVFrame frame;
     int got_frame = 0;
     int ret;
     char error[AV_ERROR_MAX_STRING_SIZE];
 
     data_size = 0;
-    avcodec_get_frame_defaults(&frame);
-    ret = avcodec_decode_audio4(ctx, &frame, &got_frame, pkt);
+    if (!_frame)
+    {
+        if (!(_frame = av_frame_alloc()))
+        {
+            return AVERROR(ENOMEM);
+        }
+    }
+    else
+    {
+        av_frame_unref(_frame);
+    }
+
+    ret = avcodec_decode_audio4(ctx, _frame, &got_frame, pkt);
     if (ret < 0)
     {
         LOG(VB_AUDIO, LOG_ERR, LOC +
@@ -574,11 +591,11 @@ int AudioOutput::DecodeAudio(AVCodecContext *ctx,
         return ret;
     }
 
-    AVSampleFormat format = (AVSampleFormat)frame.format;
+    AVSampleFormat format = (AVSampleFormat)_frame->format;
     AudioFormat fmt =
         AudioOutputSettings::AVSampleFormatToFormat(format, ctx->bits_per_raw_sample);
 
-    data_size = frame.nb_samples * frame.channels * av_get_bytes_per_sample(format);
+    data_size = _frame->nb_samples * _frame->channels * av_get_bytes_per_sample(format);
 
     // May need to convert audio to S16
     AudioConvert converter(fmt, CanProcess(fmt) ? fmt : FORMAT_S16);
@@ -587,15 +604,15 @@ int AudioOutput::DecodeAudio(AVCodecContext *ctx,
     if (av_sample_fmt_is_planar(format))
     {
         src = buffer;
-        converter.InterleaveSamples(frame.channels,
+        converter.InterleaveSamples(_frame->channels,
                                     src,
-                                    (const uint8_t **)frame.extended_data,
+                                    (const uint8_t **)_frame->extended_data,
                                     data_size);
     }
     else
     {
         // data is already compacted...
-        src = frame.extended_data[0];
+        src = _frame->extended_data[0];
     }
 
     uint8_t* transit = buffer;

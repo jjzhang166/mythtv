@@ -171,7 +171,8 @@ class MTV_PUBLIC ChannelUtil
     static int     GetChanID(uint sourceid, const QString &channum)
         { return GetChannelValueInt("chanid", sourceid, channum); }
     static bool    GetChannelData(
-        uint    sourceid,         const QString &channum,
+        uint    sourceid,
+        uint    &chanid,          const QString &channum,
         QString &tvformat,        QString       &modulation,
         QString &freqtable,       QString       &freqid,
         int     &finetune,        uint64_t      &frequency,
@@ -185,6 +186,33 @@ class MTV_PUBLIC ChannelUtil
         { return GetChannelValueStr("videofilters", sourceid, channum); }
     static IPTVTuningData GetIPTVTuningData(uint chanid);
 
+    // Are there any other possibly useful sort orders?
+    // e.g. Sorting by sourceid would probably be better done by two distinct
+    // calls to LoadChannels specifying the sourceid
+    enum OrderBy
+    {
+        kChanOrderByChanNum,
+        kChanOrderByName
+    };
+
+    // There is no grouping option by design and here's why.
+    //
+    // Grouping with a ChannelInfo object is largely self-defeating, 99% of the
+    // information in the remaining result won't apply to the other 'grouped'
+    // channels. Therefore GroupBy should be used when you only care about
+    // Name, Number and Callsign. Loading a complete ChannelInfo object,
+    // including card/input info is therefore an actual waste of
+    // processor cycles and memory, so we may yet introduce a parent class for
+    // ChannelInfo called BasicChannelInfo or similar with it's own Load function
+    static ChannelInfoList LoadChannels(uint startIndex = 0, uint count = 0,
+                                        OrderBy orderBy = kChanOrderByChanNum,
+                                        bool ignoreHidden = true,
+                                        uint sourceID = 0,
+                                        uint channelGroupID = 0 );
+
+    /**
+     * \deprecated Use LoadChannels instead
+     */
     static ChannelInfoList GetChannels(
         uint sourceid, bool visible_only, 
         const QString &group_by = QString(), uint channel_groupid = 0)
@@ -192,13 +220,17 @@ class MTV_PUBLIC ChannelUtil
         return GetChannelsInternal(sourceid, visible_only, false,
                                    group_by, channel_groupid);
     }
+
     /// Returns channels that are not connected to a capture card
     /// and channels that are not marked as visible.
+    /**
+     * \deprecated
+     */
     static ChannelInfoList GetAllChannels(uint sourceid)
     {
         return GetChannelsInternal(sourceid, false, true, QString(), 0);
     }
-    static vector<uint> GetChanIDs(int sourceid = -1);
+    static vector<uint> GetChanIDs(int sourceid = -1, bool onlyVisible = false);
     static uint    GetChannelCount(int sourceid = -1);
     static void    SortChannels(ChannelInfoList &list, const QString &order,
                                 bool eliminate_duplicates = false);
@@ -208,6 +240,7 @@ class MTV_PUBLIC ChannelUtil
     static uint    GetNextChannel(const ChannelInfoList &sorted,
                                   uint old_chanid,
                                   uint mplexid_restriction,
+                                  uint chanid_restriction,
                                   ChannelChangeDirection direction,
                                   bool skip_non_visible = true,
                                   bool skip_same_channum_and_callsign = false);
@@ -274,6 +307,9 @@ class MTV_PUBLIC ChannelUtil
     static const QString kATSCSeparators;
 
   private:
+    /**
+     * \deprecated Use LoadChannels instead
+     */
     static ChannelInfoList GetChannelsInternal(
         uint sourceid, bool visible_only, bool include_disconnected,
         const QString &group_by, uint channel_groupid);

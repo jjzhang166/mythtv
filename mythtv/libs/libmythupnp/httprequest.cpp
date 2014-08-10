@@ -42,6 +42,7 @@
 #include "mythlogging.h"
 #include "mythversion.h"
 #include "mythdate.h"
+#include <mythcorecontext.h>
 
 #include "serializers/xmlSerializer.h"
 #include "serializers/soapSerializer.h"
@@ -103,6 +104,7 @@ static MIMETypes g_MIMETypes[] =
     { "3g2" , "video/3gpp2"                }, // Also audio/3gpp2
     { "asf" , "video/x-ms-asf"             },
     { "avi" , "video/avi"                  },
+    { "m4v" , "video/mp4"                  },
     { "mpeg", "video/mpeg"                 },
     { "mpeg2","video/mpeg"                 },
     { "mpg" , "video/mpeg"                 },
@@ -365,6 +367,48 @@ long HTTPRequest::SendResponse( void )
             m_mapRespHeaders[ "Content-Encoding" ] = "gzip";
             LOG(VB_UPNP, LOG_DEBUG, QString("Reponse Compressed Content Length: %1").arg(compBuffer.buffer().length()));
         }
+    }
+
+    // ----------------------------------------------------------------------
+    // NOTE: Access-Control-Allow-Origin Wildcard
+    //
+    // This is a REALLY bad idea, so bad in fact that I'm including it here but
+    // commented out in the hope that anyone thinking of adding it in the future
+    // will see it and then read this comment.
+    //
+    // Browsers do not verify that the origin is on the same network. This means
+    // that a malicious script embedded or included into ANY webpage you visit
+    // could then access servers on your local network including MythTV. They
+    // can grab data, delete data including recordings and videos, schedule
+    // recordings and generally ruin your day.
+    //
+    // This might seem paranoid and a remote possibility, but then that's how
+    // a lot of exploits are born. Do NOT allow wildcards.
+    //
+    //m_mapRespHeaders[ "Access-Control-Allow-Origin" ] = "*";
+    // ----------------------------------------------------------------------
+
+    // ----------------------------------------------------------------------
+    // Allow the WebFrontend on the Master backend and ONLY this machine
+    // to access resources on a frontend or slave web server
+    //
+    // http://www.w3.org/TR/cors/#introduction
+    // ----------------------------------------------------------------------
+    QString masterAddrPort = QString("%1:%2").arg(gCoreContext->GetMasterServerIP())
+                                            .arg(gCoreContext->GetMasterServerStatusPort());
+
+    QStringList allowedOrigins;
+    allowedOrigins << QString("http://%1").arg(masterAddrPort);
+    allowedOrigins << QString("https://%2").arg(masterAddrPort);
+
+    if (!m_mapHeaders[ "origin" ].isEmpty())
+    {
+        if (allowedOrigins.contains(m_mapHeaders[ "origin" ]))
+            m_mapRespHeaders[ "Access-Control-Allow-Origin" ] = m_mapHeaders[ "origin" ];
+        else
+            LOG(VB_GENERAL, LOG_CRIT, QString("HTTPRequest: Cross-origin request "
+                                              "received with origin (%1)")
+                                                 .arg(m_mapHeaders[ "origin" ]));
     }
 
     // ----------------------------------------------------------------------
@@ -975,6 +1019,22 @@ QString HTTPRequest::GetMimeType( const QString &sFileExtension )
     }
 
     return( "text/plain" );
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QStringList HTTPRequest::GetSupportedMimeTypes()
+{
+    QStringList mimeTypes;
+
+    for (int i = 0; i < g_nMIMELength; i++)
+    {
+        mimeTypes.append( g_MIMETypes[i].pszType );
+    }
+
+    return mimeTypes;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1659,6 +1719,22 @@ QString HTTPRequest::Encode(const QString &sIn)
     LOG(VB_UPNP, LOG_DEBUG,
         QString("HTTPRequest::Encode Output : %1").arg(sStr));
 #endif
+    return sStr;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+QString HTTPRequest::Decode(const QString& sIn)
+{
+    QString sStr = sIn;
+    sStr.replace("&amp;", "&");
+    sStr.replace("&lt;", "<");
+    sStr.replace("&gt;", ">");
+    sStr.replace("&quot;", "\"");
+    sStr.replace("&apos;", "'");
+
     return sStr;
 }
 

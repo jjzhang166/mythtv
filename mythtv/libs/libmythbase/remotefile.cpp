@@ -122,11 +122,7 @@ MythSocket *RemoteFile::openSocket(bool control)
 
     if (port <= 0)
     {
-        port = GetMythDB()->GetSettingOnHost("BackendServerPort", host).toInt();
-
-        // if we still have no port use the default
-        if (port <= 0)
-            port = 6543;
+        port = gCoreContext->GetBackendServerPort(host);
     }
 
     if (!lsock->ConnectToHost(host, port))
@@ -435,8 +431,7 @@ bool RemoteFile::Exists(const QString &url, struct stat *fileinfo)
     QString sgroup   = qurl.userName();
     QString host     = qurl.host();
 
-    if (isLocal(url) || (gCoreContext->IsMasterBackend() &&
-        host == gCoreContext->GetMasterHostName()))
+    if (isLocal(url) || gCoreContext->IsThisBackend(host))
     {
        LOG(VB_FILE, LOG_INFO,
            QString("RemoteFile::Exists(): looking for local file: %1").arg(url));
@@ -557,6 +552,8 @@ QString RemoteFile::GetFileHash(const QString &url)
 
 bool RemoteFile::CopyFile (const QString& src, const QString& dst)
 {
+    LOG(VB_FILE, LOG_INFO, QString("RemoteFile::CopyFile: Copying file from '%1' to '%2'").arg(src).arg(dst));
+
     // sanity check
     if (src == dst)
     {
@@ -993,7 +990,8 @@ long long RemoteFile::GetRealFileSize(void)
 
     QMutexLocker locker(&lock);
 
-    if (completed || lastSizeCheck.elapsed() < MAX_FILE_CHECK)
+    if (completed ||
+        (lastSizeCheck.isRunning() && lastSizeCheck.elapsed() < MAX_FILE_CHECK))
     {
         return filesize;
     }
@@ -1124,20 +1122,47 @@ QDateTime RemoteFile::LastModified(void) const
     return LastModified(path);
 }
 
-/** \fn RemoteFile::FindFile(const QString& filename, const QString& host, const QString& storageGroup)
+/** \fn RemoteFile::FindFile(const QString& filename, const QString& host, const QString& storageGroup, bool useRegex, bool allowFallback)
  *  \brief Search all BE's for a file in the give storage group
  *  \param filename the partial path and filename to look for
  *  \param host search this host first if given or default to the master BE if empty
  *  \param storageGroup the name of the storage group to search
- *  \return a myth URL pointing to the file or empty string if not found
+ *  \param useRegex if true filename is assumed to be a regex expression of files to find
+ *  \param allowFallback if false only 'host' will be searched otherwise all host will be searched until a match is found
+ *  \return a QString containing the myth URL pointing to the first file found or empty list if not found
  */
-QString RemoteFile::FindFile(const QString& filename, const QString& host, const QString& storageGroup)
+QString RemoteFile::FindFile(const QString& filename, const QString& host,
+                             const QString& storageGroup, bool useRegex,
+                             bool allowFallback)
 {
-    LOG(VB_FILE, LOG_INFO, QString("RemoteFile::FindFile(): looking for '%1' on '%2' in group '%3'")
-                                   .arg(filename).arg(host).arg(storageGroup));
+    QStringList files = RemoteFile::FindFileList(filename, host, storageGroup, useRegex, allowFallback);
+
+    if (!files.isEmpty())
+        return files[0];
+
+    return QString();
+}
+
+/** \fn RemoteFile::FindFileList(const QString& filename, const QString& host, const QString& storageGroup, bool useRegex, bool allowFallback)
+ *  \brief Search all BE's for files in the give storage group
+ *  \param filename the partial path and filename to look for or regex
+ *  \param host search this host first if given or default to the master BE if empty
+ *  \param storageGroup the name of the storage group to search
+ *  \param useRegex if true filename is assumed to be a regex expression of files to find
+ *  \param allowFallback if false only 'host' will be searched otherwise all host will be searched until a match is found
+ *  \return a QStringList list containing the myth URL's pointing to the file or empty list if not found
+ */
+QStringList RemoteFile::FindFileList(const QString& filename, const QString& host,
+                             const QString& storageGroup, bool useRegex,
+                             bool allowFallback)
+{
+    LOG(VB_FILE, LOG_INFO, QString("RemoteFile::FindFile(): looking for '%1' on '%2' in group '%3' "
+                                   "(useregex: %4, allowfallback: %5)")
+                                   .arg(filename).arg(host).arg(storageGroup)
+                                   .arg(useRegex).arg(allowFallback));
 
     if (filename.isEmpty() || storageGroup.isEmpty())
-        return QString();
+        return QStringList();
 
     QStringList strList;
     QString hostName = host;
@@ -1145,68 +1170,62 @@ QString RemoteFile::FindFile(const QString& filename, const QString& host, const
     if (hostName.isEmpty())
         hostName = gCoreContext->GetMasterHostName();
 
-    if (gCoreContext->IsMasterBackend() &&
-        hostName == gCoreContext->GetMasterHostName())
+    // if we are looking for the file on this host just search the local storage group first
+    if (gCoreContext->IsThisBackend(hostName))
     {
-        StorageGroup sGroup(storageGroup, hostName);
-        if (!sGroup.FindFile(filename).isEmpty())
-            return gCoreContext->GenMythURL(hostName, 0, filename, storageGroup);
-    }
-    else
-    {
-        // first check the given host
-        strList << "QUERY_SG_FILEQUERY" << hostName << storageGroup << filename << 0;
-        if (gCoreContext->SendReceiveStringList(strList))
+        StorageGroup sgroup(storageGroup, hostName);
+
+        if (useRegex)
         {
-            if (strList.size() > 0 && strList[0] != "EMPTY LIST" && !strList[0].startsWith("SLAVE UNREACHABLE"))
-                return gCoreContext->GenMythURL(hostName, 0, filename, storageGroup);
+            QFileInfo fi(filename);
+            QStringList files = sgroup.GetFileList('/' + fi.path());
+
+            LOG(VB_FILE, LOG_INFO, QString("RemoteFile::FindFileList: Looking in dir '%1' for '%2'")
+                                           .arg(fi.path()).arg(fi.fileName()));
+
+            for (int x = 0; x < files.size(); x++)
+            {
+                LOG(VB_FILE, LOG_INFO, QString("RemoteFile::FindFileList: Found '%1 - %2'")
+                                               .arg(x).arg(files[x]));
+            }
+
+            QStringList filteredFiles = files.filter(QRegExp(fi.fileName()));
+            for (int x = 0; x < filteredFiles.size(); x++)
+            {
+                strList << gCoreContext->GenMythURL(gCoreContext->GetBackendServerIP(),
+                                                     gCoreContext->GetBackendServerPort(),
+                                                     fi.path() + '/' + filteredFiles[x],
+                                                     storageGroup);
+            }
         }
-    }
-
-    // not found so search all hosts that has a directory defined for the give storage group
-
-    // get a list of hosts
-    MSqlQuery query(MSqlQuery::InitCon());
-
-    QString sql = "SELECT DISTINCT hostname "
-                  "FROM storagegroup "
-                  "WHERE groupname = :GROUP "
-                  "AND hostname != :HOSTNAME";
-    query.prepare(sql);
-    query.bindValue(":GROUP", storageGroup);
-    query.bindValue(":HOSTNAME", hostName);
-
-    if (!query.exec() || !query.isActive())
-    {
-        MythDB::DBError("RemoteFile::FindFile() get host list", query);
-        return QString();
-    }
-
-    while(query.next())
-    {
-        hostName = query.value(0).toString();
-
-        if (gCoreContext->IsMasterBackend() &&
-            hostName == gCoreContext->GetMasterHostName())
+        else
         {
-            StorageGroup sGroup(storageGroup, hostName);
-            if (!sGroup.FindFile(filename).isEmpty())
-                return gCoreContext->GenMythURL(hostName, 0, filename, storageGroup);
-            else
-                continue;
+            if (!sgroup.FindFile(filename).isEmpty())
+                strList << gCoreContext->GenMythURL(gCoreContext->GetBackendServerIP(hostName),
+                                                gCoreContext->GetBackendServerPort(hostName),
+                                                filename, storageGroup);
         }
 
-        strList.clear();
-        strList << "QUERY_SG_FILEQUERY" << hostName << storageGroup << filename << 0;
+        if (!strList.isEmpty() || !allowFallback)
+            return strList;
+    }
+
+    // if we didn't find any files ask the master BE to find it
+    if (strList.isEmpty())
+    {
+        strList << "QUERY_FINDFILE" << hostName << storageGroup << filename
+                << (useRegex ? "1" : "0")
+                << "1";
 
         if (gCoreContext->SendReceiveStringList(strList))
         {
-            if (strList.size() > 0 && strList[0] != "EMPTY LIST" && !strList[0].startsWith("SLAVE UNREACHABLE"))
-                return gCoreContext->GenMythURL(hostName, 0, filename, storageGroup);
+            if (strList.size() > 0 && !strList[0].isEmpty() &&
+                strList[0] != "NOT FOUND" && !strList[0].startsWith("ERROR: "))
+                return strList;
         }
     }
 
-    return QString();
+    return QStringList();
 }
 
 /** \fn RemoteFile::SetBlocking(void)

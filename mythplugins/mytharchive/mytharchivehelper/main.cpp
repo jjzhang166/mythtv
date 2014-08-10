@@ -65,11 +65,11 @@ using namespace std;
 #include <mythsystemlegacy.h>
 #include <mythdate.h>
 #include <mythlogging.h>
+#include <mythavutil.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
 #include "pxsup2dast.h"
 }
 
@@ -1001,8 +1001,8 @@ int NativeArchive::importRecording(const QDomElement &itemNode,
         }
     }
 
-    QString destFile = gCoreContext->GenMythURL(gCoreContext->GetSetting("MasterServerIP"),
-                                                gCoreContext->GetSetting("MasterServerPort"),
+    QString destFile = gCoreContext->GenMythURL(gCoreContext->GetMasterServerIP(),
+                                                gCoreContext->GetMasterServerPort(),
                                                 basename , "Default");
 
     // copy file to recording directory
@@ -1581,32 +1581,6 @@ static int doImportArchive(const QString &inFile, int chanID)
     return na.doImportArchive(inFile, chanID);
 }
 
-// Note: copied this function from myth_imgconvert.cpp -- dtk 2009-08-17
-static int myth_sws_img_convert(
-    AVPicture *dst, PixelFormat dst_pix_fmt, AVPicture *src,
-    PixelFormat pix_fmt, int width, int height)
-{
-    static QMutex lock;
-    QMutexLocker locker(&lock);
-
-    static struct SwsContext *convert_ctx;
-
-    convert_ctx = sws_getCachedContext(convert_ctx, width, height, pix_fmt,
-                                       width, height, dst_pix_fmt,
-                                       SWS_FAST_BILINEAR, NULL, NULL, NULL);
-    if (!convert_ctx)
-    {
-        LOG(VB_GENERAL, LOG_ERR, "myth_sws_img_convert: Cannot initialize "
-                                 "the image conversion context");
-        return -1;
-    }
-
-    sws_scale(convert_ctx, src->data, src->linesize,
-              0, height, dst->data, dst->linesize);
-
-    return 0;
-}
-
 static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int frameCount)
 {
     av_register_all();
@@ -1679,12 +1653,17 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
 
     // get list of required thumbs
     QStringList list = thumbList.split(",", QString::SkipEmptyParts);
-    AVFrame *frame = avcodec_alloc_frame();
+    MythAVFrame frame;
+    if (!frame)
+    {
+        return 1;
+    }
     AVPacket pkt;
     AVPicture orig;
     AVPicture retbuf;
     memset(&orig, 0, sizeof(AVPicture));
     memset(&retbuf, 0, sizeof(AVPicture));
+    MythAVCopy copyframe;
 
     int bufflen = width * height * 4;
     unsigned char *outputbuf = new unsigned char[bufflen];
@@ -1703,6 +1682,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                 thumbCount++;
 
                 avcodec_flush_buffers(codecCtx);
+                av_frame_unref(frame);
                 avcodec_decode_video2(codecCtx, frame, &frameFinished, &pkt);
                 keyFrame = frame->key_frame;
 
@@ -1715,6 +1695,7 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                     if (pkt.stream_index == videostream)
                     {
                         frameNo++;
+                        av_frame_unref(frame);
                         avcodec_decode_video2(codecCtx, frame, &frameFinished, &pkt);
                         keyFrame = frame->key_frame;
                     }
@@ -1739,15 +1720,14 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
                         avpicture_fill(&retbuf, outputbuf,
                                        PIX_FMT_RGB32, width, height);
 
-                        avpicture_deinterlace((AVPicture*)frame,
-                                              (AVPicture*)frame,
+                        AVFrame *tmp = frame;
+                        avpicture_deinterlace((AVPicture*)tmp,
+                                              (AVPicture*)tmp,
                                               codecCtx->pix_fmt, width, height);
 
-
-                        myth_sws_img_convert(
-                                    &retbuf, PIX_FMT_RGB32,
-                                    (AVPicture*) frame,
-                                    codecCtx->pix_fmt, width, height);
+                        copyframe.Copy(&retbuf, PIX_FMT_RGB32,
+                                       (AVPicture*) tmp,
+                                       codecCtx->pix_fmt, width, height);
 
                         QImage img(outputbuf, width, height,
                                    QImage::Format_RGB32);
@@ -1793,9 +1773,6 @@ static int grabThumbnail(QString inFile, QString thumbList, QString outFile, int
 
     if (outputbuf)
         delete[] outputbuf;
-
-    // free the frame
-    av_free(frame);
 
     // close the codec
     avcodec_close(codecCtx);

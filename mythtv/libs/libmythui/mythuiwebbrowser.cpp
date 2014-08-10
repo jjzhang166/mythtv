@@ -290,13 +290,13 @@ bool MythWebPage::extension(Extension extension, const ExtensionOption *option,
 {
     if (extension == QWebPage::ErrorPageExtension)
     {
-        ErrorPageExtensionOption *erroroption;
-        erroroption = (ErrorPageExtensionOption *) option;
-        ErrorPageExtensionReturn *erroroutput;
-        erroroutput = (ErrorPageExtensionReturn *) output;
-
         if (!option || !output)
             return false;
+
+        const ErrorPageExtensionOption *erroroption
+                        = static_cast<const ErrorPageExtensionOption *>(option);
+        ErrorPageExtensionReturn *erroroutput = NULL;
+        erroroutput = static_cast<ErrorPageExtensionReturn *>(output);
 
         QString filename = "htmls/notfound.html";
 
@@ -957,7 +957,7 @@ void MythUIWebBrowser::Init(void)
         parentObject = parentObject->parent();
     }
 
-    if (!m_parentScreen)
+    if (!m_parentScreen && parent() != GetGlobalObjectStore())
         LOG(VB_GENERAL, LOG_ERR,
             "MythUIWebBrowser: failed to find our parent screen");
 

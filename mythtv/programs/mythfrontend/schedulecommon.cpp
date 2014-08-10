@@ -23,12 +23,14 @@
 #include "progdetails.h"
 #include "proglist.h"
 #include "customedit.h"
+#include "guidegrid.h"
 
 /**
 *  \brief Show the Program Details screen
 */
-void ScheduleCommon::ShowDetails(ProgramInfo *pginfo) const
+void ScheduleCommon::ShowDetails(void) const
 {
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return;
 
@@ -66,10 +68,15 @@ void ScheduleCommon::ShowUpcoming(const QString &title,
 /**
 *  \brief Show the upcoming recordings for this title
 */
-void ScheduleCommon::ShowUpcoming(ProgramInfo *pginfo) const
+void ScheduleCommon::ShowUpcoming(void) const
 {
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return;
+
+    if (pginfo->GetChanID() == 0 &&
+        pginfo->GetRecordingRuleID() > 0)
+        return ShowUpcomingScheduled();
 
     ShowUpcoming(pginfo->GetTitle(), pginfo->GetSeriesID());
 }
@@ -77,8 +84,9 @@ void ScheduleCommon::ShowUpcoming(ProgramInfo *pginfo) const
 /**
 *  \brief Show the upcoming recordings for this recording rule
 */
-void ScheduleCommon::ShowUpcomingScheduled(ProgramInfo *pginfo) const
+void ScheduleCommon::ShowUpcomingScheduled(void) const
 {
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return;
 
@@ -99,21 +107,64 @@ void ScheduleCommon::ShowUpcomingScheduled(ProgramInfo *pginfo) const
 }
 
 /**
+*  \brief Show the channel search
+*/
+void ScheduleCommon::ShowChannelSearch() const
+{
+    ProgramInfo *pginfo = GetCurrentProgram();
+    if (!pginfo)
+        return;
+
+    MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
+    ProgLister *pl = new ProgLister(mainStack, plChannel,
+                                    QString::number(pginfo->GetChanID()), "",
+                                    pginfo->GetScheduledStartTime());
+    if (pl->Create())
+        mainStack->AddScreen(pl);
+    else
+        delete pl;
+}
+
+/**
+*  \brief Show the program guide
+*/
+void ScheduleCommon::ShowGuide(void) const
+{
+    ProgramInfo *pginfo = GetCurrentProgram();
+    if (!pginfo)
+        return;
+
+    QString startchannel = pginfo->GetChanNum();
+    uint startchanid = pginfo->GetChanID();
+    QDateTime starttime = pginfo->GetScheduledStartTime();
+    GuideGrid::RunProgramGuide(startchanid, startchannel, starttime);
+}
+
+/**
 *  \brief Create a kSingleRecord or bring up recording dialog.
 */
-void ScheduleCommon::QuickRecord(ProgramInfo *pginfo)
+void ScheduleCommon::QuickRecord(void)
 {
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return;
 
     if (pginfo->GetRecordingRuleID())
-        EditRecording(pginfo);
+        EditRecording();
     else
     {
         RecordingInfo ri(*pginfo);
         ri.QuickRecord();
         *pginfo = ri;
     }
+}
+
+/**
+*  \brief Creates a dialog for editing the recording schedule
+*/
+void ScheduleCommon::EditScheduled(void)
+{
+    EditScheduled(GetCurrentProgram());
 }
 
 /**
@@ -144,8 +195,9 @@ void ScheduleCommon::EditScheduled(RecordingInfo *recinfo)
 /**
 *  \brief Creates a dialog for creating a custom recording rule
 */
-void ScheduleCommon::EditCustom(ProgramInfo *pginfo)
+void ScheduleCommon::EditCustom(void)
 {
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return;
 
@@ -189,21 +241,15 @@ void ScheduleCommon::MakeOverride(RecordingInfo *recinfo)
 /**
 *  \brief Show the previous recordings for this recording rule
 */
-void ScheduleCommon::ShowPrevious(ProgramInfo *pginfo) const
+void ScheduleCommon::ShowPrevious(void) const
 {
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return;
 
-    ShowPrevious(pginfo->GetRecordingRuleID(), pginfo->GetTitle());
-}
-
-/**
-*  \brief Show the previous recordings for this recording rule
-*/
-void ScheduleCommon::ShowPrevious(uint recordid, const QString &title) const
-{
     MythScreenStack *mainStack = GetMythMainWindow()->GetMainStack();
-    ProgLister *pl = new ProgLister(mainStack, recordid, title);
+    ProgLister *pl = new ProgLister(mainStack, pginfo->GetRecordingRuleID(),
+                                    pginfo->GetTitle());
     if (pl->Create())
         mainStack->AddScreen(pl);
     else
@@ -214,8 +260,9 @@ void ScheduleCommon::ShowPrevious(uint recordid, const QString &title) const
 *  \brief Creates a dialog for editing the recording status,
 *         blocking until user leaves dialog.
 */
-void ScheduleCommon::EditRecording(ProgramInfo *pginfo)
+void ScheduleCommon::EditRecording(void)
 {
+    ProgramInfo *pginfo = GetCurrentProgram();
     if (!pginfo)
         return;
 
@@ -291,7 +338,7 @@ void ScheduleCommon::EditRecording(ProgramInfo *pginfo)
             else
                 menuPopup->AddButton(tr("Record one showing (this episode)"),
                                      qVariantFromValue(recinfo));
-            
+
         }
         menuPopup->AddButton(tr("Record all showings (this channel)"),
                              qVariantFromValue(recinfo));
@@ -299,9 +346,8 @@ void ScheduleCommon::EditRecording(ProgramInfo *pginfo)
                              qVariantFromValue(recinfo));
     }
     else if (recinfo.GetRecordingStatus() == rsRecording ||
-        recinfo.GetRecordingStatus() == rsTuning ||
-        recinfo.GetRecordingStatus() == rsOtherRecording ||
-        recinfo.GetRecordingStatus() == rsOtherTuning)
+             recinfo.GetRecordingStatus() == rsTuning    ||
+             recinfo.GetRecordingStatus() == rsFailing)
     {
         menuPopup->AddButton(tr("Stop this recording"),
                              qVariantFromValue(recinfo));
@@ -351,11 +397,9 @@ void ScheduleCommon::EditRecording(ProgramInfo *pginfo)
              recinfo.GetRecordingStatus() == rsTooManyRecordings ||
              recinfo.GetRecordingStatus() == rsConflict ||
              recinfo.GetRecordingStatus() == rsLaterShowing ||
-             recinfo.GetRecordingStatus() == rsOffLine ||
-             recinfo.GetRecordingStatus() == rsOtherShowing))
+             recinfo.GetRecordingStatus() == rsOffLine))
         {
             if (recinfo.GetRecordingStatus() == rsWillRecord ||
-                recinfo.GetRecordingStatus() == rsOtherShowing ||
                 recinfo.GetRecordingStatus() == rsConflict)
                 menuPopup->AddButton(tr("Don't record this showing"),
                                      qVariantFromValue(recinfo));
@@ -452,10 +496,7 @@ void ScheduleCommon::customEvent(QEvent *event)
             }
             else if (resulttext == tr("Stop this recording"))
             {
-                ProgramInfo pginfo(
-                    recInfo.GetChanID(), recInfo.GetRecordingStartTime());
-                if (pginfo.GetChanID())
-                    RemoteStopRecording(&pginfo);
+                RemoteStopRecording(&recInfo);
             }
             else if (resulttext == tr("Modify recording options") ||
                      resulttext == tr("Add override rule"))
@@ -496,3 +537,4 @@ bool ScheduleCommon::IsFindApplicable(const RecordingInfo& recInfo) const
     return recInfo.GetRecordingRuleType() == kDailyRecord ||
            recInfo.GetRecordingRuleType() == kWeeklyRecord;
 }
+

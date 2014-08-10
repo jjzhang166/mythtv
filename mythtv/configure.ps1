@@ -340,7 +340,7 @@ switch ($tools.Get_Item( "mp3lame.lib"))
     {
         Write-Host "Clean: mp3lame.lib" -foregroundcolor cyan
 
-        Run-Exe "$basePath\platform\win32\msvc\external\lame\" `
+        Run-Exe "$basePath\..\platform\win32\msvc\external\lame\" `
                 "nmake.exe"                          `
                 @( "-f Makefile.MSVC",
                    "clean" )
@@ -348,20 +348,20 @@ switch ($tools.Get_Item( "mp3lame.lib"))
         Remove-Item $basePath\bin\debug\mp3lame.lib                     -ErrorAction SilentlyContinue
         Remove-Item $basePath\bin\release\mp3lame.lib                   -ErrorAction SilentlyContinue
 
-        Remove-Item $basePath\platform\win32\msvc\external\lame\lame.h  -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\lame\lame.h  -ErrorAction SilentlyContinue
     }
 
     Build
     {
         Write-Host "Building: mp3lame.lib" -foregroundcolor cyan
 
-        if (!(Test-Path $basePath\platform\win32\msvc\external\lame\output\libmp3lame-static.lib))
+        if (!(Test-Path $basePath\..\platform\win32\msvc\external\lame\output\libmp3lame-static.lib))
         {
 
-            Copy-Item $basePath\platform\win32\msvc\external\lame\configMS.h `
-                      $basePath\platform\win32\msvc\external\lame\config.h
+            Copy-Item $basePath\..\platform\win32\msvc\external\lame\configMS.h `
+                      $basePath\..\platform\win32\msvc\external\lame\config.h
 
-            Run-Exe "$basePath\platform\win32\msvc\external\lame\" `
+            Run-Exe "$basePath\..\platform\win32\msvc\external\lame\" `
                     "nmake.exe"                          `
                     @( "-f Makefile.MSVC",
                        "comp=msvc",
@@ -371,13 +371,13 @@ switch ($tools.Get_Item( "mp3lame.lib"))
 
         # Copy lib to shared folder
 
-        Copy-Item $basePath\platform\win32\msvc\external\lame\output\libmp3lame-static.lib `
+        Copy-Item $basePath\..\platform\win32\msvc\external\lame\output\libmp3lame-static.lib `
                   $DestDir\mp3lame.lib
 
         # Due to way it's included in source, lame.h must be in main lame directory, so copy it there.
 
-        Copy-Item $basePath\platform\win32\msvc\external\lame\include\lame.h `
-                  $basePath\platform\win32\msvc\external\lame\
+        Copy-Item $basePath\..\platform\win32\msvc\external\lame\include\lame.h `
+                  $basePath\..\platform\win32\msvc\external\lame\
     }
 }
 
@@ -389,9 +389,9 @@ switch ($tools.Get_Item( $pThreadName ))
     {
         Write-Host "Clean: pthreads" -foregroundcolor cyan
 
-        Run-Exe "$basePath\platform\win32\msvc\external\pthreads.2\" "nmake.exe" @( "clean" )
+        Run-Exe "$basePath\..\platform\win32\msvc\external\pthreads.2\" "nmake.exe" @( "clean" )
 
-        Remove-Item $basePath\platform\win32\msvc\external\pthreads.2\pthread*.lib -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\pthreads.2\pthread*.lib -ErrorAction SilentlyContinue
         Remove-Item $basePath\bin\debug\pthread*.*                                 -ErrorAction SilentlyContinue
         Remove-Item $basePath\bin\release\pthread*.*                               -ErrorAction SilentlyContinue
     }
@@ -400,7 +400,7 @@ switch ($tools.Get_Item( $pThreadName ))
     {
         Write-Host "Building: pthreads" -foregroundcolor cyan
 
-        if (!(Test-Path $basePath\platform\win32\msvc\external\pthreads.2\$pThreadName ))
+        if (!(Test-Path $basePath\..\platform\win32\msvc\external\pthreads.2\$pThreadName ))
         {
             if ($BuildType -eq "debug")
             {
@@ -411,12 +411,12 @@ switch ($tools.Get_Item( $pThreadName ))
                 $pThreadTarget = "VC-inlined"
             }
 
-            Run-Exe "$basePath\platform\win32\msvc\external\pthreads.2\" "nmake.exe" @( "clean", $pThreadTarget )
+            Run-Exe "$basePath\..\platform\win32\msvc\external\pthreads.2\" "nmake.exe" @( "clean", $pThreadTarget )
         }
 
         # -- Copy lib to shared folder
-        Copy-Item $basePath\platform\win32\msvc\external\pthreads.2\pthread*.dll   $DestDir
-        Copy-Item $basePath\platform\win32\msvc\external\pthreads.2\pthread*.lib   $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\pthreads.2\pthread*.dll   $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\pthreads.2\pthread*.lib   $DestDir
     }
 }
 
@@ -428,7 +428,7 @@ switch ($tools.Get_Item( "zlib.lib" ))
     {
         Write-Host "Clean: zlib" -ForegroundColor cyan
 
-        Run-Exe "$basePath\platform\win32\msvc\external\zlib\"      `
+        Run-Exe "$basePath\..\platform\win32\msvc\external\zlib\"      `
                 "nmake.exe"                                         `
                 @( "-f win32/Makefile.msc",                         `
                    "clean" )
@@ -441,13 +441,13 @@ switch ($tools.Get_Item( "zlib.lib" ))
     {
         Write-Host "Building: zlib" -foregroundcolor cyan
 
-        if (!(Test-Path $basePath\platform\win32\msvc\external\zlib\zlib.lib ))
+        if (!(Test-Path $basePath\..\platform\win32\msvc\external\zlib\zlib.lib ))
         {
             switch( $BuildType )
             {
                 debug
                 {
-                    Run-Exe "$basePath\platform\win32\msvc\external\zlib\"  `
+                    Run-Exe "$basePath\..\platform\win32\msvc\external\zlib\"  `
                             "nmake.exe"                                     `
                             @( "-f win32/Makefile.msc",                     `
                                "CFLAGS=`"-nologo -MDd -W3 -Od -Zi`"",         `
@@ -456,7 +456,7 @@ switch ($tools.Get_Item( "zlib.lib" ))
 
                 release
                 {
-                    Run-Exe "$basePath\platform\win32\msvc\external\zlib\"  `
+                    Run-Exe "$basePath\..\platform\win32\msvc\external\zlib\"  `
                             "nmake.exe"                                     `
                             @( "-f win32/Makefile.msc",                     `
                                "zlib.lib" )
@@ -466,7 +466,7 @@ switch ($tools.Get_Item( "zlib.lib" ))
         }
 
         # -- Copy lib to shared folder
-        Copy-Item $basePath\platform\win32\msvc\external\zlib\zlib.lib   $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\zlib\zlib.lib   $DestDir
     }
 }
 
@@ -476,41 +476,44 @@ switch ($tools.Get_Item( 'tag.lib'))
 {
     Clean
     {
-        Run-Exe "$basePath\platform\win32\msvc\external\taglib" `
+        Run-Exe "$basePath\..\platform\win32\msvc\external\taglib" `
                 "nmake.exe"                                     `
                 "clean"
 
-        Remove-Item $basePath\platform\win32\msvc\external\taglib\CMakeCache.txt -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\taglib\CMakeCache.txt -ErrorAction SilentlyContinue
 
         Remove-Item $basePath\bin\debug\tag.*   -ErrorAction SilentlyContinue
         Remove-Item $basePath\bin\release\tag.* -ErrorAction SilentlyContinue
+
     }
 
     Build
     {
         Write-Host "Building: taglib" -foregroundcolor cyan
 
-        if (!(Test-Path $basePath\platform\win32\msvc\external\taglib\taglib\*.lib ))
+        if (!(Test-Path $basePath\..\platform\win32\msvc\external\taglib\lib\*.lib ))
         {
-            Remove-Item $basePath\platform\win32\msvc\external\taglib\CMakeCache.txt -ErrorAction SilentlyContinue
+            Remove-Item $basePath\..\platform\win32\msvc\external\taglib\CMakeCache.txt -ErrorAction SilentlyContinue
 
-            Run-Exe "$basePath\platform\win32\msvc\external\taglib\" `
+            Run-Exe "$basePath\..\platform\win32\msvc\external\taglib\" `
                     "cmake.exe"                            `
                     @("-G ""NMake Makefiles""";
                       "-DZLIB_INCLUDE_DIR=..\zlib";
                       "-DZLIB_LIBRARY=..\zlib\zlib.lib";
                       "-DENABLE_STATIC=0";
                       "-DWITH_MP4=1";
-                      "-DCMAKE_BUILD_TYPE=$BuildType" )
+                      "-DCMAKE_BUILD_TYPE=$BuildType";
+                      "-DCMAKE_CXX_FLAGS=""/FI algorithm""";
+                      "-DCMAKE_INSTALL_PREFIX=""$basePath\..\platform\win32\msvc\external\taglib""" )
 
-            Run-Exe "$basePath\platform\win32\msvc\external\taglib" `
+            Run-Exe "$basePath\..\platform\win32\msvc\external\taglib" `
                     "nmake.exe"                                     `
-                    "tag"
+                    "tag install"
         }
 
         # -- Copy lib to shared folder
-        Copy-Item $basePath\platform\win32\msvc\external\taglib\taglib\*.lib   $DestDir
-        Copy-Item $basePath\platform\win32\msvc\external\taglib\taglib\*.dll   $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\taglib\lib\*.lib   $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\taglib\bin\*.dll   $DestDir
     }
 }
 
@@ -522,9 +525,9 @@ switch ($tools.Get_Item( 'libexpat.lib'))
     {
         Write-Host "Clean: expat" -foregroundcolor cyan
 
-        if (Test-Path $basePath\platform\win32\msvc\external\expat\lib\expat.vcxproj )
+        if (Test-Path $basePath\..\platform\win32\msvc\external\expat\lib\expat.vcxproj )
         {
-            Run-Exe "$basePath\platform\win32\msvc\external\expat\lib\"   `
+            Run-Exe "$basePath\..\platform\win32\msvc\external\expat\lib\"   `
                     "msbuild.exe"                                     `
                     @( "/target:clean",                               `
                        "expat.vcxproj" )
@@ -533,32 +536,32 @@ switch ($tools.Get_Item( 'libexpat.lib'))
         Remove-Item $basePath\bin\debug\libexpat.*                                     -ErrorAction SilentlyContinue
         Remove-Item $basePath\bin\release\libexpat.*                                   -ErrorAction SilentlyContinue
 
-        Remove-Item $basePath\platform\win32\msvc\external\expat\win32\bin\debug\*.*   -ErrorAction SilentlyContinue
-        Remove-Item $basePath\platform\win32\msvc\external\expat\win32\bin\release\*.* -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\expat\win32\bin\debug\*.*   -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\expat\win32\bin\release\*.* -ErrorAction SilentlyContinue
     }
 
     Build
     {
         Write-Host "Building: expat" -foregroundcolor cyan
 
-        if (!(Test-Path $basePath\platform\win32\msvc\external\expat\win32\bin\$BuildType\*.lib ))
+        if (!(Test-Path $basePath\..\platform\win32\msvc\external\expat\win32\bin\$BuildType\*.lib ))
         {
-            if (!(Test-Path $basePath\platform\win32\msvc\external\expat\lib\expat.vcxproj ))
+            if (!(Test-Path $basePath\..\platform\win32\msvc\external\expat\lib\expat.vcxproj ))
             {
                 # -- Upgrade solution to verion of visual studios being used
 
-                # & vcupgrade $basePath\platform\win32\msvc\external\expat\lib\expat.dspj
+                # & vcupgrade $basePath\..\platform\win32\msvc\external\expat\lib\expat.dspj
 
-                Run-Exe "$basePath\platform\win32\msvc\external\expat\lib\" `
+                Run-Exe "$basePath\..\platform\win32\msvc\external\expat\lib\" `
                         "vcupgrade.exe"                                     `
                         @( "expat.dsp" )
             }
 
             # -- Build Solution
 
-            #& msbuild /target:build /p:Configuration=$BuildType $basePath\platform\win32\msvc\external\expat\lib\expat.vcxproj
+            #& msbuild /target:build /p:Configuration=$BuildType $basePath\..\platform\win32\msvc\external\expat\lib\expat.vcxproj
 
-            Run-Exe "$basePath\platform\win32\msvc\external\expat\lib\" `
+            Run-Exe "$basePath\..\platform\win32\msvc\external\expat\lib\" `
                     "msbuild.exe"                                       `
                     @( "/target:build",                                 `
                        "/p:Configuration=$BuildType",                   `
@@ -567,9 +570,18 @@ switch ($tools.Get_Item( 'libexpat.lib'))
 
         # -- Copy dll & lib to shared folder
 
-        Copy-Item $basePath\platform\win32\msvc\external\expat\win32\bin\$BuildType\*.lib $DestDir
-        Copy-Item $basePath\platform\win32\msvc\external\expat\win32\bin\$BuildType\*.dll $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\expat\win32\bin\$BuildType\*.lib $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\expat\win32\bin\$BuildType\*.dll $DestDir
     }
+}
+
+# ---------------------------------------------------------------------------
+
+$exiv2_params = @( "/target:build", "/p:Configuration=$BuildType" )
+
+if ($VCVerStr -eq "Visual Studio 12")
+{
+   $exiv2_params = $exiv2_params + "/p:PlatformToolset=v120"
 }
 
 # ---------------------------------------------------------------------------
@@ -580,9 +592,9 @@ switch ($tools.Get_Item( 'xmpsdk.lib'))
     {
         Write-Host "Clean: xmpsdk" -foregroundcolor cyan
 
-        if (Test-Path $basePath\platform\win32\msvc\external\exiv2\mythxmpsdk.vcxproj )
+        if (Test-Path $basePath\..\platform\win32\msvc\external\exiv2\mythxmpsdk.vcxproj )
         {
-            Run-Exe "$basePath\platform\win32\msvc\external\exiv2\"   `
+            Run-Exe "$basePath\..\platform\win32\msvc\external\exiv2\"   `
                     "msbuild.exe"                                     `
                     @( "/target:clean",                               `
                        "mythxmpsdk.vcxproj" )
@@ -591,28 +603,28 @@ switch ($tools.Get_Item( 'xmpsdk.lib'))
         Remove-Item $basePath\bin\debug\xmpsdk.*                                     -ErrorAction SilentlyContinue
         Remove-Item $basePath\bin\release\xmpsdk.*                                   -ErrorAction SilentlyContinue
 
-        Remove-Item $basePath\platform\win32\msvc\external\exiv2\win32\debug\xmpsdk.*   -ErrorAction SilentlyContinue
-        Remove-Item $basePath\platform\win32\msvc\external\exiv2\win32\release\xmpsdk.* -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\exiv2\win32\debug\xmpsdk.*   -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\exiv2\win32\release\xmpsdk.* -ErrorAction SilentlyContinue
     }
 
     Build
     {
         Write-Host "Building: xmpsdk" -foregroundcolor cyan
 
-        if (!(Test-Path $basePath\platform\win32\msvc\external\exiv2\win32\$BuildType\xmpsdk.lib ))
+        if (!(Test-Path $basePath\..\platform\win32\msvc\external\exiv2\win32\$BuildType\xmpsdk.lib ))
         {
             # -- Build Solution
 
-            Run-Exe "$basePath\platform\win32\msvc\external\exiv2\" `
+            $xmpsdk_params = $exiv2_params + "mythxmpsdk.vcxproj"
+
+            Run-Exe "$basePath\..\platform\win32\msvc\external\exiv2\" `
                     "msbuild.exe"                                   `
-                    @( "/target:build",                             `
-                       "/p:Configuration=$BuildType",
-                       "mythxmpsdk.vcxproj" )
+                     $xmpsdk_params 
         }
 
         # -- Copy lib to shared folder
 
-        Copy-Item $basePath\platform\win32\msvc\external\exiv2\win32\$BuildType\xmpsdk.lib $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\exiv2\win32\$BuildType\xmpsdk.lib $DestDir
     }
 }
 
@@ -624,9 +636,9 @@ switch ($tools.Get_Item( 'exiv2.lib'))
     {
         Write-Host "Clean: exiv2" -foregroundcolor cyan
 
-        if (Test-Path $basePath\platform\win32\msvc\external\exiv2\mythexiv2lib.vcxproj )
+        if (Test-Path $basePath\..\platform\win32\msvc\external\exiv2\mythexiv2lib.vcxproj )
         {
-            Run-Exe "$basePath\platform\win32\msvc\external\exiv2\"   `
+            Run-Exe "$basePath\..\platform\win32\msvc\external\exiv2\"   `
                     "msbuild.exe"                                     `
                     @( "/target:clean",                               `
                        "mythexiv2lib.vcxproj" )
@@ -635,29 +647,29 @@ switch ($tools.Get_Item( 'exiv2.lib'))
         Remove-Item $basePath\bin\debug\exiv2.*                                     -ErrorAction SilentlyContinue
         Remove-Item $basePath\bin\release\exiv2.*                                   -ErrorAction SilentlyContinue
 
-        Remove-Item $basePath\platform\win32\msvc\external\exiv2\win32\debug\exiv2.*   -ErrorAction SilentlyContinue
-        Remove-Item $basePath\platform\win32\msvc\external\exiv2\win32\release\exiv2.* -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\exiv2\win32\debug\exiv2.*   -ErrorAction SilentlyContinue
+        Remove-Item $basePath\..\platform\win32\msvc\external\exiv2\win32\release\exiv2.* -ErrorAction SilentlyContinue
     }
 
     Build
     {
         Write-Host "Building: exiv2" -foregroundcolor cyan
 
-        if (!(Test-Path $basePath\platform\win32\msvc\external\exiv2\win32\$BuildType\exiv2.lib ))
+        if (!(Test-Path $basePath\..\platform\win32\msvc\external\exiv2\win32\$BuildType\exiv2.lib ))
         {
             # -- Build Solution
 
-            Run-Exe "$basePath\platform\win32\msvc\external\exiv2\" `
+            $exiv2_params = $exiv2_params + "mythexiv2lib.vcxproj"
+
+            Run-Exe "$basePath\..\platform\win32\msvc\external\exiv2\" `
                     "msbuild.exe"                                   `
-                    @( "/target:build",                             `
-                       "/p:Configuration=$BuildType",
-                       "mythexiv2lib.vcxproj" )
+                     $exiv2_params
         }
 
         # -- Copy lib & dll to shared folder
 
-        Copy-Item $basePath\platform\win32\msvc\external\exiv2\win32\$BuildType\exiv2.lib $DestDir
-        Copy-Item $basePath\platform\win32\msvc\external\exiv2\win32\$BuildType\exiv2.dll $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\exiv2\win32\$BuildType\exiv2.lib $DestDir
+        Copy-Item $basePath\..\platform\win32\msvc\external\exiv2\win32\$BuildType\exiv2.dll $DestDir
     }
 }
 
@@ -787,9 +799,11 @@ switch ($tools.Get_Item( 'FFmpeg'))
 
         if ($VCVerStr -eq "Visual Studio 10")
         {
-            $vs2010inc = "$rootPath/platform/win32/msvc/include-2010"
-            $ffmpegExtra = $ffmpegExtra + " -I $vs2010inc"
+            $vs2010inc = "$rootPath/../platform/win32/msvc/include-2010"
+            $ffmpegExtra = $ffmpegExtra + " -I$vs2010inc"
         }
+
+        Write-Host "ffmpegExtra = [$ffmpegExtra]"
 
         $FFmegsConfigure = "./configure --toolchain=msvc "        + `
                                        "--enable-shared "         + `
@@ -798,6 +812,8 @@ switch ($tools.Get_Item( 'FFmpeg'))
                                        "--shlibdir=$OutPath "     + `
                                        "--extra-cflags='$ffmpegExtra' "      + `
                                        "--extra-cxxflags='$ffmpegExtra' "    + `
+                                       "--host-cflags='$ffmpegExtra' "    + `
+                                       "--host-cppflags='$ffmpegExtra' "    + `
                                        "--disable-decoder=mpeg_xvmc"
 
         Out-File $scriptFile         -Encoding Ascii -InputObject "cd $rootPath/external/FFmpeg"
@@ -833,8 +849,8 @@ switch ($tools.Get_Item( 'FFmpeg'))
 
 # ###########################################################################
 
-Copy-Item $basePath\platform\win32\msvc\include\mythconfig.h   $basePath\config.h
-Copy-Item $basePath\platform\win32\msvc\include\mythconfig.h   $basePath\libs\libmythbase\mythconfig.h
+Copy-Item $basePath\..\platform\win32\msvc\include\mythconfig.h   $basePath\config.h
+Copy-Item $basePath\..\platform\win32\msvc\include\mythconfig.h   $basePath\libs\libmythbase\mythconfig.h
 
 
 # ###########################################################################

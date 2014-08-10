@@ -32,6 +32,7 @@ HEADERS += audio/audioconvert.h
 HEADERS += audio/audiooutputdigitalencoder.h audio/spdifencoder.h
 HEADERS += audio/audiosettings.h audio/audiooutputsettings.h audio/pink.h
 HEADERS += audio/volumebase.h audio/eldutils.h
+HEADERS += audio/audiooutputgraph.h
 HEADERS += backendselect.h dbsettings.h dbsettings_private.h dialogbox.h
 HEADERS += langsettings.h
 HEADERS += mythconfigdialogs.h mythconfiggroups.h
@@ -56,7 +57,7 @@ SOURCES += audio/audiooutpututil.cpp audio/audiooutputdownmix.cpp
 SOURCES += audio/audioconvert.cpp
 SOURCES += audio/audiosettings.cpp audio/audiooutputsettings.cpp audio/pink.c
 SOURCES += audio/volumebase.cpp audio/eldutils.cpp
-
+SOURCES += audio/audiooutputgraph.cpp
 SOURCES += backendselect.cpp dbsettings.cpp dialogbox.cpp
 SOURCES += langsettings.cpp
 SOURCES += mythconfigdialogs.cpp mythconfiggroups.cpp
@@ -80,18 +81,18 @@ HEADERS += netgrabbermanager.h
 SOURCES += mythrssmanager.cpp           netutils.cpp
 SOURCES += netgrabbermanager.cpp
 
-INCLUDEPATH += ../../external/libsamplerate ../libmythsoundtouch ../libmythfreesurround
+INCLUDEPATH += ../../external/libsamplerate ../../external/libmythsoundtouch ../libmythfreesurround
 INCLUDEPATH += ../libmythbase
 INCLUDEPATH += ../.. ../ ./ ../libmythupnp ../libmythui
 INCLUDEPATH += ../../external/FFmpeg
-DEPENDPATH += ../../external/libsamplerate ../libmythsoundtouch
+DEPENDPATH += ../../external/libsamplerate ../../external/libmythsoundtouch
 DEPENDPATH += ../libmythfreesurround
 DEPENDPATH += ../ ../libmythui ../libmythbase
 DEPENDPATH += ../libmythupnp
 DEPENDPATH += ./audio
 
 LIBS += -L../../external/libsamplerate   -lmythsamplerate-$${LIBVERSION}
-LIBS += -L../libmythsoundtouch   -lmythsoundtouch-$${LIBVERSION}
+LIBS += -L../../external/libmythsoundtouch   -lmythsoundtouch-$${LIBVERSION}
 LIBS += -L../libmythbase           -lmythbase-$${LIBVERSION}
 LIBS += -L../libmythui           -lmythui-$${LIBVERSION}
 LIBS += -L../libmythupnp         -lmythupnp-$${LIBVERSION}
@@ -104,7 +105,7 @@ LIBS += -L../../external/FFmpeg/libswresample -lmythswresample
 
 !win32-msvc* {
     POST_TARGETDEPS += ../../external/libsamplerate/libmythsamplerate-$${MYTH_LIB_EXT}
-    POST_TARGETDEPS += ../libmythsoundtouch/libmythsoundtouch-$${MYTH_LIB_EXT}
+    POST_TARGETDEPS += ../../external/libmythsoundtouch/libmythsoundtouch-$${MYTH_LIB_EXT}
     POST_TARGETDEPS += ../../external/FFmpeg/libavcodec/$$avLibName(avcodec)
     POST_TARGETDEPS += ../../external/FFmpeg/libavutil/$$avLibName(avutil)
     POST_TARGETDEPS += ../../external/FFmpeg/libswresample/$$avLibName(swresample)

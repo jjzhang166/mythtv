@@ -164,7 +164,7 @@ MusicPlayer::~MusicPlayer()
         gCoreContext->SaveSetting("RepeatMode", "none");
 
     gCoreContext->SaveSetting("MusicAutoShowPlayer",
-                          (m_autoShowPlayer ? "1" : "1"));
+                          (m_autoShowPlayer ? "1" : "0"));
 }
 
 void MusicPlayer::addListener(QObject *listener)
@@ -268,9 +268,16 @@ void MusicPlayer::stop(bool stopAll)
 
     if (m_output)
     {
+        saveVolume();
         if (m_output->IsPaused())
             pause();
         m_output->Reset();
+    }
+
+    if (m_oneshotMetadata)
+    {
+        delete m_oneshotMetadata;
+        m_oneshotMetadata = NULL;
     }
 
     m_isPlaying = false;
@@ -1398,6 +1405,12 @@ uint MusicPlayer::getVolume(void) const
     if (m_output)
         return m_output->GetCurrentVolume();
     return 0;
+}
+
+void MusicPlayer::saveVolume(void)
+{
+    if (m_output)
+        m_output->SaveCurrentVolume();
 }
 
 void MusicPlayer::toggleMute(void)

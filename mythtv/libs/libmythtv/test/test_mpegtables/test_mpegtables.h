@@ -195,7 +195,7 @@ class TestMPEGTables: public QObject
 
         /* FIXME hack to test the case of no hash in the CRID until we support more then one CRID per descriptor */
         const unsigned char cid_data[] = {
-            0x76, 0x73, 0x04, 0x2f, 0x65, 0x76, 0x65, 0x6e,  0x74, 0x69, 0x73, 0x2e, 0x6e, 0x6c, 0x2f, 0x30,  /* vs.@eventis.nl/0 */
+            0x76, 0x31, 0x04, 0x2f, 0x65, 0x76, 0x65, 0x6e,  0x74, 0x69, 0x73, 0x2e, 0x6e, 0x6c, 0x2f, 0x30,  /* vs.@eventis.nl/0 */
             0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x2d,  0x30, 0x30, 0x30, 0x30, 0x2d, 0x31, 0x30, 0x30,  /* 0000000-0000-100 */
             0x30, 0x2d, 0x30, 0x36, 0x30, 0x38, 0x2d, 0x30,  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x33,  /* 0-0608-000000003 */
             0x46, 0x39, 0x43                                                                                  /* F9C              */
@@ -227,5 +227,33 @@ class TestMPEGTables: public QObject
         const PSIPTable si_table(si_data);
 
         QVERIFY (!si_table.IsClone());
+    }
+
+    /* test PrivateDataSpecifierDescriptor */
+    void PrivateDataSpecifierDescriptor_test (void)
+    {
+        /* from https://code.mythtv.org/trac/ticket/12091 */
+        const unsigned char si_data[] = { 
+            0x5f, 0x04, 0x00, 0x00, 0x06, 0x00
+        };
+        PrivateDataSpecifierDescriptor desc(si_data);
+        QCOMPARE (desc.PrivateDataSpecifier(), (uint32_t) PrivateDataSpecifierID::UPC1);
+    }
+
+    /* test for https://code.mythtv.org/trac/ticket/12091
+     * UPC Cablecom switched from standard DVB key/value set to
+     * custom descriptors
+     */
+    void PrivateUPCCablecomEpisodetitleDescriptor_test (void)
+    {
+        const unsigned char si_data[] = {
+            0xa7, 0x13, 0x67, 0x65, 0x72, 0x05, 0x4b, 0x72,  0x61, 0x6e, 0x6b, 0x20, 0x76, 0x6f, 0x72, 0x20,  /* ..ger.Krank vor  */
+            0x4c, 0x69, 0x65, 0x62, 0x65                                                                      /* Liebe            */
+        };
+
+        PrivateUPCCablecomEpisodeTitleDescriptor descriptor(si_data);
+        QCOMPARE (descriptor.CanonicalLanguageString(), QString("ger"));
+        QCOMPARE (descriptor.TextLength(), (uint) 16);
+        QCOMPARE (descriptor.Text(), QString("Krank vor Liebe"));
     }
 };

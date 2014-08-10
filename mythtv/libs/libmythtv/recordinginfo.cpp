@@ -974,9 +974,11 @@ void RecordingInfo::StartedRecording(QString ext)
     SendAddedEvent();
 }
 
-bool RecordingInfo::InsertProgram(const RecordingInfo *pg,
+bool RecordingInfo::InsertProgram(RecordingInfo *pg,
                                   const RecordingRule *rule)
 {
+    QString inputname = pg->QueryInputDisplayName();
+
     MSqlQuery query(MSqlQuery::InitCon());
 
     if (!query.exec("LOCK TABLES recorded WRITE"))
@@ -1025,7 +1027,7 @@ bool RecordingInfo::InsertProgram(const RecordingInfo *pg,
         "    stars,     previouslyshown,              originalairdate,  "
         "    findid,    transcoder,  playgroup,       recpriority,      "
         "    basename,  progstart,   progend,         profile,          "
-        "    duplicate, storagegroup) "
+        "    duplicate, storagegroup, inputname) "
         "VALUES"
         "  (:CHANID,   :STARTS,     :ENDS,           :TITLE,            "
         "   :SUBTITLE, :DESC,       :SEASON,         :EPISODE,          "
@@ -1034,7 +1036,7 @@ bool RecordingInfo::InsertProgram(const RecordingInfo *pg,
         "   :STARS,    :REPEAT,                      :ORIGAIRDATE,      "
         "   :FINDID,   :TRANSCODER, :PLAYGROUP,      :RECPRIORITY,      "
         "   :BASENAME, :PROGSTART,  :PROGEND,        :PROFILE,          "
-        "   0,         :STORGROUP) "
+        "   0,         :STORGROUP,  :INPUTNAME) "
         );
 
     if (pg->rectype == kOverrideRecord)
@@ -1073,8 +1075,11 @@ bool RecordingInfo::InsertProgram(const RecordingInfo *pg,
     query.bindValue(":PROGSTART",   pg->startts);
     query.bindValue(":PROGEND",     pg->endts);
     query.bindValue(":PROFILE",     null_to_empty(rule->m_recProfile));
+    query.bindValue(":INPUTNAME",   inputname);
 
     bool ok = query.exec() && (query.numRowsAffected() > 0);
+    if (ok)
+        pg->recordedid = query.lastInsertId().toUInt();
     bool active = query.isActive();
 
     if (!query.exec("UNLOCK TABLES"))

@@ -72,21 +72,21 @@ typedef enum
 // MythCodecID convenience functions
 #define codec_is_std(id)      (id < kCodec_NORMAL_END)
 #define codec_is_std_mpeg(id) (id == kCodec_MPEG1 || id == kCodec_MPEG2)
-#define codec_is_vdpau(id)    (id > kCodec_VDPAU_BEGIN) &&\
-                              (id < kCodec_VDPAU_END)
-#define codec_is_vdpau_hw(id) (codec_is_vdpau(id) &&\
-                              (id != kCodec_H263_VDPAU) &&\
-                              (id != kCodec_VP8_VDPAU))
-#define codec_is_vaapi(id)    (id > kCodec_VAAPI_BEGIN) &&\
-                              (id < kCodec_VAAPI_END)
-#define codec_is_vaapi_hw(id) (codec_is_vaapi(id) &&\
-                              (id != kCodec_VP8_VAAPI))
-#define codec_is_dxva2(id)    (id > kCodec_DXVA2_BEGIN) &&\
-                              (id < kCodec_DXVA2_END)
+#define codec_is_vdpau(id)    ((id > kCodec_VDPAU_BEGIN) &&     \
+                               (id < kCodec_VDPAU_END))
+#define codec_is_vdpau_hw(id) ((codec_is_vdpau(id) &&           \
+                                (id != kCodec_H263_VDPAU) &&    \
+                                (id != kCodec_VP8_VDPAU)))
+#define codec_is_vaapi(id)    ((id > kCodec_VAAPI_BEGIN) &&     \
+                               (id < kCodec_VAAPI_END))
+#define codec_is_vaapi_hw(id) (codec_is_vaapi(id) &&            \
+                               (id != kCodec_VP8_VAAPI))
+#define codec_is_dxva2(id)    ((id > kCodec_DXVA2_BEGIN) &&     \
+                               (id < kCodec_DXVA2_END))
 #define codec_is_dxva2_hw(id) (codec_is_dxva2(id) &&\
-                             ((id == kCodec_H264_DXVA2)  ||\
-                              (id == kCodec_MPEG2_DXVA2) ||\
-                              (id == kCodec_VC1_DXVA2)))
+                               ((id == kCodec_H264_DXVA2)  ||   \
+                                (id == kCodec_MPEG2_DXVA2) ||   \
+                                (id == kCodec_VC1_DXVA2)))
 
 QString get_encoding_type(MythCodecID codecid);
 QString get_decoder_name(MythCodecID codec_id);
@@ -103,12 +103,27 @@ int mpeg_version(int codec_id);
 #define CODEC_IS_H264(id)     (mpeg_version(id) == 5)
 #define CODEC_IS_MPEG(id)     (mpeg_version(id) && mpeg_version(id) <= 2)
 #define CODEC_IS_FFMPEG_MPEG(id) (CODEC_IS_MPEG(id))
+#ifdef USING_VDPAU
 #define CODEC_IS_VDPAU(codec) (codec &&\
                                codec->capabilities & CODEC_CAP_HWACCEL_VDPAU)
+#else
+#define CODEC_IS_VDPAU(codec) (0)
+#endif
+
+#ifdef USING_VAAPI
 #define CODEC_IS_VAAPI(codec, enc) (codec && IS_VAAPI_PIX_FMT(enc->pix_fmt))
+#else
+#define CODEC_IS_VAAPI(codec, enc) (0)
+#endif
+
+#ifdef USING_DXVA2
 #define CODEC_IS_DXVA2(codec, enc) (codec && (enc->pix_fmt == PIX_FMT_DXVA2_VLD))
-#define CODEC_IS_HWACCEL(codec, enc) (CODEC_IS_VDPAU(codec) ||\
-                                      CODEC_IS_VAAPI(codec, enc) ||\
+#else
+#define CODEC_IS_DXVA2(codec, enc) (0)
+#endif
+
+#define CODEC_IS_HWACCEL(codec, enc) (CODEC_IS_VDPAU(codec)      ||     \
+                                      CODEC_IS_VAAPI(codec, enc) ||     \
                                       CODEC_IS_DXVA2(codec, enc))
 
 #endif // _MYTH_CODEC_ID_H_

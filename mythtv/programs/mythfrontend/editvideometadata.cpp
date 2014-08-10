@@ -18,6 +18,7 @@
 #include "mythuiimageresults.h"
 #include "mythuihelper.h"
 #include "mythprogressdialog.h"
+#include "mythmiscutil.h"
 #include "remoteutil.h"
 #include "globals.h"
 #include "dbaccess.h"
@@ -25,6 +26,7 @@
 #include "videoutils.h"
 
 #include "editvideometadata.h"
+#include "metadatafactory.h"
 
 //static const QString _Location = QObject::tr("Metadata Editor");
 
@@ -213,7 +215,7 @@ namespace
     {
         bool operator()(const T &lhs, const T &rhs)
         {
-            return QString::localeAwareCompare(lhs.second, rhs.second) < 0;
+            return naturalCompare(lhs.second, rhs.second) < 0;
         }
     };
 
@@ -681,13 +683,8 @@ void EditMetadataDialog::OnSearchListSelection(ArtworkInfo info, VideoArtworkTyp
 
     MetadataLookup *lookup = new MetadataLookup();
     lookup->SetType(kMetadataVideo);
-    if (m_workingMetadata->GetSeason() > 0 ||
-            m_workingMetadata->GetEpisode() > 0)
-        lookup->SetSubtype(kProbableTelevision);
-    else if (m_workingMetadata->GetSubtitle().isEmpty())
-        lookup->SetSubtype(kProbableMovie);
-    else
-        lookup->SetSubtype(kUnknownVideo);
+
+    lookup->SetSubtype(GuessLookupType(m_workingMetadata));
     lookup->SetHost(m_workingMetadata->GetHost());
     lookup->SetAutomatic(true);
     lookup->SetData(qVariantFromValue<VideoArtworkType>(type));

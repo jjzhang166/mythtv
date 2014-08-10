@@ -210,10 +210,11 @@ typedef struct AVSContext {
        6:    A3  X2  X3   */
     int pred_mode_Y[3*3];
     int *top_pred_Y;
-    int l_stride, c_stride;
+    ptrdiff_t l_stride, c_stride;
     int luma_scan[4];
     int qp;
     int qp_fixed;
+    int pic_qp_fixed;
     int cbp;
     ScanTable scantable;
 

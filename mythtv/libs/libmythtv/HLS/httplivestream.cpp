@@ -494,10 +494,10 @@ bool HTTPLiveStream::WritePlaylist(bool audioOnly, bool writeEndTag)
 
     file.close();
 
-    if(rename(tmpFile.toLatin1().constData(), 
+    if(rename(tmpFile.toLatin1().constData(),
               outFile.toLatin1().constData()) == -1)
     {
-        LOG(VB_RECORD, LOG_ERR, LOC + 
+        LOG(VB_RECORD, LOG_ERR, LOC +
             QString("Error renaming %1 to %2").arg(tmpFile).arg(outFile) + ENO);
         return false;
     }
@@ -752,8 +752,8 @@ void HTTPLiveStream::SetOutputVars(void)
 
     m_httpPrefix = gCoreContext->GetSetting("HTTPLiveStreamPrefix", QString(
         "http://%1:%2/StorageGroup/Streaming/")
-        .arg(gCoreContext->GetSetting("MasterServerIP"))
-        .arg(gCoreContext->GetSetting("BackendStatusPort")));
+        .arg(gCoreContext->GetMasterServerIP())
+        .arg(gCoreContext->GetMasterServerStatusPort()));
 
     if (!m_httpPrefix.endsWith("/"))
         m_httpPrefix.append("/");
@@ -1036,4 +1036,3 @@ DTC::LiveStreamInfoList *HTTPLiveStream::GetLiveStreamInfoList(const QString &Fi
 }
 
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
-

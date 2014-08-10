@@ -91,18 +91,17 @@ class ProgramRecPriority : public ScheduleCommon
 
     void changeRecPriority(int howMuch);
     void saveRecPriority(void);
-    void customEdit();
     void newTemplate(QString category);
     void remove();
     void deactivate();
-    void upcoming();
-    void details();
 
     void showMenu(void);
     void showSortMenu(void);
 
+    virtual ProgramInfo *GetCurrentProgram(void) const;
+
     QMap<int, ProgramRecPriorityInfo> m_programData;
-    vector<ProgramRecPriorityInfo*> m_sortedProgram;
+    std::vector<ProgramRecPriorityInfo*> m_sortedProgram;
     QMap<int, int> m_origRecPriorityData;
 
     void countMatches(void);

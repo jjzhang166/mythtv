@@ -20,17 +20,32 @@ extern "C" {
 
 int next_dbg_str = 0;
 
-YUVInfo::YUVInfo(uint w, uint h, uint sz, const int *p, const int *o)
+YUVInfo::YUVInfo(uint w, uint h, uint sz, const int *p, const int *o,
+                 int aligned)
     : width(w), height(h), size(sz)
 {
+    // make sure all our pitches are a multiple of "aligned" bytes
+    // Needs to take into consideration that U and V channels are half
+    // the width of Y channel
+    uint width_aligned;
+
+    if (!aligned)
+    {
+        width_aligned = width;
+    }
+    else
+    {
+        width_aligned = (width + aligned - 1) & ~(aligned - 1);
+    }
+
     if (p)
     {
         memcpy(pitches, p, 3 * sizeof(int));
     }
     else
     {
-        pitches[0] = width;
-        pitches[1] = pitches[2] = width >> 1;
+        pitches[0] = width_aligned;
+        pitches[1] = pitches[2] = (width_aligned+1) >> 1;
     }
 
     if (o)
@@ -40,8 +55,8 @@ YUVInfo::YUVInfo(uint w, uint h, uint sz, const int *p, const int *o)
     else
     {
         offsets[0] = 0;
-        offsets[1] = width * height;
-        offsets[2] = offsets[1] + (offsets[1] >> 2);
+        offsets[1] = width_aligned * height;
+        offsets[2] = offsets[1] + ((width_aligned+1) >> 1) * ((height+1) >> 1);
     }
 }
 
@@ -203,11 +218,7 @@ void VideoBuffers::Reset()
     frame_vector_t::iterator it = buffers.begin();
     for (;it != buffers.end(); ++it)
     {
-        if (it->qscale_table)
-        {
-            delete [] it->qscale_table;
-            it->qscale_table = NULL;
-        }
+        av_freep(&it->qscale_table);
     }
 
     available.clear();
@@ -775,6 +786,12 @@ uint VideoBuffers::AddBuffer(int width, int height, void* data,
     buffers[num].interlaced_frame = -1;
     buffers[num].top_field_first  = 1;
     vbufferMap[At(num)] = num;
+    if (!data)
+    {
+        int size = buffersize(fmt, width, height);
+        data = av_malloc(size);
+        allocated_arrays.push_back((unsigned char*)data);
+    }
     init(&buffers[num], fmt, (unsigned char*)data, width, height, 0);
     buffers[num].priv[0] = ffmpeg_hack;
     buffers[num].priv[1] = ffmpeg_hack;
@@ -790,11 +807,7 @@ void VideoBuffers::DeleteBuffers()
     {
         buffers[i].buf = NULL;
 
-        if (buffers[i].qscale_table)
-        {
-            delete [] buffers[i].qscale_table;
-            buffers[i].qscale_table = NULL;
-        }
+        av_freep(&buffers[i].qscale_table);
     }
 
     for (uint i = 0; i < allocated_arrays.size(); i++)

@@ -27,7 +27,6 @@ using namespace std;
 #include "exitcodes.h"
 #include "compat.h"
 
-#include <stdlib.h>
 #define SYSLOG_NAMES
 #ifndef _WIN32
 #include <syslog.h>
@@ -175,23 +174,17 @@ LoggingItem::LoggingItem(const char *_file, const char *_function,
 
 LoggingItem::~LoggingItem()
 {
-    if (m_file)
-        free((void *)m_file);
+    free(m_file);
 
-    if (m_function)
-        free((void *)m_function);
+    free(m_function);
 
-    if (m_threadName)
-        free(m_threadName);
+    free(m_threadName);
 
-    if (m_appName)
-        free((void *)m_appName);
+    free(m_appName);
 
-    if (m_table)
-        free((void *)m_table);
+    free(m_table);
 
-    if (m_logFile)
-        free((void *)m_logFile);
+    free(m_logFile);
 }
 
 QByteArray LoggingItem::toByteArray(void)

@@ -41,15 +41,7 @@ class ViewScheduled : public ScheduleCommon
 
   protected slots:
     void ChangeGroup(MythUIButtonListItem *item);
-    void showGuide();
-    void edit();
-    void customEdit();
     void deleteRule();
-    void upcoming();
-    void upcomingScheduled();
-    void previous();
-    void details();
-    void selected(MythUIButtonListItem *);
     void updateInfo(MythUIButtonListItem *);
     void SwitchList(void);
     void Close(void);
@@ -57,6 +49,7 @@ class ViewScheduled : public ScheduleCommon
   protected:
     virtual void Load(void); // MythScreenType
     virtual void Init(void); // MythScreenType
+    virtual ProgramInfo *GetCurrentProgram(void) const;
 
   private:
     void FillList(void);

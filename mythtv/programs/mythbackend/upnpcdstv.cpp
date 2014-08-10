@@ -44,55 +44,71 @@ UPnpCDSRootInfo UPnpCDSTv::g_RootNodes[] =
         "SELECT 0 as key, "
           "CONCAT( title, ': ', subtitle) as name, "
           "1 as children "
-            "FROM recorded "
+            "FROM recorded r "
             "%1 "
-            "ORDER BY starttime DESC",
-        "", "starttime DESC" },
+            "ORDER BY r.starttime DESC",
+        "",
+        "r.starttime DESC",
+        "object.container",
+        "object.item.videoItem" },
 
     {   "By Title",
-        "title",
-        "SELECT title as id, "
-          "title as name, "
-          "count( title ) as children "
-            "FROM recorded "
+        "r.title",
+        "SELECT r.title as id, "
+          "r.title as name, "
+          "count( r.title ) as children "
+            "FROM recorded r "
             "%1 "
-            "GROUP BY title "
-            "ORDER BY title",
-        "WHERE title=:KEY", "title" },
+            "GROUP BY r.title "
+            "ORDER BY r.title",
+        "WHERE r.title=:KEY",
+        "r.title",
+        "object.container",
+        "object.container" },
 
     {   "By Genre",
-        "category",
-        "SELECT category as id, "
-          "category as name, "
-          "count( category ) as children "
-            "FROM recorded "
+        "r.category",
+        "SELECT r.category as id, "
+          "r.category as name, "
+          "count( r.category ) as children "
+            "FROM recorded r "
             "%1 "
-            "GROUP BY category "
-            "ORDER BY category",
-        "WHERE category=:KEY", "category" },
+            "GROUP BY r.category "
+            "ORDER BY r.category",
+        "WHERE r.category=:KEY",
+        "r.category",
+        "object.container",
+        "object.container.genre.movieGenre" },
 
     {   "By Date",
-        "DATE_FORMAT(starttime, '%Y-%m-%d')",
-        "SELECT  DATE_FORMAT(starttime, '%Y-%m-%d') as id, "
-          "DATE_FORMAT(starttime, '%Y-%m-%d %W') as name, "
-          "count( DATE_FORMAT(starttime, '%Y-%m-%d %W') ) as children "
-            "FROM recorded "
+        "DATE_FORMAT(r.starttime, '%Y-%m-%d')",
+        "SELECT  DATE_FORMAT(r.starttime, '%Y-%m-%d') as id, "
+          "DATE_FORMAT(r.starttime, '%Y-%m-%d %W') as name, "
+          "count( DATE_FORMAT(r.starttime, '%Y-%m-%d %W') ) as children "
+            "FROM recorded r "
             "%1 "
             "GROUP BY name "
-            "ORDER BY starttime DESC",
-        "WHERE DATE_FORMAT(starttime, '%Y-%m-%d') =:KEY", "starttime DESC" },
+            "ORDER BY r.starttime DESC",
+        "WHERE DATE_FORMAT(r.starttime, '%Y-%m-%d') =:KEY",
+        "r.starttime DESC",
+        "object.container",
+        "object.container"
+    },
 
     {   "By Channel",
-        "chanid",
+        "r.chanid",
         "SELECT channel.chanid as id, "
           "CONCAT(channel.channum, ' ', channel.callsign) as name, "
           "count( channum ) as children "
             "FROM channel "
-                "INNER JOIN recorded ON channel.chanid = recorded.chanid "
+                "INNER JOIN recorded r ON channel.chanid = r.chanid "
             "%1 "
             "GROUP BY name "
             "ORDER BY channel.chanid",
-        "WHERE channel.chanid=:KEY", ""},
+        "WHERE channel.chanid=:KEY",
+        "",
+        "object.container",
+        "object.container"}, // Cannot be .channelGroup because children of channelGroup must be videoBroadcast items
 
     {   "By Group",
         "recgroup",
@@ -102,7 +118,10 @@ UPnpCDSRootInfo UPnpCDSTv::g_RootNodes[] =
             "%1 "
             "GROUP BY recgroup "
             "ORDER BY recgroup",
-        "WHERE recgroup=:KEY", "recgroup" }
+        "WHERE recgroup=:KEY",
+        "recgroup",
+        "object.container",
+        "object.container.album" }
 };
 
 int UPnpCDSTv::g_nRootCount = sizeof( g_RootNodes ) / sizeof( UPnpCDSRootInfo );
@@ -134,7 +153,7 @@ int UPnpCDSTv::GetRootCount()
 
 QString UPnpCDSTv::GetTableName( QString /* sColumn */)
 {
-    return "recorded";
+    return "recorded r";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -143,12 +162,19 @@ QString UPnpCDSTv::GetTableName( QString /* sColumn */)
 
 QString UPnpCDSTv::GetItemListSQL( QString /* sColumn */ )
 {
-    return "SELECT chanid, starttime, endtime, title, " \
-                  "subtitle, description, category, "   \
-                  "hostname, recgroup, filesize, "      \
-                  "basename, progstart, progend, "      \
-                  "storagegroup, inetref "              \
-           "FROM recorded ";
+    return "SELECT r.chanid, r.starttime, r.endtime, r.title, " \
+                  "r.subtitle, r.description, r.category, "     \
+                  "r.hostname, r.recgroup, r.filesize, "        \
+                  "r.basename, r.progstart, r.progend, "        \
+                  "r.storagegroup, r.inetref, "                 \
+                  "p.category_type, c.callsign, c.channum, "    \
+                  "p.episode, p.totalepisodes, p.season, "      \
+                  "r.programid, r.seriesid, r.recordid, "       \
+                  "c.default_authority, c.name "                \
+           "FROM recorded r "                                   \
+           "LEFT JOIN channel c ON r.chanid=c.chanid "          \
+           "LEFT JOIN recordedprogram p ON p.chanid=r.chanid "  \
+           "                          AND p.starttime=r.progstart";
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -160,7 +186,7 @@ void UPnpCDSTv::BuildItemQuery( MSqlQuery &query, const QStringMap &mapParams )
     int     nChanId    = mapParams[ "ChanId"    ].toInt();
     QString sStartTime = mapParams[ "StartTime" ];
 
-    QString sSQL = QString("%1 WHERE chanid=:CHANID AND starttime=:STARTTIME ")
+    QString sSQL = QString("%1 WHERE r.chanid=:CHANID AND r.starttime=:STARTTIME ")
                       .arg( GetItemListSQL() );
 
     query.prepare( sSQL );
@@ -183,9 +209,9 @@ bool UPnpCDSTv::IsBrowseRequestForUs( UPnpCDSRequest *pRequest )
     // Xbox360 compatibility code.
     // ----------------------------------------------------------------------
 
-    if (pRequest->m_eClient == CDS_ClientXBox && 
+    if (pRequest->m_eClient == CDS_ClientXBox &&
         pRequest->m_sContainerID == "15" &&
-        gCoreContext->GetSetting("UPnP/WMPSource") != "1") 
+        gCoreContext->GetSetting("UPnP/WMPSource") != "1")
     {
         pRequest->m_sObjectId = "Videos/0";
 
@@ -197,8 +223,8 @@ bool UPnpCDSTv::IsBrowseRequestForUs( UPnpCDSRequest *pRequest )
     // ----------------------------------------------------------------------
     // WMP11 compatibility code
     // ----------------------------------------------------------------------
-    if (pRequest->m_eClient == CDS_ClientWMP && 
-        pRequest->m_nClientVersion < 12.0 && 
+    if (pRequest->m_eClient == CDS_ClientWMP &&
+        pRequest->m_nClientVersion < 12.0 &&
         pRequest->m_sContainerID == "13" &&
         gCoreContext->GetSetting("UPnP/WMPSource") != "1")
     {
@@ -229,9 +255,9 @@ bool UPnpCDSTv::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
     // XBox 360 compatibility code
     // ----------------------------------------------------------------------
 
-    if (pRequest->m_eClient == CDS_ClientXBox && 
+    if (pRequest->m_eClient == CDS_ClientXBox &&
         pRequest->m_sContainerID == "15" &&
-        gCoreContext->GetSetting("UPnP/WMPSource") !=  "1") 
+        gCoreContext->GetSetting("UPnP/WMPSource") !=  "1")
     {
         pRequest->m_sObjectId = "Videos/0";
 
@@ -241,7 +267,7 @@ bool UPnpCDSTv::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
     }
 
 
-    if ((pRequest->m_sObjectId.isEmpty()) && 
+    if ((pRequest->m_sObjectId.isEmpty()) &&
         (!pRequest->m_sContainerID.isEmpty()))
         pRequest->m_sObjectId = pRequest->m_sContainerID;
 
@@ -257,7 +283,7 @@ bool UPnpCDSTv::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
     //
     // ----------------------------------------------------------------------
 
-    if ( bOurs && pRequest->m_eClient == CDS_ClientWMP && 
+    if ( bOurs && pRequest->m_eClient == CDS_ClientWMP &&
          pRequest->m_nClientVersion < 12.0)
     {
         // GetBoolSetting()?
@@ -265,7 +291,7 @@ bool UPnpCDSTv::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
         {
             pRequest->m_sObjectId = "RecTv/0";
             // -=>TODO: Not sure why this was added
-            pRequest->m_sParentId = '8';        
+            pRequest->m_sParentId = '8';
         }
         else
             bOurs = false;
@@ -278,7 +304,7 @@ bool UPnpCDSTv::IsSearchRequestForUs( UPnpCDSRequest *pRequest )
 //
 /////////////////////////////////////////////////////////////////////////////
 
-void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest, 
+void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest,
                          const QString           &sObjectId,
                          UPnpCDSExtensionResults *pResults,
                          bool                     bAddRef,
@@ -303,16 +329,30 @@ void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest,
     QString        sStorageGrp  = query.value(13).toString();
 
     QString        sInetRef     = query.value(14).toString();
+    QString        sCatType     = query.value(15).toString();
+    QString        sCallsign    = query.value(16).toString();
+    QString        sChanNum     = query.value(17).toString();
+
+    int            nEpisode      = query.value(18).toInt();
+    int            nEpisodeTotal = query.value(19).toInt();
+    int            nSeason       = query.value(20).toInt();
+
+    QString        sProgramId   = query.value(21).toString();
+    QString        sSeriesId    = query.value(22).toString();
+    int            nRecordId    = query.value(23).toInt();
+
+    QString        sDefaultAuthority = query.value(24).toString();
+    QString        sChanName    = query.value(25).toString();
 
     // ----------------------------------------------------------------------
     // Cache Host ip Address & Port
     // ----------------------------------------------------------------------
 
     if (!m_mapBackendIp.contains( sHostName ))
-        m_mapBackendIp[ sHostName ] = gCoreContext->GetSettingOnHost( "BackendServerIp", sHostName);
+        m_mapBackendIp[ sHostName ] = gCoreContext->GetBackendServerIP4(sHostName);
 
     if (!m_mapBackendPort.contains( sHostName ))
-        m_mapBackendPort[ sHostName ] = gCoreContext->GetSettingOnHost("BackendStatusPort", sHostName);
+        m_mapBackendPort[ sHostName ] = gCoreContext->GetBackendStatusPort(sHostName);
 
     // ----------------------------------------------------------------------
     // Build Support Strings
@@ -320,16 +360,14 @@ void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest,
 
     QString sName      = sTitle + ": " + (sSubtitle.isEmpty() ? sDescription.left(128) : sSubtitle);
 
-    QString sURIBase   = QString( "http://%1:%2/Content/" )
-                            .arg( m_mapBackendIp  [ sHostName ] )
-                            .arg( m_mapBackendPort[ sHostName ] );
+    QUrl URIBase;
+    URIBase.setScheme("http");
+    URIBase.setHost(m_mapBackendIp[sHostName]);
+    URIBase.setPort(m_mapBackendPort[sHostName]);
 
-    QString sURIParams = QString( "?ChanId=%1&amp;StartTime=%2" )
+    QString sId        = QString( "RecTv/0/item?ChanId=%1&amp;StartTime=%2")
                             .arg( nChanid )
                             .arg( dtStartTime.toString(Qt::ISODate));
-
-    QString sId        = QString( "RecTv/0/item%1")
-                            .arg( sURIParams );
 
     CDSObject *pItem   = CDSObject::CreateVideoItem( sId,
                                                      sName,
@@ -340,9 +378,10 @@ void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest,
 
     if ( bAddRef )
     {
-        QString sRefId = QString( "%1/0/item%2")
+        QString sRefId = QString( "%1/0/item?ChanId=%2&amp;StartTime=%3")
                             .arg( m_sExtensionId )
-                            .arg( sURIParams     );
+                            .arg( nChanid )
+                            .arg( dtStartTime.toString(Qt::ISODate));
 
         pItem->SetPropValue( "refID", sRefId );
     }
@@ -350,6 +389,59 @@ void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest,
     pItem->SetPropValue( "genre"          , sCategory    );
     pItem->SetPropValue( "longDescription", sDescription );
     pItem->SetPropValue( "description"    , sSubtitle    );
+
+    pItem->SetPropValue( "channelName"    , sChanName   );
+    pItem->SetPropValue( "channelID"      , QString::number(nChanid), "NETWORK");
+    pItem->SetPropValue( "callSign"       , sCallsign    );
+    pItem->SetPropValue( "channelNr"      , sChanNum     );
+
+    if (sCatType != "movie")
+    {
+        pItem->SetPropValue( "seriesTitle"  , sTitle);
+        pItem->SetPropValue( "programTitle"  , sSubtitle);
+    }
+    else
+        pItem->SetPropValue( "programTitle"  , sTitle);
+
+    if (   nEpisode > 0 || nSeason > 0) // There has got to be a better way
+    {
+        pItem->SetPropValue( "episodeNumber" , QString::number(nEpisode));
+        pItem->SetPropValue( "episodeCount"  , QString::number(nEpisodeTotal));
+    }
+
+    pItem->SetPropValue( "recordedStartDateTime", dtStartTime.toString(Qt::ISODate)); //dtStartTime
+    //pItem->SetPropValue( "recordedDuration", );
+    pItem->SetPropValue( "recordedDayOfWeek"    , dtStartTime.toString("ddd"));
+    pItem->SetPropValue( "srsRecordScheduleID"  , QString::number(nRecordId));
+
+    if (!sSeriesId.isEmpty())
+    {
+        // FIXME: This should be set correctly for EIT data to SI_SERIESID and
+        //        for known sources such as TMS to the correct identifier
+        QString sIdType = "mythtv.org_XMLTV";
+        if (sSeriesId.contains(sDefaultAuthority))
+            sIdType = "mythtv.org_EIT";
+
+        pItem->SetPropValue( "seriesID", sSeriesId, sIdType );
+    }
+
+    if (!sProgramId.isEmpty())
+    {
+        // FIXME: This should be set correctly for EIT data to SI_PROGRAMID and
+        //        for known sources such as TMS to the correct identifier
+        QString sIdType = "mythtv.org_XMLTV";
+        if (sProgramId.contains(sDefaultAuthority))
+            sIdType = "mythtv.org_EIT";
+
+        pItem->SetPropValue( "programID", sProgramId, sIdType );
+    }
+
+    pItem->SetPropValue( "date"          , dtStartTime.toString(Qt::ISODate));
+
+
+    // Bookmark support
+    //pItem->SetPropValue( "lastPlaybackPosition", QString::number());
+
 
     //pItem->SetPropValue( "producer"       , );
     //pItem->SetPropValue( "rating"         , );
@@ -365,11 +457,10 @@ void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest,
     // (Won't display correct Title without them)
     // ----------------------------------------------------------------------
 
-    pItem->SetPropValue( "creator"       , "[Unknown Author]" );
-    pItem->SetPropValue( "artist"        , "[Unknown Author]" );
-    pItem->SetPropValue( "album"         , "[Unknown Series]" );
-    pItem->SetPropValue( "actor"         , "[Unknown Author]" );
-    pItem->SetPropValue( "date"          , dtStartTime.toString(Qt::ISODate));
+//     pItem->SetPropValue( "creator"       , "[Unknown Author]" );
+//     pItem->SetPropValue( "artist"        , "[Unknown Author]" );
+//     pItem->SetPropValue( "album"         , "[Unknown Series]" );
+//     pItem->SetPropValue( "actor"         , "[Unknown Author]" );
 
     pResults->Add( pItem );
 
@@ -396,144 +487,139 @@ void UPnpCDSTv::AddItem( const UPnpCDSRequest    *pRequest,
         sMimeType = "video/x-ms-dvr";
     }
 
-    // If we are dealing with a Sony Blu-ray player then we fake the
+    // HACK: If we are dealing with a Sony Blu-ray player then we fake the
     // MIME type to force the video to appear
     if ( pRequest->m_eClient == CDS_ClientSonyDB )
-    {
         sMimeType = "video/avi";
-    }
 
-
-    // DLNA string below is temp fix for ps3 seeking.
+    // HACK: DLNA string below is temp fix for ps3 seeking.
     QString sProtocol = QString( "http-get:*:%1:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01500000000000000000000000000000" ).arg( sMimeType  );
-    QString sURI      = QString( "%1GetRecording%2").arg( sURIBase   )
-                                                    .arg( sURIParams );
 
-    // Sony BDPS370 requires a DLNA Profile Name
+    // HACK: Sony BDPS370 requires a DLNA Profile Name
     // FIXME: detection to determine the correct DLNA Profile Name
     if (sMimeType == "video/mpeg")
     {
         sProtocol += ";DLNA.ORG_PN=MPEG_TS_SD_NA_ISO";
     }
 
-    Resource *pRes = pItem->AddResource( sProtocol, sURI );
+    QUrl    resURI    = URIBase;
+    resURI.setPath("Content/GetRecording");
+    resURI.addQueryItem("ChanId", QString::number(nChanid));
+    resURI.addQueryItem("StartTime", dtStartTime.toString(Qt::ISODate));
 
+    Resource *pRes = pItem->AddResource( sProtocol, resURI.toEncoded() );
     uint uiStart = dtProgStart.toTime_t();
     uint uiEnd   = dtProgEnd.toTime_t();
-    uint uiDur   = uiEnd - uiStart;
-    
+    uint uiDurMS   = (uiEnd - uiStart) * 1000;
+
     MSqlQuery query2(MSqlQuery::InitCon());
     query2.prepare( "SELECT data FROM recordedmarkup WHERE chanid=:CHANID AND "
                     "starttime=:STARTTIME AND type = 33" );
     query2.bindValue(":CHANID", (int)nChanid);
     query2.bindValue(":STARTTIME", dtProgStart);
     if (query2.exec() && query2.next())
-        uiDur = query2.value(0).toUInt() / 1000;
+        uiDurMS = query2.value(0).toUInt();
 
     QString sDur;
-
-    sDur.sprintf("%02d:%02d:%02d",
-                  (uiDur / 3600) % 24,
-                  (uiDur / 60) % 60,
-                   uiDur % 60);
+    // H:M:S[.MS] (We don't store the number of seconds for recordings)
+    sDur.sprintf("%02d:%02d:%02d.%03d",
+                  (uiDurMS / 3600000) % 24,
+                  (uiDurMS / 60000) % 60,
+                   uiDurMS % 60000,
+                   uiDurMS % 1000);
 
     LOG(VB_UPNP, LOG_DEBUG, "Duration: " + sDur );
 
     pRes->AddAttribute( "duration"  , sDur      );
     pRes->AddAttribute( "size"      , QString::number( nFileSize) );
 
-/*
-    // ----------------------------------------------------------------------
-    // Add Video Resource Element based on File extension (mythtv)
-    // ----------------------------------------------------------------------
-
-    sProtocol = QString( "myth:*:%1:*"     ).arg( sMimeType  );
-    sURI      = QString( "myth://%1/%2" )
-                   .arg( m_mapBackendIp  [ sHostName ] )
-                   .arg( sBaseName );
-
-    pRes = pItem->AddResource( sProtocol, sURI );
-
-    pRes->AddAttribute( "duration"  , sDur      );
-    pRes->AddAttribute( "size"      , QString::number( nFileSize) );
-*/
-
     // ----------------------------------------------------------------------
     // Add Preview URI as <res>
     // MUST be _TN and 160px
     // ----------------------------------------------------------------------
 
-    sURI = QString( "%1GetPreviewImage%2%3").arg( sURIBase   )
-                                            .arg( sURIParams )
-                                            .arg( "&amp;Width=160" );
-
-    // TODO: Must be JPG for minimal compliance
-    sProtocol = QString( "http-get:*:image/png:DLNA.ORG_PN=PNG_TN");
-    pItem->AddResource( sProtocol, sURI );
+    QUrl previewURI = URIBase;
+    previewURI.setPath("Content/GetPreviewImage");
+    previewURI.addQueryItem("ChanId", QString::number(nChanid));
+    previewURI.addQueryItem("StartTime", dtStartTime.toString(Qt::ISODate));
+    previewURI.addQueryItem("Width", "160");
+    previewURI.addQueryItem("Format", "JPG");
+    sProtocol = QString( "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN");
+    pItem->AddResource( sProtocol, previewURI.toEncoded());
 
     // ----------------------------------------------------------------------
     // Add Artwork URI as albumArt
     // ----------------------------------------------------------------------
 
-    sURI = QString( "%1GetRecordingArtwork?Type=coverart&amp;Inetref=%3")
-                                              .arg( sURIBase   )
-                                              .arg( sInetRef   );
-
-    QList<Property*> propList = pItem->GetProperties("albumArtURI");
-    if (propList.size() >= 4)
+    if (!sInetRef.isEmpty())
     {
-        // Prefer JPEG over PNG here, although PNG is allowed JPEG probably
-        // has wider device support and crucially the filesizes are smaller
-        // which speeds up loading times over the network
+        QUrl artURI = URIBase;
+        artURI.setPath("Content/GetRecordingArtwork");
+        artURI.addQueryItem("Type", "coverart");
+        artURI.addQueryItem("Inetref", sInetRef);
 
-        // We MUST include the thumbnail size, but since some clients may use the
-        // first image they see and the thumbnail is tiny, instead return the
-        // medium first. The large could be very large, which is no good if the
-        // client is pulling images for an entire list at once!
-
-        // Medium
-        Property *pProp = propList.at(0);
-        if (pProp)
+        QList<Property*> propList = pItem->GetProperties("albumArtURI");
+        if (propList.size() >= 4)
         {
-            // Must be no more than 1024x768
-            pProp->m_sValue = sURI;
-            pProp->m_sValue.append("&amp;Width=1024&amp;Height=768");
-            pProp->AddAttribute("dlna:profileID", "JPG_MED");
-            pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
-        }
+            // Prefer JPEG over PNG here, although PNG is allowed JPEG probably
+            // has wider device support and crucially the filesizes are smaller
+            // which speeds up loading times over the network
 
-        // Thumbnail
-        pProp = propList.at(1);
-        if (pProp)
-        {
-            // At least one albumArtURI must be a ThumbNail (TN) no larger
-            // than 160x160, and it must also be a jpeg
-            pProp->m_sValue = sURI;
-            pProp->m_sValue.append("&amp;Width=160&amp;Height=160");
-            pProp->AddAttribute("dlna:profileID", "JPG_TN");
-            pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
-        }
+            // We MUST include the thumbnail size, but since some clients may use the
+            // first image they see and the thumbnail is tiny, instead return the
+            // medium first. The large could be very large, which is no good if the
+            // client is pulling images for an entire list at once!
 
-        // Medium
-        pProp = propList.at(2);
-        if (pProp)
-        {
-            // Must be no more than 1024x768
-            pProp->m_sValue = sURI;
-            pProp->m_sValue.append("&amp;Width=1024&amp;Height=768");
-            pProp->AddAttribute("dlna:profileID", "JPG_MED");
-            pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
-        }
+            // Medium
+            Property *pProp = propList.at(0);
+            if (pProp)
+            {
+                // Must be no more than 1024x768
+                QUrl mediumURI = artURI;
+                mediumURI.addQueryItem("Width", "1024");
+                mediumURI.addQueryItem("Height", "768");
+                pProp->SetValue(mediumURI.toEncoded());
+                pProp->AddAttribute("dlna:profileID", "JPEG_MED");
+                pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
+            }
 
-        // Large
-        pProp = propList.at(3);
-        if (pProp)
-        {
-            // Must be no more than 4096x4096 - for our purposes, just return
-            // a fullsize image
-            pProp->m_sValue = sURI;
-            pProp->AddAttribute("dlna:profileID", "JPG_LRG");
-            pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
+            // Thumbnail
+            pProp = propList.at(1);
+            if (pProp)
+            {
+                // At least one albumArtURI must be a ThumbNail (TN) no larger
+                // than 160x160, and it must also be a jpeg
+                QUrl thumbURI = artURI;
+                thumbURI.addQueryItem("Width", "160");
+                thumbURI.addQueryItem("Height", "160");
+                pProp->SetValue(thumbURI.toEncoded());
+                pProp->AddAttribute("dlna:profileID", "JPEG_TN");
+                pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
+            }
+
+            // Small
+            pProp = propList.at(2);
+            if (pProp)
+            {
+                // Must be no more than 640x480
+                QUrl smallURI = artURI;
+                smallURI.addQueryItem("Width", "640");
+                smallURI.addQueryItem("Height", "480");
+                pProp->SetValue(smallURI.toEncoded());
+                pProp->AddAttribute("dlna:profileID", "JPEG_SM");
+                pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
+            }
+
+            // Large
+            pProp = propList.at(3);
+            if (pProp)
+            {
+                // Must be no more than 4096x4096 - for our purposes, just return
+                // a fullsize image
+                pProp->SetValue(artURI.toEncoded());
+                pProp->AddAttribute("dlna:profileID", "JPEG_LRG");
+                pProp->AddAttribute("xmlns:dlna", "urn:schemas-dlna-org:metadata-1-0");
+            }
         }
     }
 
