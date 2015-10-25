@@ -1142,6 +1142,10 @@ void MythMainWindow::Init(QString forcedpainter)
         setAutoFillBackground(false);
     }
 
+    // Force initialization of painter's realparent.
+    d->painter->Begin(d->paintwin);
+    d->painter->End();
+
     d->paintwin->move(0, 0);
     ResizePainterWindow(size());
     d->paintwin->raise();
