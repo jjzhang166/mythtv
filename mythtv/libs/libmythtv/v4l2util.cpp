@@ -14,13 +14,16 @@
 
 V4L2util::V4L2util(void)
     : m_fd(-1),
+      m_vbi_fd(-1),
       m_capabilities(0),
-      m_have_query_ext_ctrl(false)
+      m_have_query_ext_ctrl(false),
+      m_version(0)
 {
 }
 
 V4L2util::V4L2util(const QString& dev_name)
     : m_fd(-1),
+      m_vbi_fd(-1),
       m_capabilities(0),
       m_have_query_ext_ctrl(false)
 {
@@ -29,6 +32,7 @@ V4L2util::V4L2util(const QString& dev_name)
 
 V4L2util::V4L2util(const QString& dev_name, const QString& vbi_dev_name)
     : m_fd(0),
+      m_vbi_fd(-1),
       m_capabilities(0),
       m_have_query_ext_ctrl(false)
 {
@@ -889,7 +893,7 @@ bool V4L2util::SetVideoBitratePeak(int value)
                          "Video Peak Bitrate", desc);
 }
 
-bool V4L2util::SetResolution(int width, int height)
+bool V4L2util::SetResolution(uint32_t width, uint32_t height)
 {
     struct v4l2_format vfmt;
     memset(&vfmt, 0, sizeof(vfmt));
@@ -903,7 +907,7 @@ bool V4L2util::SetResolution(int width, int height)
         return false;
     }
 
-    if (vfmt.fmt.pix.width == width && vfmt.fmt.pix.height == height)
+    if ((vfmt.fmt.pix.width == width) && (vfmt.fmt.pix.height == height))
     {
         LOG(VB_RECORD, LOG_INFO, LOC + QString("Resolution is already %1x%2")
             .arg(width).arg(height));
